@@ -30,4 +30,4 @@ Persisted research reports are available in `etc/reports`.
 
 | File | Topic |
 |------|-------|
-| [etc/reports/<report>.m>](./etc/reports/<report>.md) | Topic description |
+| [etc/reports/thinking-tracer.md](./etc/reports/thinking-tracer.md) | Architecture and features of the thinking-tracer visualization app |
