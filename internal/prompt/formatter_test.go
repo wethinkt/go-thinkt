@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
 )
 
 func TestFormatter_Markdown(t *testing.T) {
-	prompts := []Prompt{
+	prompts := []claude.Prompt{
 		{Text: "hello", Timestamp: "2026-01-24T10:00:00Z"},
 		{Text: "world", Timestamp: "2026-01-24T10:00:01Z"},
 	}
@@ -31,7 +33,7 @@ func TestFormatter_Markdown(t *testing.T) {
 }
 
 func TestFormatter_JSON(t *testing.T) {
-	prompts := []Prompt{
+	prompts := []claude.Prompt{
 		{Text: "test", Timestamp: "2026-01-24T10:00:00Z", UUID: "abc123"},
 	}
 
@@ -51,7 +53,7 @@ func TestFormatter_JSON(t *testing.T) {
 }
 
 func TestFormatter_Plain(t *testing.T) {
-	prompts := []Prompt{
+	prompts := []claude.Prompt{
 		{Text: "hello", Timestamp: "2026-01-24T10:00:00Z"},
 		{Text: "world", Timestamp: "2026-01-24T10:00:01Z"},
 	}

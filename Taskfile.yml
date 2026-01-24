@@ -2,8 +2,8 @@ version: '3'
 
 vars:
   BIN_DIR: ./bin
-  BINARY: thinkt-claude-prompts
-  CMD_DIR: ./cmd/thinkt-claude-prompts
+  BINARY: thinkt-prompts
+  CMD_DIR: ./cmd/thinkt-prompts
 
 tasks:
   default:

@@ -2,19 +2,19 @@
 package prompt
 
 import (
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/trace"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
 )
 
-// Prompt is an alias for trace.Prompt for API convenience.
-type Prompt = trace.Prompt
+// Prompt is an alias for claude.Prompt for API convenience.
+type Prompt = claude.Prompt
 
-// Extractor extracts user prompts from a trace parser.
+// Extractor extracts user prompts from a Claude parser.
 type Extractor struct {
-	parser *trace.Parser
+	parser *claude.Parser
 }
 
 // NewExtractor creates a new prompt extractor.
-func NewExtractor(parser *trace.Parser) *Extractor {
+func NewExtractor(parser *claude.Parser) *Extractor {
 	return &Extractor{parser: parser}
 }
 

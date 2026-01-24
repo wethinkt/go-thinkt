@@ -28,3 +28,15 @@ i use spf13 pflag and cobra.  you can see my https://github.com/NimbleMarkets/db
 ## 2026-01-24T21:03:37Z
 
 proceed to implement thinkt-claude-prompts
+
+---
+
+## 2026-01-24T21:41:24Z
+
+refactor the claude code session handling to the internal/claude .  create relevant data structures representing a session in addition to whatever you have created, if needed.
+
+---
+
+## 2026-01-24T22:00:25Z
+
+rename thinkt-claude-prompts to thinkt-prompts and then we'll select claude as the type in an arg
