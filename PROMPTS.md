@@ -40,3 +40,27 @@ refactor the claude code session handling to the internal/claude .  create relev
 ## 2026-01-24T22:00:25Z
 
 rename thinkt-claude-prompts to thinkt-prompts and then we'll select claude as the type in an arg
+
+---
+
+## 2026-01-24T22:57:33Z
+
+for thinkt-prompts, i want the default template to be in an embeded file.  we will be sure we document the available template variables
+
+---
+
+## 2026-01-24T23:12:15Z
+
+refactor so that the template help is a multiline-string near the embedded template variable
+
+---
+
+## 2026-01-24T23:17:14Z
+
+please rename it prompt.DefaultTemplateHelp
+
+---
+
+## 2026-01-24T23:26:44Z
+
+create a README.md in the cmd/thinkt-prompts directory about the tool and including a markdown template reference

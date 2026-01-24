@@ -1,0 +1,30 @@
+{{- /*
+  Default Markdown Template for thinkt-prompts
+
+  Available Variables:
+  ====================
+
+  Top-level:
+    .Prompts      []Prompt   - List of all extracted prompts
+    .Count        int        - Total number of prompts
+    .SessionID    string     - Session identifier (if available)
+    .Model        string     - Model used (if available)
+    .Branch       string     - Git branch (if available)
+
+  Each Prompt in .Prompts:
+    .Text         string     - The prompt text content
+    .Timestamp    string     - ISO 8601 timestamp (e.g., "2026-01-24T20:41:03Z")
+    .UUID         string     - Unique identifier for this prompt
+
+  Template Functions:
+    formatTime    - Format timestamp (e.g., {{formatTime .Timestamp "2006-01-02"}})
+
+*/ -}}
+{{- range .Prompts }}
+
+---
+
+## {{ .Timestamp }}
+
+{{ .Text }}
+{{- end }}

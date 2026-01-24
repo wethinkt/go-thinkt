@@ -19,12 +19,13 @@ const (
 var supportedTypes = []string{TraceTypeClaude}
 
 var (
-	inputFile  string
-	outputFile string
-	appendMode bool
-	formatType string
-	traceType  string
-	verbose    bool
+	inputFile    string
+	outputFile   string
+	appendMode   bool
+	formatType   string
+	templateFile string
+	traceType    string
+	verbose      bool
 )
 
 var rootCmd = &cobra.Command{
@@ -39,7 +40,8 @@ Supported trace types:
 Example:
   thinkt-prompts extract -t claude -i session.jsonl
   thinkt-prompts extract -t claude --latest
-  thinkt-prompts list -t claude`,
+  thinkt-prompts list -t claude
+  thinkt-prompts templates`,
 }
 
 var extractCmd = &cobra.Command{
@@ -61,10 +63,17 @@ var infoCmd = &cobra.Command{
 	RunE:  runInfo,
 }
 
+var templatesCmd = &cobra.Command{
+	Use:   "templates",
+	Short: "List available templates and show template variables",
+	RunE:  runTemplates,
+}
+
 func main() {
 	rootCmd.AddCommand(extractCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(infoCmd)
+	rootCmd.AddCommand(templatesCmd)
 
 	// Global flags
 	rootCmd.PersistentFlags().StringVarP(&traceType, "type", "t", TraceTypeClaude, "trace type (claude)")
@@ -75,6 +84,7 @@ func main() {
 	extractCmd.Flags().StringVarP(&outputFile, "output", "o", "PROMPTS.md", "output file (use - for stdout)")
 	extractCmd.Flags().BoolVarP(&appendMode, "append", "a", false, "append to existing file")
 	extractCmd.Flags().StringVarP(&formatType, "format", "f", "markdown", "output format (markdown|json|plain)")
+	extractCmd.Flags().StringVar(&templateFile, "template", "", "custom template file (for markdown format)")
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -175,8 +185,23 @@ func runExtract(cmd *cobra.Command, args []string) error {
 		writer = f
 	}
 
+	// Build formatter options
+	var opts []prompt.FormatterOption
+
+	// Load custom template if specified
+	if templateFile != "" && format == prompt.FormatMarkdown {
+		tmpl, err := prompt.LoadTemplateFile(templateFile)
+		if err != nil {
+			return fmt.Errorf("load template: %w", err)
+		}
+		opts = append(opts, prompt.WithTemplate(tmpl))
+		if verbose {
+			fmt.Fprintf(os.Stderr, "Using template: %s\n", templateFile)
+		}
+	}
+
 	// Format and write
-	formatter := prompt.NewFormatter(writer, format)
+	formatter := prompt.NewFormatter(writer, format, opts...)
 	if err := formatter.Write(prompts); err != nil {
 		return fmt.Errorf("write output: %w", err)
 	}
@@ -259,6 +284,27 @@ func showClaudeInfo(path string) error {
 	fmt.Printf("Duration: %s\n", session.Duration().Round(1e9))
 	fmt.Printf("Turns:   %d\n", session.TurnCount())
 	fmt.Printf("Entries: %d\n", len(session.Entries))
+
+	return nil
+}
+
+func runTemplates(cmd *cobra.Command, args []string) error {
+	fmt.Println("Available Templates")
+	fmt.Println("===================")
+	fmt.Println()
+
+	templates, err := prompt.ListEmbeddedTemplates()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Embedded templates:")
+	for _, t := range templates {
+		fmt.Printf("  - %s\n", t)
+	}
+
+	fmt.Println()
+	fmt.Println(prompt.DefaultTemplateHelp)
 
 	return nil
 }

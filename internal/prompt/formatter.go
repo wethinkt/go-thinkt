@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"text/template"
 )
 
 // Format specifies the output format for prompts.
@@ -32,16 +33,41 @@ func ParseFormat(s string) (Format, error) {
 
 // Formatter writes prompts in various formats.
 type Formatter struct {
-	format Format
-	writer io.Writer
+	format   Format
+	writer   io.Writer
+	template *template.Template
+	data     *TemplateData
+}
+
+// FormatterOption configures a Formatter.
+type FormatterOption func(*Formatter)
+
+// WithTemplate sets a custom template for markdown output.
+func WithTemplate(tmpl *template.Template) FormatterOption {
+	return func(f *Formatter) {
+		f.template = tmpl
+	}
+}
+
+// WithTemplateData sets additional template data (session metadata).
+func WithTemplateData(data *TemplateData) FormatterOption {
+	return func(f *Formatter) {
+		f.data = data
+	}
 }
 
 // NewFormatter creates a formatter for the given format.
-func NewFormatter(w io.Writer, format Format) *Formatter {
-	return &Formatter{
+func NewFormatter(w io.Writer, format Format, opts ...FormatterOption) *Formatter {
+	f := &Formatter{
 		format: format,
 		writer: w,
 	}
+
+	for _, opt := range opts {
+		opt(f)
+	}
+
+	return f
 }
 
 // Write writes prompts to the output.
@@ -59,18 +85,27 @@ func (f *Formatter) Write(prompts []Prompt) error {
 }
 
 func (f *Formatter) writeMarkdown(prompts []Prompt) error {
-	for _, p := range prompts {
-		// Match the hook format exactly
-		timestamp := p.Timestamp
-		if timestamp == "" {
-			timestamp = "unknown"
-		}
-		_, err := fmt.Fprintf(f.writer, "\n---\n\n## %s\n\n%s\n", timestamp, p.Text)
+	// Use custom template if provided, otherwise use default
+	tmpl := f.template
+	if tmpl == nil {
+		var err error
+		tmpl, err = DefaultTemplate()
 		if err != nil {
-			return err
+			return fmt.Errorf("load default template: %w", err)
 		}
 	}
-	return nil
+
+	// Build template data
+	data := f.data
+	if data == nil {
+		data = NewTemplateData(prompts)
+	} else {
+		// Merge prompts into existing data
+		data.Prompts = prompts
+		data.Count = len(prompts)
+	}
+
+	return ExecuteTemplate(f.writer, tmpl, data)
 }
 
 func (f *Formatter) writeJSON(prompts []Prompt) error {
