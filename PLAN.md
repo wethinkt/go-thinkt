@@ -71,63 +71,45 @@ func main() {
 
 ### Phase 1: Project Scaffolding
 
-- [ ] Initialize Go module (`go mod init github.com/Brain-STM-org/thinking-tracer-tools`)
-- [ ] Create `Taskfile.yml`
-- [ ] Add `.gitignore` for Go
-- [ ] Create directory structure
-- [ ] Add cobra dependency
+- [x] Initialize Go module (`go mod init github.com/Brain-STM-org/thinking-tracer-tools`)
+- [x] Create `Taskfile.yml`
+- [x] Add `.gitignore` for Go
+- [x] Create directory structure
+- [x] Add cobra dependency
 
 ### Phase 2: Trace Parsing
 
-- [ ] Define types in `internal/trace/types.go`:
-  ```go
-  type Message struct {
-      Type      string         `json:"type"`
-      Role      string         `json:"role"`
-      Content   []ContentBlock `json:"content"`
-      Timestamp string         `json:"timestamp"`
-  }
-
-  type ContentBlock struct {
-      Type string `json:"type"`
-      Text string `json:"text,omitempty"`
-  }
-  ```
-- [ ] Implement JSONL scanner in `internal/trace/parser.go`
-- [ ] Stream-based parsing for large files
+- [x] Define types in `internal/trace/types.go`
+- [x] Implement JSONL scanner in `internal/trace/parser.go`
+- [x] Stream-based parsing for large files (10MB buffer)
 
 ### Phase 3: Prompt Extraction
 
-- [ ] Filter messages where `role == "user"`
-- [ ] Extract text from `content` blocks where `type == "text"`
-- [ ] Parse/normalize timestamps
+- [x] Filter entries where `type == "user"`
+- [x] Extract text from `content` (string or blocks)
+- [x] Skip tool_result content blocks
+- [x] Preserve timestamps
 
 ### Phase 4: Markdown Generation
 
-- [ ] Match existing PROMPTS.md format:
-  ```markdown
-
-  ---
-
-  ## 2026-01-24T20:41:03Z
-
-  <prompt text>
-  ```
-- [ ] Support append vs overwrite
-- [ ] Handle empty/missing prompts gracefully
+- [x] Match existing PROMPTS.md format from hook
+- [x] Support append vs overwrite (`-a` flag)
+- [x] Handle empty/missing prompts gracefully
+- [x] Support JSON and plain text formats
 
 ### Phase 5: CLI Polish
 
-- [ ] Auto-detect latest trace: scan `~/.claude/projects/*/`
-- [ ] Support `-` for stdin/stdout
-- [ ] Verbose mode with `-v`
-- [ ] Error handling: continue on parse errors, report to stderr
+- [x] Auto-detect latest trace: scan `~/.claude/projects/*/`
+- [x] Support `-` for stdin/stdout
+- [x] Verbose mode with `-v`
+- [x] Error handling: continue on parse errors, report to stderr
+- [x] `list` subcommand to show available traces
 
 ### Phase 6: Testing
 
 - [ ] Add sample trace fixtures in `tests/fixtures/`
-- [ ] Unit tests for parser, extractor, formatter
-- [ ] Integration test with real trace
+- [x] Unit tests for parser, extractor, formatter
+- [x] Integration test with real trace
 
 ## Taskfile.yml
 

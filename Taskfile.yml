@@ -1,0 +1,49 @@
+version: '3'
+
+vars:
+  BIN_DIR: ./bin
+  BINARY: thinkt-claude-prompts
+  CMD_DIR: ./cmd/thinkt-claude-prompts
+
+tasks:
+  default:
+    deps: [test, build]
+
+  build:
+    desc: Build the CLI binary
+    deps: [go-tidy]
+    sources:
+      - ./cmd/**/*.go
+      - ./internal/**/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.BIN_DIR}}/{{.BINARY}}"
+    cmds:
+      - go build -o {{.BIN_DIR}}/{{.BINARY}} {{.CMD_DIR}}
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test ./...
+
+  go-tidy:
+    desc: Tidy Go modules
+    cmds:
+      - go mod tidy
+
+  install:
+    desc: Install to GOPATH/bin
+    deps: [go-tidy]
+    cmds:
+      - go install {{.CMD_DIR}}
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -rf {{.BIN_DIR}}
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run
