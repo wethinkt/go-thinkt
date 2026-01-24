@@ -17,7 +17,7 @@ Extract user prompts from Claude Code trace files (JSONL) and generate a `PROMPT
 ```
 cmd/
   thinkt-claude-prompts/
-    main.go              # CLI entry point
+    main.go              # Cobra CLI, commands, flags
 internal/
   trace/
     parser.go            # JSONL parsing
@@ -25,6 +25,46 @@ internal/
   prompt/
     extractor.go         # Prompt extraction logic
     formatter.go         # Markdown output formatting
+tests/
+  fixtures/              # Sample JSONL traces
+  integration_test.go    # End-to-end tests
+```
+
+## CLI Design (Cobra)
+
+```go
+var (
+    inputFile   string
+    outputFile  string
+    appendMode  bool
+    formatType  string
+)
+
+var rootCmd = &cobra.Command{
+    Use:   "thinkt-claude-prompts",
+    Short: "Extract prompts from Claude Code traces",
+    Long:  `Extracts user prompts from Claude Code JSONL trace files
+and generates a PROMPTS.md file with ISO 8601 timestamps.`,
+}
+
+var extractCmd = &cobra.Command{
+    Use:   "extract [flags]",
+    Short: "Extract prompts from a trace file",
+    Run:   runExtract,
+}
+
+func main() {
+    rootCmd.AddCommand(extractCmd)
+
+    extractCmd.Flags().StringVarP(&inputFile, "input", "i", "", "input JSONL file")
+    extractCmd.Flags().StringVarP(&outputFile, "output", "o", "PROMPTS.md", "output file")
+    extractCmd.Flags().BoolVarP(&appendMode, "append", "a", false, "append to existing file")
+    extractCmd.Flags().StringVarP(&formatType, "format", "f", "markdown", "output format (markdown|json|plain)")
+
+    extractCmd.MarkFlagRequired("input")
+
+    rootCmd.Execute()
+}
 ```
 
 ## Implementation Phases
@@ -32,70 +72,62 @@ internal/
 ### Phase 1: Project Scaffolding
 
 - [ ] Initialize Go module (`go mod init github.com/Brain-STM-org/thinking-tracer-tools`)
-- [ ] Create `Taskfile.yml` with build/test/lint tasks
-- [ ] Add `.gitignore` for Go binaries
+- [ ] Create `Taskfile.yml`
+- [ ] Add `.gitignore` for Go
 - [ ] Create directory structure
+- [ ] Add cobra dependency
 
 ### Phase 2: Trace Parsing
 
-- [ ] Define types for Claude Code JSONL format
-  - Message structure (role, content, timestamp)
-  - Content block types (text, tool_use, tool_result, thinking)
-- [ ] Implement JSONL line-by-line parser
-- [ ] Handle streaming/large files efficiently
-- [ ] Add test fixtures from sample traces
+- [ ] Define types in `internal/trace/types.go`:
+  ```go
+  type Message struct {
+      Type      string         `json:"type"`
+      Role      string         `json:"role"`
+      Content   []ContentBlock `json:"content"`
+      Timestamp string         `json:"timestamp"`
+  }
+
+  type ContentBlock struct {
+      Type string `json:"type"`
+      Text string `json:"text,omitempty"`
+  }
+  ```
+- [ ] Implement JSONL scanner in `internal/trace/parser.go`
+- [ ] Stream-based parsing for large files
 
 ### Phase 3: Prompt Extraction
 
-- [ ] Filter messages by `role: "user"`
-- [ ] Extract text content from user messages
-- [ ] Parse timestamps from message metadata
-- [ ] Handle multi-part user messages
+- [ ] Filter messages where `role == "user"`
+- [ ] Extract text from `content` blocks where `type == "text"`
+- [ ] Parse/normalize timestamps
 
 ### Phase 4: Markdown Generation
 
-- [ ] Format output matching existing `PROMPTS.md` structure:
+- [ ] Match existing PROMPTS.md format:
   ```markdown
+
   ---
 
   ## 2026-01-24T20:41:03Z
 
   <prompt text>
   ```
-- [ ] Support append vs overwrite modes
-- [ ] Add header/footer options (optional)
+- [ ] Support append vs overwrite
+- [ ] Handle empty/missing prompts gracefully
 
-### Phase 5: CLI Interface
+### Phase 5: CLI Polish
 
-- [ ] Parse command-line flags:
-  - `--input, -i` : Input JSONL file (required)
-  - `--output, -o` : Output file (default: `PROMPTS.md`)
-  - `--append, -a` : Append to existing file
-  - `--format, -f` : Output format (markdown, json, plain)
-- [ ] Auto-detect latest trace file in `~/.claude/projects/`
-- [ ] Support stdin/stdout for piping
+- [ ] Auto-detect latest trace: scan `~/.claude/projects/*/`
+- [ ] Support `-` for stdin/stdout
+- [ ] Verbose mode with `-v`
+- [ ] Error handling: continue on parse errors, report to stderr
 
-### Phase 6: Testing & Polish
+### Phase 6: Testing
 
+- [ ] Add sample trace fixtures in `tests/fixtures/`
 - [ ] Unit tests for parser, extractor, formatter
-- [ ] Integration test with real trace file
-- [ ] Error handling and user-friendly messages
-- [ ] README usage examples
-
-## Claude Code JSONL Format
-
-Based on trace analysis, messages follow this structure:
-
-```jsonl
-{"type":"message","role":"user","content":[{"type":"text","text":"..."}],"timestamp":"..."}
-{"type":"message","role":"assistant","content":[{"type":"thinking","thinking":"..."},{"type":"text","text":"..."},{"type":"tool_use","name":"...","input":{...}}],"timestamp":"..."}
-```
-
-Key fields for prompt extraction:
-- `role`: Filter for `"user"`
-- `content[].type`: Look for `"text"` blocks
-- `content[].text`: The actual prompt text
-- `timestamp`: ISO 8601 format (may need parsing from various formats)
+- [ ] Integration test with real trace
 
 ## Taskfile.yml
 
@@ -103,46 +135,73 @@ Key fields for prompt extraction:
 version: '3'
 
 vars:
+  BIN_DIR: ./bin
   BINARY: thinkt-claude-prompts
   CMD_DIR: ./cmd/thinkt-claude-prompts
 
 tasks:
+  default:
+    deps: [test, build]
+
   build:
     desc: Build the CLI binary
+    deps: [go-tidy]
+    sources:
+      - ./cmd/**/*.go
+      - ./internal/**/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.BIN_DIR}}/{{.BINARY}}"
     cmds:
-      - go build -o bin/{{.BINARY}} {{.CMD_DIR}}
+      - go build -o {{.BIN_DIR}}/{{.BINARY}} {{.CMD_DIR}}
 
   test:
     desc: Run tests
     cmds:
       - go test ./...
 
-  lint:
-    desc: Run linter
+  go-tidy:
+    desc: Tidy Go modules
     cmds:
-      - golangci-lint run
+      - go mod tidy
 
   install:
     desc: Install to GOPATH/bin
+    deps: [go-tidy]
     cmds:
       - go install {{.CMD_DIR}}
 
   clean:
     desc: Remove build artifacts
     cmds:
-      - rm -rf bin/
+      - rm -rf {{.BIN_DIR}}
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run
+```
+
+## Claude Code JSONL Format
+
+```jsonl
+{"type":"message","role":"user","content":[{"type":"text","text":"..."}],"timestamp":"..."}
+{"type":"message","role":"assistant","content":[{"type":"thinking","thinking":"..."},{"type":"text","text":"..."}]}
 ```
 
 ## Success Criteria
 
-1. `thinkt-claude-prompts -i trace.jsonl` produces valid `PROMPTS.md`
+1. `thinkt-claude-prompts extract -i trace.jsonl` produces valid `PROMPTS.md`
 2. Output matches format generated by existing hook
 3. Handles traces with 1000+ turns without memory issues
-4. Clear error messages for malformed input
+4. Continues processing on malformed lines, reports errors to stderr
 
-## Future Enhancements
+## Future Commands
 
-- Support for other agent trace formats (Cursor, Aider, etc.)
-- Filtering by date range
-- Search/grep within prompts
-- Statistics output (prompt count, avg length, etc.)
+```
+thinkt-claude-prompts extract   # Current focus
+thinkt-claude-prompts stats     # Token counts, turn counts
+thinkt-claude-prompts search    # Grep through prompts
+thinkt-claude-prompts list      # List available traces
+```

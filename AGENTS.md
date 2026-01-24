@@ -31,3 +31,4 @@ Persisted research reports are available in `etc/reports`.
 | File | Topic |
 |------|-------|
 | [etc/reports/thinking-tracer.md](./etc/reports/thinking-tracer.md) | Architecture and features of the thinking-tracer visualization app |
+| [etc/reports/go-patterns.md](./etc/reports/go-patterns.md) | Go project conventions from dbn-go and screentime-mcp |
