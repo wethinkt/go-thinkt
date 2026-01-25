@@ -1,11 +1,33 @@
 package tui
 
 import (
+	"fmt"
+	"sort"
+
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
 )
+
+// SortField defines what field to sort projects by.
+type SortField int
+
+const (
+	SortByName SortField = iota
+	SortByRecent
+)
+
+func (s SortField) String() string {
+	switch s {
+	case SortByName:
+		return "name"
+	case SortByRecent:
+		return "recent"
+	default:
+		return "name"
+	}
+}
 
 // projectItem wraps a claude.Project for the list component.
 type projectItem struct {
@@ -18,8 +40,10 @@ func (i projectItem) FilterValue() string { return i.project.DisplayName + " " +
 
 // projectsModel manages the projects list (column 1).
 type projectsModel struct {
-	list  list.Model
-	items []claude.Project
+	list      list.Model
+	items     []claude.Project
+	sortField SortField
+	sortAsc   bool
 }
 
 func newProjectsModel() projectsModel {
@@ -28,16 +52,66 @@ func newProjectsModel() projectsModel {
 	l.Title = "Projects"
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(false)
-	return projectsModel{list: l}
+	return projectsModel{
+		list:      l,
+		sortField: SortByName,
+		sortAsc:   true,
+	}
 }
 
 func (m *projectsModel) setItems(projects []claude.Project) {
 	m.items = projects
-	items := make([]list.Item, len(projects))
-	for i, p := range projects {
+	m.applySort()
+}
+
+func (m *projectsModel) applySort() {
+	sorted := make([]claude.Project, len(m.items))
+	copy(sorted, m.items)
+
+	switch m.sortField {
+	case SortByName:
+		sort.Slice(sorted, func(i, j int) bool {
+			if m.sortAsc {
+				return sorted[i].DisplayName < sorted[j].DisplayName
+			}
+			return sorted[i].DisplayName > sorted[j].DisplayName
+		})
+	case SortByRecent:
+		sort.Slice(sorted, func(i, j int) bool {
+			if m.sortAsc {
+				return sorted[i].LastModified.Before(sorted[j].LastModified)
+			}
+			return sorted[i].LastModified.After(sorted[j].LastModified)
+		})
+	}
+
+	items := make([]list.Item, len(sorted))
+	for i, p := range sorted {
 		items[i] = projectItem{project: p}
 	}
 	m.list.SetItems(items)
+}
+
+func (m *projectsModel) toggleSortField() {
+	if m.sortField == SortByName {
+		m.sortField = SortByRecent
+	} else {
+		m.sortField = SortByName
+	}
+	m.applySort()
+}
+
+func (m *projectsModel) toggleSortOrder() {
+	m.sortAsc = !m.sortAsc
+	m.applySort()
+}
+
+func (m *projectsModel) sortIndicator() string {
+	order := "asc"
+	if !m.sortAsc {
+		order = "desc"
+	}
+	return fmt.Sprintf("[%s %s]", m.sortField.String(), order)
 }
 
 func (m *projectsModel) setSize(w, h int) {

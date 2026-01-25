@@ -124,3 +124,27 @@ let's work on deploying this.  i want a github action to test and build each pus
 ## 2026-01-25T04:36:12Z
 
 that worked.  now we will make a tui with bubbletea v2.   we will pop up a list of the sessions (accepting args for --dir), then in the next column list the sessions with their times, sorted in ascending time order. the third column will have the conversation content in a scroll box.  you can use https://github.com/charmbracelet/glow to render markdown.  we will have background-highlighted nodes like our conversations in the thinking-tracer repo (https://github.com/Brain-STM-org/thinking-tracer/raw/refs/heads/main/AGENTS.md).   with a keyboard press of T, we can open thinking tracer to that file.   for the first time, we ask permission to do that (with a dont ask again option).   
+
+---
+
+## 2026-01-25T11:57:49Z
+
+great start.  in the first column, add keyboard shortcuts to change the sort the projects from by-name to by-recent, also sort ascending or descending.  when we change projects, the session list should change.  i would like a summary pane above the content, whose visibility is also toggle-able by key, which shows a summary info and statistics about the selected session (is there anything relevant like that for project?)
+
+---
+
+## 2026-01-25T13:09:40Z
+
+when a session is changed (by user moving the session selection or when moving to a new project), the content pane should update
+
+---
+
+## 2026-01-25T13:46:10Z
+
+some of these JSONL session files are huge, so first report the size, then you can peform analysis in a goroutine and update the TUI later.  otherwise  the scanning is blocking the main thread.   also ensure you don't read the whole file for the contents pane as only at most 100 lines will appear in the terminal; we can be smart about that.
+
+---
+
+## 2026-01-25T17:03:12Z
+
+there is still hanging going on as i navigate and i suspect it is from reading the jsonl files.  we don't want to be scanning the entire .claude directory over, just the directory and file metadata.  we only need to record count the selected session, and if size is bigger than 10MB, don't scan beyond that (unless paging the conversation)

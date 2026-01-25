@@ -19,14 +19,18 @@ const (
 
 // Model is the top-level bubbletea model for the TUI.
 type Model struct {
-	baseDir      string
-	width        int
-	height       int
-	activeColumn column
-	projects     projectsModel
-	sessions     sessionsModel
-	content      contentModel
-	err          error
+	baseDir            string
+	width              int
+	height             int
+	activeColumn       column
+	projects           projectsModel
+	sessions           sessionsModel
+	content            contentModel
+	summary            summaryModel
+	selectedProject    *claude.Project
+	currentSessions    []claude.SessionMeta
+	loadedSessionPath  string // Track which session is currently loaded in content
+	err                error
 }
 
 // NewModel creates a new TUI model.
@@ -45,6 +49,7 @@ func NewModel(baseDir string) Model {
 		projects:     newProjectsModel(),
 		sessions:     newSessionsModel(),
 		content:      newContentModel(),
+		summary:      newSummaryModel(),
 	}
 }
 
@@ -75,6 +80,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.projects.setItems(msg.Projects)
 		// Auto-select first project if available
 		if len(msg.Projects) > 0 {
+			m.selectedProject = &msg.Projects[0]
+			m.summary.setProject(m.selectedProject)
 			return m, loadSessionsCmd(msg.Projects[0].DirPath)
 		}
 		return m, nil
@@ -85,6 +92,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.sessions.setItems(msg.Sessions)
+		m.currentSessions = msg.Sessions
+		m.summary.setSessions(msg.Sessions)
+		// Auto-load first session
+		if len(msg.Sessions) > 0 {
+			sess := &msg.Sessions[0]
+			m.summary.setSessionMeta(sess)
+			// Load session content
+			return m, loadSessionCmd(sess.FullPath)
+		}
 		return m, nil
 
 	case SessionLoadedMsg:
@@ -92,7 +108,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.Err
 			return m, nil
 		}
-		m.content.setSession(msg.Session)
+		m.content.setSession(msg.Session, msg.IsPreview, msg.FileSize)
+		m.summary.setSession(msg.Session)
+		if msg.Session != nil {
+			m.loadedSessionPath = msg.Session.Path
+		}
 		return m, nil
 	}
 
@@ -135,6 +155,23 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.OpenTracer):
 		// TODO: implement tracer opening with permission dialog
 		return m, nil
+
+	case key.Matches(msg, keys.ToggleInfo):
+		m.summary.toggle()
+		m.updateSizes()
+		return m, nil
+
+	case key.Matches(msg, keys.ToggleSort):
+		if m.activeColumn == colProjects {
+			m.projects.toggleSortField()
+		}
+		return m, nil
+
+	case key.Matches(msg, keys.ToggleOrder):
+		if m.activeColumn == colProjects {
+			m.projects.toggleSortOrder()
+		}
+		return m, nil
 	}
 
 	// Forward to active column for navigation
@@ -142,10 +179,25 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case colProjects:
 		var cmd tea.Cmd
 		m.projects, cmd = m.projects.update(msg)
+		// Check if selection changed
+		if proj := m.projects.selectedProject(); proj != nil && (m.selectedProject == nil || proj.DirPath != m.selectedProject.DirPath) {
+			m.selectedProject = proj
+			m.summary.setProject(proj)
+			// Batch the list's command with loading sessions
+			return m, tea.Batch(cmd, loadSessionsCmd(proj.DirPath))
+		}
 		return m, cmd
 	case colSessions:
 		var cmd tea.Cmd
 		m.sessions, cmd = m.sessions.update(msg)
+		// Check if selection changed and auto-load session
+		if sess := m.sessions.selectedSession(); sess != nil {
+			m.summary.setSessionMeta(sess)
+			// Load session if different from currently loaded
+			if sess.FullPath != m.loadedSessionPath {
+				return m, tea.Batch(cmd, loadSessionCmd(sess.FullPath))
+			}
+		}
 		return m, cmd
 	case colContent:
 		var cmd tea.Cmd
@@ -161,20 +213,24 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 	case colProjects:
 		proj := m.projects.selectedProject()
 		if proj != nil {
+			m.selectedProject = proj
+			m.summary.setProject(proj)
+			// Move focus to sessions column
+			m.activeColumn = colSessions
 			return m, loadSessionsCmd(proj.DirPath)
 		}
 	case colSessions:
-		sess := m.sessions.selectedSession()
-		if sess != nil {
-			return m, loadSessionCmd(sess.FullPath)
-		}
+		// Session is already auto-loaded, just move focus to content
+		m.activeColumn = colContent
+		return m, nil
 	}
 	return m, nil
 }
 
 func (m *Model) updateSizes() {
-	// Reserve 1 line for status bar
-	contentHeight := m.height - 3
+	// Reserve lines for status bar and summary pane
+	summaryHeight := m.summary.height()
+	contentHeight := m.height - 3 - summaryHeight
 
 	// Column widths: ~20% / ~25% / ~55%
 	col1Width := m.width * 20 / 100
@@ -195,6 +251,7 @@ func (m *Model) updateSizes() {
 	m.projects.setSize(col1Width-2, contentHeight-2)
 	m.sessions.setSize(col2Width-2, contentHeight-2)
 	m.content.setSize(col3Width-2, contentHeight-2)
+	m.summary.setSize(m.width - 2)
 }
 
 // View implements tea.Model.
@@ -211,7 +268,8 @@ func (m Model) View() tea.View {
 		return v
 	}
 
-	contentHeight := m.height - 3
+	summaryHeight := m.summary.height()
+	contentHeight := m.height - 3 - summaryHeight
 
 	// Column widths
 	col1Width := m.width * 20 / 100
@@ -228,19 +286,32 @@ func (m Model) View() tea.View {
 		col3Width = 30
 	}
 
-	// Render columns with borders
-	col1 := renderColumnBorder(m.projects.view(), "Projects", col1Width, contentHeight, m.activeColumn == colProjects)
+	// Render columns with borders, include sort indicator in projects title
+	projectsTitle := "Projects " + m.projects.sortIndicator()
+	col1 := renderColumnBorder(m.projects.view(), projectsTitle, col1Width, contentHeight, m.activeColumn == colProjects)
 	col2 := renderColumnBorder(m.sessions.view(), "Sessions", col2Width, contentHeight, m.activeColumn == colSessions)
 	col3 := renderColumnBorder(m.content.view(), "Content", col3Width, contentHeight, m.activeColumn == colContent)
 
 	// Join columns horizontally
 	columns := lipgloss.JoinHorizontal(lipgloss.Top, col1, col2, col3)
 
-	// Status bar
-	status := statusBarStyle.Render("Tab: switch columns | Enter: select | T: open tracer | q: quit")
+	// Summary pane (if visible)
+	var parts []string
+	if m.summary.isVisible() {
+		parts = append(parts, m.summary.view())
+	}
+	parts = append(parts, columns)
 
-	// Join with status bar
-	content := lipgloss.JoinVertical(lipgloss.Left, columns, status)
+	// Status bar with info toggle indicator
+	infoStatus := "i: show info"
+	if m.summary.isVisible() {
+		infoStatus = "i: hide info"
+	}
+	status := statusBarStyle.Render("Tab: columns | Enter: select | s: sort | r: reverse | " + infoStatus + " | T: tracer | q: quit")
+	parts = append(parts, status)
+
+	// Join all parts
+	content := lipgloss.JoinVertical(lipgloss.Left, parts...)
 
 	v := tea.NewView(content)
 	v.AltScreen = true
@@ -263,9 +334,39 @@ func loadSessionsCmd(projectDir string) tea.Cmd {
 	}
 }
 
+const (
+	// maxPreviewEntries limits how many entries we load for the preview.
+	maxPreviewEntries = 50
+	// maxPreviewEntriesLarge is used for files > 10MB - more aggressive limit.
+	maxPreviewEntriesLarge = 20
+	// largeFileThreshold is 10MB - files larger than this get extra limits.
+	largeFileThreshold = 10 * 1024 * 1024
+)
+
+// loadSessionCmd stats the file for size, shows loading state, then loads preview.
 func loadSessionCmd(sessionPath string) tea.Cmd {
 	return func() tea.Msg {
-		session, err := claude.LoadSession(sessionPath)
-		return SessionLoadedMsg{Session: session, Err: err}
+		// Stat file to get size (only this one file, not all files)
+		fileSize, err := claude.GetSessionFileInfo(sessionPath)
+		if err != nil {
+			return SessionLoadedMsg{Err: err}
+		}
+
+		// Determine entry limit based on file size
+		maxEntries := maxPreviewEntries
+		if fileSize > largeFileThreshold {
+			maxEntries = maxPreviewEntriesLarge
+		}
+
+		// Load session with appropriate limit
+		session, loadErr := claude.LoadSessionPreview(sessionPath, maxEntries)
+		isPreview := session != nil && len(session.Entries) >= maxEntries
+
+		return SessionLoadedMsg{
+			Session:   session,
+			IsPreview: isPreview,
+			FileSize:  fileSize,
+			Err:       loadErr,
+		}
 	}
 }

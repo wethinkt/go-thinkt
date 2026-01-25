@@ -11,11 +11,12 @@ import (
 
 // Project represents a Claude Code project directory.
 type Project struct {
-	DirName      string // Raw directory name (e.g., "-Users-evan-brainstm-foo")
-	DisplayName  string // Human-readable name (e.g., "foo")
-	FullPath     string // Decoded project path (e.g., "/Users/evan/brainstm/foo")
-	DirPath      string // Absolute path to the project directory
-	SessionCount int    // Number of JSONL session files
+	DirName      string    // Raw directory name (e.g., "-Users-evan-brainstm-foo")
+	DisplayName  string    // Human-readable name (e.g., "foo")
+	FullPath     string    // Decoded project path (e.g., "/Users/evan/brainstm/foo")
+	DirPath      string    // Absolute path to the project directory
+	SessionCount int       // Number of JSONL session files
+	LastModified time.Time // Most recent session modification time
 }
 
 // SessionMeta holds lightweight session metadata without loading the full JSONL.
@@ -29,6 +30,7 @@ type SessionMeta struct {
 	Modified     time.Time `json:"-"`
 	GitBranch    string    `json:"gitBranch"`
 	ProjectPath  string    `json:"projectPath"`
+	FileSize     int64     `json:"-"` // File size in bytes
 }
 
 // sessionMetaJSON is used for unmarshaling the sessions-index.json entries.
@@ -100,13 +102,19 @@ func ListProjects(baseDir string) ([]Project, error) {
 			}
 		}
 
-		// Count JSONL files
+		// Count JSONL files and track latest modification time
 		sessionCount := 0
+		var lastModified time.Time
 		dirEntries, err := os.ReadDir(dirPath)
 		if err == nil {
 			for _, de := range dirEntries {
 				if !de.IsDir() && strings.HasSuffix(de.Name(), ".jsonl") {
 					sessionCount++
+					if info, err := de.Info(); err == nil {
+						if info.ModTime().After(lastModified) {
+							lastModified = info.ModTime()
+						}
+					}
 				}
 			}
 		}
@@ -121,6 +129,7 @@ func ListProjects(baseDir string) ([]Project, error) {
 			FullPath:     fullPath,
 			DirPath:      dirPath,
 			SessionCount: sessionCount,
+			LastModified: lastModified,
 		})
 	}
 
@@ -141,7 +150,7 @@ func ListProjectSessions(projectDir string) ([]SessionMeta, error) {
 	if data, err := os.ReadFile(indexPath); err == nil {
 		var idx sessionsIndex
 		if err := json.Unmarshal(data, &idx); err == nil {
-			return parseIndexEntries(idx.Entries), nil
+			return parseIndexEntries(idx.Entries, projectDir), nil
 		}
 	}
 
@@ -149,7 +158,7 @@ func ListProjectSessions(projectDir string) ([]SessionMeta, error) {
 	return statBasedSessions(projectDir)
 }
 
-func parseIndexEntries(entries []sessionMetaJSON) []SessionMeta {
+func parseIndexEntries(entries []sessionMetaJSON, projectDir string) []SessionMeta {
 	var sessions []SessionMeta
 	for _, e := range entries {
 		meta := e.SessionMeta
@@ -170,6 +179,11 @@ func parseIndexEntries(entries []sessionMetaJSON) []SessionMeta {
 			meta.Modified = time.UnixMilli(e.FileMtime)
 		}
 
+		// Construct full path if not set (don't stat - defer to load time)
+		if meta.FullPath == "" && meta.SessionID != "" {
+			meta.FullPath = filepath.Join(projectDir, meta.SessionID+".jsonl")
+		}
+
 		sessions = append(sessions, meta)
 	}
 
@@ -179,6 +193,16 @@ func parseIndexEntries(entries []sessionMetaJSON) []SessionMeta {
 	})
 
 	return sessions
+}
+
+// GetSessionFileInfo stats a session file to get its size.
+// Call this only when you need the size (e.g., before loading).
+func GetSessionFileInfo(path string) (size int64, err error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0, err
+	}
+	return info.Size(), nil
 }
 
 func statBasedSessions(projectDir string) ([]SessionMeta, error) {
@@ -193,18 +217,19 @@ func statBasedSessions(projectDir string) ([]SessionMeta, error) {
 			continue
 		}
 
-		info, err := entry.Info()
-		if err != nil {
-			continue
-		}
-
 		sessionID := strings.TrimSuffix(entry.Name(), ".jsonl")
-		sessions = append(sessions, SessionMeta{
+		meta := SessionMeta{
 			SessionID: sessionID,
 			FullPath:  filepath.Join(projectDir, entry.Name()),
-			Modified:  info.ModTime(),
-			Created:   info.ModTime(), // Best guess without index
-		})
+		}
+
+		// Get basic info (this is cached by the OS from ReadDir)
+		if info, err := entry.Info(); err == nil {
+			meta.Modified = info.ModTime()
+			meta.Created = info.ModTime() // Best guess without index
+		}
+
+		sessions = append(sessions, meta)
 	}
 
 	// Sort ascending by time

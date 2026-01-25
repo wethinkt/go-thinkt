@@ -220,3 +220,77 @@ func LoadSession(path string) (*Session, error) {
 	parser := NewParser(f)
 	return parser.ReadSession(path)
 }
+
+// LoadSessionPreview loads a limited number of entries from a session.
+// This is useful for large files where only a preview is needed.
+// maxEntries of 0 means no limit.
+func LoadSessionPreview(path string, maxEntries int) (*Session, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open session file: %w", err)
+	}
+	defer f.Close()
+
+	parser := NewParser(f)
+	return parser.ReadSessionPreview(path, maxEntries)
+}
+
+// ReadSessionPreview reads up to maxEntries and constructs a Session.
+// If maxEntries is 0, reads all entries.
+func (p *Parser) ReadSessionPreview(path string, maxEntries int) (*Session, error) {
+	var entries []Entry
+	count := 0
+	for {
+		if maxEntries > 0 && count >= maxEntries {
+			break
+		}
+		entry, err := p.NextEntry()
+		if err != nil {
+			return nil, err
+		}
+		if entry == nil {
+			break
+		}
+		entries = append(entries, *entry)
+		count++
+	}
+
+	session := &Session{
+		Path:    path,
+		Entries: entries,
+	}
+
+	// Extract metadata from entries
+	for _, e := range entries {
+		if session.ID == "" && e.SessionID != "" {
+			session.ID = e.SessionID
+		}
+		if session.Branch == "" && e.GitBranch != "" {
+			session.Branch = e.GitBranch
+		}
+		if session.Version == "" && e.Version != "" {
+			session.Version = e.Version
+		}
+		if session.CWD == "" && e.CWD != "" {
+			session.CWD = e.CWD
+		}
+		if session.Model == "" && e.AssistantMessage != nil && e.AssistantMessage.Model != "" {
+			session.Model = e.AssistantMessage.Model
+		}
+
+		// Parse timestamps
+		if e.Timestamp != "" {
+			t, err := time.Parse(time.RFC3339, e.Timestamp)
+			if err == nil {
+				if session.StartTime.IsZero() || t.Before(session.StartTime) {
+					session.StartTime = t
+				}
+				if t.After(session.EndTime) {
+					session.EndTime = t
+				}
+			}
+		}
+	}
+
+	return session, nil
+}

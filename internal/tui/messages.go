@@ -14,8 +14,10 @@ type SessionsLoadedMsg struct {
 	Err      error
 }
 
-// SessionLoadedMsg is sent when a full session finishes loading.
+// SessionLoadedMsg is sent when a session finishes loading.
 type SessionLoadedMsg struct {
-	Session *claude.Session
-	Err     error
+	Session   *claude.Session
+	IsPreview bool  // True if only a preview was loaded
+	FileSize  int64 // File size in bytes
+	Err       error
 }
