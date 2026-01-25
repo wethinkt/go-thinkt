@@ -235,6 +235,149 @@ func LoadSessionPreview(path string, maxEntries int) (*Session, error) {
 	return parser.ReadSessionPreview(path, maxEntries)
 }
 
+// SessionWindow holds a window of session content with position info.
+type SessionWindow struct {
+	Session    *Session
+	BytesRead  int64 // Total bytes read from file
+	HasMore    bool  // True if there's more content in the file
+	TotalSize  int64 // Total file size
+	EntryCount int   // Number of entries loaded
+}
+
+// LoadSessionWindow loads entries from a session file until content limit is reached.
+// maxContentBytes limits total raw content size (text, thinking, etc.) as a proxy for screen lines.
+// startOffset allows resuming from a previous position (0 for start).
+// This is much more efficient than loading by entry count since entries vary wildly in size.
+func LoadSessionWindow(path string, startOffset int64, maxContentBytes int) (*SessionWindow, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open session file: %w", err)
+	}
+	defer f.Close()
+
+	// Get total file size
+	stat, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("stat session file: %w", err)
+	}
+	totalSize := stat.Size()
+
+	// Seek to start offset if specified
+	if startOffset > 0 {
+		if _, err := f.Seek(startOffset, io.SeekStart); err != nil {
+			return nil, fmt.Errorf("seek to offset: %w", err)
+		}
+	}
+
+	// Use a counting reader to track bytes read
+	countingReader := &countingReader{r: f, count: startOffset}
+	parser := NewParser(countingReader)
+
+	var entries []Entry
+	var contentBytes int
+
+	for {
+		entry, err := parser.NextEntry()
+		if err != nil {
+			return nil, err
+		}
+		if entry == nil {
+			break // EOF
+		}
+
+		// Estimate content size for this entry
+		entryContentSize := estimateEntryContentSize(entry)
+		contentBytes += entryContentSize
+		entries = append(entries, *entry)
+
+		// Stop if we've accumulated enough content
+		if maxContentBytes > 0 && contentBytes >= maxContentBytes {
+			break
+		}
+	}
+
+	session := &Session{
+		Path:    path,
+		Entries: entries,
+	}
+
+	// Extract metadata from entries
+	for _, e := range entries {
+		if session.ID == "" && e.SessionID != "" {
+			session.ID = e.SessionID
+		}
+		if session.Branch == "" && e.GitBranch != "" {
+			session.Branch = e.GitBranch
+		}
+		if session.Version == "" && e.Version != "" {
+			session.Version = e.Version
+		}
+		if session.CWD == "" && e.CWD != "" {
+			session.CWD = e.CWD
+		}
+		if session.Model == "" && e.AssistantMessage != nil && e.AssistantMessage.Model != "" {
+			session.Model = e.AssistantMessage.Model
+		}
+
+		if e.Timestamp != "" {
+			t, err := time.Parse(time.RFC3339, e.Timestamp)
+			if err == nil {
+				if session.StartTime.IsZero() || t.Before(session.StartTime) {
+					session.StartTime = t
+				}
+				if t.After(session.EndTime) {
+					session.EndTime = t
+				}
+			}
+		}
+	}
+
+	return &SessionWindow{
+		Session:    session,
+		BytesRead:  countingReader.count,
+		HasMore:    countingReader.count < totalSize,
+		TotalSize:  totalSize,
+		EntryCount: len(entries),
+	}, nil
+}
+
+// estimateEntryContentSize returns an estimate of displayable content size in bytes.
+func estimateEntryContentSize(entry *Entry) int {
+	size := 0
+
+	// User message content
+	if entry.UserMessage != nil {
+		size += len(entry.UserMessage.Content.Text)
+		for _, block := range entry.UserMessage.Content.Blocks {
+			size += len(block.Text)
+		}
+	}
+
+	// Assistant message content
+	if entry.AssistantMessage != nil {
+		for _, block := range entry.AssistantMessage.Content {
+			size += len(block.Text)
+			size += len(block.Thinking)
+			// Tool calls are usually short, just count the name
+			size += len(block.Name) * 10
+		}
+	}
+
+	return size
+}
+
+// countingReader wraps a reader and counts bytes read.
+type countingReader struct {
+	r     io.Reader
+	count int64
+}
+
+func (c *countingReader) Read(p []byte) (n int, err error) {
+	n, err = c.r.Read(p)
+	c.count += int64(n)
+	return
+}
+
 // ReadSessionPreview reads up to maxEntries and constructs a Session.
 // If maxEntries is 0, reads all entries.
 func (p *Parser) ReadSessionPreview(path string, maxEntries int) (*Session, error) {

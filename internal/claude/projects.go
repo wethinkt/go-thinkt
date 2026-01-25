@@ -83,6 +83,9 @@ func ListProjects(baseDir string) ([]Project, error) {
 		return nil, err
 	}
 
+	// Get home directory to filter it out
+	homeDir, _ := os.UserHomeDir()
+
 	var projects []Project
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -100,6 +103,11 @@ func ListProjects(baseDir string) ([]Project, error) {
 				fullPath = idx.OriginalPath
 				displayName = filepath.Base(fullPath)
 			}
+		}
+
+		// Skip if this is the user's home directory
+		if homeDir != "" && fullPath == homeDir {
+			continue
 		}
 
 		// Count JSONL files and track latest modification time

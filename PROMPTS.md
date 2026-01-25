@@ -148,3 +148,39 @@ some of these JSONL session files are huge, so first report the size, then you c
 ## 2026-01-25T17:03:12Z
 
 there is still hanging going on as i navigate and i suspect it is from reading the jsonl files.  we don't want to be scanning the entire .claude directory over, just the directory and file metadata.  we only need to record count the selected session, and if size is bigger than 10MB, don't scan beyond that (unless paging the conversation)
+
+---
+
+## 2026-01-25T17:11:30Z
+
+i would like the top line to always be the current project info and the second line to be the session info.  In the upper right corner put " thinkt".  With bubbletea it is very important to not exceed the terminal width, so use it's mechanisms such as styles to ensure that.
+
+---
+
+## 2026-01-25T17:28:12Z
+
+review how the content window is being populated, you do not need to read the whole file to display just a part of it in the screen.  you can maintain a buffer of the file up until a certain point and lazy preload the next bit, but not the whole file (unless it's a small file)
+
+---
+
+## 2026-01-25T17:38:24Z
+
+you should put the project info and the thinkt name (and actually let's put the brain emoji before thinkt), and the session, in a well contined bordless box with no padding that is always terminal width.  you can make that header it's own component if it is not already 
+
+---
+
+## 2026-01-25T17:41:46Z
+
+the right side of the header box is not aligned with the lower panels.  it should be as wide as the terminal, as should the three lower panels
+
+---
+
+## 2026-01-25T18:30:34Z
+
+give a background to the header box
+
+---
+
+## 2026-01-25T18:32:46Z
+
+if one of the projects is detected to be the user's home directory, omit that one

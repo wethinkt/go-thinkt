@@ -11,11 +11,18 @@ import (
 
 // contentModel manages the content viewport (column 3).
 type contentModel struct {
-	viewport  viewport.Model
-	session   *claude.Session
-	width     int
-	isPreview bool  // True if showing a preview (limited entries)
-	fileSize  int64 // Size of the loaded file
+	viewport viewport.Model
+	width    int
+	height   int
+
+	// Current session window
+	sessionPath string
+	window      *claude.SessionWindow
+	rendered    string
+
+	// Loading state
+	loading     bool
+	loadingMore bool
 }
 
 func newContentModel() contentModel {
@@ -25,25 +32,98 @@ func newContentModel() contentModel {
 
 func (m *contentModel) setSize(w, h int) {
 	m.width = w
+	m.height = h
 	m.viewport.SetWidth(w)
 	m.viewport.SetHeight(h)
 }
 
-func (m *contentModel) setSession(session *claude.Session, isPreview bool, fileSize int64) {
-	m.session = session
-	m.isPreview = isPreview
-	m.fileSize = fileSize
-	if session != nil {
-		rendered := RenderSession(session, m.width)
-		if isPreview && len(session.Entries) > 0 {
-			sizeInfo := formatBytes(fileSize)
-			rendered += fmt.Sprintf("\n\n--- Preview (%s, showing first %d entries) ---", sizeInfo, len(session.Entries))
-		}
-		m.viewport.SetContent(rendered)
+// setWindow sets the initial session window
+func (m *contentModel) setWindow(window *claude.SessionWindow, path string) {
+	m.window = window
+	m.sessionPath = path
+	m.loading = false
+	m.loadingMore = false
+
+	if window != nil && window.Session != nil {
+		m.rendered = RenderSession(window.Session, m.width)
+		m.updateViewportContent()
 		m.viewport.GotoTop()
 	} else {
+		m.rendered = ""
 		m.viewport.SetContent("Select a session to view")
 	}
+}
+
+// appendWindow appends more content from a continuation window
+func (m *contentModel) appendWindow(window *claude.SessionWindow) {
+	if window == nil || window.Session == nil {
+		m.loadingMore = false
+		return
+	}
+
+	// Render new entries and append
+	newRendered := RenderSession(window.Session, m.width)
+	m.rendered += "\n" + newRendered
+
+	// Update window state
+	m.window.BytesRead = window.BytesRead
+	m.window.HasMore = window.HasMore
+	m.window.EntryCount += window.EntryCount
+	m.window.Session.Entries = append(m.window.Session.Entries, window.Session.Entries...)
+
+	m.loadingMore = false
+	m.updateViewportContent()
+}
+
+func (m *contentModel) updateViewportContent() {
+	content := m.rendered
+
+	// Add status line at bottom
+	if m.window != nil {
+		status := m.statusLine()
+		if status != "" {
+			content += "\n\n" + status
+		}
+	}
+
+	m.viewport.SetContent(content)
+}
+
+func (m *contentModel) statusLine() string {
+	if m.window == nil {
+		return ""
+	}
+
+	sizeInfo := formatBytes(m.window.TotalSize)
+	readInfo := formatBytes(m.window.BytesRead)
+
+	if m.loadingMore {
+		return fmt.Sprintf("--- Loading more... (%s / %s) ---", readInfo, sizeInfo)
+	}
+
+	if m.window.HasMore {
+		pct := float64(m.window.BytesRead) / float64(m.window.TotalSize) * 100
+		return fmt.Sprintf("--- %d entries loaded (%.0f%% of %s) | scroll down for more ---",
+			m.window.EntryCount, pct, sizeInfo)
+	}
+
+	return fmt.Sprintf("--- %d entries (%s) ---", m.window.EntryCount, sizeInfo)
+}
+
+// needsMore returns true if user has scrolled near bottom and there's more to load
+func (m *contentModel) needsMore() bool {
+	if m.window == nil || !m.window.HasMore || m.loadingMore {
+		return false
+	}
+
+	// Check if we're within 5 lines of bottom
+	atBottom := m.viewport.AtBottom()
+	return atBottom
+}
+
+func (m *contentModel) setLoadingMore(loading bool) {
+	m.loadingMore = loading
+	m.updateViewportContent()
 }
 
 func (m contentModel) update(msg tea.Msg) (contentModel, tea.Cmd) {
@@ -53,6 +133,9 @@ func (m contentModel) update(msg tea.Msg) (contentModel, tea.Cmd) {
 }
 
 func (m contentModel) view() string {
+	if m.loading {
+		return "Loading..."
+	}
 	return m.viewport.View()
 }
 

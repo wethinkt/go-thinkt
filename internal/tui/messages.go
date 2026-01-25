@@ -14,10 +14,10 @@ type SessionsLoadedMsg struct {
 	Err      error
 }
 
-// SessionLoadedMsg is sent when a session finishes loading.
-type SessionLoadedMsg struct {
-	Session   *claude.Session
-	IsPreview bool  // True if only a preview was loaded
-	FileSize  int64 // File size in bytes
-	Err       error
+// SessionWindowMsg is sent when a session window finishes loading.
+type SessionWindowMsg struct {
+	Window      *claude.SessionWindow
+	Path        string
+	IsContinue  bool // True if this is a continuation (append), false for initial load
+	Err         error
 }

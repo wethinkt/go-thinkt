@@ -10,7 +10,6 @@ type keyMap struct {
 	OpenTracer  key.Binding
 	ToggleSort  key.Binding
 	ToggleOrder key.Binding
-	ToggleInfo  key.Binding
 }
 
 var keys = keyMap{
@@ -21,5 +20,4 @@ var keys = keyMap{
 	OpenTracer:  key.NewBinding(key.WithKeys("T"), key.WithHelp("T", "open thinking-tracer")),
 	ToggleSort:  key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "toggle sort field")),
 	ToggleOrder: key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "reverse sort order")),
-	ToggleInfo:  key.NewBinding(key.WithKeys("i"), key.WithHelp("i", "toggle info pane")),
 }
