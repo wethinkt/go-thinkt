@@ -100,3 +100,10 @@ does the session struct need json annotations? is it related to the jsonl?
 ## 2026-01-25T02:40:57Z
 
 working on the tool iteself, it seems that in claude mode, the default path is $HOME/.claude which makes total sense, but we should allow the user to point somewhere else for similar treatment.  add a -d --dir command line option for that with the default being $HOME/.claude
+
+---
+
+## 2026-01-25T02:56:56Z
+
+let's not overwrite files by default, so stdout is the default and -o can direct it to a file if desired
+

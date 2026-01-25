@@ -83,7 +83,7 @@ func main() {
 
 	// Extract flags
 	extractCmd.Flags().StringVarP(&inputFile, "input", "i", "", "input trace file (use - for stdin)")
-	extractCmd.Flags().StringVarP(&outputFile, "output", "o", "PROMPTS.md", "output file (use - for stdout)")
+	extractCmd.Flags().StringVarP(&outputFile, "output", "o", "-", "output file (default stdout)")
 	extractCmd.Flags().BoolVarP(&appendMode, "append", "a", false, "append to existing file")
 	extractCmd.Flags().StringVarP(&formatType, "format", "f", "markdown", "output format (markdown|json|plain)")
 	extractCmd.Flags().StringVar(&templateFile, "template", "", "custom template file (for markdown format)")
