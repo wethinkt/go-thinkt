@@ -1,34 +1,47 @@
 package claude
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
 
-func TestParseUserContent_String(t *testing.T) {
+func TestUserContent_String(t *testing.T) {
 	input := `"hello world"`
-	got := ParseUserContent([]byte(input))
+	var uc UserContent
+	if err := json.Unmarshal([]byte(input), &uc); err != nil {
+		t.Fatalf("Unmarshal error: %v", err)
+	}
+	got := uc.GetText()
 	want := "hello world"
 	if got != want {
-		t.Errorf("ParseUserContent(%q) = %q, want %q", input, got, want)
+		t.Errorf("GetText() = %q, want %q", got, want)
 	}
 }
 
-func TestParseUserContent_TextBlocks(t *testing.T) {
+func TestUserContent_TextBlocks(t *testing.T) {
 	input := `[{"type":"text","text":"first"},{"type":"text","text":"second"}]`
-	got := ParseUserContent([]byte(input))
+	var uc UserContent
+	if err := json.Unmarshal([]byte(input), &uc); err != nil {
+		t.Fatalf("Unmarshal error: %v", err)
+	}
+	got := uc.GetText()
 	want := "first\nsecond"
 	if got != want {
-		t.Errorf("ParseUserContent(%q) = %q, want %q", input, got, want)
+		t.Errorf("GetText() = %q, want %q", got, want)
 	}
 }
 
-func TestParseUserContent_ToolResult(t *testing.T) {
+func TestUserContent_ToolResult(t *testing.T) {
 	input := `[{"type":"tool_result","tool_use_id":"123","content":"result"}]`
-	got := ParseUserContent([]byte(input))
+	var uc UserContent
+	if err := json.Unmarshal([]byte(input), &uc); err != nil {
+		t.Fatalf("Unmarshal error: %v", err)
+	}
+	got := uc.GetText()
 	want := "" // tool_result blocks should not return text
 	if got != want {
-		t.Errorf("ParseUserContent(%q) = %q, want %q", input, got, want)
+		t.Errorf("GetText() = %q, want %q", got, want)
 	}
 }
 
@@ -47,7 +60,7 @@ func TestParser_ReadAllPrompts(t *testing.T) {
 	}
 
 	if len(prompts) != 2 {
-		t.Errorf("ReadAllPrompts() got %d prompts, want 2", len(prompts))
+		t.Fatalf("ReadAllPrompts() got %d prompts, want 2", len(prompts))
 	}
 
 	if prompts[0].Text != "first prompt" {

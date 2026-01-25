@@ -50,13 +50,6 @@ func (s *Session) TurnCount() int {
 	return len(s.UserPrompts())
 }
 
-// Prompt represents an extracted user prompt.
-type Prompt struct {
-	Text      string
-	Timestamp string
-	UUID      string
-}
-
 // ProjectsDir returns the default Claude Code projects directory.
 func ProjectsDir() (string, error) {
 	home, err := os.UserHomeDir()
