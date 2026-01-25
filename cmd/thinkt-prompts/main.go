@@ -25,6 +25,7 @@ var (
 	formatType   string
 	templateFile string
 	traceType    string
+	baseDir      string
 	verbose      bool
 )
 
@@ -77,6 +78,7 @@ func main() {
 
 	// Global flags
 	rootCmd.PersistentFlags().StringVarP(&traceType, "type", "t", TraceTypeClaude, "trace type (claude)")
+	rootCmd.PersistentFlags().StringVarP(&baseDir, "dir", "d", "", "base directory for trace files (default ~/.claude)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 
 	// Extract flags
@@ -109,12 +111,16 @@ func runExtract(cmd *cobra.Command, args []string) error {
 	if inputFile == "" {
 		switch traceType {
 		case TraceTypeClaude:
-			latest, err := claude.FindLatestSession()
+			latest, err := claude.FindLatestSession(baseDir)
 			if err != nil {
 				return fmt.Errorf("could not find latest trace: %w", err)
 			}
 			if latest == "" {
-				return fmt.Errorf("no traces found in ~/.claude/projects/")
+				dir := baseDir
+			if dir == "" {
+				dir = "~/.claude"
+			}
+			return fmt.Errorf("no traces found in %s/projects/", dir)
 			}
 			inputFile = latest
 		}
@@ -219,7 +225,7 @@ func runList(cmd *cobra.Command, args []string) error {
 
 	switch traceType {
 	case TraceTypeClaude:
-		sessions, err = claude.FindSessions()
+		sessions, err = claude.FindSessions(baseDir)
 	}
 
 	if err != nil {
@@ -248,7 +254,7 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	} else {
 		switch traceType {
 		case TraceTypeClaude:
-			latest, err := claude.FindLatestSession()
+			latest, err := claude.FindLatestSession(baseDir)
 			if err != nil {
 				return err
 			}

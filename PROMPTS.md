@@ -94,3 +94,9 @@ scan all the jsonl files in ~/.claude/projects and collect a comprehensive JSON 
 ## 2026-01-25T02:02:31Z
 
 does the session struct need json annotations? is it related to the jsonl?
+
+---
+
+## 2026-01-25T02:40:57Z
+
+working on the tool iteself, it seems that in claude mode, the default path is $HOME/.claude which makes total sense, but we should allow the user to point somewhere else for similar treatment.  add a -d --dir command line option for that with the default being $HOME/.claude

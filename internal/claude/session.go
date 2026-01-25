@@ -50,18 +50,32 @@ func (s *Session) TurnCount() int {
 	return len(s.UserPrompts())
 }
 
-// ProjectsDir returns the default Claude Code projects directory.
-func ProjectsDir() (string, error) {
+// DefaultDir returns the default Claude Code base directory (~/.claude).
+func DefaultDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".claude", "projects"), nil
+	return filepath.Join(home, ".claude"), nil
+}
+
+// ProjectsDir returns the projects subdirectory within a Claude Code base directory.
+// If baseDir is empty, the default (~/.claude) is used.
+func ProjectsDir(baseDir string) (string, error) {
+	if baseDir == "" {
+		var err error
+		baseDir, err = DefaultDir()
+		if err != nil {
+			return "", err
+		}
+	}
+	return filepath.Join(baseDir, "projects"), nil
 }
 
 // FindSessions finds all Claude Code session trace files.
-func FindSessions() ([]string, error) {
-	projectsDir, err := ProjectsDir()
+// If baseDir is empty, the default (~/.claude) is used.
+func FindSessions(baseDir string) ([]string, error) {
+	projectsDir, err := ProjectsDir(baseDir)
 	if err != nil {
 		return nil, err
 	}
@@ -98,8 +112,9 @@ func FindSessions() ([]string, error) {
 }
 
 // FindLatestSession finds the most recently modified session trace.
-func FindLatestSession() (string, error) {
-	sessions, err := FindSessions()
+// If baseDir is empty, the default (~/.claude) is used.
+func FindLatestSession(baseDir string) (string, error) {
+	sessions, err := FindSessions(baseDir)
 	if err != nil {
 		return "", err
 	}
