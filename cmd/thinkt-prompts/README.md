@@ -5,13 +5,13 @@ Extract user prompts from LLM agent trace files and generate formatted output.
 ## Installation
 
 ```bash
-go install github.com/Brain-STM-org/thinking-tracer-tools/cmd/thinkt-prompts@latest
+brew install --cask brain-stm-org/tap/thinkt-prompts
 ```
 
-Or build from source:
+Or via Go:
 
 ```bash
-task build
+go install github.com/Brain-STM-org/thinking-tracer-tools/cmd/thinkt-prompts@latest
 ```
 
 ## Usage
@@ -23,14 +23,17 @@ thinkt-prompts extract -t claude
 # Extract from a specific trace file
 thinkt-prompts extract -t claude -i ~/.claude/projects/abc123/session.jsonl
 
-# Output to stdout
-thinkt-prompts extract -t claude -o -
+# Write to a file instead of stdout
+thinkt-prompts extract -t claude -o PROMPTS.md
 
 # Output as JSON
 thinkt-prompts extract -t claude -f json -o prompts.json
 
 # Use a custom template
 thinkt-prompts extract -t claude --template my-template.tmpl
+
+# Use a different base directory
+thinkt-prompts extract -t claude -d /path/to/.claude
 
 # List available trace files
 thinkt-prompts list -t claude
@@ -58,6 +61,7 @@ thinkt-prompts templates
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--type` | `-t` | `claude` | Trace type (claude) |
+| `--dir` | `-d` | `~/.claude` | Base directory for trace files |
 | `--verbose` | `-v` | `false` | Verbose output |
 
 ### Extract Flags
@@ -65,7 +69,7 @@ thinkt-prompts templates
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--input` | `-i` | (latest) | Input trace file (use `-` for stdin) |
-| `--output` | `-o` | `PROMPTS.md` | Output file (use `-` for stdout) |
+| `--output` | `-o` | stdout | Output file |
 | `--format` | `-f` | `markdown` | Output format (markdown, json, plain) |
 | `--append` | `-a` | `false` | Append to existing file |
 | `--template` | | | Custom template file (for markdown format) |

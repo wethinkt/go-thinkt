@@ -107,3 +107,14 @@ working on the tool iteself, it seems that in claude mode, the default path is $
 
 let's not overwrite files by default, so stdout is the default and -o can direct it to a file if desired
 
+---
+
+## 2026-01-25T03:31:48Z
+
+the readme should talk about templates and link to the other readme's section for customization
+
+---
+
+## 2026-01-25T03:40:58Z
+
+let's work on deploying this.  i want a github action to test and build each push.   for each semantic tag, i want to homebrew release this to my homebrew tap at github.com/brain-stm-org/homebrew-tap.   add a github action to do this and update the README about installing it that way.  also add build and pkg.go.dev badges to the README
