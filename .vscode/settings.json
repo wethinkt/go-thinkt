@@ -1,0 +1,30 @@
+{
+    "go.testFlags": ["-v"],
+    "go.buildFlags": [],
+    "go.lintTool": "golangci-lint",
+    "go.lintFlags": ["--fast"],
+    "go.useLanguageServer": true,
+    "gopls": {
+        "ui.semanticTokens": true,
+        "ui.codelenses": {
+            "gc_details": true,
+            "generate": true,
+            "run_govulncheck": true,
+            "test": true,
+            "tidy": true
+        }
+    },
+    "editor.formatOnSave": true,
+    "[go]": {
+        "editor.defaultFormatter": "golang.go",
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    "go.coverOnSave": false,
+    "go.coverageDecorator": {
+        "type": "gutter",
+        "coveredHighlightColor": "rgba(64,128,64,0.5)",
+        "uncoveredHighlightColor": "rgba(128,64,64,0.5)"
+    }
+}

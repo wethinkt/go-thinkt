@@ -24,6 +24,7 @@ go.work.sum
 *.swp
 *.swo
 *~
+*.prof
 
 # OS
 .DS_Store

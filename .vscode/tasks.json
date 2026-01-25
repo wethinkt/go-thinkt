@@ -1,0 +1,138 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build-all",
+            "type": "shell",
+            "command": "go",
+            "args": ["build", "./..."],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$go"]
+        },
+        {
+            "label": "build-thinkt",
+            "type": "shell",
+            "command": "go",
+            "args": ["build", "-o", "bin/thinkt", "./cmd/thinkt"],
+            "group": "build",
+            "problemMatcher": ["$go"]
+        },
+        {
+            "label": "build-thinkt-prompts",
+            "type": "shell",
+            "command": "go",
+            "args": ["build", "-o", "bin/thinkt-prompts", "./cmd/thinkt-prompts"],
+            "group": "build",
+            "problemMatcher": ["$go"]
+        },
+        {
+            "label": "test-all",
+            "type": "shell",
+            "command": "go",
+            "args": ["test", "-v", "./..."],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": ["$go"]
+        },
+        {
+            "label": "test-coverage",
+            "type": "shell",
+            "command": "go",
+            "args": ["test", "-v", "-coverprofile=coverage.out", "./..."],
+            "group": "test",
+            "problemMatcher": ["$go"]
+        },
+        {
+            "label": "run-thinkt",
+            "type": "shell",
+            "command": "./bin/thinkt",
+            "dependsOn": "build-thinkt",
+            "problemMatcher": []
+        },
+        {
+            "label": "profile-thinkt",
+            "type": "shell",
+            "command": "./bin/thinkt",
+            "args": ["--profile", "cpu.prof"],
+            "dependsOn": "build-thinkt",
+            "problemMatcher": [],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "analyze-profile",
+            "type": "shell",
+            "command": "go",
+            "args": ["tool", "pprof", "-http=:8080", "cpu.prof"],
+            "problemMatcher": [],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "profile-and-analyze",
+            "dependsOn": ["profile-thinkt"],
+            "dependsOrder": "sequence",
+            "problemMatcher": [],
+            "runOptions": {
+                "runOn": "default"
+            }
+        },
+        {
+            "label": "dlv-headless-thinkt",
+            "type": "process",
+            "command": "dlv",
+            "args": [
+                "debug",
+                "${workspaceFolder}/cmd/thinkt",
+                "--headless",
+                "--listen=:2345",
+                "--api-version=2",
+                "--accept-multiclient"
+            ],
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "go",
+                "fileLocation": "relative",
+                "pattern": {
+                    "regexp": "^(.*?):(\\d+):(\\d+)?:?\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "message": 4
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^API server listening at:",
+                    "endsPattern": "^debugserver"
+                }
+            }
+        },
+        {
+            "label": "go-mod-tidy",
+            "type": "shell",
+            "command": "go",
+            "args": ["mod", "tidy"],
+            "problemMatcher": []
+        },
+        {
+            "label": "lint",
+            "type": "shell",
+            "command": "golangci-lint",
+            "args": ["run", "./..."],
+            "problemMatcher": ["$go"]
+        }
+    ]
+}

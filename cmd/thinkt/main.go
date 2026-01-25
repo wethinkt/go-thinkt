@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/pprof"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
@@ -11,7 +12,10 @@ import (
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui"
 )
 
-var baseDir string
+var (
+	baseDir     string
+	profilePath string
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "thinkt",
@@ -30,6 +34,7 @@ Press T to open thinking-tracer for the selected session.`,
 
 func main() {
 	rootCmd.Flags().StringVarP(&baseDir, "dir", "d", "", "base directory (default ~/.claude)")
+	rootCmd.Flags().StringVar(&profilePath, "profile", "", "write CPU profile to file (use with go tool pprof)")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -38,6 +43,20 @@ func main() {
 }
 
 func runTUI(cmd *cobra.Command, args []string) error {
+	// Start CPU profiling if requested
+	if profilePath != "" {
+		f, err := os.Create(profilePath)
+		if err != nil {
+			return fmt.Errorf("create profile file: %w", err)
+		}
+		defer f.Close()
+
+		if err := pprof.StartCPUProfile(f); err != nil {
+			return fmt.Errorf("start CPU profile: %w", err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
 	model := tui.NewModel(baseDir)
 	p := tea.NewProgram(model)
 	_, err := p.Run()

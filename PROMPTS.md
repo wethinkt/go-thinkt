@@ -184,3 +184,15 @@ give a background to the header box
 ## 2026-01-25T18:32:46Z
 
 if one of the projects is detected to be the user's home directory, omit that one
+
+---
+
+## 2026-01-25T18:52:19Z
+
+can we generate flame graphs from runs? i want to see where this stalling performance issue comes from?
+
+---
+
+## 2026-01-25T19:36:57Z
+
+ok that was helpful, please create a task for running that.  create a set of vscode .entries that allow use to debug that in VSCode, this is an example: https://github.com/AgentDank/screentime-mcp/tree/main/.vscode 
