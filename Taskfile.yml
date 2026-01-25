@@ -2,25 +2,40 @@ version: '3'
 
 vars:
   BIN_DIR: ./bin
-  BINARY: thinkt-prompts
-  CMD_DIR: ./cmd/thinkt-prompts
 
 tasks:
   default:
     deps: [test, build]
 
   build:
-    desc: Build the CLI binary
+    desc: Build all binaries
+    deps: [build:thinkt-prompts, build:thinkt]
+
+  build:thinkt-prompts:
+    desc: Build the thinkt-prompts CLI
     deps: [go-tidy]
     sources:
-      - ./cmd/**/*.go
+      - ./cmd/thinkt-prompts/**/*.go
       - ./internal/**/*.go
       - go.mod
       - go.sum
     generates:
-      - "{{.BIN_DIR}}/{{.BINARY}}"
+      - "{{.BIN_DIR}}/thinkt-prompts"
     cmds:
-      - go build -o {{.BIN_DIR}}/{{.BINARY}} {{.CMD_DIR}}
+      - go build -o {{.BIN_DIR}}/thinkt-prompts ./cmd/thinkt-prompts
+
+  build:thinkt:
+    desc: Build the thinkt TUI
+    deps: [go-tidy]
+    sources:
+      - ./cmd/thinkt/**/*.go
+      - ./internal/**/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.BIN_DIR}}/thinkt"
+    cmds:
+      - go build -o {{.BIN_DIR}}/thinkt ./cmd/thinkt
 
   test:
     desc: Run tests
@@ -33,10 +48,11 @@ tasks:
       - go mod tidy
 
   install:
-    desc: Install to GOPATH/bin
+    desc: Install all binaries to GOPATH/bin
     deps: [go-tidy]
     cmds:
-      - go install {{.CMD_DIR}}
+      - go install ./cmd/thinkt-prompts
+      - go install ./cmd/thinkt
 
   clean:
     desc: Remove build artifacts
