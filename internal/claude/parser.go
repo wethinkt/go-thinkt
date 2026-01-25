@@ -249,46 +249,55 @@ type SessionWindow struct {
 // startOffset allows resuming from a previous position (0 for start).
 // This is much more efficient than loading by entry count since entries vary wildly in size.
 func LoadSessionWindow(path string, startOffset int64, maxContentBytes int) (*SessionWindow, error) {
-	f, err := os.Open(path)
+	reader, err := NewJSONLReader(path)
 	if err != nil {
 		return nil, fmt.Errorf("open session file: %w", err)
 	}
-	defer f.Close()
+	defer reader.Close()
 
-	// Get total file size
-	stat, err := f.Stat()
-	if err != nil {
-		return nil, fmt.Errorf("stat session file: %w", err)
-	}
-	totalSize := stat.Size()
+	totalSize := reader.FileSize()
 
 	// Seek to start offset if specified
 	if startOffset > 0 {
-		if _, err := f.Seek(startOffset, io.SeekStart); err != nil {
+		if err := reader.SeekTo(startOffset); err != nil {
 			return nil, fmt.Errorf("seek to offset: %w", err)
 		}
 	}
-
-	// Use a counting reader to track bytes read
-	countingReader := &countingReader{r: f, count: startOffset}
-	parser := NewParser(countingReader)
 
 	var entries []Entry
 	var contentBytes int
 
 	for {
-		entry, err := parser.NextEntry()
-		if err != nil {
-			return nil, err
+		var entry Entry
+		err := reader.ReadJSON(&entry)
+		if err == io.EOF {
+			break
 		}
-		if entry == nil {
-			break // EOF
+		if err != nil {
+			// Skip malformed lines, continue reading
+			continue
+		}
+
+		// Parse the message based on entry type
+		if len(entry.Message) > 0 {
+			switch entry.Type {
+			case EntryTypeUser:
+				var msg UserMessage
+				if err := json.Unmarshal(entry.Message, &msg); err == nil {
+					entry.UserMessage = &msg
+				}
+			case EntryTypeAssistant:
+				var msg AssistantMessage
+				if err := json.Unmarshal(entry.Message, &msg); err == nil {
+					entry.AssistantMessage = &msg
+				}
+			}
 		}
 
 		// Estimate content size for this entry
-		entryContentSize := estimateEntryContentSize(entry)
+		entryContentSize := estimateEntryContentSize(&entry)
 		contentBytes += entryContentSize
-		entries = append(entries, *entry)
+		entries = append(entries, entry)
 
 		// Stop if we've accumulated enough content
 		if maxContentBytes > 0 && contentBytes >= maxContentBytes {
@@ -334,8 +343,8 @@ func LoadSessionWindow(path string, startOffset int64, maxContentBytes int) (*Se
 
 	return &SessionWindow{
 		Session:    session,
-		BytesRead:  countingReader.count,
-		HasMore:    countingReader.count < totalSize,
+		BytesRead:  reader.Position(),
+		HasMore:    reader.HasMore(),
 		TotalSize:  totalSize,
 		EntryCount: len(entries),
 	}, nil
@@ -364,18 +373,6 @@ func estimateEntryContentSize(entry *Entry) int {
 	}
 
 	return size
-}
-
-// countingReader wraps a reader and counts bytes read.
-type countingReader struct {
-	r     io.Reader
-	count int64
-}
-
-func (c *countingReader) Read(p []byte) (n int, err error) {
-	n, err = c.r.Read(p)
-	c.count += int64(n)
-	return
 }
 
 // ReadSessionPreview reads up to maxEntries and constructs a Session.

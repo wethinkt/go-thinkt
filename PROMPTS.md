@@ -196,3 +196,9 @@ can we generate flame graphs from runs? i want to see where this stalling perfor
 ## 2026-01-25T19:36:57Z
 
 ok that was helpful, please create a task for running that.  create a set of vscode .entries that allow use to debug that in VSCode, this is an example: https://github.com/AgentDank/screentime-mcp/tree/main/.vscode 
+
+---
+
+## 2026-01-25T22:17:24Z
+
+we need to do some performance work.  in ListProjectSessions, we perform os.ReadFile. that's reads the entire file of a potentially huge file.  JSONL is line by line, so you can read line by line.  You can maintain a structure that keeps the file handle and the current position and buffer thus far.  then when we are paging through content or deeper analysis is requested, we can read the whole thing.  This is an important abstraction, create a file and associated structure for it with unit tests, then integrate it into the TUI
