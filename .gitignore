@@ -6,11 +6,17 @@ bin/
 *.so
 *.dylib
 
+# Logs
+*.log
+
 # Test binary
 *.test
 
 # Output of go coverage
 *.out
+
+# Profiling data
+*.prof
 
 # Taskfile state files
 .task/

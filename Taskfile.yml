@@ -8,24 +8,7 @@ tasks:
     deps: [test, build]
 
   build:
-    desc: Build all binaries
-    deps: [build:thinkt-prompts, build:thinkt]
-
-  build:thinkt-prompts:
-    desc: Build the thinkt-prompts CLI
-    deps: [go-tidy]
-    sources:
-      - ./cmd/thinkt-prompts/**/*.go
-      - ./internal/**/*.go
-      - go.mod
-      - go.sum
-    generates:
-      - "{{.BIN_DIR}}/thinkt-prompts"
-    cmds:
-      - go build -o {{.BIN_DIR}}/thinkt-prompts ./cmd/thinkt-prompts
-
-  build:thinkt:
-    desc: Build the thinkt TUI
+    desc: Build the thinkt CLI
     deps: [go-tidy]
     sources:
       - ./cmd/thinkt/**/*.go
@@ -48,10 +31,9 @@ tasks:
       - go mod tidy
 
   install:
-    desc: Install all binaries to GOPATH/bin
+    desc: Install thinkt to GOPATH/bin
     deps: [go-tidy]
     cmds:
-      - go install ./cmd/thinkt-prompts
       - go install ./cmd/thinkt
 
   clean:

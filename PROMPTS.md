@@ -220,3 +220,15 @@ it needs to be a more isolated dependency than tui, as it is too easy to make a 
 ## 2026-01-26T15:17:36Z
 
 parser.ReadSession should now read the entire session, but only preload some entries and relevant metadata.   When we render the content window (or other analysis), we can read further from the session file lazily.   Currently the unneccessary file IO is hanging the app
+
+---
+
+## 2026-01-26T20:36:53Z
+
+we've sorta jumped into the TUI without handling the proper concerns -- i also wasn't entirely sure what i wanted yet.  i have a better idea which i will describe here.  We're pretty close to it, we'll break down and build up.
+
+we can get rid of `thinkt-prompts`.  `thinkt` will be the only CLI program, which can be run as a tui.  There will be a command called `tui` which is also the default.
+
+The `thinkt-prompts` commands are folded into the `thinkt` program.  After you do this refactoring, i'm going to focus on each of the modules building it up to make developing the TUI easier.
+
+Please create a plan and then proceed with the refactoring
