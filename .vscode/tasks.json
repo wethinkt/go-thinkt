@@ -82,6 +82,34 @@
             }
         },
         {
+            "label": "tail-log",
+            "type": "shell",
+            "command": "tail",
+            "args": ["-f", "thinkt.log"],
+            "problemMatcher": [],
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "run-with-logging",
+            "type": "shell",
+            "command": "./bin/thinkt",
+            "args": ["--log", "thinkt.log"],
+            "dependsOn": "build-thinkt",
+            "problemMatcher": [],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "dedicated"
+            }
+        },
+        {
             "label": "profile-and-analyze",
             "dependsOn": ["profile-thinkt"],
             "dependsOrder": "sequence",

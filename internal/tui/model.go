@@ -6,6 +6,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
 )
 
 // column identifies which column is currently active.
@@ -55,6 +56,7 @@ func NewModel(baseDir string) Model {
 
 // Init implements tea.Model.
 func (m Model) Init() tea.Cmd {
+	tuilog.Log.Info("Init", "baseDir", m.baseDir)
 	return loadProjectsCmd(m.baseDir)
 }
 
@@ -74,9 +76,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ProjectsLoadedMsg:
 		if msg.Err != nil {
+			tuilog.Log.Error("ProjectsLoadedMsg", "error", msg.Err)
 			m.err = msg.Err
 			return m, nil
 		}
+		tuilog.Log.Info("ProjectsLoadedMsg", "count", len(msg.Projects))
 		m.projects.setItems(msg.Projects)
 		// Auto-select first project if available
 		if len(msg.Projects) > 0 {
@@ -88,9 +92,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case SessionsLoadedMsg:
 		if msg.Err != nil {
+			tuilog.Log.Error("SessionsLoadedMsg", "error", msg.Err)
 			m.err = msg.Err
 			return m, nil
 		}
+		tuilog.Log.Info("SessionsLoadedMsg", "count", len(msg.Sessions))
 		m.sessions.setItems(msg.Sessions)
 		m.currentSessions = msg.Sessions
 		m.header.setSessions(msg.Sessions)
@@ -105,9 +111,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case SessionWindowMsg:
 		if msg.Err != nil {
+			tuilog.Log.Error("SessionWindowMsg", "error", msg.Err)
 			m.err = msg.Err
 			return m, nil
 		}
+		tuilog.Log.Info("SessionWindowMsg", "path", msg.Path, "isContinue", msg.IsContinue,
+			"entries", msg.Window.EntryCount, "bytesRead", msg.Window.BytesRead, "hasMore", msg.Window.HasMore)
 		if msg.IsContinue {
 			// Append more content
 			m.content.appendWindow(msg.Window)
@@ -118,6 +127,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.header.setSession(msg.Window.Session)
 				m.loadedSessionPath = msg.Path
 			}
+		}
+		return m, nil
+
+	case LazySessionMsg:
+		if msg.Err != nil {
+			tuilog.Log.Error("LazySessionMsg", "error", msg.Err)
+			m.err = msg.Err
+			return m, nil
+		}
+		tuilog.Log.Info("LazySessionMsg", "path", msg.Session.Path,
+			"entries", msg.Session.EntryCount(), "hasMore", msg.Session.HasMore())
+		m.content.setLazySession(msg.Session)
+		m.header.setSession(msg.Session.ToSession())
+		m.loadedSessionPath = msg.Session.Path
+		return m, nil
+
+	case LazyLoadedMsg:
+		if msg.Err != nil {
+			tuilog.Log.Error("LazyLoadedMsg", "error", msg.Err)
+		}
+		tuilog.Log.Info("LazyLoadedMsg", "newEntries", msg.Count)
+		m.content.setLoadingMore(false)
+		// EW m.content.renderEntries()
+		// Update header with new session state
+		if m.content.lazySession != nil {
+			m.header.setSession(m.content.lazySession.ToSession())
 		}
 		return m, nil
 	}
@@ -138,8 +173,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 		// Check if we need to load more content
 		if m.content.needsMore() {
-			m.content.setLoadingMore(true)
-			cmds = append(cmds, loadMoreSessionCmd(m.content.sessionPath, m.content.window.BytesRead))
+			if m.content.lazySession != nil {
+				// Use lazy loading
+				cmds = append(cmds, m.content.loadMoreFromLazySession())
+			} else if m.content.window != nil {
+				// Legacy window mode
+				m.content.setLoadingMore(true)
+				cmds = append(cmds, loadMoreSessionCmd(m.content.sessionPath, m.content.window.BytesRead))
+			}
 		}
 	}
 
@@ -300,6 +341,8 @@ func (m Model) View() tea.View {
 
 func loadProjectsCmd(baseDir string) tea.Cmd {
 	return func() tea.Msg {
+		defer tuilog.Log.Timed("loadProjects")()
+		tuilog.Log.Debug("loadProjects", "baseDir", baseDir)
 		projects, err := claude.ListProjects(baseDir)
 		return ProjectsLoadedMsg{Projects: projects, Err: err}
 	}
@@ -307,35 +350,36 @@ func loadProjectsCmd(baseDir string) tea.Cmd {
 
 func loadSessionsCmd(projectDir string) tea.Cmd {
 	return func() tea.Msg {
+		defer tuilog.Log.Timed("loadSessions")()
+		tuilog.Log.Debug("loadSessions", "projectDir", projectDir)
 		sessions, err := claude.ListProjectSessions(projectDir)
 		return SessionsLoadedMsg{Sessions: sessions, Err: err}
 	}
 }
 
-// windowContentBytes is the target content size per window.
-// This is roughly enough to fill a typical terminal screen with some buffer.
-// Using content bytes as proxy for lines since entries vary wildly in size.
+// windowContentBytes is the target content size per load operation.
 const windowContentBytes = 32 * 1024 // 32KB of displayable content
 
-// loadSessionCmd loads an initial window of session content.
+// loadSessionCmd opens a lazy session for incremental content loading.
 func loadSessionCmd(sessionPath string) tea.Cmd {
 	return func() tea.Msg {
-		window, err := claude.LoadSessionWindow(sessionPath, 0, windowContentBytes)
+		defer tuilog.Log.Timed("loadSession")()
+		tuilog.Log.Debug("loadSession", "path", sessionPath)
+
+		ls, err := claude.OpenLazySession(sessionPath)
 		if err != nil {
-			return SessionWindowMsg{Err: err}
+			return LazySessionMsg{Err: err}
 		}
 
-		return SessionWindowMsg{
-			Window:     window,
-			Path:       sessionPath,
-			IsContinue: false,
-		}
+		return LazySessionMsg{Session: ls}
 	}
 }
 
 // loadMoreSessionCmd loads more session content from a given offset.
 func loadMoreSessionCmd(sessionPath string, offset int64) tea.Cmd {
 	return func() tea.Msg {
+		defer tuilog.Log.Timed("loadMoreSession")()
+		tuilog.Log.Debug("loadMoreSession", "path", sessionPath, "offset", offset)
 		window, err := claude.LoadSessionWindow(sessionPath, offset, windowContentBytes)
 		if err != nil {
 			return SessionWindowMsg{Err: err, IsContinue: true}

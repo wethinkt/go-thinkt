@@ -7,6 +7,7 @@ import (
 	"charm.land/bubbles/v2/viewport"
 
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
 )
 
 // contentModel manages the content viewport (column 3).
@@ -15,10 +16,14 @@ type contentModel struct {
 	width    int
 	height   int
 
-	// Current session window
-	sessionPath string
-	window      *claude.SessionWindow
-	rendered    string
+	// Current session - lazy loaded
+	sessionPath  string
+	lazySession  *claude.LazySession
+	renderedCount int // number of entries already rendered
+	rendered     string
+
+	// Legacy window support (for backwards compatibility)
+	window *claude.SessionWindow
 
 	// Loading state
 	loading     bool
@@ -37,12 +42,65 @@ func (m *contentModel) setSize(w, h int) {
 	m.viewport.SetHeight(h)
 }
 
-// setWindow sets the initial session window
+// setLazySession sets a lazy session for incremental content loading
+func (m *contentModel) setLazySession(ls *claude.LazySession) {
+	// Close previous session if any
+	if m.lazySession != nil {
+		m.lazySession.Close()
+	}
+
+	m.lazySession = ls
+	m.sessionPath = ls.Path
+	m.loading = false
+	m.loadingMore = false
+	m.renderedCount = 0
+	m.window = nil
+
+	// Render initial content
+	m.renderEntries()
+	m.viewport.GotoTop()
+}
+
+// renderEntries renders any new entries that haven't been rendered yet
+func (m *contentModel) renderEntries() {
+	if m.lazySession == nil {
+		return
+	}
+
+	entries := m.lazySession.Entries()
+	if len(entries) <= m.renderedCount {
+		m.updateViewportContent()
+		return
+	}
+
+	// Render only new entries
+	newEntries := entries[m.renderedCount:]
+	newSession := &claude.Session{Entries: newEntries}
+	newRendered := RenderSession(newSession, m.width)
+
+	if m.renderedCount == 0 {
+		m.rendered = newRendered
+	} else {
+		m.rendered += "\n" + newRendered
+	}
+	m.renderedCount = len(entries)
+
+	m.updateViewportContent()
+}
+
+// setWindow sets the initial session window (legacy method)
 func (m *contentModel) setWindow(window *claude.SessionWindow, path string) {
+	// Close lazy session if switching to window mode
+	if m.lazySession != nil {
+		m.lazySession.Close()
+		m.lazySession = nil
+	}
+
 	m.window = window
 	m.sessionPath = path
 	m.loading = false
 	m.loadingMore = false
+	m.renderedCount = 0
 
 	if window != nil && window.Session != nil {
 		m.rendered = RenderSession(window.Session, m.width)
@@ -54,7 +112,7 @@ func (m *contentModel) setWindow(window *claude.SessionWindow, path string) {
 	}
 }
 
-// appendWindow appends more content from a continuation window
+// appendWindow appends more content from a continuation window (legacy method)
 func (m *contentModel) appendWindow(window *claude.SessionWindow) {
 	if window == nil || window.Session == nil {
 		m.loadingMore = false
@@ -79,17 +137,35 @@ func (m *contentModel) updateViewportContent() {
 	content := m.rendered
 
 	// Add status line at bottom
-	if m.window != nil {
-		status := m.statusLine()
-		if status != "" {
-			content += "\n\n" + status
-		}
+	status := m.statusLine()
+	if status != "" {
+		content += "\n\n" + status
 	}
 
 	m.viewport.SetContent(content)
 }
 
 func (m *contentModel) statusLine() string {
+	// LazySession mode
+	if m.lazySession != nil {
+		sizeInfo := formatBytes(m.lazySession.FileSize)
+		readInfo := formatBytes(m.lazySession.BytesRead())
+		entryCount := m.lazySession.EntryCount()
+
+		if m.loadingMore {
+			return fmt.Sprintf("--- Loading more... (%s / %s) ---", readInfo, sizeInfo)
+		}
+
+		if m.lazySession.HasMore() {
+			pct := m.lazySession.Progress() * 100
+			return fmt.Sprintf("--- %d entries loaded (%.0f%% of %s) | scroll down for more ---",
+				entryCount, pct, sizeInfo)
+		}
+
+		return fmt.Sprintf("--- %d entries (%s) ---", entryCount, sizeInfo)
+	}
+
+	// Legacy window mode
 	if m.window == nil {
 		return ""
 	}
@@ -112,13 +188,39 @@ func (m *contentModel) statusLine() string {
 
 // needsMore returns true if user has scrolled near bottom and there's more to load
 func (m *contentModel) needsMore() bool {
-	if m.window == nil || !m.window.HasMore || m.loadingMore {
+	if m.loadingMore {
 		return false
 	}
 
-	// Check if we're within 5 lines of bottom
-	atBottom := m.viewport.AtBottom()
-	return atBottom
+	// LazySession mode
+	if m.lazySession != nil {
+		return m.lazySession.HasMore() && m.viewport.AtBottom()
+	}
+
+	// Legacy window mode
+	if m.window == nil || !m.window.HasMore {
+		return false
+	}
+
+	return m.viewport.AtBottom()
+}
+
+// loadMoreFromLazySession loads more entries from the lazy session
+func (m *contentModel) loadMoreFromLazySession() tea.Cmd {
+	if m.lazySession == nil || !m.lazySession.HasMore() {
+		return nil
+	}
+
+	m.loadingMore = true
+	m.updateViewportContent()
+
+	ls := m.lazySession
+	return func() tea.Msg {
+		defer tuilog.Log.Timed("loadMoreLazy")()
+		n, err := ls.LoadMore(32 * 1024) // Load 32KB more
+		tuilog.Log.Debug("loadMoreLazy", "loaded", n, "error", err)
+		return LazyLoadedMsg{Count: n, Err: err}
+	}
 }
 
 func (m *contentModel) setLoadingMore(loading bool) {

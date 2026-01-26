@@ -21,3 +21,15 @@ type SessionWindowMsg struct {
 	IsContinue  bool // True if this is a continuation (append), false for initial load
 	Err         error
 }
+
+// LazySessionMsg is sent when a lazy session is opened.
+type LazySessionMsg struct {
+	Session *claude.LazySession
+	Err     error
+}
+
+// LazyLoadedMsg is sent when more content is loaded from a lazy session.
+type LazyLoadedMsg struct {
+	Count int   // Number of new entries loaded
+	Err   error
+}

@@ -202,3 +202,21 @@ ok that was helpful, please create a task for running that.  create a set of vsc
 ## 2026-01-25T22:17:24Z
 
 we need to do some performance work.  in ListProjectSessions, we perform os.ReadFile. that's reads the entire file of a potentially huge file.  JSONL is line by line, so you can read line by line.  You can maintain a structure that keeps the file handle and the current position and buffer thus far.  then when we are paging through content or deeper analysis is requested, we can read the whole thing.  This is an important abstraction, create a file and associated structure for it with unit tests, then integrate it into the TUI
+
+---
+
+## 2026-01-25T23:03:14Z
+
+add a logfile for the TUI as we can't do printf-style or stderr
+
+---
+
+## 2026-01-25T23:12:04Z
+
+it needs to be a more isolated dependency than tui, as it is too easy to make a dependency cycle. call the package tuilog instead and package tui imports it
+
+---
+
+## 2026-01-26T15:17:36Z
+
+parser.ReadSession should now read the entire session, but only preload some entries and relevant metadata.   When we render the content window (or other analysis), we can read further from the session file lazily.   Currently the unneccessary file IO is hanging the app
