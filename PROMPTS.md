@@ -269,3 +269,39 @@ i want to add thinkt projects delete.  please be careful as this is destructive.
 ## 2026-01-27T05:09:07Z
 
 if there are no sessions do not operate on the directory even with --force.  this is a project deletion tool, not a directory deletion tool
+
+---
+
+## 2026-01-27T05:18:04Z
+
+also make a thinkt project copy command to extract projects. users specify a target directory 
+
+---
+
+## 2026-01-27T05:24:28Z
+
+look at ahow charmbracelet gum does confirm.  i would like to use that, either as a package directly or extracting that concept here.  this is for the delete
+
+---
+
+## 2026-01-27T05:27:51Z
+
+I forgot to give you the URL: https://github.com/charmbracelet/gum/blob/main/confirm/confirm.go
+
+---
+
+## 2026-01-27T05:29:04Z
+
+stay with Huh for now, thanks
+
+---
+
+## 2026-01-27T05:38:01Z
+
+i think should use the v2 version of those libraries to work best with the rest of our use of bubbletea v2
+
+---
+
+## 2026-01-27T05:46:48Z
+
+in that case, please extract the confirm using gun-style resuable model with v2

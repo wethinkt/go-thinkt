@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -9,17 +8,13 @@ import (
 	"strings"
 
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui"
 )
-
-// Note: The safety check for 0 sessions is handled in findProject.
-// Projects with no sessions are not listed by ListProjects, so we check
-// if the encoded directory exists but wasn't in the project list.
 
 // DeleteOptions configures project deletion behavior.
 type DeleteOptions struct {
 	Force  bool      // Skip confirmation prompt
-	Stdin  io.Reader // For reading confirmation (defaults to os.Stdin)
-	Stdout io.Writer // For writing prompts (defaults to os.Stdout)
+	Stdout io.Writer // For writing output (defaults to os.Stdout)
 }
 
 // ProjectDeleter handles project deletion with confirmation.
@@ -30,9 +25,6 @@ type ProjectDeleter struct {
 
 // NewProjectDeleter creates a new project deleter.
 func NewProjectDeleter(baseDir string, opts DeleteOptions) *ProjectDeleter {
-	if opts.Stdin == nil {
-		opts.Stdin = os.Stdin
-	}
 	if opts.Stdout == nil {
 		opts.Stdout = os.Stdout
 	}
@@ -58,19 +50,22 @@ func (d *ProjectDeleter) Delete(projectPath string) error {
 
 	// Show info and confirm
 	if !d.opts.Force {
+		// Display project info
 		fmt.Fprintf(d.opts.Stdout, "Project: %s\n", project.FullPath)
 		fmt.Fprintf(d.opts.Stdout, "Sessions: %d\n", project.SessionCount)
 		if !project.LastModified.IsZero() {
 			fmt.Fprintf(d.opts.Stdout, "Last modified: %s\n", project.LastModified.Format("2006-01-02 15:04"))
 		}
-		fmt.Fprintf(d.opts.Stdout, "\nThis will permanently delete all session data for this project.\n")
-		fmt.Fprintf(d.opts.Stdout, "Are you sure? [y/N] ")
+		fmt.Fprintln(d.opts.Stdout)
 
-		confirmed, err := d.readConfirmation()
-		if err != nil {
-			return fmt.Errorf("read confirmation: %w", err)
-		}
-		if !confirmed {
+		result, err := tui.Confirm(tui.ConfirmOptions{
+			Prompt:      "Permanently delete all session data for this project?",
+			Affirmative: "Delete",
+			Negative:    "Cancel",
+			Default:     false, // Default to Cancel
+		})
+
+		if err != nil || result != tui.ConfirmYes {
 			fmt.Fprintf(d.opts.Stdout, "Cancelled.\n")
 			return nil
 		}
@@ -121,16 +116,4 @@ func encodePathToDirName(path string) string {
 		encoded = "-" + encoded
 	}
 	return encoded
-}
-
-// readConfirmation reads y/n confirmation from stdin.
-func (d *ProjectDeleter) readConfirmation() (bool, error) {
-	reader := bufio.NewReader(d.opts.Stdin)
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return false, err
-	}
-
-	response = strings.TrimSpace(strings.ToLower(response))
-	return response == "y" || response == "yes", nil
 }

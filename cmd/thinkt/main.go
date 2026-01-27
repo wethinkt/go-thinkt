@@ -178,6 +178,25 @@ Examples:
 	RunE: runProjectsDelete,
 }
 
+var projectsCopyCmd = &cobra.Command{
+	Use:   "copy <project-path> <target-dir>",
+	Short: "Copy project sessions to a target directory",
+	Long: `Copy all session files from a Claude Code project to a target directory.
+
+The project-path can be:
+  - Full project path (e.g., /Users/evan/myproject)
+  - Path relative to current directory
+
+The target directory will be created if it doesn't exist.
+Session files (.jsonl) and index files are copied.
+
+Examples:
+  thinkt projects copy /Users/evan/myproject ./backup
+  thinkt projects copy /Users/evan/myproject /tmp/export`,
+	Args: cobra.ExactArgs(2),
+	RunE: runProjectsCopy,
+}
+
 func main() {
 	// Global flags on root
 	rootCmd.PersistentFlags().StringVarP(&baseDir, "dir", "d", "", "base directory (default ~/.claude)")
@@ -211,6 +230,7 @@ func main() {
 	// Build command tree
 	projectsCmd.AddCommand(projectsSummaryCmd)
 	projectsCmd.AddCommand(projectsDeleteCmd)
+	projectsCmd.AddCommand(projectsCopyCmd)
 	promptsCmd.AddCommand(extractCmd)
 	promptsCmd.AddCommand(listCmd)
 	promptsCmd.AddCommand(infoCmd)
@@ -523,4 +543,9 @@ func runProjectsDelete(cmd *cobra.Command, args []string) error {
 		Force: forceDelete,
 	})
 	return deleter.Delete(args[0])
+}
+
+func runProjectsCopy(cmd *cobra.Command, args []string) error {
+	copier := cli.NewProjectCopier(baseDir, cli.CopyOptions{})
+	return copier.Copy(args[0], args[1])
 }
