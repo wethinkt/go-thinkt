@@ -119,11 +119,20 @@ var templatesCmd = &cobra.Command{
 
 // Projects command flags
 var (
-	treeFormat       bool
-	summaryTemplate  string
-	sortBy           string
-	sortDesc         bool
-	forceDelete      bool
+	treeFormat      bool
+	summaryTemplate string
+	sortBy          string
+	sortDesc        bool
+	forceDelete     bool
+)
+
+// Sessions command flags
+var (
+	sessionProject       string
+	sessionForceDelete   bool
+	sessionSortBy        string
+	sessionSortDesc      bool
+	sessionTemplate      string
 )
 
 var projectsCmd = &cobra.Command{
@@ -197,6 +206,91 @@ Examples:
 	RunE: runProjectsCopy,
 }
 
+var sessionsCmd = &cobra.Command{
+	Use:   "sessions",
+	Short: "List and manage Claude Code sessions",
+	Long: `List and manage sessions within a Claude Code project.
+
+Requires -p/--project to specify which project to operate on.
+
+Examples:
+  thinkt sessions list -p /Users/evan/myproject
+  thinkt sessions summary -p ./myproject
+  thinkt sessions delete -p ./myproject <session-id>
+  thinkt sessions copy -p ./myproject <session-id> ./backup`,
+	RunE: runSessionsList,
+}
+
+var sessionsListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List sessions in a project",
+	Long: `List all sessions in a Claude Code project.
+
+Outputs session paths one per line by default.
+
+Examples:
+  thinkt sessions list -p /Users/evan/myproject
+  thinkt sessions list -p ./myproject`,
+	RunE: runSessionsList,
+}
+
+var sessionsSummaryCmd = &cobra.Command{
+	Use:   "summary",
+	Short: "Show detailed session summary",
+	Long: `Show detailed information about each session in a project.
+
+Sorting:
+  --sort name|time    Sort by session name or modified time (default: time)
+  --desc              Sort descending (default for time)
+  --asc               Sort ascending (default for name)
+
+Output can be customized with a Go text/template via --template.
+
+` + cli.SessionSummaryTemplateHelp,
+	RunE: runSessionsSummary,
+}
+
+var sessionsDeleteCmd = &cobra.Command{
+	Use:   "delete <session>",
+	Short: "Delete a session",
+	Long: `Delete a Claude Code session file.
+
+The session can be specified as:
+  - Full path to the .jsonl file
+  - Session ID (requires -p/--project)
+  - Filename (requires -p/--project)
+
+Before deletion, shows session info and prompts for confirmation.
+Use --force to skip the confirmation.
+
+Examples:
+  thinkt sessions delete /full/path/to/session.jsonl
+  thinkt sessions delete -p ./myproject abc123
+  thinkt sessions delete -p ./myproject --force abc123`,
+	Args: cobra.ExactArgs(1),
+	RunE: runSessionsDelete,
+}
+
+var sessionsCopyCmd = &cobra.Command{
+	Use:   "copy <session> <target>",
+	Short: "Copy a session to a target location",
+	Long: `Copy a Claude Code session file to a target location.
+
+The session can be specified as:
+  - Full path to the .jsonl file
+  - Session ID (requires -p/--project)
+  - Filename (requires -p/--project)
+
+The target can be a file path or directory.
+
+Examples:
+  thinkt sessions copy /full/path/to/session.jsonl ./backup/
+  thinkt sessions copy -p ./myproject abc123 ./backup/
+  thinkt sessions copy -p ./myproject abc123 ./backup/renamed.jsonl`,
+	Args: cobra.ExactArgs(2),
+	RunE: runSessionsCopy,
+}
+
 func main() {
 	// Global flags on root
 	rootCmd.PersistentFlags().StringVarP(&baseDir, "dir", "d", "", "base directory (default ~/.claude)")
@@ -227,10 +321,23 @@ func main() {
 	projectsSummaryCmd.Flags().Bool("asc", false, "sort ascending (default for name)")
 	projectsDeleteCmd.Flags().BoolVarP(&forceDelete, "force", "f", false, "skip confirmation prompt")
 
+	// Sessions command flags
+	sessionsCmd.PersistentFlags().StringVarP(&sessionProject, "project", "p", "", "project path (required)")
+	sessionsListCmd.Flags().StringVarP(&sessionProject, "project", "p", "", "project path (required)")
+	sessionsSummaryCmd.Flags().StringVar(&sessionTemplate, "template", "", "custom Go text/template for output")
+	sessionsSummaryCmd.Flags().StringVar(&sessionSortBy, "sort", "time", "sort by: name, time")
+	sessionsSummaryCmd.Flags().BoolVar(&sessionSortDesc, "desc", false, "sort descending (default for time)")
+	sessionsSummaryCmd.Flags().Bool("asc", false, "sort ascending (default for name)")
+	sessionsDeleteCmd.Flags().BoolVarP(&sessionForceDelete, "force", "f", false, "skip confirmation prompt")
+
 	// Build command tree
 	projectsCmd.AddCommand(projectsSummaryCmd)
 	projectsCmd.AddCommand(projectsDeleteCmd)
 	projectsCmd.AddCommand(projectsCopyCmd)
+	sessionsCmd.AddCommand(sessionsListCmd)
+	sessionsCmd.AddCommand(sessionsSummaryCmd)
+	sessionsCmd.AddCommand(sessionsDeleteCmd)
+	sessionsCmd.AddCommand(sessionsCopyCmd)
 	promptsCmd.AddCommand(extractCmd)
 	promptsCmd.AddCommand(listCmd)
 	promptsCmd.AddCommand(infoCmd)
@@ -239,6 +346,7 @@ func main() {
 	rootCmd.AddCommand(tuiCmd)
 	rootCmd.AddCommand(promptsCmd)
 	rootCmd.AddCommand(projectsCmd)
+	rootCmd.AddCommand(sessionsCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -547,5 +655,65 @@ func runProjectsDelete(cmd *cobra.Command, args []string) error {
 
 func runProjectsCopy(cmd *cobra.Command, args []string) error {
 	copier := cli.NewProjectCopier(baseDir, cli.CopyOptions{})
+	return copier.Copy(args[0], args[1])
+}
+
+func runSessionsList(cmd *cobra.Command, args []string) error {
+	if sessionProject == "" {
+		return fmt.Errorf("--project/-p is required\n\nUse 'thinkt projects' to list available projects")
+	}
+
+	sessions, err := cli.ListSessionsForProject(baseDir, sessionProject)
+	if err != nil {
+		return err
+	}
+
+	if len(sessions) == 0 {
+		fmt.Println("No sessions found")
+		return nil
+	}
+
+	formatter := cli.NewSessionsFormatter(os.Stdout)
+	return formatter.FormatList(sessions)
+}
+
+func runSessionsSummary(cmd *cobra.Command, args []string) error {
+	if sessionProject == "" {
+		return fmt.Errorf("--project/-p is required\n\nUse 'thinkt projects' to list available projects")
+	}
+
+	sessions, err := cli.ListSessionsForProject(baseDir, sessionProject)
+	if err != nil {
+		return err
+	}
+
+	if len(sessions) == 0 {
+		fmt.Println("No sessions found")
+		return nil
+	}
+
+	// Determine sort order
+	ascFlag, _ := cmd.Flags().GetBool("asc")
+	descending := sessionSortDesc || (!ascFlag && sessionSortBy == "time")
+
+	formatter := cli.NewSessionsFormatter(os.Stdout)
+	return formatter.FormatSummary(sessions, sessionTemplate, cli.SessionListOptions{
+		SortBy:     sessionSortBy,
+		Descending: descending,
+	})
+}
+
+func runSessionsDelete(cmd *cobra.Command, args []string) error {
+	deleter := cli.NewSessionDeleter(baseDir, cli.SessionDeleteOptions{
+		Force:   sessionForceDelete,
+		Project: sessionProject,
+	})
+	return deleter.Delete(args[0])
+}
+
+func runSessionsCopy(cmd *cobra.Command, args []string) error {
+	copier := cli.NewSessionCopier(baseDir, cli.SessionCopyOptions{
+		Project: sessionProject,
+	})
 	return copier.Copy(args[0], args[1])
 }

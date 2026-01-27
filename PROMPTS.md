@@ -305,3 +305,9 @@ i think should use the v2 version of those libraries to work best with the rest 
 ## 2026-01-27T05:46:48Z
 
 in that case, please extract the confirm using gun-style resuable model with v2
+
+---
+
+## 2026-01-27T05:54:19Z
+
+we are now adding a set of sessions subcommands which will eventually replace the prompts command.  we will be able to list sessions for a given project (-p --project), which operates similarly to thinkt projects list with a scoped project.  there is currently no default project.  we will also have "thinkt sessions delete" and "thinkt sessions copy".  
