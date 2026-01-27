@@ -257,3 +257,15 @@ add a subcommand "thinkt projects summary" which shows what you are showing now.
 ## 2026-01-27T04:30:47Z
 
 i played with that a bit.  let's make "thinkt projects --long"  be the default.  ./thinkt projects --tree will show what the current default is, but fix the indentation and the look of the tree.  for ./thinkt project summary, add a sort-by name and sort-by time with ascending/descending controls.  default is sort by time descending
+
+---
+
+## 2026-01-27T04:55:37Z
+
+i want to add thinkt projects delete.  please be careful as this is destructive.  the command with no args will do nothing (perhaps complain of no args). otherwise they need to specify the full path or the path after the base; we check the number of sessions in there and last update and report the amounts and prompt "are you sure"?  you can also add a --force to skip that
+
+---
+
+## 2026-01-27T05:09:07Z
+
+if there are no sessions do not operate on the directory even with --force.  this is a project deletion tool, not a directory deletion tool

@@ -123,6 +123,7 @@ var (
 	summaryTemplate  string
 	sortBy           string
 	sortDesc         bool
+	forceDelete      bool
 )
 
 var projectsCmd = &cobra.Command{
@@ -157,6 +158,26 @@ Output can be customized with a Go text/template via --template.
 	RunE: runProjectsSummary,
 }
 
+var projectsDeleteCmd = &cobra.Command{
+	Use:   "delete <project-path>",
+	Short: "Delete a project and all its sessions",
+	Long: `Delete a Claude Code project directory and all session data within it.
+
+The project-path can be:
+  - Full project path (e.g., /Users/evan/myproject)
+  - Path relative to current directory
+
+Before deletion, shows the number of sessions and last modified time,
+then prompts for confirmation. Use --force to skip the confirmation.
+
+Examples:
+  thinkt projects delete /Users/evan/myproject
+  thinkt projects delete ./myproject
+  thinkt projects delete --force /Users/evan/myproject`,
+	Args: cobra.ExactArgs(1),
+	RunE: runProjectsDelete,
+}
+
 func main() {
 	// Global flags on root
 	rootCmd.PersistentFlags().StringVarP(&baseDir, "dir", "d", "", "base directory (default ~/.claude)")
@@ -185,9 +206,11 @@ func main() {
 	projectsSummaryCmd.Flags().StringVar(&sortBy, "sort", "time", "sort by: name, time")
 	projectsSummaryCmd.Flags().BoolVar(&sortDesc, "desc", false, "sort descending (default for time)")
 	projectsSummaryCmd.Flags().Bool("asc", false, "sort ascending (default for name)")
+	projectsDeleteCmd.Flags().BoolVarP(&forceDelete, "force", "f", false, "skip confirmation prompt")
 
 	// Build command tree
 	projectsCmd.AddCommand(projectsSummaryCmd)
+	projectsCmd.AddCommand(projectsDeleteCmd)
 	promptsCmd.AddCommand(extractCmd)
 	promptsCmd.AddCommand(listCmd)
 	promptsCmd.AddCommand(infoCmd)
@@ -493,4 +516,11 @@ func runProjectsSummary(cmd *cobra.Command, args []string) error {
 		SortBy:     sortBy,
 		Descending: descending,
 	})
+}
+
+func runProjectsDelete(cmd *cobra.Command, args []string) error {
+	deleter := cli.NewProjectDeleter(baseDir, cli.DeleteOptions{
+		Force: forceDelete,
+	})
+	return deleter.Delete(args[0])
 }
