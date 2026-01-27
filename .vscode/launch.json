@@ -87,6 +87,51 @@
             "port": 2345,
             "host": "127.0.0.1",
             "preLaunchTask": "dlv-headless-thinkt"
+        },
+        {
+            "name": "Launch thinkt sessions view",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/thinkt",
+            "console": "integratedTerminal",
+            "args": ["sessions", "view", "-p", "${input:projectPath}", "${input:sessionId}"]
+        },
+        {
+            "name": "Launch thinkt sessions view (with profiling)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/thinkt",
+            "console": "integratedTerminal",
+            "args": ["--profile", "${workspaceFolder}/cpu.prof", "sessions", "view", "-p", "${input:projectPath}", "${input:sessionId}"]
+        },
+        {
+            "name": "Launch thinkt sessions view (picker)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/thinkt",
+            "console": "integratedTerminal",
+            "args": ["sessions", "view", "-p", "${input:projectPath}"]
+        },
+        {
+            "name": "Launch thinkt sessions view (all)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/thinkt",
+            "console": "integratedTerminal",
+            "args": ["sessions", "view", "-p", "${input:projectPath}", "--all"]
+        },
+        {
+            "name": "Launch thinkt sessions view (all, with profiling)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/thinkt",
+            "console": "integratedTerminal",
+            "args": ["--profile", "${workspaceFolder}/cpu.prof", "sessions", "view", "-p", "${input:projectPath}", "--all"]
         }
     ],
     "inputs": [
@@ -111,6 +156,18 @@
             "id": "processId",
             "type": "promptString",
             "description": "Process ID to attach to"
+        },
+        {
+            "id": "projectPath",
+            "type": "promptString",
+            "description": "Project path (e.g., /Users/evan/myproject)",
+            "default": ""
+        },
+        {
+            "id": "sessionId",
+            "type": "promptString",
+            "description": "Session ID or filename",
+            "default": ""
         }
     ]
 }

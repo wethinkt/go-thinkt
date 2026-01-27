@@ -329,3 +329,75 @@ yes, please do that.  use github.com/duckdb/duckdb-go/v2
 ## 2026-01-27T06:17:00Z
 
 when you load the database into DuckDB, do so in read-only mode.
+
+---
+
+## 2026-01-27T06:23:35Z
+
+i want to now do "thinkt session view -p project -s session" which will create a view like the content window in the TUI.  you can share machinery for that.  it is a full terminal window with a border and the top has the name of the file and the bottom has help.   when applicable use charmbracelet glow https://github.com/charmbracelet/glow
+
+---
+
+## 2026-01-27T06:31:36Z
+
+tui.RunViewer should take a sessionPath because it needs to lazy-load the file.  
+
+---
+
+## 2026-01-27T06:37:17Z
+
+please make a debug launch for thinkt sessions view with placeholders for project and session
+
+---
+
+## 2026-01-27T06:44:44Z
+
+can you add a profiling target to that?
+
+---
+
+## 2026-01-27T06:46:23Z
+
+currently profile path only affects tui, but it should affect all commands. fix that
+
+---
+
+## 2026-01-27T06:54:06Z
+
+for thinkt sessions view, if no sessions are specified, then provide a mini tui which lists the project's sessions and their file size and last modified time.  sort by newest.  the user may select one or escape.  if they pass --all with no sessions specified, then instead it views all the sessions in increasing time order. 
+
+---
+
+## 2026-01-27T13:19:05Z
+
+in the sessions picker, include the file size and file name
+
+---
+
+## 2026-01-27T13:21:53Z
+
+session names are typically GUIDs so make the filename truncation one greater than a GUID length
+
+---
+
+## 2026-01-27T13:26:39Z
+
+you should only bring up the mini-TUI when a TTY is available.  otherwise, error out saying that there is no TTY and no argument
+
+---
+
+## 2026-01-27T13:48:09Z
+
+sometime the mini-TUI hangs between selecting the session and displaying the content frame with border and session title but the body is empty.  It does not accept input (apprently) and after a second or two the content pops up.  this seems to happen independent of file size.  review the code to see why it happens.  it was going on in the TUI app, that's part of the reason i isolated it to this mini-TUI.   i thought it was lazy loading issue, and maybe still is, but it seems to happen on short files sometimes too
+
+---
+
+## 2026-01-27T14:02:24Z
+
+sometimes it seems like i need a keypress to get it to draw the initial content right away.  is there some readiness message (perhaps contentRenderedMsg) that's not being handled 
+
+---
+
+## 2026-01-27T14:08:26Z
+
+wouldn't bubbletea do that update/view loop after contentRenderedMsg natually?  shouldn't the ELM architecture handle that? why does it need to be forced.

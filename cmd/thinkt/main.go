@@ -13,6 +13,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/analytics"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
@@ -26,6 +27,7 @@ import (
 var (
 	baseDir     string
 	profilePath string
+	profileFile *os.File // held open for profiling
 	logPath     string
 	verbose     bool
 )
@@ -61,6 +63,32 @@ Examples:
   thinkt tui -d /custom/path      # TUI with custom directory
   thinkt prompts extract          # Extract prompts from latest session
   thinkt prompts list             # List available sessions`,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Start CPU profiling if requested
+		if profilePath != "" {
+			f, err := os.Create(profilePath)
+			if err != nil {
+				return fmt.Errorf("create profile file: %w", err)
+			}
+			profileFile = f
+
+			if err := pprof.StartCPUProfile(f); err != nil {
+				f.Close()
+				profileFile = nil
+				return fmt.Errorf("start CPU profile: %w", err)
+			}
+		}
+		return nil
+	},
+	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+		// Stop CPU profiling
+		if profileFile != nil {
+			pprof.StopCPUProfile()
+			profileFile.Close()
+			profileFile = nil
+		}
+		return nil
+	},
 	RunE: runTUI,
 }
 
@@ -137,6 +165,7 @@ var (
 	sessionSortBy      string
 	sessionSortDesc    bool
 	sessionTemplate    string
+	sessionViewAll     bool
 )
 
 // Search and stats command flags
@@ -305,6 +334,35 @@ Examples:
 	RunE: runSessionsCopy,
 }
 
+var sessionsViewCmd = &cobra.Command{
+	Use:   "view [session]",
+	Short: "View a session in the terminal",
+	Long: `View a Claude Code session in a full-terminal viewer.
+
+If no session is specified:
+  - Shows an interactive picker to select a session
+  - With --all: views all sessions concatenated in time order
+
+The session can be specified as:
+  - Full path to the .jsonl file
+  - Session ID (requires -p/--project)
+  - Filename (requires -p/--project)
+
+Navigation:
+  ↑/↓/j/k     Scroll up/down
+  PgUp/PgDn   Page up/down
+  g/G         Go to top/bottom
+  q/Esc       Quit
+
+Examples:
+  thinkt sessions view /full/path/to/session.jsonl
+  thinkt sessions view -p ./myproject abc123
+  thinkt sessions view -p ./myproject              # picker
+  thinkt sessions view -p ./myproject --all        # view all`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runSessionsView,
+}
+
 var searchCmd = &cobra.Command{
 	Use:   "search <query>",
 	Short: "Search across sessions using DuckDB",
@@ -392,12 +450,11 @@ func main() {
 	// Global flags on root
 	rootCmd.PersistentFlags().StringVarP(&baseDir, "dir", "d", "", "base directory (default ~/.claude)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+	rootCmd.PersistentFlags().StringVar(&profilePath, "profile", "", "write CPU profile to file")
 
 	// TUI-specific flags
-	tuiCmd.Flags().StringVar(&profilePath, "profile", "", "write CPU profile to file")
 	tuiCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
 	// Also add to root since it can run TUI directly
-	rootCmd.Flags().StringVar(&profilePath, "profile", "", "write CPU profile to file")
 	rootCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
 
 	// Prompts subcommand flags
@@ -426,6 +483,7 @@ func main() {
 	sessionsSummaryCmd.Flags().BoolVar(&sessionSortDesc, "desc", false, "sort descending (default for time)")
 	sessionsSummaryCmd.Flags().Bool("asc", false, "sort ascending (default for name)")
 	sessionsDeleteCmd.Flags().BoolVarP(&sessionForceDelete, "force", "f", false, "skip confirmation prompt")
+	sessionsViewCmd.Flags().BoolVarP(&sessionViewAll, "all", "a", false, "view all sessions in time order")
 
 	// Search command flags
 	searchCmd.Flags().StringVarP(&searchProject, "project", "p", "", "limit search to a project")
@@ -449,6 +507,7 @@ func main() {
 	sessionsCmd.AddCommand(sessionsSummaryCmd)
 	sessionsCmd.AddCommand(sessionsDeleteCmd)
 	sessionsCmd.AddCommand(sessionsCopyCmd)
+	sessionsCmd.AddCommand(sessionsViewCmd)
 	statsCmd.AddCommand(statsTokensCmd)
 	statsCmd.AddCommand(statsToolsCmd)
 	statsCmd.AddCommand(statsWordsCmd)
@@ -480,20 +539,6 @@ func runTUI(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("init logger: %w", err)
 		}
 		defer tuilog.Log.Close()
-	}
-
-	// Start CPU profiling if requested
-	if profilePath != "" {
-		f, err := os.Create(profilePath)
-		if err != nil {
-			return fmt.Errorf("create profile file: %w", err)
-		}
-		defer f.Close()
-
-		if err := pprof.StartCPUProfile(f); err != nil {
-			return fmt.Errorf("start CPU profile: %w", err)
-		}
-		defer pprof.StopCPUProfile()
 	}
 
 	tuilog.Log.Info("Starting TUI", "baseDir", baseDir)
@@ -836,6 +881,75 @@ func runSessionsCopy(cmd *cobra.Command, args []string) error {
 		Project: sessionProject,
 	})
 	return copier.Copy(args[0], args[1])
+}
+
+func runSessionsView(cmd *cobra.Command, args []string) error {
+	// Require project flag
+	if sessionProject == "" {
+		return fmt.Errorf("--project/-p is required\n\nUse 'thinkt projects' to list available projects")
+	}
+
+	// Get all sessions in the project
+	sessions, err := cli.ListSessionsForProject(baseDir, sessionProject)
+	if err != nil {
+		return err
+	}
+
+	if len(sessions) == 0 {
+		return fmt.Errorf("no sessions found in project\n\nUse 'thinkt sessions list -p %s' to verify", sessionProject)
+	}
+
+	// If a session is specified, find and view it
+	if len(args) > 0 {
+		sessionArg := args[0]
+		var sessionPath string
+
+		// Check if it's an absolute path
+		if strings.HasPrefix(sessionArg, "/") {
+			sessionPath = sessionArg
+		} else {
+			// Match by session ID or filename
+			found := false
+			for _, s := range sessions {
+				if s.SessionID == sessionArg || strings.HasSuffix(s.FullPath, sessionArg) || strings.HasSuffix(s.FullPath, sessionArg+".jsonl") {
+					sessionPath = s.FullPath
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("session not found: %s\n\nUse 'thinkt sessions list -p %s' to see available sessions", sessionArg, sessionProject)
+			}
+		}
+
+		return tui.RunViewer(sessionPath)
+	}
+
+	// No session specified - either show picker or view all
+	if sessionViewAll {
+		// View all sessions in time order (oldest first)
+		paths := make([]string, len(sessions))
+		for i, s := range sessions {
+			paths[i] = s.FullPath
+		}
+		return tui.RunMultiViewer(paths)
+	}
+
+	// Show session picker (requires TTY)
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return fmt.Errorf("no session specified and no TTY available\n\nUsage: thinkt sessions view -p <project> <session>\n\nUse 'thinkt sessions list -p %s' to see available sessions", sessionProject)
+	}
+
+	selected, err := tui.PickSession(sessions)
+	if err != nil {
+		return err
+	}
+	if selected == nil {
+		// User cancelled
+		return nil
+	}
+
+	return tui.RunViewer(selected.FullPath)
 }
 
 // getAnalyticsBaseDir returns the base directory for analytics queries.
