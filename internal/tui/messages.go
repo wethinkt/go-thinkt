@@ -33,3 +33,9 @@ type LazyLoadedMsg struct {
 	Count int   // Number of new entries loaded
 	Err   error
 }
+
+// ContentRenderedMsg is sent when content has been rendered asynchronously.
+type ContentRenderedMsg struct {
+	Rendered      string
+	RenderedCount int
+}

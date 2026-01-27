@@ -401,3 +401,9 @@ sometimes it seems like i need a keypress to get it to draw the initial content 
 ## 2026-01-27T14:08:26Z
 
 wouldn't bubbletea do that update/view loop after contentRenderedMsg natually?  shouldn't the ELM architecture handle that? why does it need to be forced.
+
+---
+
+## 2026-01-27T14:17:32Z
+
+we've learned a lot in making those features.  revisit the full tui design and implementation to ensure we are leveraging components and lessons 

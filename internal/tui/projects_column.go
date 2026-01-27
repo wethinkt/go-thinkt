@@ -3,11 +3,13 @@ package tui
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
 )
 
 // SortField defines what field to sort projects by.
@@ -44,14 +46,18 @@ type projectsModel struct {
 	items     []claude.Project
 	sortField SortField
 	sortAsc   bool
+	width     int
+	height    int
 }
 
 func newProjectsModel() projectsModel {
 	delegate := list.NewDefaultDelegate()
 	l := list.New(nil, delegate, 0, 0)
-	l.Title = "Projects"
+	l.SetShowTitle(false)       // We render title in the column border
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(false)
+	l.SetShowFilter(false)      // Hide filter bar to save space
+	l.SetFilteringEnabled(true) // But keep filtering functional (/ to search)
 	return projectsModel{
 		list:      l,
 		sortField: SortByName,
@@ -60,6 +66,7 @@ func newProjectsModel() projectsModel {
 }
 
 func (m *projectsModel) setItems(projects []claude.Project) {
+	tuilog.Log.Debug("projectsModel.setItems", "count", len(projects), "currentHeight", m.height)
 	m.items = projects
 	m.applySort()
 }
@@ -115,7 +122,15 @@ func (m *projectsModel) sortIndicator() string {
 }
 
 func (m *projectsModel) setSize(w, h int) {
-	m.list.SetSize(w, h)
+	tuilog.Log.Debug("projectsModel.setSize", "width", w, "height", h, "itemCount", len(m.items))
+	m.width = w
+	m.height = h
+	m.list.SetWidth(w)
+	m.list.SetHeight(h)
+	// Re-apply items to ensure proper pagination with new dimensions
+	if len(m.items) > 0 {
+		m.applySort()
+	}
 }
 
 func (m *projectsModel) selectedProject() *claude.Project {
@@ -137,5 +152,14 @@ func (m projectsModel) update(msg tea.Msg) (projectsModel, tea.Cmd) {
 }
 
 func (m projectsModel) view() string {
-	return m.list.View()
+	content := m.list.View()
+	// Constrain to our dimensions in case list renders too much
+	if m.height > 0 {
+		lines := strings.Split(content, "\n")
+		if len(lines) > m.height {
+			lines = lines[:m.height]
+			content = strings.Join(lines, "\n")
+		}
+	}
+	return content
 }

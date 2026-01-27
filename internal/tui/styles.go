@@ -13,41 +13,42 @@ var (
 				BorderForeground(lipgloss.Color("#444444"))
 
 	statusBarStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#888888")).
-			Padding(0, 1)
+				Background(lipgloss.Color("#90EE90")).  // Light green background for debugging
+				Foreground(lipgloss.Color("#000000")).  // Black text for contrast
+				Padding(0, 1)
 )
 
 // Conversation block styles.
 var (
 	userBlockStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#1a3a5c")).
-			Foreground(lipgloss.Color("#e0e0e0")).
-			Padding(0, 1).
-			MarginBottom(1)
-
-	assistantBlockStyle = lipgloss.NewStyle().
-				Background(lipgloss.Color("#1a3c1a")).
+				Background(lipgloss.Color("#1a3a5c")).
 				Foreground(lipgloss.Color("#e0e0e0")).
 				Padding(0, 1).
 				MarginBottom(1)
 
+	assistantBlockStyle = lipgloss.NewStyle().
+					Background(lipgloss.Color("#1a3c1a")).
+					Foreground(lipgloss.Color("#e0e0e0")).
+					Padding(0, 1).
+					MarginBottom(1)
+
 	thinkingBlockStyle = lipgloss.NewStyle().
-				Background(lipgloss.Color("#3a1a3c")).
-				Foreground(lipgloss.Color("#c0a0c0")).
-				Padding(0, 1).
-				MarginBottom(1)
+					Background(lipgloss.Color("#3a1a3c")).
+					Foreground(lipgloss.Color("#c0a0c0")).
+					Padding(0, 1).
+					MarginBottom(1)
 
 	toolCallBlockStyle = lipgloss.NewStyle().
-				Background(lipgloss.Color("#3c2a1a")).
-				Foreground(lipgloss.Color("#e0c080")).
-				Padding(0, 1).
-				MarginBottom(1)
+					Background(lipgloss.Color("#3c2a1a")).
+					Foreground(lipgloss.Color("#e0c080")).
+					Padding(0, 1).
+					MarginBottom(1)
 
 	toolResultBlockStyle = lipgloss.NewStyle().
-				Background(lipgloss.Color("#1a2a3c")).
-				Foreground(lipgloss.Color("#a0c0e0")).
-				Padding(0, 1).
-				MarginBottom(1)
+					Background(lipgloss.Color("#1a2a3c")).
+					Foreground(lipgloss.Color("#a0c0e0")).
+					Padding(0, 1).
+					MarginBottom(1)
 )
 
 // Block label styles.

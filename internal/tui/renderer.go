@@ -128,5 +128,15 @@ func renderColumnBorder(content string, title string, width, height int, active 
 	if active {
 		style = activeBorderStyle
 	}
-	return style.Width(width).Height(height).Render(title + "\n" + content)
+
+	// Lipgloss Height pads but doesn't truncate, so we must truncate manually.
+	// The border content is: title (1 line) + content (height-1 lines)
+	contentLines := strings.Split(content, "\n")
+	maxContentLines := max(0, height-1) // Reserve 1 line for title
+	if len(contentLines) > maxContentLines {
+		contentLines = contentLines[:maxContentLines]
+	}
+	truncatedContent := strings.Join(contentLines, "\n")
+
+	return style.Width(width).Height(height).Render(title + "\n" + truncatedContent)
 }

@@ -51,20 +51,25 @@ func (m headerModel) view() string {
 		return ""
 	}
 
-	line1 := m.renderProjectLine()
-	line2 := m.renderSessionLine()
+	// Content width inside the border and padding:
+	// - Border: 2 chars (left + right)
+	// - Padding: 2 chars (left + right, 1 each from Padding(0,1))
+	// Total: 4 chars, so content width = m.width - 4
+	contentWidth := m.width - 4
+	line1 := m.renderProjectLine(contentWidth)
+	line2 := m.renderSessionLine(contentWidth)
 
-	// Combine into a single borderless box at full terminal width
+	// Combine into a bordered box that matches column total width
 	content := line1 + "\n" + line2
 	return headerBoxStyle.Width(m.width).Render(content)
 }
 
-func (m headerModel) renderProjectLine() string {
+func (m headerModel) renderProjectLine(contentWidth int) string {
 	brand := headerBrandStyle.Render("🧠 thinkt")
 	brandWidth := lipgloss.Width(brand)
 
 	// Calculate available width for project info (account for brand on right)
-	availWidth := max(10, m.width-brandWidth-2)
+	availWidth := max(10, contentWidth-brandWidth-2)
 
 	var projectInfo string
 	if m.project != nil {
@@ -98,12 +103,12 @@ func (m headerModel) renderProjectLine() string {
 
 	// Pad to fill width, placing brand on far right
 	infoWidth := lipgloss.Width(projectInfo)
-	padding := max(1, m.width-infoWidth-brandWidth)
+	padding := max(1, contentWidth-infoWidth-brandWidth)
 
 	return projectInfo + strings.Repeat(" ", padding) + brand
 }
 
-func (m headerModel) renderSessionLine() string {
+func (m headerModel) renderSessionLine(contentWidth int) string {
 	var sessionInfo string
 
 	if m.session != nil {
@@ -115,11 +120,11 @@ func (m headerModel) renderSessionLine() string {
 	}
 
 	// Truncate to fit width
-	sessionInfo = truncateWithWidth(sessionInfo, m.width-2)
+	sessionInfo = truncateWithWidth(sessionInfo, contentWidth)
 
 	// Pad to fill full width
 	infoWidth := lipgloss.Width(sessionInfo)
-	padding := max(0, m.width-infoWidth)
+	padding := max(0, contentWidth-infoWidth)
 
 	return sessionInfo + strings.Repeat(" ", padding)
 }
@@ -241,11 +246,14 @@ func truncateWithWidth(s string, maxWidth int) string {
 
 // Header styles
 var (
-	// headerBoxStyle wraps the entire header in a borderless box
+	// headerBoxStyle wraps the entire header with a hidden border to match column widths
+	// The border matches the background so it's invisible but takes up space
 	headerBoxStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#2d2d44")).
-			Foreground(lipgloss.Color("#e0e0e0")).
-			Padding(0)
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#90EE90")).  // Same as background (hidden)
+				Background(lipgloss.Color("#90EE90")).  // Light green background for debugging
+				Foreground(lipgloss.Color("#000000")).  // Black text for contrast
+				Padding(0, 1)  // Horizontal padding inside border
 
 	headerLabelStyle = lipgloss.NewStyle().
 				Bold(true).
@@ -256,5 +264,5 @@ var (
 				Foreground(lipgloss.Color("#9d7aff"))
 
 	headerDimStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#888888"))
+				Foreground(lipgloss.Color("#888888"))
 )

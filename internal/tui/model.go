@@ -1,9 +1,12 @@
 package tui
 
 import (
+	"os"
+
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"golang.org/x/term"
 
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
@@ -69,8 +72,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKeyMsg(msg)
 
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
+		tuilog.Log.Debug("WindowSizeMsg", "width", msg.Width, "height", msg.Height)
+		// Use fallback dimensions if we get 0x0 (can happen on startup or in non-TTY contexts)
+		width, height := msg.Width, msg.Height
+		if width == 0 || height == 0 {
+			// Try to get size from terminal directly
+			if fd := int(os.Stdout.Fd()); term.IsTerminal(fd) {
+				if w, h, err := term.GetSize(fd); err == nil && w > 0 && h > 0 {
+					width, height = w, h
+					tuilog.Log.Debug("WindowSizeMsg fallback from stdout", "width", width, "height", height)
+				}
+			}
+		}
+		// Still 0? Use sensible defaults
+		if width == 0 || height == 0 {
+			width, height = 80, 24
+			tuilog.Log.Debug("WindowSizeMsg using defaults", "width", width, "height", height)
+		}
+		m.width = width
+		m.height = height
 		m.updateSizes()
 		return m, nil
 
@@ -138,10 +158,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		tuilog.Log.Info("LazySessionMsg", "path", msg.Session.Path,
 			"entries", msg.Session.EntryCount(), "hasMore", msg.Session.HasMore())
-		m.content.setLazySession(msg.Session)
+		cmd := m.content.setLazySession(msg.Session)
 		m.header.setSession(msg.Session.ToSession())
 		m.loadedSessionPath = msg.Session.Path
-		return m, nil
+		return m, cmd
 
 	case LazyLoadedMsg:
 		if msg.Err != nil {
@@ -149,11 +169,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		tuilog.Log.Info("LazyLoadedMsg", "newEntries", msg.Count)
 		m.content.setLoadingMore(false)
-		// EW m.content.renderEntries()
 		// Update header with new session state
 		if m.content.lazySession != nil {
 			m.header.setSession(m.content.lazySession.ToSession())
 		}
+		// Render newly loaded entries asynchronously
+		return m, m.content.renderEntriesCmd()
+
+	case ContentRenderedMsg:
+		tuilog.Log.Info("ContentRenderedMsg", "renderedCount", msg.RenderedCount)
+		m.content.applyRenderedContent(msg.Rendered, msg.RenderedCount)
 		return m, nil
 	}
 
@@ -275,9 +300,10 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) updateSizes() {
-	// Reserve lines for header (2) and status bar (1)
+	// Calculate column dimensions (same as View() for consistency)
 	headerHeight := m.header.height()
-	contentHeight := m.height - headerHeight - 1
+	// Total height minus header, status bar (1), and column border (2 top+bottom)
+	columnContentHeight := max(3, m.height-headerHeight-1-2)
 
 	// Column widths: calculate proportionally, col3 gets remainder
 	// Each column border adds 2 chars (left + right), so 6 total for 3 columns
@@ -286,9 +312,14 @@ func (m *Model) updateSizes() {
 	col2Width := max(23, availableWidth*25/100)
 	col3Width := availableWidth - col1Width - col2Width // remainder ensures exact fit
 
-	m.projects.setSize(col1Width, contentHeight-2)
-	m.sessions.setSize(col2Width, contentHeight-2)
-	m.content.setSize(col3Width, contentHeight-2)
+	// List/viewport height = column content height - title line (1)
+	// The border renders: title + "\n" + content, so content gets height-1 lines
+	listHeight := max(1, columnContentHeight-1)
+	tuilog.Log.Debug("updateSizes", "termHeight", m.height, "headerHeight", headerHeight,
+		"columnContentHeight", columnContentHeight, "listHeight", listHeight)
+	m.projects.setSize(col1Width, listHeight)
+	m.sessions.setSize(col2Width, listHeight)
+	m.content.setSize(col3Width, listHeight)
 	m.header.setWidth(m.width)
 }
 
@@ -307,27 +338,34 @@ func (m Model) View() tea.View {
 	}
 
 	headerHeight := m.header.height()
-	contentHeight := m.height - headerHeight - 1
+	// Total height minus header, status bar (1), and column border (2 for top+bottom)
+	columnContentHeight := max(3, m.height-headerHeight-1-2)
 
-	// Column widths: calculate proportionally, then col3 gets remainder
+	// Column widths: calculate proportionally to fill the full terminal width
 	// Each column border adds 2 chars (left + right), so 6 total for 3 columns
-	availableWidth := m.width - 6
-	col1Width := max(18, availableWidth*20/100)
-	col2Width := max(23, availableWidth*25/100)
-	col3Width := availableWidth - col1Width - col2Width // remainder ensures exact fit
+	// We set content width such that total (content + borders) = m.width
+	availableWidth := m.width - 6 // content width for all columns combined
+	col1Width := availableWidth - 2
+	// col1Width := max(18, availableWidth*20/100)
+	// col2Width := max(23, availableWidth*25/100)
+	// col3Width := availableWidth - col1Width - col2Width // remainder ensures exact fit
+
+	statusText := "Tab: columns | Enter: select | s: sort | r: reverse | T: tracer | q: quit"
 
 	// Render columns with borders, include sort indicator in projects title
 	projectsTitle := "Projects " + m.projects.sortIndicator()
-	col1 := renderColumnBorder(m.projects.view(), projectsTitle, col1Width, contentHeight, m.activeColumn == colProjects)
-	col2 := renderColumnBorder(m.sessions.view(), "Sessions", col2Width, contentHeight, m.activeColumn == colSessions)
-	col3 := renderColumnBorder(m.content.view(), "Content", col3Width, contentHeight, m.activeColumn == colContent)
+	col1 := renderColumnBorder(m.projects.view(), projectsTitle, col1Width, columnContentHeight, m.activeColumn == colProjects)
+	// col2 := renderColumnBorder(m.sessions.view(), "Sessions", col2Width, columnContentHeight, m.activeColumn == colSessions)
+	// col3 := renderColumnBorder(m.content.view(), "Content", col3Width, columnContentHeight, m.activeColumn == colContent)
 
 	// Join columns horizontally
-	columns := lipgloss.JoinHorizontal(lipgloss.Top, col1, col2, col3)
+	// columns := lipgloss.JoinHorizontal(lipgloss.Top, col1, col2, col3)
+	columns := col1
 
 	// Build layout: header, columns, status bar
 	header := m.header.view()
-	status := statusBarStyle.Width(m.width).Render("Tab: columns | Enter: select | s: sort | r: reverse | T: tracer | q: quit")
+
+	status := statusBarStyle.Width(m.width).Render(statusText)
 
 	// Join all parts vertically
 	content := lipgloss.JoinVertical(lipgloss.Left, header, columns, status)

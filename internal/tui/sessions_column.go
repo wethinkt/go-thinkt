@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
@@ -42,16 +43,20 @@ func (i sessionItem) FilterValue() string {
 
 // sessionsModel manages the sessions list (column 2).
 type sessionsModel struct {
-	list  list.Model
-	items []claude.SessionMeta
+	list   list.Model
+	items  []claude.SessionMeta
+	width  int
+	height int
 }
 
 func newSessionsModel() sessionsModel {
 	delegate := list.NewDefaultDelegate()
 	l := list.New(nil, delegate, 0, 0)
-	l.Title = "Sessions"
+	l.SetShowTitle(false)       // We render title in the column border
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(false)
+	l.SetShowFilter(false)      // Hide filter bar to save space
+	l.SetFilteringEnabled(true) // But keep filtering functional (/ to search)
 	return sessionsModel{list: l}
 }
 
@@ -65,7 +70,10 @@ func (m *sessionsModel) setItems(sessions []claude.SessionMeta) {
 }
 
 func (m *sessionsModel) setSize(w, h int) {
-	m.list.SetSize(w, h)
+	m.width = w
+	m.height = h
+	m.list.SetWidth(w)
+	m.list.SetHeight(h)
 }
 
 func (m *sessionsModel) selectedSession() *claude.SessionMeta {
@@ -87,5 +95,14 @@ func (m sessionsModel) update(msg tea.Msg) (sessionsModel, tea.Cmd) {
 }
 
 func (m sessionsModel) view() string {
-	return m.list.View()
+	content := m.list.View()
+	// Constrain to our dimensions in case list renders too much
+	if m.height > 0 {
+		lines := strings.Split(content, "\n")
+		if len(lines) > m.height {
+			lines = lines[:m.height]
+			content = strings.Join(lines, "\n")
+		}
+	}
+	return content
 }

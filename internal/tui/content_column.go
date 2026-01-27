@@ -42,8 +42,9 @@ func (m *contentModel) setSize(w, h int) {
 	m.viewport.SetHeight(h)
 }
 
-// setLazySession sets a lazy session for incremental content loading
-func (m *contentModel) setLazySession(ls *claude.LazySession) {
+// setLazySession sets a lazy session for incremental content loading.
+// Returns a command to render content asynchronously.
+func (m *contentModel) setLazySession(ls *claude.LazySession) tea.Cmd {
 	// Close previous session if any
 	if m.lazySession != nil {
 		m.lazySession.Close()
@@ -54,37 +55,55 @@ func (m *contentModel) setLazySession(ls *claude.LazySession) {
 	m.loading = false
 	m.loadingMore = false
 	m.renderedCount = 0
+	m.rendered = ""
 	m.window = nil
-
-	// Render initial content
-	m.renderEntries()
 	m.viewport.GotoTop()
+
+	// Return command to render content asynchronously
+	return m.renderEntriesCmd()
 }
 
-// renderEntries renders any new entries that haven't been rendered yet
-func (m *contentModel) renderEntries() {
+// renderEntriesCmd returns a command that renders entries asynchronously.
+func (m *contentModel) renderEntriesCmd() tea.Cmd {
 	if m.lazySession == nil {
-		return
+		return nil
 	}
 
 	entries := m.lazySession.Entries()
 	if len(entries) <= m.renderedCount {
-		m.updateViewportContent()
-		return
+		return nil
 	}
 
-	// Render only new entries
-	newEntries := entries[m.renderedCount:]
-	newSession := &claude.Session{Entries: newEntries}
-	newRendered := RenderSession(newSession, m.width)
+	// Capture current state for the goroutine
+	newEntries := make([]claude.Entry, len(entries)-m.renderedCount)
+	copy(newEntries, entries[m.renderedCount:])
+	prevRendered := m.rendered
+	prevCount := m.renderedCount
+	width := m.width
 
-	if m.renderedCount == 0 {
-		m.rendered = newRendered
-	} else {
-		m.rendered += "\n" + newRendered
+	return func() tea.Msg {
+		// Do expensive rendering in background
+		newSession := &claude.Session{Entries: newEntries}
+		newRendered := RenderSession(newSession, width)
+
+		var result string
+		if prevCount == 0 {
+			result = newRendered
+		} else {
+			result = prevRendered + "\n" + newRendered
+		}
+
+		return ContentRenderedMsg{
+			Rendered:      result,
+			RenderedCount: prevCount + len(newEntries),
+		}
 	}
-	m.renderedCount = len(entries)
+}
 
+// applyRenderedContent applies the result of async rendering.
+func (m *contentModel) applyRenderedContent(rendered string, count int) {
+	m.rendered = rendered
+	m.renderedCount = count
 	m.updateViewportContent()
 }
 

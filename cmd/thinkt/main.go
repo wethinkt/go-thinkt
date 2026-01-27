@@ -543,8 +543,21 @@ func runTUI(cmd *cobra.Command, args []string) error {
 
 	tuilog.Log.Info("Starting TUI", "baseDir", baseDir)
 
+	// Get initial terminal size - try stdout, stdin, stderr in order
+	var opts []tea.ProgramOption
+	for _, fd := range []int{int(os.Stdout.Fd()), int(os.Stdin.Fd()), int(os.Stderr.Fd())} {
+		if term.IsTerminal(fd) {
+			w, h, err := term.GetSize(fd)
+			if err == nil && w > 0 && h > 0 {
+				tuilog.Log.Info("Terminal size", "fd", fd, "width", w, "height", h)
+				opts = append(opts, tea.WithWindowSize(w, h))
+				break
+			}
+		}
+	}
+
 	model := tui.NewModel(baseDir)
-	p := tea.NewProgram(model)
+	p := tea.NewProgram(model, opts...)
 	_, err := p.Run()
 
 	tuilog.Log.Info("TUI exited", "error", err)
