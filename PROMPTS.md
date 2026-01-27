@@ -232,3 +232,28 @@ we can get rid of `thinkt-prompts`.  `thinkt` will be the only CLI program, whic
 The `thinkt-prompts` commands are folded into the `thinkt` program.  After you do this refactoring, i'm going to focus on each of the modules building it up to make developing the TUI easier.
 
 Please create a plan and then proceed with the refactoring
+
+---
+
+## 2026-01-26T21:42:45Z
+
+i want to add a "thinkt projects" command, which for claude scans the projects in the basedir and lists them.  by default it is short and emits a horizontal tree-view (since it is often from directory structure).  otherwise with --long, it lists them each line by line
+
+---
+
+## 2026-01-26T21:46:20Z
+
+please refactor that to be in internal/cli package and add unit tests therein
+
+---
+
+## 2026-01-26T21:55:59Z
+
+in short, within a project tree, add a newline between each sub-project.    in long, only include the full pathname of the project.   
+add a subcommand "thinkt projects summary" which shows what you are showing now.  but express it with a template.  document this appropriately
+
+---
+
+## 2026-01-27T04:30:47Z
+
+i played with that a bit.  let's make "thinkt projects --long"  be the default.  ./thinkt projects --tree will show what the current default is, but fix the indentation and the look of the tree.  for ./thinkt project summary, add a sort-by name and sort-by time with ascending/descending controls.  default is sort by time descending

@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/cli"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/prompt"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
@@ -116,6 +117,46 @@ var templatesCmd = &cobra.Command{
 	RunE:  runTemplates,
 }
 
+// Projects command flags
+var (
+	treeFormat       bool
+	summaryTemplate  string
+	sortBy           string
+	sortDesc         bool
+)
+
+var projectsCmd = &cobra.Command{
+	Use:   "projects",
+	Short: "List Claude Code projects",
+	Long: `List all Claude Code projects found in the base directory.
+
+By default, outputs project paths one per line.
+Use --tree for a grouped tree view.
+
+Examples:
+  thinkt projects              # Paths, one per line
+  thinkt projects --tree       # Tree view grouped by parent
+  thinkt projects summary      # Detailed with sessions/modified`,
+	RunE: runProjects,
+}
+
+var projectsSummaryCmd = &cobra.Command{
+	Use:   "summary",
+	Short: "Show detailed project summary",
+	Long: `Show detailed information about each project including
+session count and last modified time.
+
+Sorting:
+  --sort name|time    Sort by project name or modified time (default: time)
+  --desc              Sort descending (default for time)
+  --asc               Sort ascending (default for name)
+
+Output can be customized with a Go text/template via --template.
+
+` + cli.SummaryTemplateHelp,
+	RunE: runProjectsSummary,
+}
+
 func main() {
 	// Global flags on root
 	rootCmd.PersistentFlags().StringVarP(&baseDir, "dir", "d", "", "base directory (default ~/.claude)")
@@ -138,7 +179,15 @@ func main() {
 	extractCmd.Flags().StringVarP(&formatType, "format", "f", "markdown", "output format (markdown|json|plain)")
 	extractCmd.Flags().StringVar(&templateFile, "template", "", "custom template file (for markdown format)")
 
+	// Projects command flags
+	projectsCmd.Flags().BoolVarP(&treeFormat, "tree", "t", false, "show tree view grouped by parent directory")
+	projectsSummaryCmd.Flags().StringVar(&summaryTemplate, "template", "", "custom Go text/template for output")
+	projectsSummaryCmd.Flags().StringVar(&sortBy, "sort", "time", "sort by: name, time")
+	projectsSummaryCmd.Flags().BoolVar(&sortDesc, "desc", false, "sort descending (default for time)")
+	projectsSummaryCmd.Flags().Bool("asc", false, "sort ascending (default for name)")
+
 	// Build command tree
+	projectsCmd.AddCommand(projectsSummaryCmd)
 	promptsCmd.AddCommand(extractCmd)
 	promptsCmd.AddCommand(listCmd)
 	promptsCmd.AddCommand(infoCmd)
@@ -146,6 +195,7 @@ func main() {
 
 	rootCmd.AddCommand(tuiCmd)
 	rootCmd.AddCommand(promptsCmd)
+	rootCmd.AddCommand(projectsCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -403,4 +453,44 @@ func runTemplates(cmd *cobra.Command, args []string) error {
 	fmt.Println(prompt.DefaultTemplateHelp)
 
 	return nil
+}
+
+func runProjects(cmd *cobra.Command, args []string) error {
+	projects, err := claude.ListProjects(baseDir)
+	if err != nil {
+		return fmt.Errorf("list projects: %w", err)
+	}
+
+	if len(projects) == 0 {
+		fmt.Println("No projects found")
+		return nil
+	}
+
+	formatter := cli.NewProjectsFormatter(os.Stdout)
+	if treeFormat {
+		return formatter.FormatTree(projects)
+	}
+	return formatter.FormatLong(projects)
+}
+
+func runProjectsSummary(cmd *cobra.Command, args []string) error {
+	projects, err := claude.ListProjects(baseDir)
+	if err != nil {
+		return fmt.Errorf("list projects: %w", err)
+	}
+
+	if len(projects) == 0 {
+		fmt.Println("No projects found")
+		return nil
+	}
+
+	// Determine sort order
+	ascFlag, _ := cmd.Flags().GetBool("asc")
+	descending := sortDesc || (!ascFlag && sortBy == "time") // time defaults to desc
+
+	formatter := cli.NewProjectsFormatter(os.Stdout)
+	return formatter.FormatSummary(projects, summaryTemplate, cli.SummaryOptions{
+		SortBy:     sortBy,
+		Descending: descending,
+	})
 }
