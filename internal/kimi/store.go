@@ -10,6 +10,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -149,15 +151,19 @@ func (s *Store) listSessionsForHash(hash string) ([]thinkt.SessionMeta, error) {
 		}
 
 		sessionID := entry.Name()
-		contextPath := filepath.Join(sessionDir, sessionID, "context.jsonl")
+		sessionPath := filepath.Join(sessionDir, sessionID)
+		contextPath := filepath.Join(sessionPath, "context.jsonl")
 
 		info, err := os.Stat(contextPath)
 		if err != nil {
 			continue
 		}
 
-		// Count entries by reading the file
+		// Count entries by reading the file(s)
 		count, firstPrompt := s.countEntriesAndFirstPrompt(contextPath)
+		
+		// Count chunks (context_sub_*.jsonl files)
+		chunkCount := countChunks(sessionPath)
 
 		sessions = append(sessions, thinkt.SessionMeta{
 			ID:          sessionID,
@@ -169,10 +175,31 @@ func (s *Store) listSessionsForHash(hash string) ([]thinkt.SessionMeta, error) {
 			ModifiedAt:  info.ModTime(),
 			Source:      thinkt.SourceKimi,
 			WorkspaceID: ws.ID,
+			ChunkCount:  chunkCount,
 		})
 	}
 
 	return sessions, nil
+}
+
+// countChunks counts the number of context files (context.jsonl + context_sub_*.jsonl)
+func countChunks(sessionPath string) int {
+	entries, err := os.ReadDir(sessionPath)
+	if err != nil {
+		return 1 // Assume single file if we can't read
+	}
+	
+	count := 0
+	for _, entry := range entries {
+		name := entry.Name()
+		if name == "context.jsonl" || strings.HasPrefix(name, "context_sub_") && strings.HasSuffix(name, ".jsonl") {
+			count++
+		}
+	}
+	if count == 0 {
+		return 1 // Default to 1 if we find nothing
+	}
+	return count
 }
 
 func (s *Store) countEntriesAndFirstPrompt(path string) (int, string) {
@@ -270,6 +297,11 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 	}
 
 	count, firstPrompt := s.countEntriesAndFirstPrompt(contextPath)
+	
+	// Count chunks
+	sessionPath := filepath.Join(s.baseDir, "sessions", hash, uuid)
+	chunkCount := countChunks(sessionPath)
+	
 	ws := s.Workspace()
 
 	return &thinkt.SessionMeta{
@@ -282,6 +314,7 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 		ModifiedAt:  info.ModTime(),
 		Source:      thinkt.SourceKimi,
 		WorkspaceID: ws.ID,
+		ChunkCount:  chunkCount,
 	}, nil
 }
 
@@ -318,11 +351,17 @@ func (s *Store) LoadSession(ctx context.Context, sessionID string) (*thinkt.Sess
 }
 
 // OpenSession returns a streaming reader for a session.
+// For chunked sessions (context_sub_*.jsonl), it transparently stitches all files together.
 func (s *Store) OpenSession(ctx context.Context, sessionID string) (thinkt.SessionReader, error) {
 	// Resolve session ID to path
 	meta, err := s.GetSessionMeta(ctx, sessionID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Check if session is chunked
+	if meta.ChunkCount > 1 {
+		return s.openChunkedSession(*meta)
 	}
 
 	reader, err := jsonl.NewReader(meta.FullPath)
@@ -333,15 +372,69 @@ func (s *Store) OpenSession(ctx context.Context, sessionID string) (thinkt.Sessi
 	return &kimiReader{
 		reader: reader,
 		meta:   *meta,
+		source: thinkt.SourceKimi,
+		wsID:   s.Workspace().ID,
 	}, nil
+}
+
+// openChunkedSession creates a reader that transparently reads across chunked files.
+func (s *Store) openChunkedSession(meta thinkt.SessionMeta) (thinkt.SessionReader, error) {
+	sessionPath := filepath.Dir(meta.FullPath)
+	
+	// Build list of chunk files in order
+	var chunkFiles []string
+	chunkFiles = append(chunkFiles, meta.FullPath) // context.jsonl
+	
+	// Find and sort context_sub_*.jsonl files
+	entries, err := os.ReadDir(sessionPath)
+	if err != nil {
+		return nil, err
+	}
+	
+	var subChunks []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.HasPrefix(name, "context_sub_") && strings.HasSuffix(name, ".jsonl") {
+			subChunks = append(subChunks, filepath.Join(sessionPath, name))
+		}
+	}
+	// Sort numerically (context_sub_1.jsonl, context_sub_2.jsonl, etc.)
+	sort.Slice(subChunks, func(i, j int) bool {
+		// Extract number from filename for proper numeric sorting
+		numI := extractChunkNumber(subChunks[i])
+		numJ := extractChunkNumber(subChunks[j])
+		return numI < numJ
+	})
+	
+	chunkFiles = append(chunkFiles, subChunks...)
+	
+	return &chunkedKimiReader{
+		files:   chunkFiles,
+		meta:    meta,
+		source:  thinkt.SourceKimi,
+		wsID:    s.Workspace().ID,
+	}, nil
+}
+
+// extractChunkNumber extracts the number from context_sub_N.jsonl
+func extractChunkNumber(path string) int {
+	base := filepath.Base(path)
+	// Remove prefix and suffix
+	numStr := strings.TrimPrefix(base, "context_sub_")
+	numStr = strings.TrimSuffix(numStr, ".jsonl")
+	num, _ := strconv.Atoi(numStr)
+	return num
 }
 
 // kimiReader implements thinkt.SessionReader for Kimi format.
 type kimiReader struct {
-	reader *jsonl.Reader
-	meta   thinkt.SessionMeta
-	closed bool
-	done   bool
+	reader     *jsonl.Reader
+	meta       thinkt.SessionMeta
+	closed     bool
+	done       bool
+	lineNum    int
+	source     thinkt.Source
+	wsID       string
 }
 
 func (r *kimiReader) ReadNext() (*thinkt.Entry, error) {
@@ -354,9 +447,10 @@ func (r *kimiReader) ReadNext() (*thinkt.Entry, error) {
 
 	for {
 		line, err := r.reader.ReadLine()
+		r.lineNum++
 		if err == io.EOF {
 			if len(line) > 0 {
-				entry, parseErr := parseKimiEntry(line)
+				entry, parseErr := parseKimiEntry(line, r.lineNum, r.source, r.wsID)
 				if parseErr == nil && entry != nil {
 					return entry, nil
 				}
@@ -371,7 +465,7 @@ func (r *kimiReader) ReadNext() (*thinkt.Entry, error) {
 			continue
 		}
 
-		entry, err := parseKimiEntry(line)
+		entry, err := parseKimiEntry(line, r.lineNum, r.source, r.wsID)
 		if err != nil {
 			continue // Skip malformed entries
 		}
@@ -393,8 +487,97 @@ func (r *kimiReader) Close() error {
 	return r.reader.Close()
 }
 
+// chunkedKimiReader reads across multiple chunk files transparently.
+type chunkedKimiReader struct {
+	files      []string
+	meta       thinkt.SessionMeta
+	currentIdx int
+	current    *jsonl.Reader
+	lineNum    int
+	closed     bool
+	source     thinkt.Source
+	wsID       string
+}
+
+func (r *chunkedKimiReader) ReadNext() (*thinkt.Entry, error) {
+	if r.closed {
+		return nil, io.ErrClosedPipe
+	}
+
+	// If no current reader, open first file
+	if r.current == nil && r.currentIdx < len(r.files) {
+		reader, err := jsonl.NewReader(r.files[r.currentIdx])
+		if err != nil {
+			return nil, err
+		}
+		r.current = reader
+	}
+
+	for r.current != nil {
+		line, err := r.current.ReadLine()
+		r.lineNum++
+		
+		if err == io.EOF {
+			// Try to process any final line
+			if len(line) > 0 {
+				entry, parseErr := parseKimiEntry(line, r.lineNum, r.source, r.wsID)
+				if parseErr == nil && entry != nil {
+					return entry, nil
+				}
+			}
+			// Move to next file
+			r.current.Close()
+			r.currentIdx++
+			if r.currentIdx >= len(r.files) {
+				return nil, io.EOF
+			}
+			reader, err := jsonl.NewReader(r.files[r.currentIdx])
+			if err != nil {
+				return nil, err
+			}
+			r.current = reader
+			continue
+		}
+		
+		if err != nil {
+			return nil, err
+		}
+		
+		if len(line) == 0 {
+			continue
+		}
+
+		entry, err := parseKimiEntry(line, r.lineNum, r.source, r.wsID)
+		if err != nil {
+			continue // Skip malformed entries
+		}
+		if entry != nil {
+			return entry, nil
+		}
+	}
+
+	return nil, io.EOF
+}
+
+func (r *chunkedKimiReader) Metadata() thinkt.SessionMeta {
+	return r.meta
+}
+
+func (r *chunkedKimiReader) Close() error {
+	if r.closed {
+		return nil
+	}
+	r.closed = true
+	if r.current != nil {
+		r.current.Close()
+	}
+	return nil
+}
+
 // parseKimiEntry parses a single line from context.jsonl.
-func parseKimiEntry(data []byte) (*thinkt.Entry, error) {
+// lineNum is used to generate a deterministic UUID ("L{lineNum}").
+// source and wsID are set for provenance tracking.
+func parseKimiEntry(data []byte, lineNum int, source thinkt.Source, wsID string) (*thinkt.Entry, error) {
 	var raw map[string]any
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -402,14 +585,24 @@ func parseKimiEntry(data []byte) (*thinkt.Entry, error) {
 
 	role, _ := raw["role"].(string)
 	
-	// Skip internal entries
-	if role == "" || role == "_checkpoint" || role == "_usage" {
+	// Skip empty entries and usage metadata entries
+	if role == "" || role == "_usage" {
 		return nil, nil
 	}
 
 	entry := &thinkt.Entry{
-		Role:     convertKimiRole(role),
-		Metadata: make(map[string]any),
+		UUID:        fmt.Sprintf("L%d", lineNum), // Deterministic UUID from line number
+		Role:        convertKimiRole(role),
+		Source:      source,
+		WorkspaceID: wsID,
+		Metadata:    make(map[string]any),
+	}
+
+	// Handle checkpoint entries as first-class role
+	if role == "_checkpoint" {
+		entry.Role = thinkt.RoleCheckpoint
+		entry.IsCheckpoint = true
+		return entry, nil // Return checkpoint entries now
 	}
 
 	// Extract timestamp if present
@@ -585,6 +778,9 @@ func (s *Store) loadWorkDirs() ([]kimiWorkDir, error) {
 func (s *Store) scanProjects(sessionsDir string) ([]thinkt.Project, error) {
 	entries, err := os.ReadDir(sessionsDir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return []thinkt.Project{}, nil
+		}
 		return nil, err
 	}
 

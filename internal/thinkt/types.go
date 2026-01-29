@@ -42,12 +42,13 @@ type Workspace struct {
 type Role string
 
 const (
-	RoleUser      Role = "user"
-	RoleAssistant Role = "assistant"
-	RoleTool      Role = "tool"
-	RoleSystem    Role = "system"
-	RoleSummary   Role = "summary"
-	RoleProgress  Role = "progress"
+	RoleUser       Role = "user"
+	RoleAssistant  Role = "assistant"
+	RoleTool       Role = "tool"
+	RoleSystem     Role = "system"
+	RoleSummary    Role = "summary"
+	RoleProgress   Role = "progress"
+	RoleCheckpoint Role = "checkpoint" // State recovery markers (Kimi _checkpoint, Claude file-history-snapshot)
 )
 
 // ContentBlock represents a piece of content within a message.
@@ -124,6 +125,7 @@ type SessionMeta struct {
 	Model        string    `json:"model,omitempty"`
 	Source       Source    `json:"source"`       // Which tool (kimi, claude)
 	WorkspaceID  string    `json:"workspace_id"` // Which machine/host
+	ChunkCount   int       `json:"chunk_count"`  // Number of files: 0=unknown, 1=single, 2+=chunked
 }
 
 // Session represents a complete conversation session.
