@@ -449,3 +449,27 @@ nevermind... we already did that and there were stale files.  i took care of it.
 ## 2026-01-27T21:10:17Z
 
 would it be possible to lazy decode the json as well?  are we accessing it before we need to, for example to render in conversations?  it seems to be reading it deeply even to just show the projects?
+
+---
+
+## 2026-01-29T15:10:29Z
+
+review the reports in etc/reports regarding claude and kimi storage formats.  kimi was tasked with creating common abstractions, which are now staged.   please review kimi's work and suggest changes
+
+---
+
+## 2026-01-29T15:13:50Z
+
+it's ok that aspects are empty, we are still forming this.   i do appreciate the concept of removing the HomeDir and OpenFile abstractions.  so please do 1,2,3.   
+
+---
+
+## 2026-01-29T15:20:26Z
+
+so i would like you to deeply review the CLAUDE_STRUCTURE.md and KIMI_STRUCTURE.md reports to understand their commonalities and differences and synthesize an ontology and taxonomy.   then tell me how the types in internal/thinkt/types.go reflect that structure and what is missing.  you can create a report about that
+
+---
+
+## 2026-01-29T16:35:51Z
+
+yes, source is important, as is workspace (machine/host)...  same project may live in multiple places, Fly.io sprites, VMs, desktop versus laptop.  just like git repos.   As a first step, update the internal/thinkt to include those concepts
