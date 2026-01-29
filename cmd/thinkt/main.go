@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime/pprof"
 	"slices"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -187,18 +188,31 @@ var (
 	outputJSON    bool
 )
 
+// Projects command flags
+var (
+	projectSources    []string // --source flag (can be specified multiple times)
+	withSessions      bool     // --with-sessions flag for summary
+	longFormat        bool     // --long flag for columnar output
+)
+
 var projectsCmd = &cobra.Command{
 	Use:   "projects",
-	Short: "List Claude Code projects",
-	Long: `List all Claude Code projects found in the base directory.
+	Short: "List projects from all sources",
+	Long: `List all projects from available sources (Kimi, Claude, etc.).
 
-By default, outputs project paths one per line.
+By default, outputs project paths one per line from ALL sources.
+Use --source to limit to specific sources (can be specified multiple times).
+Use --long for detailed columns (source, sessions, modified time).
 Use --tree for a grouped tree view.
 
 Examples:
-  thinkt projects              # Paths, one per line
-  thinkt projects --tree       # Tree view grouped by parent
-  thinkt projects summary      # Detailed with sessions/modified`,
+  thinkt projects                      # All sources, paths one per line
+  thinkt projects --long               # Detailed columns
+  thinkt projects --source kimi        # Only Kimi projects
+  thinkt projects --source claude      # Only Claude projects
+  thinkt projects --source kimi --source claude  # Both sources
+  thinkt projects --tree               # Tree view grouped by source/parent
+  thinkt projects summary              # Detailed summary with session names`,
 	RunE: runProjects,
 }
 
@@ -207,6 +221,9 @@ var projectsSummaryCmd = &cobra.Command{
 	Short: "Show detailed project summary",
 	Long: `Show detailed information about each project including
 session count and last modified time.
+
+By default, shows projects from ALL sources.
+Use --source to limit to specific sources.
 
 Sorting:
   --sort name|time    Sort by project name or modified time (default: time)
@@ -508,11 +525,14 @@ func main() {
 	extractCmd.Flags().StringVar(&templateFile, "template", "", "custom template file (for markdown format)")
 
 	// Projects command flags
+	projectsCmd.PersistentFlags().StringArrayVarP(&projectSources, "source", "s", nil, "source to include (kimi|claude, can be specified multiple times, default: all)")
 	projectsCmd.Flags().BoolVarP(&treeFormat, "tree", "t", false, "show tree view grouped by parent directory")
+	projectsCmd.Flags().BoolVarP(&longFormat, "long", "l", false, "show detailed columns (path, source, sessions, modified)")
 	projectsSummaryCmd.Flags().StringVar(&summaryTemplate, "template", "", "custom Go text/template for output")
 	projectsSummaryCmd.Flags().StringVar(&sortBy, "sort", "time", "sort by: name, time")
 	projectsSummaryCmd.Flags().BoolVar(&sortDesc, "desc", false, "sort descending (default for time)")
 	projectsSummaryCmd.Flags().Bool("asc", false, "sort ascending (default for name)")
+	projectsSummaryCmd.Flags().BoolVar(&withSessions, "with-sessions", false, "include session names in output")
 	projectsDeleteCmd.Flags().BoolVarP(&forceDelete, "force", "f", false, "skip confirmation prompt")
 
 	// Sessions command flags
@@ -831,31 +851,59 @@ func runTemplates(cmd *cobra.Command, args []string) error {
 }
 
 func runProjects(cmd *cobra.Command, args []string) error {
-	projects, err := claude.ListProjects(baseDir)
+	// --long and --tree are mutually exclusive
+	if treeFormat && longFormat {
+		return fmt.Errorf("--long and --tree are mutually exclusive")
+	}
+
+	registry := createSourceRegistry()
+
+	projects, err := getProjectsFromSources(registry, projectSources)
 	if err != nil {
-		return fmt.Errorf("list projects: %w", err)
+		return err
 	}
 
 	if len(projects) == 0 {
-		fmt.Println("No projects found")
+		if len(projectSources) > 0 {
+			fmt.Printf("No projects found from sources: %v\n", projectSources)
+		} else {
+			fmt.Println("No projects found")
+		}
 		return nil
 	}
 
+	// Sort projects by path for consistent output
+	sort.Slice(projects, func(i, j int) bool {
+		return projects[i].Path < projects[j].Path
+	})
+
 	formatter := cli.NewProjectsFormatter(os.Stdout)
+	
 	if treeFormat {
 		return formatter.FormatTree(projects)
 	}
+	
+	if longFormat {
+		return formatter.FormatVerbose(projects)
+	}
+	
 	return formatter.FormatLong(projects)
 }
 
 func runProjectsSummary(cmd *cobra.Command, args []string) error {
-	projects, err := claude.ListProjects(baseDir)
+	registry := createSourceRegistry()
+
+	projects, err := getProjectsFromSources(registry, projectSources)
 	if err != nil {
-		return fmt.Errorf("list projects: %w", err)
+		return err
 	}
 
 	if len(projects) == 0 {
-		fmt.Println("No projects found")
+		if len(projectSources) > 0 {
+			fmt.Printf("No projects found from sources: %v\n", projectSources)
+		} else {
+			fmt.Println("No projects found")
+		}
 		return nil
 	}
 
@@ -863,8 +911,26 @@ func runProjectsSummary(cmd *cobra.Command, args []string) error {
 	ascFlag, _ := cmd.Flags().GetBool("asc")
 	descending := sortDesc || (!ascFlag && sortBy == "time") // time defaults to desc
 
+	// Optionally fetch sessions for each project
+	var projectSessions map[string][]thinkt.SessionMeta
+	if withSessions {
+		projectSessions = make(map[string][]thinkt.SessionMeta)
+		ctx := context.Background()
+		for _, p := range projects {
+			store, ok := registry.Get(p.Source)
+			if !ok {
+				continue
+			}
+			sessions, err := store.ListSessions(ctx, p.ID)
+			if err != nil {
+				continue
+			}
+			projectSessions[p.ID] = sessions
+		}
+	}
+
 	formatter := cli.NewProjectsFormatter(os.Stdout)
-	return formatter.FormatSummary(projects, summaryTemplate, cli.SummaryOptions{
+	return formatter.FormatSummary(projects, projectSessions, summaryTemplate, cli.SummaryOptions{
 		SortBy:     sortBy,
 		Descending: descending,
 	})
@@ -1333,6 +1399,35 @@ func createSourceRegistry() *thinkt.StoreRegistry {
 	}
 
 	return registry
+}
+
+// getProjectsFromSources returns projects from the selected sources.
+// If no sources specified, returns projects from all available sources.
+func getProjectsFromSources(registry *thinkt.StoreRegistry, sources []string) ([]thinkt.Project, error) {
+	ctx := context.Background()
+
+	// If no sources specified, use all available sources
+	if len(sources) == 0 {
+		return registry.ListAllProjects(ctx)
+	}
+
+	// Validate and collect projects from specified sources
+	var allProjects []thinkt.Project
+	for _, sourceName := range sources {
+		source := thinkt.Source(sourceName)
+		store, ok := registry.Get(source)
+		if !ok {
+			return nil, fmt.Errorf("unknown source: %s (available: kimi, claude)", sourceName)
+		}
+
+		projects, err := store.ListProjects(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list projects from %s: %w", sourceName, err)
+		}
+		allProjects = append(allProjects, projects...)
+	}
+
+	return allProjects, nil
 }
 
 // runSourcesList lists available sources.
