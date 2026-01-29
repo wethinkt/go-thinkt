@@ -5,6 +5,8 @@ import (
 	"io"
 	"sync"
 	"time"
+
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/jsonl"
 )
 
 // LazySession provides lazy-loading access to a session file.
@@ -27,7 +29,7 @@ type LazySession struct {
 	entries []Entry
 
 	// Reader state
-	reader       *JSONLReader
+	reader       *jsonl.Reader
 	bytesRead    int64
 	fullyLoaded  bool
 	contentBytes int // estimated displayable content loaded
@@ -37,7 +39,7 @@ type LazySession struct {
 // It reads the first few entries to extract session metadata but
 // does not load the full content. Call LoadMore() to load additional entries.
 func OpenLazySession(path string) (*LazySession, error) {
-	reader, err := NewJSONLReader(path)
+	reader, err := jsonl.NewReader(path)
 	if err != nil {
 		return nil, err
 	}

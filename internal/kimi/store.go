@@ -2,7 +2,6 @@
 package kimi
 
 import (
-	"bufio"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
@@ -14,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/jsonl"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 )
 
@@ -176,24 +176,51 @@ func (s *Store) listSessionsForHash(hash string) ([]thinkt.SessionMeta, error) {
 }
 
 func (s *Store) countEntriesAndFirstPrompt(path string) (int, string) {
-	f, err := os.Open(path)
+	reader, err := jsonl.NewReader(path)
 	if err != nil {
 		return 0, ""
 	}
-	defer f.Close()
+	defer reader.Close()
 
-	scanner := bufio.NewScanner(f)
 	count := 0
 	firstPrompt := ""
 
-	for scanner.Scan() {
+	for {
+		line, err := reader.ReadLine()
+		if err == io.EOF {
+			if len(line) > 0 {
+				count++
+				if firstPrompt == "" {
+					var entry struct {
+						Role    string `json:"role"`
+						Content string `json:"content"`
+					}
+					if err := json.Unmarshal(line, &entry); err == nil {
+						if entry.Role == "user" && entry.Content != "" {
+							firstPrompt = entry.Content
+							if len(firstPrompt) > 50 {
+								firstPrompt = firstPrompt[:50] + "..."
+							}
+						}
+					}
+				}
+			}
+			break
+		}
+		if err != nil {
+			break
+		}
+		if len(line) == 0 {
+			continue
+		}
+
 		count++
 		if firstPrompt == "" {
 			var entry struct {
 				Role    string `json:"role"`
 				Content string `json:"content"`
 			}
-			if err := json.Unmarshal(scanner.Bytes(), &entry); err == nil {
+			if err := json.Unmarshal(line, &entry); err == nil {
 				if entry.Role == "user" && entry.Content != "" {
 					firstPrompt = entry.Content
 					if len(firstPrompt) > 50 {
@@ -298,25 +325,23 @@ func (s *Store) OpenSession(ctx context.Context, sessionID string) (thinkt.Sessi
 		return nil, err
 	}
 
-	f, err := os.Open(meta.FullPath)
+	reader, err := jsonl.NewReader(meta.FullPath)
 	if err != nil {
 		return nil, err
 	}
 
 	return &kimiReader{
-		scanner: bufio.NewScanner(f),
-		file:    f,
-		meta:    *meta,
+		reader: reader,
+		meta:   *meta,
 	}, nil
 }
 
 // kimiReader implements thinkt.SessionReader for Kimi format.
 type kimiReader struct {
-	scanner *bufio.Scanner
-	file    *os.File
-	meta    thinkt.SessionMeta
-	closed  bool
-	done    bool
+	reader *jsonl.Reader
+	meta   thinkt.SessionMeta
+	closed bool
+	done   bool
 }
 
 func (r *kimiReader) ReadNext() (*thinkt.Entry, error) {
@@ -327,8 +352,21 @@ func (r *kimiReader) ReadNext() (*thinkt.Entry, error) {
 		return nil, io.EOF
 	}
 
-	for r.scanner.Scan() {
-		line := r.scanner.Bytes()
+	for {
+		line, err := r.reader.ReadLine()
+		if err == io.EOF {
+			if len(line) > 0 {
+				entry, parseErr := parseKimiEntry(line)
+				if parseErr == nil && entry != nil {
+					return entry, nil
+				}
+			}
+			r.done = true
+			return nil, io.EOF
+		}
+		if err != nil {
+			return nil, err
+		}
 		if len(line) == 0 {
 			continue
 		}
@@ -341,13 +379,6 @@ func (r *kimiReader) ReadNext() (*thinkt.Entry, error) {
 			return entry, nil
 		}
 	}
-
-	if err := r.scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	r.done = true
-	return nil, io.EOF
 }
 
 func (r *kimiReader) Metadata() thinkt.SessionMeta {
@@ -359,7 +390,7 @@ func (r *kimiReader) Close() error {
 		return nil
 	}
 	r.closed = true
-	return r.file.Close()
+	return r.reader.Close()
 }
 
 // parseKimiEntry parses a single line from context.jsonl.

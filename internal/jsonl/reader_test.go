@@ -1,4 +1,4 @@
-package claude
+package jsonl
 
 import (
 	"encoding/json"
@@ -26,7 +26,7 @@ func createTestJSONL(t *testing.T, lines []string) string {
 	return path
 }
 
-func TestJSONLReader_ReadLine(t *testing.T) {
+func TestReader_ReadLine(t *testing.T) {
 	lines := []string{
 		`{"id": 1, "name": "first"}`,
 		`{"id": 2, "name": "second"}`,
@@ -34,9 +34,9 @@ func TestJSONLReader_ReadLine(t *testing.T) {
 	}
 	path := createTestJSONL(t, lines)
 
-	reader, err := NewJSONLReader(path)
+	reader, err := NewReader(path)
 	if err != nil {
-		t.Fatalf("NewJSONLReader: %v", err)
+		t.Fatalf("NewReader: %v", err)
 	}
 	defer reader.Close()
 
@@ -61,7 +61,7 @@ func TestJSONLReader_ReadLine(t *testing.T) {
 	}
 }
 
-func TestJSONLReader_ReadLines(t *testing.T) {
+func TestReader_ReadLines(t *testing.T) {
 	lines := []string{
 		`{"id": 1}`,
 		`{"id": 2}`,
@@ -71,9 +71,9 @@ func TestJSONLReader_ReadLines(t *testing.T) {
 	}
 	path := createTestJSONL(t, lines)
 
-	reader, err := NewJSONLReader(path)
+	reader, err := NewReader(path)
 	if err != nil {
-		t.Fatalf("NewJSONLReader: %v", err)
+		t.Fatalf("NewReader: %v", err)
 	}
 	defer reader.Close()
 
@@ -105,7 +105,7 @@ func TestJSONLReader_ReadLines(t *testing.T) {
 	}
 }
 
-func TestJSONLReader_ReadJSON(t *testing.T) {
+func TestReader_ReadJSON(t *testing.T) {
 	type testEntry struct {
 		ID   int    `json:"id"`
 		Name string `json:"name"`
@@ -117,9 +117,9 @@ func TestJSONLReader_ReadJSON(t *testing.T) {
 	}
 	path := createTestJSONL(t, lines)
 
-	reader, err := NewJSONLReader(path)
+	reader, err := NewReader(path)
 	if err != nil {
-		t.Fatalf("NewJSONLReader: %v", err)
+		t.Fatalf("NewReader: %v", err)
 	}
 	defer reader.Close()
 
@@ -141,7 +141,7 @@ func TestJSONLReader_ReadJSON(t *testing.T) {
 	}
 }
 
-func TestJSONLReader_Position(t *testing.T) {
+func TestReader_Position(t *testing.T) {
 	lines := []string{
 		`{"id": 1}`,
 		`{"id": 2}`,
@@ -149,9 +149,9 @@ func TestJSONLReader_Position(t *testing.T) {
 	}
 	path := createTestJSONL(t, lines)
 
-	reader, err := NewJSONLReader(path)
+	reader, err := NewReader(path)
 	if err != nil {
-		t.Fatalf("NewJSONLReader: %v", err)
+		t.Fatalf("NewReader: %v", err)
 	}
 	defer reader.Close()
 
@@ -174,7 +174,7 @@ func TestJSONLReader_Position(t *testing.T) {
 	}
 }
 
-func TestJSONLReader_Seek(t *testing.T) {
+func TestReader_Seek(t *testing.T) {
 	lines := []string{
 		`{"id": 1}`,
 		`{"id": 2}`,
@@ -182,9 +182,9 @@ func TestJSONLReader_Seek(t *testing.T) {
 	}
 	path := createTestJSONL(t, lines)
 
-	reader, err := NewJSONLReader(path)
+	reader, err := NewReader(path)
 	if err != nil {
-		t.Fatalf("NewJSONLReader: %v", err)
+		t.Fatalf("NewReader: %v", err)
 	}
 	defer reader.Close()
 
@@ -208,16 +208,16 @@ func TestJSONLReader_Seek(t *testing.T) {
 	}
 }
 
-func TestJSONLReader_Reset(t *testing.T) {
+func TestReader_Reset(t *testing.T) {
 	lines := []string{
 		`{"id": 1}`,
 		`{"id": 2}`,
 	}
 	path := createTestJSONL(t, lines)
 
-	reader, err := NewJSONLReader(path)
+	reader, err := NewReader(path)
 	if err != nil {
-		t.Fatalf("NewJSONLReader: %v", err)
+		t.Fatalf("NewReader: %v", err)
 	}
 	defer reader.Close()
 
@@ -250,7 +250,7 @@ func TestJSONLReader_Reset(t *testing.T) {
 	}
 }
 
-func TestJSONLReader_ReadUntilBytes(t *testing.T) {
+func TestReader_ReadUntilBytes(t *testing.T) {
 	// Create lines of known sizes
 	lines := []string{
 		`{"data": "aaaaaaaaaa"}`, // ~25 bytes
@@ -260,9 +260,9 @@ func TestJSONLReader_ReadUntilBytes(t *testing.T) {
 	}
 	path := createTestJSONL(t, lines)
 
-	reader, err := NewJSONLReader(path)
+	reader, err := NewReader(path)
 	if err != nil {
-		t.Fatalf("NewJSONLReader: %v", err)
+		t.Fatalf("NewReader: %v", err)
 	}
 	defer reader.Close()
 
@@ -279,7 +279,7 @@ func TestJSONLReader_ReadUntilBytes(t *testing.T) {
 	}
 }
 
-func TestJSONLReader_Snapshot(t *testing.T) {
+func TestReader_Snapshot(t *testing.T) {
 	lines := []string{
 		`{"id": 1}`,
 		`{"id": 2}`,
@@ -287,9 +287,9 @@ func TestJSONLReader_Snapshot(t *testing.T) {
 	}
 	path := createTestJSONL(t, lines)
 
-	reader, err := NewJSONLReader(path)
+	reader, err := NewReader(path)
 	if err != nil {
-		t.Fatalf("NewJSONLReader: %v", err)
+		t.Fatalf("NewReader: %v", err)
 	}
 
 	// Read first line
@@ -313,16 +313,16 @@ func TestJSONLReader_Snapshot(t *testing.T) {
 	}
 }
 
-func TestJSONLReader_Progress(t *testing.T) {
+func TestReader_Progress(t *testing.T) {
 	lines := []string{
 		`{"id": 1}`,
 		`{"id": 2}`,
 	}
 	path := createTestJSONL(t, lines)
 
-	reader, err := NewJSONLReader(path)
+	reader, err := NewReader(path)
 	if err != nil {
-		t.Fatalf("NewJSONLReader: %v", err)
+		t.Fatalf("NewReader: %v", err)
 	}
 	defer reader.Close()
 
@@ -337,7 +337,7 @@ func TestJSONLReader_Progress(t *testing.T) {
 	}
 }
 
-func TestJSONLReader_EmptyLines(t *testing.T) {
+func TestReader_EmptyLines(t *testing.T) {
 	// File with empty lines interspersed
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.jsonl")
@@ -350,9 +350,9 @@ func TestJSONLReader_EmptyLines(t *testing.T) {
 `
 	os.WriteFile(path, []byte(content), 0644)
 
-	reader, err := NewJSONLReader(path)
+	reader, err := NewReader(path)
 	if err != nil {
-		t.Fatalf("NewJSONLReader: %v", err)
+		t.Fatalf("NewReader: %v", err)
 	}
 	defer reader.Close()
 
@@ -366,7 +366,7 @@ func TestJSONLReader_EmptyLines(t *testing.T) {
 	}
 }
 
-func TestJSONLReader_LargeLines(t *testing.T) {
+func TestReader_LargeLines(t *testing.T) {
 	// Create a line larger than the default buffer
 	largeData := make([]byte, 100*1024) // 100KB
 	for i := range largeData {
@@ -380,9 +380,9 @@ func TestJSONLReader_LargeLines(t *testing.T) {
 	path := filepath.Join(tmpDir, "test.jsonl")
 	os.WriteFile(path, append(lineBytes, '\n'), 0644)
 
-	reader, err := NewJSONLReader(path)
+	reader, err := NewReader(path)
 	if err != nil {
-		t.Fatalf("NewJSONLReader: %v", err)
+		t.Fatalf("NewReader: %v", err)
 	}
 	defer reader.Close()
 
@@ -395,13 +395,13 @@ func TestJSONLReader_LargeLines(t *testing.T) {
 	}
 }
 
-func TestJSONLReader_ClosedReader(t *testing.T) {
+func TestReader_ClosedReader(t *testing.T) {
 	lines := []string{`{"id": 1}`}
 	path := createTestJSONL(t, lines)
 
-	reader, err := NewJSONLReader(path)
+	reader, err := NewReader(path)
 	if err != nil {
-		t.Fatalf("NewJSONLReader: %v", err)
+		t.Fatalf("NewReader: %v", err)
 	}
 
 	reader.Close()

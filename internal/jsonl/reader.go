@@ -1,4 +1,6 @@
-package claude
+// Package jsonl provides streaming access to JSON Lines files.
+// JSON Lines is a format where each line is a valid JSON value.
+package jsonl
 
 import (
 	"bufio"
@@ -8,10 +10,13 @@ import (
 	"os"
 )
 
-// JSONLReader provides streaming access to JSONL files without loading
+// DefaultBufferSize is the default buffer size for the reader (128KB).
+const DefaultBufferSize = 128 * 1024
+
+// Reader provides streaming access to JSONL files without loading
 // the entire file into memory. It tracks position for resumable reading
 // and supports seeking back to previously read positions.
-type JSONLReader struct {
+type Reader struct {
 	path     string
 	file     *os.File
 	reader   *bufio.Reader
@@ -21,9 +26,16 @@ type JSONLReader struct {
 	closed   bool
 }
 
-// NewJSONLReader opens a JSONL file for streaming reads.
+// NewReader opens a JSONL file for streaming reads with the default buffer size.
 // Call Close() when done to release the file handle.
-func NewJSONLReader(path string) (*JSONLReader, error) {
+func NewReader(path string) (*Reader, error) {
+	return NewReaderSize(path, DefaultBufferSize)
+}
+
+// NewReaderSize opens a JSONL file for streaming reads with a custom buffer size.
+// Larger buffers may improve performance for files with very long lines.
+// Call Close() when done to release the file handle.
+func NewReaderSize(path string, bufferSize int) (*Reader, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -35,10 +47,10 @@ func NewJSONLReader(path string) (*JSONLReader, error) {
 		return nil, err
 	}
 
-	return &JSONLReader{
+	return &Reader{
 		path:     path,
 		file:     file,
-		reader:   bufio.NewReaderSize(file, 128*1024), // 128KB buffer
+		reader:   bufio.NewReaderSize(file, bufferSize),
 		position: 0,
 		lineNum:  0,
 		fileSize: stat.Size(),
@@ -47,27 +59,27 @@ func NewJSONLReader(path string) (*JSONLReader, error) {
 }
 
 // Path returns the file path.
-func (r *JSONLReader) Path() string {
+func (r *Reader) Path() string {
 	return r.path
 }
 
 // Position returns the current byte offset in the file.
-func (r *JSONLReader) Position() int64 {
+func (r *Reader) Position() int64 {
 	return r.position
 }
 
 // LineNum returns the number of lines read so far (1-indexed after first read).
-func (r *JSONLReader) LineNum() int {
+func (r *Reader) LineNum() int {
 	return r.lineNum
 }
 
 // FileSize returns the total file size in bytes.
-func (r *JSONLReader) FileSize() int64 {
+func (r *Reader) FileSize() int64 {
 	return r.fileSize
 }
 
 // Progress returns the percentage of file read (0.0 to 1.0).
-func (r *JSONLReader) Progress() float64 {
+func (r *Reader) Progress() float64 {
 	if r.fileSize == 0 {
 		return 1.0
 	}
@@ -75,14 +87,14 @@ func (r *JSONLReader) Progress() float64 {
 }
 
 // HasMore returns true if there's more content to read.
-func (r *JSONLReader) HasMore() bool {
+func (r *Reader) HasMore() bool {
 	return r.position < r.fileSize
 }
 
 // ReadLine reads the next line from the file.
 // Returns the line bytes (without newline) and any error.
 // Returns nil, io.EOF when end of file is reached.
-func (r *JSONLReader) ReadLine() ([]byte, error) {
+func (r *Reader) ReadLine() ([]byte, error) {
 	if r.closed {
 		return nil, errors.New("reader is closed")
 	}
@@ -118,7 +130,7 @@ func (r *JSONLReader) ReadLine() ([]byte, error) {
 
 // ReadLines reads up to n lines from the file.
 // Returns the lines read and any error (io.EOF if end reached).
-func (r *JSONLReader) ReadLines(n int) ([][]byte, error) {
+func (r *Reader) ReadLines(n int) ([][]byte, error) {
 	if n <= 0 {
 		return nil, nil
 	}
@@ -148,7 +160,7 @@ func (r *JSONLReader) ReadLines(n int) ([][]byte, error) {
 
 // ReadJSON reads the next line and unmarshals it into dest.
 // Returns io.EOF when end of file is reached.
-func (r *JSONLReader) ReadJSON(dest any) error {
+func (r *Reader) ReadJSON(dest any) error {
 	line, err := r.ReadLine()
 	if err == io.EOF && len(line) == 0 {
 		return io.EOF
@@ -175,7 +187,7 @@ func (r *JSONLReader) ReadJSON(dest any) error {
 // ReadUntilBytes reads lines until the cumulative content size reaches maxBytes.
 // Returns the lines read, total bytes of content, and any error.
 // Useful for loading a "window" of content for display.
-func (r *JSONLReader) ReadUntilBytes(maxBytes int) ([][]byte, int, error) {
+func (r *Reader) ReadUntilBytes(maxBytes int) ([][]byte, int, error) {
 	var lines [][]byte
 	var totalBytes int
 	var lastErr error
@@ -204,7 +216,7 @@ func (r *JSONLReader) ReadUntilBytes(maxBytes int) ([][]byte, int, error) {
 
 // SeekTo moves to the specified byte position in the file.
 // This resets the buffered reader, so it's relatively expensive.
-func (r *JSONLReader) SeekTo(offset int64) error {
+func (r *Reader) SeekTo(offset int64) error {
 	if r.closed {
 		return errors.New("reader is closed")
 	}
@@ -221,7 +233,7 @@ func (r *JSONLReader) SeekTo(offset int64) error {
 }
 
 // Reset seeks back to the beginning of the file.
-func (r *JSONLReader) Reset() error {
+func (r *Reader) Reset() error {
 	err := r.SeekTo(0)
 	if err != nil {
 		return err
@@ -232,7 +244,7 @@ func (r *JSONLReader) Reset() error {
 
 // ReadAll reads all remaining lines from current position.
 // Use with caution on large files.
-func (r *JSONLReader) ReadAll() ([][]byte, error) {
+func (r *Reader) ReadAll() ([][]byte, error) {
 	var lines [][]byte
 
 	for {
@@ -255,7 +267,7 @@ func (r *JSONLReader) ReadAll() ([][]byte, error) {
 }
 
 // Close closes the underlying file handle.
-func (r *JSONLReader) Close() error {
+func (r *Reader) Close() error {
 	if r.closed {
 		return nil
 	}
@@ -264,15 +276,15 @@ func (r *JSONLReader) Close() error {
 }
 
 // Snapshot captures the current reader state for later resumption.
-type ReaderSnapshot struct {
+type Snapshot struct {
 	Path     string
 	Position int64
 	LineNum  int
 }
 
 // Snapshot returns the current reader state.
-func (r *JSONLReader) Snapshot() ReaderSnapshot {
-	return ReaderSnapshot{
+func (r *Reader) Snapshot() Snapshot {
+	return Snapshot{
 		Path:     r.path,
 		Position: r.position,
 		LineNum:  r.lineNum,
@@ -280,8 +292,8 @@ func (r *JSONLReader) Snapshot() ReaderSnapshot {
 }
 
 // ResumeFrom creates a new reader starting from a snapshot position.
-func ResumeFrom(snap ReaderSnapshot) (*JSONLReader, error) {
-	reader, err := NewJSONLReader(snap.Path)
+func ResumeFrom(snap Snapshot) (*Reader, error) {
+	reader, err := NewReader(snap.Path)
 	if err != nil {
 		return nil, err
 	}

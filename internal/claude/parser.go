@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/jsonl"
 )
 
 // Parser reads Claude Code JSONL trace files.
@@ -251,7 +253,7 @@ type SessionWindow struct {
 // startOffset allows resuming from a previous position (0 for start).
 // This is much more efficient than loading by entry count since entries vary wildly in size.
 func LoadSessionWindow(path string, startOffset int64, maxContentBytes int) (*SessionWindow, error) {
-	reader, err := NewJSONLReader(path)
+	reader, err := jsonl.NewReader(path)
 	if err != nil {
 		return nil, fmt.Errorf("open session file: %w", err)
 	}
