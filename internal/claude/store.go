@@ -115,6 +115,7 @@ func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.Se
 			GitBranch:   sess.GitBranch,
 			Source:      thinkt.SourceClaude,
 			WorkspaceID: ws.ID,
+			ChunkCount:  1, // Claude sessions are not chunked
 		}
 	}
 	return result, nil
@@ -133,7 +134,8 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 		// Need to search - try to find in all projects
 		projects, _ := s.ListProjects(ctx)
 		for _, p := range projects {
-			sessions, _ := s.ListSessions(ctx, p.Path)
+			// p.ID is the actual directory path, p.Path is the decoded full path
+			sessions, _ := s.ListSessions(ctx, p.ID)
 			for _, sess := range sessions {
 				if sess.ID == sessionID {
 					return &sess, nil
@@ -214,7 +216,11 @@ func (s *Store) OpenSession(ctx context.Context, sessionID string) (thinkt.Sessi
 	// Try lazy session first for efficiency
 	ls, err := OpenLazySession(path)
 	if err == nil {
-		return &lazySessionReader{ls: ls, workspaceID: ws.ID}, nil
+		return &lazySessionReader{
+			ls:          ls,
+			source:      thinkt.SourceClaude,
+			workspaceID: ws.ID,
+		}, nil
 	}
 
 	// Fall back to regular parser
@@ -232,15 +238,19 @@ func (s *Store) OpenSession(ctx context.Context, sessionID string) (thinkt.Sessi
 			Source:      thinkt.SourceClaude,
 			WorkspaceID: ws.ID,
 		},
+		source:      thinkt.SourceClaude,
+		workspaceID: ws.ID,
 	}, nil
 }
 
 // parserReader adapts Parser to SessionReader.
 type parserReader struct {
-	parser *Parser
-	file   io.Closer
-	meta   thinkt.SessionMeta
-	closed bool
+	parser      *Parser
+	file        io.Closer
+	meta        thinkt.SessionMeta
+	closed      bool
+	source      thinkt.Source
+	workspaceID string
 }
 
 func (r *parserReader) ReadNext() (*thinkt.Entry, error) {
@@ -256,7 +266,7 @@ func (r *parserReader) ReadNext() (*thinkt.Entry, error) {
 		return nil, io.EOF
 	}
 
-	return convertEntry(entry), nil
+	return convertEntry(entry, r.source, r.workspaceID), nil
 }
 
 func (r *parserReader) Metadata() thinkt.SessionMeta {
@@ -276,6 +286,7 @@ type lazySessionReader struct {
 	ls          *LazySession
 	idx         int
 	closed      bool
+	source      thinkt.Source
 	workspaceID string
 }
 
@@ -296,7 +307,7 @@ func (r *lazySessionReader) ReadNext() (*thinkt.Entry, error) {
 		return nil, io.EOF
 	}
 
-	entry := convertEntry(&entries[r.idx])
+	entry := convertEntry(&entries[r.idx], r.source, r.workspaceID)
 	r.idx++
 	return entry, nil
 }
@@ -321,18 +332,25 @@ func (r *lazySessionReader) Close() error {
 }
 
 // convertEntry converts a claude.Entry to thinkt.Entry.
-func convertEntry(e *Entry) *thinkt.Entry {
+func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.Entry {
 	if e == nil {
 		return nil
 	}
 
 	entry := &thinkt.Entry{
-		UUID:       e.UUID,
-		Timestamp:  parseTimestamp(e.Timestamp),
-		GitBranch:  e.GitBranch,
-		CWD:        e.CWD,
+		UUID:        e.UUID,
+		Timestamp:   parseTimestamp(e.Timestamp),
+		GitBranch:   e.GitBranch,
+		CWD:         e.CWD,
 		IsSidechain: e.IsSidechain,
-		Metadata:   make(map[string]any),
+		Source:      source,
+		WorkspaceID: workspaceID,
+		Metadata:    make(map[string]any),
+	}
+
+	// Set checkpoint flag for file history snapshot entries
+	if e.Type == EntryTypeFileHistorySnapshot {
+		entry.IsCheckpoint = true
 	}
 
 	// Set parent UUID if present
@@ -391,6 +409,8 @@ func convertRole(t EntryType) thinkt.Role {
 		return thinkt.RoleSummary
 	case EntryTypeProgress:
 		return thinkt.RoleProgress
+	case EntryTypeFileHistorySnapshot:
+		return thinkt.RoleCheckpoint
 	default:
 		return thinkt.RoleSystem
 	}
@@ -459,7 +479,7 @@ func convertSession(s *Session, workspaceID string) *thinkt.Session {
 
 	entries := make([]thinkt.Entry, 0, len(s.Entries))
 	for _, e := range s.Entries {
-		if entry := convertEntry(&e); entry != nil {
+		if entry := convertEntry(&e, thinkt.SourceClaude, workspaceID); entry != nil {
 			entries = append(entries, *entry)
 		}
 	}
