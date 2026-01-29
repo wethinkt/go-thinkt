@@ -4,6 +4,7 @@ package thinkt
 
 import (
 	"context"
+	"sync"
 	"time"
 )
 
@@ -232,6 +233,7 @@ type SessionFilter struct {
 // StoreRegistry manages multiple stores (Kimi, Claude, etc.).
 type StoreRegistry struct {
 	stores map[Source]Store
+	mu     sync.RWMutex
 }
 
 // NewRegistry creates a new store registry.
@@ -243,17 +245,23 @@ func NewRegistry() *StoreRegistry {
 
 // Register adds a store to the registry.
 func (r *StoreRegistry) Register(store Store) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.stores[store.Source()] = store
 }
 
 // Get returns a store by source type.
 func (r *StoreRegistry) Get(source Source) (Store, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	s, ok := r.stores[source]
 	return s, ok
 }
 
 // All returns all registered stores.
 func (r *StoreRegistry) All() []Store {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	result := make([]Store, 0, len(r.stores))
 	for _, s := range r.stores {
 		result = append(result, s)
@@ -261,10 +269,33 @@ func (r *StoreRegistry) All() []Store {
 	return result
 }
 
+// Sources returns all registered source types.
+func (r *StoreRegistry) Sources() []Source {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]Source, 0, len(r.stores))
+	for s := range r.stores {
+		result = append(result, s)
+	}
+	return result
+}
+
+// AvailableSources returns sources that have data (projects/sessions).
+func (r *StoreRegistry) AvailableSources(ctx context.Context) []Source {
+	var available []Source
+	for _, store := range r.All() {
+		projects, err := store.ListProjects(ctx)
+		if err == nil && len(projects) > 0 {
+			available = append(available, store.Source())
+		}
+	}
+	return available
+}
+
 // ListAllProjects returns projects from all registered stores.
 func (r *StoreRegistry) ListAllProjects(ctx context.Context) ([]Project, error) {
 	var all []Project
-	for _, store := range r.stores {
+	for _, store := range r.All() {
 		projects, err := store.ListProjects(ctx)
 		if err != nil {
 			continue // Log error but don't fail entirely
@@ -272,6 +303,51 @@ func (r *StoreRegistry) ListAllProjects(ctx context.Context) ([]Project, error) 
 		all = append(all, projects...)
 	}
 	return all, nil
+}
+
+// SourceInfo provides information about a source for display.
+type SourceInfo struct {
+	Source      Source `json:"source"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Available   bool   `json:"available"`
+	WorkspaceID string `json:"workspace_id,omitempty"`
+	BasePath    string `json:"base_path,omitempty"`
+	ProjectCount int   `json:"project_count,omitempty"`
+}
+
+// SourceStatus returns status information for all registered sources.
+func (r *StoreRegistry) SourceStatus(ctx context.Context) []SourceInfo {
+	var infos []SourceInfo
+	for _, store := range r.All() {
+		ws := store.Workspace()
+		info := SourceInfo{
+			Source:   store.Source(),
+			Name:     string(store.Source()),
+			BasePath: ws.BasePath,
+		}
+		
+		// Get project count to determine availability
+		projects, err := store.ListProjects(ctx)
+		if err == nil {
+			info.Available = len(projects) > 0
+			info.ProjectCount = len(projects)
+			info.WorkspaceID = ws.ID
+		}
+		
+		// Add descriptions
+		switch store.Source() {
+		case SourceKimi:
+			info.Name = "Kimi Code"
+			info.Description = "Kimi Code sessions (~/.kimi)"
+		case SourceClaude:
+			info.Name = "Claude Code"
+			info.Description = "Claude Code sessions (~/.claude)"
+		}
+		
+		infos = append(infos, info)
+	}
+	return infos
 }
 
 // EntryWriter writes entries to an output format (for export/conversion).

@@ -10,6 +10,7 @@ import (
 	"runtime/pprof"
 	"slices"
 	"strings"
+	"text/tabwriter"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
@@ -18,7 +19,9 @@ import (
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/analytics"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/cli"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/kimi"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/prompt"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
 )
@@ -49,17 +52,23 @@ var supportedTypes = []string{TraceTypeClaude}
 
 var rootCmd = &cobra.Command{
 	Use:   "thinkt",
-	Short: "Tools for Claude Code session exploration and extraction",
-	Long: `thinkt provides tools for exploring and extracting data from Claude Code sessions.
+	Short: "Tools for AI assistant session exploration and extraction",
+	Long: `thinkt provides tools for exploring and extracting data from AI coding assistant sessions.
+
+Supports: Claude Code, Kimi Code
 
 Running without a subcommand launches the interactive TUI.
 
 Commands:
+  sources   Manage and view available session sources
   tui       Launch interactive TUI explorer (default)
   prompts   Extract and manage prompts from trace files
+  projects  List and manage projects
+  sessions  List and manage sessions
 
 Examples:
   thinkt                          # Launch TUI
+  thinkt sources list             # List available sources (kimi, claude)
   thinkt tui -d /custom/path      # TUI with custom directory
   thinkt prompts extract          # Extract prompts from latest session
   thinkt prompts list             # List available sessions`,
@@ -446,6 +455,37 @@ Examples:
 	RunE: runQuery,
 }
 
+// Source management commands
+var sourcesCmd = &cobra.Command{
+	Use:   "sources",
+	Short: "Manage and view available session sources",
+	Long: `View and manage available AI assistant session sources.
+
+Sources are the AI coding assistants that store session data
+on this machine (e.g., Claude Code, Kimi Code).
+
+Examples:
+  thinkt sources list      # List all available sources
+  thinkt sources status    # Show detailed source status`,
+}
+
+var sourcesListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List available session sources",
+	Long: `List all session sources (Kimi, Claude, etc.) and their availability.
+
+Shows which sources have session data available on this machine.`,
+	RunE: runSourcesList,
+}
+
+var sourcesStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show detailed source status",
+	Long: `Show detailed information about each session source including
+workspace ID, base path, and project count.`,
+	RunE: runSourcesStatus,
+}
+
 func main() {
 	// Global flags on root
 	rootCmd.PersistentFlags().StringVarP(&baseDir, "dir", "d", "", "base directory (default ~/.claude)")
@@ -526,6 +566,12 @@ func main() {
 	rootCmd.AddCommand(queryCmd)
 	rootCmd.AddCommand(projectsCmd)
 	rootCmd.AddCommand(sessionsCmd)
+	rootCmd.AddCommand(sourcesCmd)
+
+	// Sources subcommands
+	sourcesCmd.AddCommand(sourcesListCmd)
+	sourcesCmd.AddCommand(sourcesStatusCmd)
+	sourcesCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "output as JSON")
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -1269,4 +1315,99 @@ func runQuery(cmd *cobra.Command, args []string) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(results)
+}
+
+// createSourceRegistry creates a registry with all discovered sources.
+func createSourceRegistry() *thinkt.StoreRegistry {
+	// Create discovery with all source factories
+	discovery := thinkt.NewDiscovery(
+		kimi.Factory(),
+		claude.Factory(),
+	)
+
+	ctx := context.Background()
+	registry, err := discovery.Discover(ctx)
+	if err != nil {
+		// Return empty registry on error
+		return thinkt.NewRegistry()
+	}
+
+	return registry
+}
+
+// runSourcesList lists available sources.
+func runSourcesList(cmd *cobra.Command, args []string) error {
+	registry := createSourceRegistry()
+
+	ctx := context.Background()
+	sources := registry.SourceStatus(ctx)
+
+	if outputJSON {
+		return json.NewEncoder(os.Stdout).Encode(sources)
+	}
+
+	if len(sources) == 0 {
+		fmt.Println("No sources found.")
+		fmt.Println("\nExpected sources:")
+		fmt.Println("  - Kimi Code: ~/.kimi/")
+		fmt.Println("  - Claude Code: ~/.claude/")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "SOURCE\tSTATUS\tPROJECTS\tWORKSPACE")
+
+	for _, s := range sources {
+		status := "no data"
+		if s.Available {
+			status = "available"
+		}
+		projects := fmt.Sprintf("%d", s.ProjectCount)
+		workspace := s.WorkspaceID
+		if len(workspace) > 8 {
+			workspace = workspace[:8] + "..."
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", s.Name, status, projects, workspace)
+	}
+	w.Flush()
+
+	return nil
+}
+
+// runSourcesStatus shows detailed source status.
+func runSourcesStatus(cmd *cobra.Command, args []string) error {
+	registry := createSourceRegistry()
+
+	ctx := context.Background()
+	sources := registry.SourceStatus(ctx)
+
+	if outputJSON {
+		return json.NewEncoder(os.Stdout).Encode(sources)
+	}
+
+	if len(sources) == 0 {
+		fmt.Println("No sources found.")
+		return nil
+	}
+
+	for i, s := range sources {
+		if i > 0 {
+			fmt.Println()
+			fmt.Println("---")
+			fmt.Println()
+		}
+
+		fmt.Printf("Source:      %s\n", s.Name)
+		fmt.Printf("ID:          %s\n", s.Source)
+		fmt.Printf("Description: %s\n", s.Description)
+		fmt.Printf("Status:      %s\n", map[bool]string{true: "available", false: "no data"}[s.Available])
+
+		if s.Available {
+			fmt.Printf("Workspace:   %s\n", s.WorkspaceID)
+			fmt.Printf("Base Path:   %s\n", s.BasePath)
+			fmt.Printf("Projects:    %d\n", s.ProjectCount)
+		}
+	}
+
+	return nil
 }
