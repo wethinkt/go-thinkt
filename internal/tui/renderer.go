@@ -124,7 +124,7 @@ func renderContentBlock(block *claude.ContentBlock, width int, renderer *glamour
 	}
 }
 
-func renderColumnBorder(content string, title string, width, height int, active bool) string {
+func renderColumnBorder(content string, width, height int, active bool) string {
 	style := inactiveBorderStyle
 	if active {
 		style = activeBorderStyle
@@ -132,23 +132,24 @@ func renderColumnBorder(content string, title string, width, height int, active 
 
 	// The border frame structure:
 	// - Top border: 1 line
-	// - Title: 1 line  
+	// - Title: 1 line
 	// - Content: N lines
 	// - Bottom border: 1 line
 	// Total = N + 3 lines. For a frame height of `height`, content can be at most height-3 lines.
-	maxContentLines := max(0, height-3) // -2 for borders, -1 for title
+	// maxContentLines := max(0, height-3) // -2 for borders, -1 for title
 
 	// Truncate content to fit within available lines
-	contentLines := strings.Split(content, "\n")
-	if len(contentLines) > maxContentLines {
-		contentLines = contentLines[:maxContentLines]
-	}
-	// Pad content to exactly maxContentLines to maintain consistent height
-	for len(contentLines) < maxContentLines {
-		contentLines = append(contentLines, "")
-	}
-	truncatedContent := strings.Join(contentLines, "\n")
+	// contentLines := strings.Split(content, "\n")
+	// if len(contentLines) > maxContentLines {
+	// 	contentLines = contentLines[:maxContentLines]
+	// }
+	// // Pad content to exactly maxContentLines to maintain consistent height
+	// for len(contentLines) < maxContentLines {
+	// 	contentLines = append(contentLines, "")
+	// }
+	// truncatedContent := strings.Join(contentLines, "\n")
 
 	// Use MaxHeight to strictly enforce height, not just minimum
-	return style.Width(width).Height(height).MaxHeight(height).Render(title + "\n" + truncatedContent)
+	// return style.Width(width).Height(height).MaxHeight(height).Render(truncatedContent)
+	return style.Render(content)
 }

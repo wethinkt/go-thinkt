@@ -106,7 +106,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(msg.Projects) > 0 {
 			m.selectedProject = &msg.Projects[0]
 			m.header.setProject(m.selectedProject)
-			return m, loadSessionsCmd(msg.Projects[0].DirPath)
+			return m, nil // loadSessionsCmd(msg.Projects[0].DirPath)
 		}
 		return m, nil
 
@@ -125,7 +125,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			sess := &msg.Sessions[0]
 			m.header.setSessionMeta(sess)
 			// Load session content
-			return m, loadSessionCmd(sess.FullPath)
+			return m, nil //loadSessionCmd(sess.FullPath)
 		}
 		return m, nil
 
@@ -256,7 +256,7 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.selectedProject = proj
 			m.header.setProject(proj)
 			// Batch the list's command with loading sessions
-			return m, tea.Batch(cmd, loadSessionsCmd(proj.DirPath))
+			return m, cmd // tea.Batch(cmd, loadSessionsCmd(proj.DirPath))
 		}
 		return m, cmd
 	case colSessions:
@@ -267,7 +267,7 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.header.setSessionMeta(sess)
 			// Load session if different from currently loaded
 			if sess.FullPath != m.loadedSessionPath {
-				return m, tea.Batch(cmd, loadSessionCmd(sess.FullPath))
+				return m, cmd //tea.Batch(cmd, loadSessionCmd(sess.FullPath))
 			}
 		}
 		return m, cmd
@@ -314,7 +314,7 @@ func (m *Model) updateSizes() {
 	listHeight := max(1, availableHeight-3)
 	tuilog.Log.Debug("updateSizes", "termHeight", m.height, "headerHeight", headerHeight,
 		"availableHeight", availableHeight, "listHeight", listHeight)
-	m.projects.setSize(colWidth, listHeight)
+	m.projects.setSize(colWidth, listHeight-1)
 	m.header.setWidth(m.width)
 }
 
@@ -344,15 +344,16 @@ func (m Model) View() tea.View {
 	statusText := "Tab: columns | Enter: select | s: sort | r: reverse | T: tracer | q: quit"
 
 	// Render projects column with border
-	projectsTitle := "Projects " + m.projects.sortIndicator()
-	projectsCol := renderColumnBorder(m.projects.view(), projectsTitle, colWidth, availableHeight, m.activeColumn == colProjects)
-
+	col1 := renderColumnBorder(m.projects.view(), colWidth, availableHeight-5, m.activeColumn == colProjects)
+	col2 := renderColumnBorder(m.sessions.view(), colWidth, availableHeight-5, m.activeColumn == colSessions)
+	body := lipgloss.JoinHorizontal(lipgloss.Top, col1, col2)
 	// Build layout: header, projects column, status bar
+
 	header := m.header.view()
 	status := statusBarStyle.Width(m.width).Render(statusText)
 
 	// Join all parts vertically
-	content := lipgloss.JoinVertical(lipgloss.Left, header, projectsCol, status)
+	content := lipgloss.JoinVertical(lipgloss.Left, header, body, status)
 
 	v := tea.NewView(content)
 	v.AltScreen = true

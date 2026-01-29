@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
@@ -53,7 +52,7 @@ type projectsModel struct {
 func newProjectsModel() projectsModel {
 	delegate := list.NewDefaultDelegate()
 	l := list.New(nil, delegate, 0, 0)
-	l.SetShowTitle(false)       // We render title in the column border
+	l.SetShowTitle(false) // We render title in the column border
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(false)
 	l.SetShowFilter(false)      // Hide filter bar to save space
@@ -125,8 +124,7 @@ func (m *projectsModel) setSize(w, h int) {
 	tuilog.Log.Debug("projectsModel.setSize", "width", w, "height", h, "itemCount", len(m.items))
 	m.width = w
 	m.height = h
-	m.list.SetWidth(w)
-	m.list.SetHeight(h)
+	m.list.SetSize(w, h)
 	// Re-apply items to ensure proper pagination with new dimensions
 	if len(m.items) > 0 {
 		m.applySort()
@@ -153,26 +151,26 @@ func (m projectsModel) update(msg tea.Msg) (projectsModel, tea.Cmd) {
 
 func (m projectsModel) view() string {
 	// Show loading/empty state if no items
-	if len(m.items) == 0 {
-		if m.height > 0 {
-			// Return empty lines to fill the space (border will show "Projects" title)
-			lines := make([]string, m.height)
-			for i := range lines {
-				lines[i] = ""
-			}
-			return strings.Join(lines, "\n")
-		}
-		return ""
-	}
+	// if len(m.items) == 0 {
+	// 	if m.height > 0 {
+	// 		// Return empty lines to fill the space (border will show "Projects" title)
+	// 		lines := make([]string, m.height)
+	// 		for i := range lines {
+	// 			lines[i] = ""
+	// 		}
+	// 		return strings.Join(lines, "\n")
+	// 	}
+	// 	return ""
+	// }
 
 	content := m.list.View()
-	// Constrain to our dimensions in case list renders too much
-	if m.height > 0 {
-		lines := strings.Split(content, "\n")
-		if len(lines) > m.height {
-			lines = lines[:m.height]
-			content = strings.Join(lines, "\n")
-		}
-	}
+	// // Constrain to our dimensions in case list renders too much
+	// if m.height > 0 {
+	// 	lines := strings.Split(content, "\n")
+	// 	if len(lines) > m.height {
+	// 		lines = lines[:m.height]
+	// 		content = strings.Join(lines, "\n")
+	// 	}
+	// }
 	return content
 }
