@@ -7,7 +7,7 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
 )
 
@@ -30,19 +30,19 @@ func (s SortField) String() string {
 	}
 }
 
-// projectItem wraps a claude.Project for the list component.
+// projectItem wraps a thinkt.Project for the list component.
 type projectItem struct {
-	project claude.Project
+	project thinkt.Project
 }
 
-func (i projectItem) Title() string       { return i.project.DisplayName }
-func (i projectItem) Description() string { return i.project.FullPath }
-func (i projectItem) FilterValue() string { return i.project.DisplayName + " " + i.project.FullPath }
+func (i projectItem) Title() string       { return i.project.Name }
+func (i projectItem) Description() string { return i.project.Path }
+func (i projectItem) FilterValue() string { return i.project.Name + " " + i.project.Path }
 
 // projectsModel manages the projects list (column 1).
 type projectsModel struct {
 	list      list.Model
-	items     []claude.Project
+	items     []thinkt.Project
 	sortField SortField
 	sortAsc   bool
 	width     int
@@ -64,23 +64,23 @@ func newProjectsModel() projectsModel {
 	}
 }
 
-func (m *projectsModel) setItems(projects []claude.Project) {
+func (m *projectsModel) setItems(projects []thinkt.Project) {
 	tuilog.Log.Debug("projectsModel.setItems", "count", len(projects), "currentHeight", m.height)
 	m.items = projects
 	m.applySort()
 }
 
 func (m *projectsModel) applySort() {
-	sorted := make([]claude.Project, len(m.items))
+	sorted := make([]thinkt.Project, len(m.items))
 	copy(sorted, m.items)
 
 	switch m.sortField {
 	case SortByName:
 		sort.Slice(sorted, func(i, j int) bool {
 			if m.sortAsc {
-				return sorted[i].DisplayName < sorted[j].DisplayName
+				return sorted[i].Name < sorted[j].Name
 			}
-			return sorted[i].DisplayName > sorted[j].DisplayName
+			return sorted[i].Name > sorted[j].Name
 		})
 	case SortByRecent:
 		sort.Slice(sorted, func(i, j int) bool {
@@ -131,7 +131,7 @@ func (m *projectsModel) setSize(w, h int) {
 	}
 }
 
-func (m *projectsModel) selectedProject() *claude.Project {
+func (m *projectsModel) selectedProject() *thinkt.Project {
 	item := m.list.SelectedItem()
 	if item == nil {
 		return nil
@@ -150,27 +150,6 @@ func (m projectsModel) update(msg tea.Msg) (projectsModel, tea.Cmd) {
 }
 
 func (m projectsModel) view() string {
-	// Show loading/empty state if no items
-	// if len(m.items) == 0 {
-	// 	if m.height > 0 {
-	// 		// Return empty lines to fill the space (border will show "Projects" title)
-	// 		lines := make([]string, m.height)
-	// 		for i := range lines {
-	// 			lines[i] = ""
-	// 		}
-	// 		return strings.Join(lines, "\n")
-	// 	}
-	// 	return ""
-	// }
-
 	content := m.list.View()
-	// // Constrain to our dimensions in case list renders too much
-	// if m.height > 0 {
-	// 	lines := strings.Split(content, "\n")
-	// 	if len(lines) > m.height {
-	// 		lines = lines[:m.height]
-	// 		content = strings.Join(lines, "\n")
-	// 	}
-	// }
 	return content
 }

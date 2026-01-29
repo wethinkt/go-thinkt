@@ -1,16 +1,19 @@
 package tui
 
-import "github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+import (
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
+)
 
 // ProjectsLoadedMsg is sent when the project list finishes loading.
 type ProjectsLoadedMsg struct {
-	Projects []claude.Project
+	Projects []thinkt.Project
 	Err      error
 }
 
 // SessionsLoadedMsg is sent when sessions for a project finish loading.
 type SessionsLoadedMsg struct {
-	Sessions []claude.SessionMeta
+	Sessions []thinkt.SessionMeta
 	Err      error
 }
 

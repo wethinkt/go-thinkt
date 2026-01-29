@@ -8,18 +8,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 )
 
 func TestSessionsFormatter_FormatList(t *testing.T) {
-	sessions := []sessionMetaForTest{
-		{FullPath: "/path/to/session1.jsonl", SessionID: "abc123"},
-		{FullPath: "/path/to/session2.jsonl", SessionID: "def456"},
+	sessions := []thinkt.SessionMeta{
+		{FullPath: "/path/to/session1.jsonl", ID: "abc123"},
+		{FullPath: "/path/to/session2.jsonl", ID: "def456"},
 	}
 
 	var buf bytes.Buffer
 	formatter := NewSessionsFormatter(&buf)
-	err := formatter.FormatList(toClaudeSessionMeta(sessions))
+	err := formatter.FormatList(sessions)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -35,20 +35,20 @@ func TestSessionsFormatter_FormatList(t *testing.T) {
 
 func TestSessionsFormatter_FormatSummary(t *testing.T) {
 	now := time.Now()
-	sessions := []sessionMetaForTest{
+	sessions := []thinkt.SessionMeta{
 		{
-			FullPath:     "/path/to/session1.jsonl",
-			SessionID:    "abc123",
-			MessageCount: 10,
-			Created:      now.Add(-time.Hour),
-			Modified:     now,
-			Summary:      "Test summary",
+			FullPath:    "/path/to/session1.jsonl",
+			ID:          "abc123",
+			EntryCount:  10,
+			CreatedAt:   now.Add(-time.Hour),
+			ModifiedAt:  now,
+			FirstPrompt: "Test first prompt",
 		},
 	}
 
 	var buf bytes.Buffer
 	formatter := NewSessionsFormatter(&buf)
-	err := formatter.FormatSummary(toClaudeSessionMeta(sessions), "", SessionListOptions{})
+	err := formatter.FormatSummary(sessions, "", SessionListOptions{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -57,25 +57,27 @@ func TestSessionsFormatter_FormatSummary(t *testing.T) {
 	if !strings.Contains(output, "abc123") {
 		t.Error("expected session ID in output")
 	}
+	// The template uses "Messages" not "Entries"
 	if !strings.Contains(output, "Messages: 10") {
 		t.Error("expected message count in output")
 	}
-	if !strings.Contains(output, "Test summary") {
-		t.Error("expected summary in output")
+	// The template uses FirstPrompt as Summary
+	if !strings.Contains(output, "Test first prompt") {
+		t.Error("expected first prompt in output")
 	}
 }
 
 func TestSessionsFormatter_FormatSummary_SortByTime(t *testing.T) {
 	now := time.Now()
-	sessions := []sessionMetaForTest{
-		{SessionID: "older", Modified: now.Add(-time.Hour)},
-		{SessionID: "newer", Modified: now},
+	sessions := []thinkt.SessionMeta{
+		{ID: "older", ModifiedAt: now.Add(-time.Hour)},
+		{ID: "newer", ModifiedAt: now},
 	}
 
 	// Sort ascending (oldest first)
 	var buf bytes.Buffer
 	formatter := NewSessionsFormatter(&buf)
-	err := formatter.FormatSummary(toClaudeSessionMeta(sessions), "", SessionListOptions{
+	err := formatter.FormatSummary(sessions, "", SessionListOptions{
 		SortBy:     "time",
 		Descending: false,
 	})
@@ -92,15 +94,15 @@ func TestSessionsFormatter_FormatSummary_SortByTime(t *testing.T) {
 }
 
 func TestSessionsFormatter_FormatSummary_SortByName(t *testing.T) {
-	sessions := []sessionMetaForTest{
-		{SessionID: "zebra"},
-		{SessionID: "alpha"},
+	sessions := []thinkt.SessionMeta{
+		{ID: "zebra"},
+		{ID: "alpha"},
 	}
 
 	// Sort ascending (A-Z)
 	var buf bytes.Buffer
 	formatter := NewSessionsFormatter(&buf)
-	err := formatter.FormatSummary(toClaudeSessionMeta(sessions), "", SessionListOptions{
+	err := formatter.FormatSummary(sessions, "", SessionListOptions{
 		SortBy:     "name",
 		Descending: false,
 	})
@@ -131,8 +133,11 @@ func TestSessionDeleter_Delete_Force(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Create a mock registry
+	registry := thinkt.NewRegistry()
+
 	var stdout bytes.Buffer
-	deleter := NewSessionDeleter(tmpDir, SessionDeleteOptions{
+	deleter := NewSessionDeleter(registry, SessionDeleteOptions{
 		Force:   true,
 		Stdout:  &stdout,
 		Project: "/test/myproject",
@@ -154,14 +159,11 @@ func TestSessionDeleter_Delete_Force(t *testing.T) {
 }
 
 func TestSessionDeleter_Delete_NotFound(t *testing.T) {
-	tmpDir := t.TempDir()
-	projectsDir := filepath.Join(tmpDir, "projects")
-	if err := os.MkdirAll(projectsDir, 0755); err != nil {
-		t.Fatal(err)
-	}
+	// Create a mock registry
+	registry := thinkt.NewRegistry()
 
 	var stdout bytes.Buffer
-	deleter := NewSessionDeleter(tmpDir, SessionDeleteOptions{
+	deleter := NewSessionDeleter(registry, SessionDeleteOptions{
 		Force:  true,
 		Stdout: &stdout,
 	})
@@ -190,8 +192,11 @@ func TestSessionCopier_Copy_Success(t *testing.T) {
 
 	targetDir := filepath.Join(tmpDir, "backup")
 
+	// Create a mock registry
+	registry := thinkt.NewRegistry()
+
 	var stdout bytes.Buffer
-	copier := NewSessionCopier(tmpDir, SessionCopyOptions{
+	copier := NewSessionCopier(registry, SessionCopyOptions{
 		Stdout:  &stdout,
 		Project: "/test/myproject",
 	})
@@ -235,8 +240,11 @@ func TestSessionCopier_Copy_ToSpecificFile(t *testing.T) {
 
 	targetFile := filepath.Join(tmpDir, "backup", "renamed.jsonl")
 
+	// Create a mock registry
+	registry := thinkt.NewRegistry()
+
 	var stdout bytes.Buffer
-	copier := NewSessionCopier(tmpDir, SessionCopyOptions{
+	copier := NewSessionCopier(registry, SessionCopyOptions{
 		Stdout:  &stdout,
 		Project: "/test/myproject",
 	})
@@ -250,31 +258,4 @@ func TestSessionCopier_Copy_ToSpecificFile(t *testing.T) {
 	if _, err := os.Stat(targetFile); os.IsNotExist(err) {
 		t.Error("expected file to be copied to specific path")
 	}
-}
-
-// Helper types and functions for testing
-type sessionMetaForTest struct {
-	FullPath     string
-	SessionID    string
-	MessageCount int
-	Created      time.Time
-	Modified     time.Time
-	Summary      string
-	GitBranch    string
-}
-
-func toClaudeSessionMeta(sessions []sessionMetaForTest) []claude.SessionMeta {
-	result := make([]claude.SessionMeta, len(sessions))
-	for i, s := range sessions {
-		result[i] = claude.SessionMeta{
-			FullPath:     s.FullPath,
-			SessionID:    s.SessionID,
-			MessageCount: s.MessageCount,
-			Created:      s.Created,
-			Modified:     s.Modified,
-			Summary:      s.Summary,
-			GitBranch:    s.GitBranch,
-		}
-	}
-	return result
 }

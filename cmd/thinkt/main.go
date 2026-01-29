@@ -171,6 +171,7 @@ var (
 // Sessions command flags
 var (
 	sessionProject     string
+	sessionSources     []string // --source flag for sessions
 	sessionForceDelete bool
 	sessionSortBy      string
 	sessionSortDesc    bool
@@ -277,14 +278,18 @@ Examples:
 
 var sessionsCmd = &cobra.Command{
 	Use:   "sessions",
-	Short: "List and manage Claude Code sessions",
-	Long: `List and manage sessions within a Claude Code project.
+	Short: "List and manage sessions across all sources",
+	Long: `List and manage sessions from Kimi, Claude, and other sources.
 
-Requires -p/--project to specify which project to operate on.
+By default, shows an interactive picker when no project is specified.
+Use -p/--project to target a specific project directly.
+Use --source to filter by source (kimi, claude).
 
 Examples:
-  thinkt sessions list -p /Users/evan/myproject
-  thinkt sessions summary -p ./myproject
+  thinkt sessions list              # Interactive picker or all sessions
+  thinkt sessions list -p ./myproject
+  thinkt sessions summary -p ./myproject --source kimi
+  thinkt sessions view              # Interactive picker
   thinkt sessions delete -p ./myproject <session-id>
   thinkt sessions copy -p ./myproject <session-id> ./backup`,
 	RunE: runSessionsList,
@@ -292,14 +297,16 @@ Examples:
 
 var sessionsListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List sessions in a project",
-	Long: `List all sessions in a Claude Code project.
+	Short: "List sessions (interactive picker if no project)",
+	Long: `List all sessions across sources or in a specific project.
 
-Outputs session paths one per line by default.
+Without -p/--project, shows an interactive picker of recent sessions.
+With -p/--project, lists sessions for that project.
 
 Examples:
-  thinkt sessions list -p /Users/evan/myproject
-  thinkt sessions list -p ./myproject`,
+  thinkt sessions list              # Interactive picker of all sessions
+  thinkt sessions list -p ./myproject
+  thinkt sessions list --source kimi`,
 	RunE: runSessionsList,
 }
 
@@ -362,12 +369,11 @@ Examples:
 
 var sessionsViewCmd = &cobra.Command{
 	Use:   "view [session]",
-	Short: "View a session in the terminal",
-	Long: `View a Claude Code session in a full-terminal viewer.
+	Short: "View a session in the terminal (interactive picker)",
+	Long: `View a session in a full-terminal viewer.
 
-If no session is specified:
-  - Shows an interactive picker to select a session
-  - With --all: views all sessions concatenated in time order
+If no session is specified, shows an interactive picker of all recent sessions.
+The picker works across all sources (kimi, claude).
 
 The session can be specified as:
   - Full path to the .jsonl file
@@ -381,9 +387,9 @@ Navigation:
   q/Esc       Quit
 
 Examples:
+  thinkt sessions view              # Interactive picker across all sources
   thinkt sessions view /full/path/to/session.jsonl
   thinkt sessions view -p ./myproject abc123
-  thinkt sessions view -p ./myproject              # picker
   thinkt sessions view -p ./myproject --all        # view all`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runSessionsView,
@@ -536,8 +542,9 @@ func main() {
 	projectsDeleteCmd.Flags().BoolVarP(&forceDelete, "force", "f", false, "skip confirmation prompt")
 
 	// Sessions command flags
-	sessionsCmd.PersistentFlags().StringVarP(&sessionProject, "project", "p", "", "project path (required)")
-	sessionsListCmd.Flags().StringVarP(&sessionProject, "project", "p", "", "project path (required)")
+	sessionsCmd.PersistentFlags().StringVarP(&sessionProject, "project", "p", "", "project path (optional, shows picker if not set)")
+	sessionsCmd.PersistentFlags().StringArrayVarP(&sessionSources, "source", "s", nil, "filter by source (kimi|claude, can be specified multiple times)")
+	sessionsListCmd.Flags().StringVarP(&sessionProject, "project", "p", "", "project path (optional, shows picker if not set)")
 	sessionsSummaryCmd.Flags().StringVar(&sessionTemplate, "template", "", "custom Go text/template for output")
 	sessionsSummaryCmd.Flags().StringVar(&sessionSortBy, "sort", "time", "sort by: name, time")
 	sessionsSummaryCmd.Flags().BoolVar(&sessionSortDesc, "desc", false, "sort descending (default for time)")
@@ -949,11 +956,42 @@ func runProjectsCopy(cmd *cobra.Command, args []string) error {
 }
 
 func runSessionsList(cmd *cobra.Command, args []string) error {
+	registry := createSourceRegistry()
+
+	// If no project specified, show project picker
 	if sessionProject == "" {
-		return fmt.Errorf("--project/-p is required\n\nUse 'thinkt projects' to list available projects")
+		projects, err := getProjectsFromSources(registry, sessionSources)
+		if err != nil {
+			return err
+		}
+
+		if len(projects) == 0 {
+			if len(sessionSources) > 0 {
+				fmt.Printf("No projects found from sources: %v\n", sessionSources)
+			} else {
+				fmt.Println("No projects found")
+			}
+			return nil
+		}
+
+		// Check if TTY is available for picker
+		if !term.IsTerminal(int(os.Stdin.Fd())) {
+			return fmt.Errorf("--project/-p is required when no TTY available\n\nUse 'thinkt projects list' to see available projects")
+		}
+
+		// Show project picker
+		selected, err := tui.PickProject(projects)
+		if err != nil {
+			return err
+		}
+		if selected == nil {
+			return nil // User cancelled
+		}
+		sessionProject = selected.ID
 	}
 
-	sessions, err := cli.ListSessionsForProject(baseDir, sessionProject)
+	// Get sessions for the selected project
+	sessions, err := getSessionsForProject(registry, sessionProject, sessionSources)
 	if err != nil {
 		return err
 	}
@@ -968,11 +1006,42 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 }
 
 func runSessionsSummary(cmd *cobra.Command, args []string) error {
+	registry := createSourceRegistry()
+
+	// If no project specified, show project picker
 	if sessionProject == "" {
-		return fmt.Errorf("--project/-p is required\n\nUse 'thinkt projects' to list available projects")
+		projects, err := getProjectsFromSources(registry, sessionSources)
+		if err != nil {
+			return err
+		}
+
+		if len(projects) == 0 {
+			if len(sessionSources) > 0 {
+				fmt.Printf("No projects found from sources: %v\n", sessionSources)
+			} else {
+				fmt.Println("No projects found")
+			}
+			return nil
+		}
+
+		// Check if TTY is available for picker
+		if !term.IsTerminal(int(os.Stdin.Fd())) {
+			return fmt.Errorf("--project/-p is required when no TTY available\n\nUse 'thinkt projects list' to see available projects")
+		}
+
+		// Show project picker
+		selected, err := tui.PickProject(projects)
+		if err != nil {
+			return err
+		}
+		if selected == nil {
+			return nil // User cancelled
+		}
+		sessionProject = selected.ID
 	}
 
-	sessions, err := cli.ListSessionsForProject(baseDir, sessionProject)
+	// Get sessions for the selected project
+	sessions, err := getSessionsForProject(registry, sessionProject, sessionSources)
 	if err != nil {
 		return err
 	}
@@ -994,7 +1063,14 @@ func runSessionsSummary(cmd *cobra.Command, args []string) error {
 }
 
 func runSessionsDelete(cmd *cobra.Command, args []string) error {
-	deleter := cli.NewSessionDeleter(baseDir, cli.SessionDeleteOptions{
+	registry := createSourceRegistry()
+
+	// If no project specified and not an absolute path, we need to find the session
+	if sessionProject == "" && !strings.HasPrefix(args[0], "/") {
+		return fmt.Errorf("--project/-p is required when not using an absolute path")
+	}
+
+	deleter := cli.NewSessionDeleter(registry, cli.SessionDeleteOptions{
 		Force:   sessionForceDelete,
 		Project: sessionProject,
 	})
@@ -1002,20 +1078,61 @@ func runSessionsDelete(cmd *cobra.Command, args []string) error {
 }
 
 func runSessionsCopy(cmd *cobra.Command, args []string) error {
-	copier := cli.NewSessionCopier(baseDir, cli.SessionCopyOptions{
+	registry := createSourceRegistry()
+
+	// If no project specified and not an absolute path, we need to find the session
+	if sessionProject == "" && !strings.HasPrefix(args[0], "/") {
+		return fmt.Errorf("--project/-p is required when not using an absolute path")
+	}
+
+	copier := cli.NewSessionCopier(registry, cli.SessionCopyOptions{
 		Project: sessionProject,
 	})
 	return copier.Copy(args[0], args[1])
 }
 
 func runSessionsView(cmd *cobra.Command, args []string) error {
-	// Require project flag
+	registry := createSourceRegistry()
+
+	// If no project specified, show project picker (or list all sessions for picking)
 	if sessionProject == "" {
-		return fmt.Errorf("--project/-p is required\n\nUse 'thinkt projects' to list available projects")
+		// If a session path is provided as an absolute path, use it directly
+		if len(args) > 0 && strings.HasPrefix(args[0], "/") {
+			return tui.RunViewer(args[0])
+		}
+
+		projects, err := getProjectsFromSources(registry, sessionSources)
+		if err != nil {
+			return err
+		}
+
+		if len(projects) == 0 {
+			if len(sessionSources) > 0 {
+				fmt.Printf("No projects found from sources: %v\n", sessionSources)
+			} else {
+				fmt.Println("No projects found")
+			}
+			return nil
+		}
+
+		// Check if TTY is available for picker
+		if !term.IsTerminal(int(os.Stdin.Fd())) {
+			return fmt.Errorf("--project/-p is required when no TTY available\n\nUse 'thinkt projects list' to see available projects")
+		}
+
+		// Show project picker
+		selected, err := tui.PickProject(projects)
+		if err != nil {
+			return err
+		}
+		if selected == nil {
+			return nil // User cancelled
+		}
+		sessionProject = selected.ID
 	}
 
 	// Get all sessions in the project
-	sessions, err := cli.ListSessionsForProject(baseDir, sessionProject)
+	sessions, err := getSessionsForProject(registry, sessionProject, sessionSources)
 	if err != nil {
 		return err
 	}
@@ -1036,7 +1153,7 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 			// Match by session ID or filename
 			found := false
 			for _, s := range sessions {
-				if s.SessionID == sessionArg || strings.HasSuffix(s.FullPath, sessionArg) || strings.HasSuffix(s.FullPath, sessionArg+".jsonl") {
+				if s.ID == sessionArg || strings.HasSuffix(s.FullPath, sessionArg) || strings.HasSuffix(s.FullPath, sessionArg+".jsonl") {
 					sessionPath = s.FullPath
 					found = true
 					break
@@ -1428,6 +1545,39 @@ func getProjectsFromSources(registry *thinkt.StoreRegistry, sources []string) ([
 	}
 
 	return allProjects, nil
+}
+
+// getSessionsForProject returns sessions for a project from the selected sources.
+// If no sources specified, searches all available sources.
+func getSessionsForProject(registry *thinkt.StoreRegistry, projectID string, sources []string) ([]thinkt.SessionMeta, error) {
+	ctx := context.Background()
+
+	// If no sources specified, search all available sources
+	if len(sources) == 0 {
+		for _, store := range registry.All() {
+			sessions, err := store.ListSessions(ctx, projectID)
+			if err == nil && len(sessions) > 0 {
+				return sessions, nil
+			}
+		}
+		return []thinkt.SessionMeta{}, nil
+	}
+
+	// Validate and collect sessions from specified sources
+	for _, sourceName := range sources {
+		source := thinkt.Source(sourceName)
+		store, ok := registry.Get(source)
+		if !ok {
+			return nil, fmt.Errorf("unknown source: %s (available: kimi, claude)", sourceName)
+		}
+
+		sessions, err := store.ListSessions(ctx, projectID)
+		if err == nil && len(sessions) > 0 {
+			return sessions, nil
+		}
+	}
+
+	return []thinkt.SessionMeta{}, nil
 }
 
 // runSourcesList lists available sources.

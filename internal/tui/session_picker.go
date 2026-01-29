@@ -10,12 +10,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 )
 
-// pickerSessionItem wraps a claude.SessionMeta for the picker list.
+// pickerSessionItem wraps a thinkt.SessionMeta for the picker list.
 type pickerSessionItem struct {
-	meta claude.SessionMeta
+	meta thinkt.SessionMeta
 }
 
 func (i pickerSessionItem) Title() string {
@@ -26,10 +26,10 @@ func (i pickerSessionItem) Title() string {
 		}
 		return text
 	}
-	if len(i.meta.SessionID) > 8 {
-		return i.meta.SessionID[:8]
+	if len(i.meta.ID) > 8 {
+		return i.meta.ID[:8]
 	}
-	return i.meta.SessionID
+	return i.meta.ID
 }
 
 func (i pickerSessionItem) Description() string {
@@ -50,20 +50,20 @@ func (i pickerSessionItem) Description() string {
 	}
 
 	// Modified/created time
-	if !i.meta.Modified.IsZero() {
-		parts = append(parts, i.meta.Modified.Local().Format("Jan 02, 3:04 PM"))
-	} else if !i.meta.Created.IsZero() {
-		parts = append(parts, i.meta.Created.Local().Format("Jan 02, 3:04 PM"))
+	if !i.meta.ModifiedAt.IsZero() {
+		parts = append(parts, i.meta.ModifiedAt.Local().Format("Jan 02, 3:04 PM"))
+	} else if !i.meta.CreatedAt.IsZero() {
+		parts = append(parts, i.meta.CreatedAt.Local().Format("Jan 02, 3:04 PM"))
 	}
 
-	// File size
-	if i.meta.FileSize > 0 {
-		parts = append(parts, formatFileSize(i.meta.FileSize))
+	// Entry count (replaces MessageCount)
+	if i.meta.EntryCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d entries", i.meta.EntryCount))
 	}
 
-	// Message count
-	if i.meta.MessageCount > 0 {
-		parts = append(parts, fmt.Sprintf("%d msgs", i.meta.MessageCount))
+	// Source indicator
+	if i.meta.Source != "" {
+		parts = append(parts, string(i.meta.Source))
 	}
 
 	result := ""
@@ -77,7 +77,7 @@ func (i pickerSessionItem) Description() string {
 }
 
 func (i pickerSessionItem) FilterValue() string {
-	return i.meta.FirstPrompt + " " + i.meta.SessionID
+	return i.meta.FirstPrompt + " " + i.meta.ID + " " + string(i.meta.Source)
 }
 
 func formatFileSize(size int64) string {
@@ -97,14 +97,14 @@ func formatFileSize(size int64) string {
 
 // SessionPickerResult holds the result of the session picker.
 type SessionPickerResult struct {
-	Selected  *claude.SessionMeta
+	Selected  *thinkt.SessionMeta
 	Cancelled bool
 }
 
 // SessionPickerModel is a standalone session picker TUI.
 type SessionPickerModel struct {
 	list     list.Model
-	sessions []claude.SessionMeta
+	sessions []thinkt.SessionMeta
 	result   SessionPickerResult
 	quitting bool
 	width    int
@@ -131,18 +131,18 @@ func defaultPickerKeyMap() pickerKeyMap {
 }
 
 // NewSessionPickerModel creates a new session picker with sessions sorted by newest first.
-func NewSessionPickerModel(sessions []claude.SessionMeta) SessionPickerModel {
+func NewSessionPickerModel(sessions []thinkt.SessionMeta) SessionPickerModel {
 	// Sort by modified time descending (newest first)
-	sorted := make([]claude.SessionMeta, len(sessions))
+	sorted := make([]thinkt.SessionMeta, len(sessions))
 	copy(sorted, sessions)
 	sort.Slice(sorted, func(i, j int) bool {
-		ti := sorted[i].Modified
+		ti := sorted[i].ModifiedAt
 		if ti.IsZero() {
-			ti = sorted[i].Created
+			ti = sorted[i].CreatedAt
 		}
-		tj := sorted[j].Modified
+		tj := sorted[j].ModifiedAt
 		if tj.IsZero() {
-			tj = sorted[j].Created
+			tj = sorted[j].CreatedAt
 		}
 		return ti.After(tj)
 	})
@@ -235,7 +235,7 @@ func (m SessionPickerModel) Result() SessionPickerResult {
 }
 
 // PickSession runs the session picker and returns the selected session.
-func PickSession(sessions []claude.SessionMeta) (*claude.SessionMeta, error) {
+func PickSession(sessions []thinkt.SessionMeta) (*thinkt.SessionMeta, error) {
 	if len(sessions) == 0 {
 		return nil, fmt.Errorf("no sessions available")
 	}

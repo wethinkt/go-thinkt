@@ -7,15 +7,16 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 )
 
 // headerModel manages the fixed two-line header.
 type headerModel struct {
 	width       int
-	project     *claude.Project
-	sessionMeta *claude.SessionMeta
+	project     *thinkt.Project
+	sessionMeta *thinkt.SessionMeta
 	session     *claude.Session
-	sessions    []claude.SessionMeta
+	sessions    []thinkt.SessionMeta
 }
 
 func newHeaderModel() headerModel {
@@ -26,15 +27,15 @@ func (m *headerModel) setWidth(w int) {
 	m.width = w
 }
 
-func (m *headerModel) setProject(project *claude.Project) {
+func (m *headerModel) setProject(project *thinkt.Project) {
 	m.project = project
 }
 
-func (m *headerModel) setSessions(sessions []claude.SessionMeta) {
+func (m *headerModel) setSessions(sessions []thinkt.SessionMeta) {
 	m.sessions = sessions
 }
 
-func (m *headerModel) setSessionMeta(meta *claude.SessionMeta) {
+func (m *headerModel) setSessionMeta(meta *thinkt.SessionMeta) {
 	m.sessionMeta = meta
 }
 
@@ -74,7 +75,7 @@ func (m headerModel) renderProjectLine(contentWidth int) string {
 	var projectInfo string
 	if m.project != nil {
 		// Build project info parts
-		parts := []string{m.project.DisplayName}
+		parts := []string{m.project.Name}
 
 		if m.project.SessionCount > 0 {
 			parts = append(parts, fmt.Sprintf("%d sessions", m.project.SessionCount))
@@ -83,7 +84,7 @@ func (m headerModel) renderProjectLine(contentWidth int) string {
 		// Total messages across sessions
 		totalMsgs := 0
 		for _, s := range m.sessions {
-			totalMsgs += s.MessageCount
+			totalMsgs += s.EntryCount
 		}
 		if totalMsgs > 0 {
 			parts = append(parts, fmt.Sprintf("%d msgs", totalMsgs))
@@ -180,8 +181,8 @@ func (m headerModel) renderMetaSessionInfo() string {
 	var parts []string
 
 	// Session ID
-	if meta.SessionID != "" {
-		id := meta.SessionID
+	if meta.ID != "" {
+		id := meta.ID
 		if len(id) > 8 {
 			id = id[:8]
 		}
@@ -198,13 +199,13 @@ func (m headerModel) renderMetaSessionInfo() string {
 	}
 
 	// Message count
-	if meta.MessageCount > 0 {
-		parts = append(parts, fmt.Sprintf("%d msgs", meta.MessageCount))
+	if meta.EntryCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d msgs", meta.EntryCount))
 	}
 
 	// Created time
-	if !meta.Created.IsZero() {
-		parts = append(parts, meta.Created.Local().Format("Jan 02 15:04"))
+	if !meta.CreatedAt.IsZero() {
+		parts = append(parts, meta.CreatedAt.Local().Format("Jan 02 15:04"))
 	}
 
 	return strings.Join(parts, " | ")

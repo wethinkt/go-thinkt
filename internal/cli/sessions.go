@@ -1,6 +1,8 @@
+// Package cli provides CLI output formatting utilities.
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -10,7 +12,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui"
 )
 
@@ -32,7 +34,7 @@ type SessionListOptions struct {
 }
 
 // FormatList outputs sessions one per line (full path).
-func (f *SessionsFormatter) FormatList(sessions []claude.SessionMeta) error {
+func (f *SessionsFormatter) FormatList(sessions []thinkt.SessionMeta) error {
 	for _, s := range sessions {
 		fmt.Fprintln(f.w, s.FullPath)
 	}
@@ -48,10 +50,12 @@ type SessionSummaryData struct {
 	Created   time.Time
 	Modified  time.Time
 	Branch    string
+	Source    string
 }
 
 const defaultSessionSummaryTemplate = `{{range .}}{{.Path}}
   ID:       {{.SessionID}}
+  Source:   {{.Source}}
   Messages: {{.Messages}}
   Created:  {{.Created.Format "2006-01-02 15:04"}}
   Modified: {{.Modified.Format "2006-01-02 15:04"}}{{if .Branch}}
@@ -64,6 +68,7 @@ const defaultSessionSummaryTemplate = `{{range .}}{{.Path}}
 const SessionSummaryTemplateHelp = `Template variables:
   {{.Path}}       Full path to session file
   {{.SessionID}}  Session identifier
+  {{.Source}}     Source type (kimi, claude)
   {{.Summary}}    First prompt summary (if available)
   {{.Messages}}   Number of messages
   {{.Created}}    Creation time (time.Time)
@@ -71,7 +76,7 @@ const SessionSummaryTemplateHelp = `Template variables:
   {{.Branch}}     Git branch (if available)`
 
 // FormatSummary outputs detailed session information.
-func (f *SessionsFormatter) FormatSummary(sessions []claude.SessionMeta, customTmpl string, opts SessionListOptions) error {
+func (f *SessionsFormatter) FormatSummary(sessions []thinkt.SessionMeta, customTmpl string, opts SessionListOptions) error {
 	// Sort sessions
 	sortSessions(sessions, opts.SortBy, opts.Descending)
 
@@ -80,12 +85,13 @@ func (f *SessionsFormatter) FormatSummary(sessions []claude.SessionMeta, customT
 	for i, s := range sessions {
 		data[i] = SessionSummaryData{
 			Path:      s.FullPath,
-			SessionID: s.SessionID,
-			Summary:   s.Summary,
-			Messages:  s.MessageCount,
-			Created:   s.Created,
-			Modified:  s.Modified,
+			SessionID: s.ID,
+			Summary:   s.FirstPrompt,
+			Messages:  s.EntryCount,
+			Created:   s.CreatedAt,
+			Modified:  s.ModifiedAt,
 			Branch:    s.GitBranch,
+			Source:    string(s.Source),
 		}
 	}
 
@@ -103,13 +109,13 @@ func (f *SessionsFormatter) FormatSummary(sessions []claude.SessionMeta, customT
 	return tmpl.Execute(f.w, data)
 }
 
-func sortSessions(sessions []claude.SessionMeta, sortBy string, descending bool) {
+func sortSessions(sessions []thinkt.SessionMeta, sortBy string, descending bool) {
 	switch sortBy {
 	case "name":
 		sort.Slice(sessions, func(i, j int) bool {
 			cmp := strings.Compare(
-				strings.ToLower(sessions[i].SessionID),
-				strings.ToLower(sessions[j].SessionID),
+				strings.ToLower(sessions[i].ID),
+				strings.ToLower(sessions[j].ID),
 			)
 			if descending {
 				return cmp > 0
@@ -119,17 +125,48 @@ func sortSessions(sessions []claude.SessionMeta, sortBy string, descending bool)
 	case "time", "":
 		sort.Slice(sessions, func(i, j int) bool {
 			if descending {
-				return sessions[i].Modified.After(sessions[j].Modified)
+				return sessions[i].ModifiedAt.After(sessions[j].ModifiedAt)
 			}
-			return sessions[i].Modified.Before(sessions[j].Modified)
+			return sessions[i].ModifiedAt.Before(sessions[j].ModifiedAt)
 		})
 	}
 }
 
+// ListSessionsForProject lists sessions for a given project using the registry.
+func ListSessionsForProject(registry *thinkt.StoreRegistry, projectID string) ([]thinkt.SessionMeta, error) {
+	ctx := context.Background()
+
+	// Find the project across all sources
+	projects, err := registry.ListAllProjects(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list projects: %w", err)
+	}
+
+	var targetProject *thinkt.Project
+	for _, p := range projects {
+		if p.ID == projectID || p.Path == projectID {
+			targetProject = &p
+			break
+		}
+	}
+
+	if targetProject == nil {
+		return nil, fmt.Errorf("project not found: %s\n\nUse 'thinkt projects' to list available projects", projectID)
+	}
+
+	// Get the appropriate store
+	store, ok := registry.Get(targetProject.Source)
+	if !ok {
+		return nil, fmt.Errorf("source not available: %s", targetProject.Source)
+	}
+
+	return store.ListSessions(ctx, targetProject.ID)
+}
+
 // SessionDeleter handles session deletion.
 type SessionDeleter struct {
-	baseDir string
-	opts    SessionDeleteOptions
+	registry *thinkt.StoreRegistry
+	opts     SessionDeleteOptions
 }
 
 // SessionDeleteOptions configures session deletion.
@@ -140,11 +177,11 @@ type SessionDeleteOptions struct {
 }
 
 // NewSessionDeleter creates a new session deleter.
-func NewSessionDeleter(baseDir string, opts SessionDeleteOptions) *SessionDeleter {
+func NewSessionDeleter(registry *thinkt.StoreRegistry, opts SessionDeleteOptions) *SessionDeleter {
 	if opts.Stdout == nil {
 		opts.Stdout = os.Stdout
 	}
-	return &SessionDeleter{baseDir: baseDir, opts: opts}
+	return &SessionDeleter{registry: registry, opts: opts}
 }
 
 // Delete removes a session file after confirmation.
@@ -158,13 +195,18 @@ func (d *SessionDeleter) Delete(sessionPath string) error {
 	// Show info and confirm
 	if !d.opts.Force {
 		fmt.Fprintf(d.opts.Stdout, "Session: %s\n", session.FullPath)
-		fmt.Fprintf(d.opts.Stdout, "ID: %s\n", session.SessionID)
-		fmt.Fprintf(d.opts.Stdout, "Messages: %d\n", session.MessageCount)
-		if !session.Modified.IsZero() {
-			fmt.Fprintf(d.opts.Stdout, "Modified: %s\n", session.Modified.Format("2006-01-02 15:04"))
+		fmt.Fprintf(d.opts.Stdout, "ID: %s\n", session.ID)
+		fmt.Fprintf(d.opts.Stdout, "Source: %s\n", session.Source)
+		fmt.Fprintf(d.opts.Stdout, "Messages: %d\n", session.EntryCount)
+		if !session.ModifiedAt.IsZero() {
+			fmt.Fprintf(d.opts.Stdout, "Modified: %s\n", session.ModifiedAt.Format("2006-01-02 15:04"))
 		}
-		if session.Summary != "" {
-			fmt.Fprintf(d.opts.Stdout, "Summary: %s\n", session.Summary)
+		if session.FirstPrompt != "" {
+			summary := session.FirstPrompt
+			if len(summary) > 100 {
+				summary = summary[:100] + "..."
+			}
+			fmt.Fprintf(d.opts.Stdout, "Summary: %s\n", summary)
 		}
 		fmt.Fprintln(d.opts.Stdout)
 
@@ -191,7 +233,7 @@ func (d *SessionDeleter) Delete(sessionPath string) error {
 }
 
 // findSession finds a session by path or ID within the project scope.
-func (d *SessionDeleter) findSession(sessionPath string) (*claude.SessionMeta, error) {
+func (d *SessionDeleter) findSession(sessionPath string) (*thinkt.SessionMeta, error) {
 	// If it's an absolute path to a .jsonl file, use it directly
 	if filepath.IsAbs(sessionPath) && strings.HasSuffix(sessionPath, ".jsonl") {
 		if _, err := os.Stat(sessionPath); err == nil {
@@ -205,14 +247,14 @@ func (d *SessionDeleter) findSession(sessionPath string) (*claude.SessionMeta, e
 		return nil, fmt.Errorf("session not found: %s\n\nSpecify -p/--project to search within a project, or provide the full session path", sessionPath)
 	}
 
-	sessions, err := d.listProjectSessions()
+	sessions, err := ListSessionsForProject(d.registry, d.opts.Project)
 	if err != nil {
 		return nil, err
 	}
 
 	// Try to match by session ID or path suffix
 	for _, s := range sessions {
-		if s.SessionID == sessionPath || strings.HasSuffix(s.FullPath, sessionPath) {
+		if s.ID == sessionPath || strings.HasSuffix(s.FullPath, sessionPath) {
 			return &s, nil
 		}
 	}
@@ -220,44 +262,23 @@ func (d *SessionDeleter) findSession(sessionPath string) (*claude.SessionMeta, e
 	return nil, fmt.Errorf("session not found: %s\n\nUse 'thinkt sessions list -p %s' to see available sessions", sessionPath, d.opts.Project)
 }
 
-func (d *SessionDeleter) listProjectSessions() ([]claude.SessionMeta, error) {
-	// Find project directory
-	absPath, err := filepath.Abs(d.opts.Project)
-	if err != nil {
-		return nil, fmt.Errorf("resolve project path: %w", err)
-	}
-
-	projects, err := claude.ListProjects(d.baseDir)
-	if err != nil {
-		return nil, fmt.Errorf("list projects: %w", err)
-	}
-
-	for _, p := range projects {
-		if p.FullPath == absPath {
-			return claude.ListProjectSessions(p.DirPath)
-		}
-	}
-
-	return nil, fmt.Errorf("project not found: %s", d.opts.Project)
-}
-
-func (d *SessionDeleter) loadSessionMeta(path string) (*claude.SessionMeta, error) {
+func (d *SessionDeleter) loadSessionMeta(path string) (*thinkt.SessionMeta, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, fmt.Errorf("stat session: %w", err)
 	}
 
-	return &claude.SessionMeta{
-		SessionID: strings.TrimSuffix(filepath.Base(path), ".jsonl"),
-		FullPath:  path,
-		Modified:  info.ModTime(),
+	return &thinkt.SessionMeta{
+		ID:       strings.TrimSuffix(filepath.Base(path), ".jsonl"),
+		FullPath: path,
+		ModifiedAt:  info.ModTime(),
 	}, nil
 }
 
 // SessionCopier handles session copying.
 type SessionCopier struct {
-	baseDir string
-	opts    SessionCopyOptions
+	registry *thinkt.StoreRegistry
+	opts     SessionCopyOptions
 }
 
 // SessionCopyOptions configures session copying.
@@ -267,11 +288,11 @@ type SessionCopyOptions struct {
 }
 
 // NewSessionCopier creates a new session copier.
-func NewSessionCopier(baseDir string, opts SessionCopyOptions) *SessionCopier {
+func NewSessionCopier(registry *thinkt.StoreRegistry, opts SessionCopyOptions) *SessionCopier {
 	if opts.Stdout == nil {
 		opts.Stdout = os.Stdout
 	}
-	return &SessionCopier{baseDir: baseDir, opts: opts}
+	return &SessionCopier{registry: registry, opts: opts}
 }
 
 // Copy copies a session file to the target path.
@@ -310,14 +331,14 @@ func (c *SessionCopier) Copy(sessionPath, targetPath string) error {
 }
 
 // findSession finds a session by path or ID within the project scope.
-func (c *SessionCopier) findSession(sessionPath string) (*claude.SessionMeta, error) {
+func (c *SessionCopier) findSession(sessionPath string) (*thinkt.SessionMeta, error) {
 	// If it's an absolute path to a .jsonl file, use it directly
 	if filepath.IsAbs(sessionPath) && strings.HasSuffix(sessionPath, ".jsonl") {
 		if info, err := os.Stat(sessionPath); err == nil {
-			return &claude.SessionMeta{
-				SessionID: strings.TrimSuffix(filepath.Base(sessionPath), ".jsonl"),
-				FullPath:  sessionPath,
-				Modified:  info.ModTime(),
+			return &thinkt.SessionMeta{
+				ID:         strings.TrimSuffix(filepath.Base(sessionPath), ".jsonl"),
+				FullPath:   sessionPath,
+				ModifiedAt: info.ModTime(),
 			}, nil
 		}
 	}
@@ -327,58 +348,17 @@ func (c *SessionCopier) findSession(sessionPath string) (*claude.SessionMeta, er
 		return nil, fmt.Errorf("session not found: %s\n\nSpecify -p/--project to search within a project, or provide the full session path", sessionPath)
 	}
 
-	sessions, err := c.listProjectSessions()
+	sessions, err := ListSessionsForProject(c.registry, c.opts.Project)
 	if err != nil {
 		return nil, err
 	}
 
 	// Try to match by session ID or path suffix
 	for _, s := range sessions {
-		if s.SessionID == sessionPath || strings.HasSuffix(s.FullPath, sessionPath) {
+		if s.ID == sessionPath || strings.HasSuffix(s.FullPath, sessionPath) {
 			return &s, nil
 		}
 	}
 
 	return nil, fmt.Errorf("session not found: %s\n\nUse 'thinkt sessions list -p %s' to see available sessions", sessionPath, c.opts.Project)
-}
-
-func (c *SessionCopier) listProjectSessions() ([]claude.SessionMeta, error) {
-	absPath, err := filepath.Abs(c.opts.Project)
-	if err != nil {
-		return nil, fmt.Errorf("resolve project path: %w", err)
-	}
-
-	projects, err := claude.ListProjects(c.baseDir)
-	if err != nil {
-		return nil, fmt.Errorf("list projects: %w", err)
-	}
-
-	for _, p := range projects {
-		if p.FullPath == absPath {
-			return claude.ListProjectSessions(p.DirPath)
-		}
-	}
-
-	return nil, fmt.Errorf("project not found: %s", c.opts.Project)
-}
-
-// ListSessionsForProject lists sessions for a given project path.
-func ListSessionsForProject(baseDir, projectPath string) ([]claude.SessionMeta, error) {
-	absPath, err := filepath.Abs(projectPath)
-	if err != nil {
-		return nil, fmt.Errorf("resolve project path: %w", err)
-	}
-
-	projects, err := claude.ListProjects(baseDir)
-	if err != nil {
-		return nil, fmt.Errorf("list projects: %w", err)
-	}
-
-	for _, p := range projects {
-		if p.FullPath == absPath {
-			return claude.ListProjectSessions(p.DirPath)
-		}
-	}
-
-	return nil, fmt.Errorf("project not found: %s\n\nUse 'thinkt projects' to list available projects", projectPath)
 }

@@ -7,12 +7,12 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 )
 
-// sessionItem wraps a claude.SessionMeta for the list component.
+// sessionItem wraps a thinkt.SessionMeta for the list component.
 type sessionItem struct {
-	meta claude.SessionMeta
+	meta thinkt.SessionMeta
 }
 
 func (i sessionItem) Title() string {
@@ -23,14 +23,14 @@ func (i sessionItem) Title() string {
 		}
 		return text
 	}
-	return i.meta.SessionID[:8]
+	return i.meta.ID[:8]
 }
 
 func (i sessionItem) Description() string {
-	if !i.meta.Created.IsZero() {
-		ts := i.meta.Created.Local().Format("Jan 02, 3:04 PM")
-		if i.meta.MessageCount > 0 {
-			return fmt.Sprintf("%s  (%d msgs)", ts, i.meta.MessageCount)
+	if !i.meta.CreatedAt.IsZero() {
+		ts := i.meta.CreatedAt.Local().Format("Jan 02, 3:04 PM")
+		if i.meta.EntryCount > 0 {
+			return fmt.Sprintf("%s  (%d msgs)", ts, i.meta.EntryCount)
 		}
 		return ts
 	}
@@ -38,13 +38,13 @@ func (i sessionItem) Description() string {
 }
 
 func (i sessionItem) FilterValue() string {
-	return i.meta.FirstPrompt + " " + i.meta.SessionID
+	return i.meta.FirstPrompt + " " + i.meta.ID
 }
 
 // sessionsModel manages the sessions list (column 2).
 type sessionsModel struct {
 	list   list.Model
-	items  []claude.SessionMeta
+	items  []thinkt.SessionMeta
 	width  int
 	height int
 }
@@ -60,7 +60,7 @@ func newSessionsModel() sessionsModel {
 	return sessionsModel{list: l}
 }
 
-func (m *sessionsModel) setItems(sessions []claude.SessionMeta) {
+func (m *sessionsModel) setItems(sessions []thinkt.SessionMeta) {
 	m.items = sessions
 	items := make([]list.Item, len(sessions))
 	for i, s := range sessions {
@@ -76,7 +76,7 @@ func (m *sessionsModel) setSize(w, h int) {
 	m.list.SetHeight(h)
 }
 
-func (m *sessionsModel) selectedSession() *claude.SessionMeta {
+func (m *sessionsModel) selectedSession() *thinkt.SessionMeta {
 	item := m.list.SelectedItem()
 	if item == nil {
 		return nil

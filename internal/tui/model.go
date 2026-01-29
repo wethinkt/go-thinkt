@@ -1,7 +1,10 @@
 package tui
 
 import (
+	"context"
+	"fmt"
 	"os"
+	"sort"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -9,6 +12,8 @@ import (
 	"golang.org/x/term"
 
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/kimi"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
 )
 
@@ -23,7 +28,6 @@ const (
 
 // Model is the top-level bubbletea model for the TUI.
 type Model struct {
-	baseDir           string
 	width             int
 	height            int
 	activeColumn      column
@@ -31,36 +35,48 @@ type Model struct {
 	sessions          sessionsModel
 	content           contentModel
 	header            headerModel
-	selectedProject   *claude.Project
-	currentSessions   []claude.SessionMeta
+	selectedProject   *thinkt.Project
+	currentSessions   []thinkt.SessionMeta
 	loadedSessionPath string // Track which session is currently loaded in content
 	err               error
+	
+	// Multi-source support
+	registry *thinkt.StoreRegistry
 }
 
 // NewModel creates a new TUI model.
 func NewModel(baseDir string) Model {
-	if baseDir == "" {
-		defaultDir, err := claude.DefaultDir()
-		if err == nil {
-			baseDir = defaultDir
-		} else {
-			baseDir = "~/.claude" // fallback
-		}
+	// Create registry with all available sources
+	registry := thinkt.NewRegistry()
+	
+	// Try to add Kimi store
+	kimiStore := kimi.NewStore("")
+	if projects, err := kimiStore.ListProjects(context.Background()); err == nil && len(projects) > 0 {
+		registry.Register(kimiStore)
+		tuilog.Log.Info("Kimi store registered", "projects", len(projects))
 	}
+	
+	// Try to add Claude store
+	claudeStore := claude.NewStore(baseDir)
+	if projects, err := claudeStore.ListProjects(context.Background()); err == nil && len(projects) > 0 {
+		registry.Register(claudeStore)
+		tuilog.Log.Info("Claude store registered", "projects", len(projects))
+	}
+	
 	return Model{
-		baseDir:      baseDir,
 		activeColumn: colProjects,
 		projects:     newProjectsModel(),
 		sessions:     newSessionsModel(),
 		content:      newContentModel(),
 		header:       newHeaderModel(),
+		registry:     registry,
 	}
 }
 
 // Init implements tea.Model.
 func (m Model) Init() tea.Cmd {
-	tuilog.Log.Info("Init", "baseDir", m.baseDir)
-	return loadProjectsCmd(m.baseDir)
+	tuilog.Log.Info("Init", "sources", len(m.registry.All()))
+	return loadProjectsCmd(m.registry)
 }
 
 // Update implements tea.Model.
@@ -124,8 +140,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(msg.Sessions) > 0 {
 			sess := &msg.Sessions[0]
 			m.header.setSessionMeta(sess)
-			// Load session content
-			return m, nil //loadSessionCmd(sess.FullPath)
+			// Load session if different from currently loaded
+			if sess.FullPath != m.loadedSessionPath {
+				return m, nil //tea.Batch(cmd, loadSessionCmd(sess.FullPath))
+			}
 		}
 		return m, nil
 
@@ -252,11 +270,11 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.projects, cmd = m.projects.update(msg)
 		// Check if selection changed
-		if proj := m.projects.selectedProject(); proj != nil && (m.selectedProject == nil || proj.DirPath != m.selectedProject.DirPath) {
+		if proj := m.projects.selectedProject(); proj != nil && (m.selectedProject == nil || proj.ID != m.selectedProject.ID) {
 			m.selectedProject = proj
 			m.header.setProject(proj)
 			// Batch the list's command with loading sessions
-			return m, cmd // tea.Batch(cmd, loadSessionsCmd(proj.DirPath))
+			return m, cmd // tea.Batch(cmd, loadSessionsCmd(proj.ID))
 		}
 		return m, cmd
 	case colSessions:
@@ -289,7 +307,7 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 			m.header.setProject(proj)
 			// Move focus to sessions column
 			m.activeColumn = colSessions
-			return m, loadSessionsCmd(proj.DirPath)
+			return m, loadSessionsCmd(m.registry, proj)
 		}
 	case colSessions:
 		// Session is already auto-loaded, just move focus to content
@@ -362,21 +380,43 @@ func (m Model) View() tea.View {
 
 // Commands
 
-func loadProjectsCmd(baseDir string) tea.Cmd {
+func loadProjectsCmd(registry *thinkt.StoreRegistry) tea.Cmd {
 	return func() tea.Msg {
 		defer tuilog.Log.Timed("loadProjects")()
-		tuilog.Log.Debug("loadProjects", "baseDir", baseDir)
-		projects, err := claude.ListProjects(baseDir)
-		return ProjectsLoadedMsg{Projects: projects, Err: err}
+		tuilog.Log.Debug("loadProjects", "sources", len(registry.All()))
+		
+		ctx := context.Background()
+		projects, err := registry.ListAllProjects(ctx)
+		if err != nil {
+			return ProjectsLoadedMsg{Err: err}
+		}
+		
+		// Sort by path for consistent display
+		sort.Slice(projects, func(i, j int) bool {
+			return projects[i].Path < projects[j].Path
+		})
+		
+		return ProjectsLoadedMsg{Projects: projects, Err: nil}
 	}
 }
 
-func loadSessionsCmd(projectDir string) tea.Cmd {
+func loadSessionsCmd(registry *thinkt.StoreRegistry, project *thinkt.Project) tea.Cmd {
 	return func() tea.Msg {
 		defer tuilog.Log.Timed("loadSessions")()
-		tuilog.Log.Debug("loadSessions", "projectDir", projectDir)
-		sessions, err := claude.ListProjectSessions(projectDir)
-		return SessionsLoadedMsg{Sessions: sessions, Err: err}
+		tuilog.Log.Debug("loadSessions", "projectID", project.ID, "source", project.Source)
+		
+		store, ok := registry.Get(project.Source)
+		if !ok {
+			return SessionsLoadedMsg{Err: fmt.Errorf("source not found: %s", project.Source)}
+		}
+		
+		ctx := context.Background()
+		sessions, err := store.ListSessions(ctx, project.ID)
+		if err != nil {
+			return SessionsLoadedMsg{Err: err}
+		}
+		
+		return SessionsLoadedMsg{Sessions: sessions, Err: nil}
 	}
 }
 
