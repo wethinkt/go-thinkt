@@ -38,7 +38,7 @@ func NewJSONLReader(path string) (*JSONLReader, error) {
 	return &JSONLReader{
 		path:     path,
 		file:     file,
-		reader:   bufio.NewReaderSize(file, 64*1024), // 64KB buffer
+		reader:   bufio.NewReaderSize(file, 128*1024), // 128KB buffer
 		position: 0,
 		lineNum:  0,
 		fileSize: stat.Size(),

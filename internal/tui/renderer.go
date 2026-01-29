@@ -56,12 +56,13 @@ func renderUserEntry(entry *claude.Entry, width int) string {
 }
 
 func renderAssistantEntry(entry *claude.Entry, width int, renderer *glamour.TermRenderer, useGlamour bool) string {
-	if entry.AssistantMessage == nil {
+	msg := entry.GetAssistantMessage()
+	if msg == nil {
 		return ""
 	}
 
 	var parts []string
-	for _, block := range entry.AssistantMessage.Content {
+	for _, block := range msg.Content {
 		s := renderContentBlock(&block, width, renderer, useGlamour)
 		if s != "" {
 			parts = append(parts, s)
@@ -129,14 +130,25 @@ func renderColumnBorder(content string, title string, width, height int, active 
 		style = activeBorderStyle
 	}
 
-	// Lipgloss Height pads but doesn't truncate, so we must truncate manually.
-	// The border content is: title (1 line) + content (height-1 lines)
+	// The border frame structure:
+	// - Top border: 1 line
+	// - Title: 1 line  
+	// - Content: N lines
+	// - Bottom border: 1 line
+	// Total = N + 3 lines. For a frame height of `height`, content can be at most height-3 lines.
+	maxContentLines := max(0, height-3) // -2 for borders, -1 for title
+
+	// Truncate content to fit within available lines
 	contentLines := strings.Split(content, "\n")
-	maxContentLines := max(0, height-1) // Reserve 1 line for title
 	if len(contentLines) > maxContentLines {
 		contentLines = contentLines[:maxContentLines]
 	}
+	// Pad content to exactly maxContentLines to maintain consistent height
+	for len(contentLines) < maxContentLines {
+		contentLines = append(contentLines, "")
+	}
 	truncatedContent := strings.Join(contentLines, "\n")
 
-	return style.Width(width).Height(height).Render(title + "\n" + truncatedContent)
+	// Use MaxHeight to strictly enforce height, not just minimum
+	return style.Width(width).Height(height).MaxHeight(height).Render(title + "\n" + truncatedContent)
 }

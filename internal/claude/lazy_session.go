@@ -94,17 +94,19 @@ func (ls *LazySession) readNextEntry() (*Entry, error) {
 	ls.bytesRead = ls.reader.Position()
 
 	// Parse the message based on entry type
+	// Note: Message is now lazily parsed via GetUserMessage/GetAssistantMessage
+	// We pre-parse here for metadata extraction, then set via setters
 	if len(entry.Message) > 0 {
 		switch entry.Type {
 		case EntryTypeUser:
 			var msg UserMessage
 			if err := json.Unmarshal(entry.Message, &msg); err == nil {
-				entry.UserMessage = &msg
+				entry.SetUserMessage(&msg)
 			}
 		case EntryTypeAssistant:
 			var msg AssistantMessage
 			if err := json.Unmarshal(entry.Message, &msg); err == nil {
-				entry.AssistantMessage = &msg
+				entry.SetAssistantMessage(&msg)
 			}
 		}
 	}
@@ -126,8 +128,10 @@ func (ls *LazySession) extractMetadata(entry *Entry) {
 	if ls.CWD == "" && entry.CWD != "" {
 		ls.CWD = entry.CWD
 	}
-	if ls.Model == "" && entry.AssistantMessage != nil && entry.AssistantMessage.Model != "" {
-		ls.Model = entry.AssistantMessage.Model
+	if ls.Model == "" {
+		if msg := entry.GetAssistantMessage(); msg != nil && msg.Model != "" {
+			ls.Model = msg.Model
+		}
 	}
 
 	if entry.Timestamp != "" {

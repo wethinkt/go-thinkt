@@ -21,7 +21,7 @@ func NewParser(r io.Reader) *Parser {
 	scanner := bufio.NewScanner(r)
 	// Increase buffer size for long lines (some tool results can be large)
 	const maxCapacity = 10 * 1024 * 1024 // 10MB
-	buf := make([]byte, 0, 64*1024)
+	buf := make([]byte, 0, 128*1024)
 	scanner.Buffer(buf, maxCapacity)
 
 	return &Parser{
@@ -84,14 +84,14 @@ func (p *Parser) parseMessage(entry *Entry) error {
 		if err := json.Unmarshal(entry.Message, &msg); err != nil {
 			return fmt.Errorf("parse user message: %w", err)
 		}
-		entry.UserMessage = &msg
+		entry.SetUserMessage(&msg)
 
 	case EntryTypeAssistant:
 		var msg AssistantMessage
 		if err := json.Unmarshal(entry.Message, &msg); err != nil {
 			return fmt.Errorf("parse assistant message: %w", err)
 		}
-		entry.AssistantMessage = &msg
+		entry.SetAssistantMessage(&msg)
 	}
 
 	return nil
@@ -139,8 +139,10 @@ func (p *Parser) ReadSession(path string) (*Session, error) {
 		if session.CWD == "" && e.CWD != "" {
 			session.CWD = e.CWD
 		}
-		if session.Model == "" && e.AssistantMessage != nil && e.AssistantMessage.Model != "" {
-			session.Model = e.AssistantMessage.Model
+		if session.Model == "" {
+			if msg := e.GetAssistantMessage(); msg != nil && msg.Model != "" {
+				session.Model = msg.Model
+			}
 		}
 
 		// Parse timestamps
@@ -284,12 +286,12 @@ func LoadSessionWindow(path string, startOffset int64, maxContentBytes int) (*Se
 			case EntryTypeUser:
 				var msg UserMessage
 				if err := json.Unmarshal(entry.Message, &msg); err == nil {
-					entry.UserMessage = &msg
+					entry.SetUserMessage(&msg)
 				}
 			case EntryTypeAssistant:
 				var msg AssistantMessage
 				if err := json.Unmarshal(entry.Message, &msg); err == nil {
-					entry.AssistantMessage = &msg
+					entry.SetAssistantMessage(&msg)
 				}
 			}
 		}
@@ -324,8 +326,10 @@ func LoadSessionWindow(path string, startOffset int64, maxContentBytes int) (*Se
 		if session.CWD == "" && e.CWD != "" {
 			session.CWD = e.CWD
 		}
-		if session.Model == "" && e.AssistantMessage != nil && e.AssistantMessage.Model != "" {
-			session.Model = e.AssistantMessage.Model
+		if session.Model == "" {
+			if msg := e.GetAssistantMessage(); msg != nil && msg.Model != "" {
+				session.Model = msg.Model
+			}
 		}
 
 		if e.Timestamp != "" {
@@ -355,16 +359,16 @@ func estimateEntryContentSize(entry *Entry) int {
 	size := 0
 
 	// User message content
-	if entry.UserMessage != nil {
-		size += len(entry.UserMessage.Content.Text)
-		for _, block := range entry.UserMessage.Content.Blocks {
+	if msg := entry.GetUserMessage(); msg != nil {
+		size += len(msg.Content.Text)
+		for _, block := range msg.Content.Blocks {
 			size += len(block.Text)
 		}
 	}
 
 	// Assistant message content
-	if entry.AssistantMessage != nil {
-		for _, block := range entry.AssistantMessage.Content {
+	if msg := entry.GetAssistantMessage(); msg != nil {
+		for _, block := range msg.Content {
 			size += len(block.Text)
 			size += len(block.Thinking)
 			// Tool calls are usually short, just count the name
@@ -414,8 +418,10 @@ func (p *Parser) ReadSessionPreview(path string, maxEntries int) (*Session, erro
 		if session.CWD == "" && e.CWD != "" {
 			session.CWD = e.CWD
 		}
-		if session.Model == "" && e.AssistantMessage != nil && e.AssistantMessage.Model != "" {
-			session.Model = e.AssistantMessage.Model
+		if session.Model == "" {
+			if msg := e.GetAssistantMessage(); msg != nil && msg.Model != "" {
+				session.Model = msg.Model
+			}
 		}
 
 		// Parse timestamps

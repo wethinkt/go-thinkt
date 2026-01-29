@@ -302,24 +302,19 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 func (m *Model) updateSizes() {
 	// Calculate column dimensions (same as View() for consistency)
 	headerHeight := m.header.height()
-	// Total height minus header, status bar (1), and column border (2 top+bottom)
-	columnContentHeight := max(3, m.height-headerHeight-1-2)
+	// Total height: header + projects column + status bar = m.height
+	availableHeight := max(3, m.height-headerHeight-1)
 
-	// Column widths: calculate proportionally, col3 gets remainder
-	// Each column border adds 2 chars (left + right), so 6 total for 3 columns
-	availableWidth := m.width - 6
-	col1Width := max(18, availableWidth*20/100)
-	col2Width := max(23, availableWidth*25/100)
-	col3Width := availableWidth - col1Width - col2Width // remainder ensures exact fit
+	// Fixed width for projects column (simplifying for now)
+	colWidth := 40
 
-	// List/viewport height = column content height - title line (1)
-	// The border renders: title + "\n" + content, so content gets height-1 lines
-	listHeight := max(1, columnContentHeight-1)
+	// List height = available height - borders (2) - title (1) = height - 3
+	// Border frame: top(1) + title(1) + content(N) + bottom(1) = N + 3 = availableHeight
+	// Therefore N = availableHeight - 3
+	listHeight := max(1, availableHeight-3)
 	tuilog.Log.Debug("updateSizes", "termHeight", m.height, "headerHeight", headerHeight,
-		"columnContentHeight", columnContentHeight, "listHeight", listHeight)
-	m.projects.setSize(col1Width, listHeight)
-	m.sessions.setSize(col2Width, listHeight)
-	m.content.setSize(col3Width, listHeight)
+		"availableHeight", availableHeight, "listHeight", listHeight)
+	m.projects.setSize(colWidth, listHeight)
 	m.header.setWidth(m.width)
 }
 
@@ -338,37 +333,26 @@ func (m Model) View() tea.View {
 	}
 
 	headerHeight := m.header.height()
-	// Total height minus header, status bar (1), and column border (2 for top+bottom)
-	columnContentHeight := max(3, m.height-headerHeight-1-2)
+	// Total height: header + projects column + status bar = m.height
+	// Projects column includes its own border (2 lines) + title (1) + list content
+	// Available for the entire column frame: m.height - header - status
+	availableHeight := max(3, m.height-headerHeight-1)
 
-	// Column widths: calculate proportionally to fill the full terminal width
-	// Each column border adds 2 chars (left + right), so 6 total for 3 columns
-	// We set content width such that total (content + borders) = m.width
-	availableWidth := m.width - 6 // content width for all columns combined
-	col1Width := availableWidth - 2
-	// col1Width := max(18, availableWidth*20/100)
-	// col2Width := max(23, availableWidth*25/100)
-	// col3Width := availableWidth - col1Width - col2Width // remainder ensures exact fit
+	// For now, just render projects column at a fixed width
+	colWidth := 40
 
 	statusText := "Tab: columns | Enter: select | s: sort | r: reverse | T: tracer | q: quit"
 
-	// Render columns with borders, include sort indicator in projects title
+	// Render projects column with border
 	projectsTitle := "Projects " + m.projects.sortIndicator()
-	col1 := renderColumnBorder(m.projects.view(), projectsTitle, col1Width, columnContentHeight, m.activeColumn == colProjects)
-	// col2 := renderColumnBorder(m.sessions.view(), "Sessions", col2Width, columnContentHeight, m.activeColumn == colSessions)
-	// col3 := renderColumnBorder(m.content.view(), "Content", col3Width, columnContentHeight, m.activeColumn == colContent)
+	projectsCol := renderColumnBorder(m.projects.view(), projectsTitle, colWidth, availableHeight, m.activeColumn == colProjects)
 
-	// Join columns horizontally
-	// columns := lipgloss.JoinHorizontal(lipgloss.Top, col1, col2, col3)
-	columns := col1
-
-	// Build layout: header, columns, status bar
+	// Build layout: header, projects column, status bar
 	header := m.header.view()
-
 	status := statusBarStyle.Width(m.width).Render(statusText)
 
 	// Join all parts vertically
-	content := lipgloss.JoinVertical(lipgloss.Left, header, columns, status)
+	content := lipgloss.JoinVertical(lipgloss.Left, header, projectsCol, status)
 
 	v := tea.NewView(content)
 	v.AltScreen = true

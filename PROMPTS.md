@@ -407,3 +407,45 @@ wouldn't bubbletea do that update/view loop after contentRenderedMsg natually?  
 ## 2026-01-27T14:17:32Z
 
 we've learned a lot in making those features.  revisit the full tui design and implementation to ensure we are leveraging components and lessons 
+
+---
+
+## 2026-01-27T14:32:18Z
+
+the sessions and content window are the correct size, but the Projects pane is too tall and messing up rendering
+
+---
+
+## 2026-01-27T15:36:58Z
+
+still not working, there are times where the projects list is too long.  are all the nested controls  honoring height and width correctly?
+
+---
+
+## 2026-01-27T16:11:10Z
+
+still having problems.  let's try this.  i don't see you setting using list.SetHeight on resize for the lists?
+
+---
+
+## 2026-01-27T16:36:36Z
+
+this TUI is still not rendering properly.  let's start by getting exactly the projects part correct.  i've commented out the session and content panels.  i still see the project pane too long.  is the list not getting initialized properly?
+
+---
+
+## 2026-01-27T20:52:41Z
+
+remote thinkt-prompts.  see if there's any functionality that has not been incorporated in the existing features
+
+---
+
+## 2026-01-27T21:07:45Z
+
+nevermind... we already did that and there were stale files.  i took care of it.  i would like you to update the JSONL handling to use buffered reading; use a 128k buffer
+
+---
+
+## 2026-01-27T21:10:17Z
+
+would it be possible to lazy decode the json as well?  are we accessing it before we need to, for example to render in conversations?  it seems to be reading it deeply even to just show the projects?

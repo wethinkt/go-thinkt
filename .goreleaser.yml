@@ -1,19 +1,6 @@
 version: 2
 
 builds:
-  - id: thinkt-prompts
-    main: ./cmd/thinkt-prompts
-    binary: thinkt-prompts
-    env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-      - darwin
-      - windows
-    goarch:
-      - amd64
-      - arm64
-
   - id: thinkt
     main: ./cmd/thinkt
     binary: thinkt
@@ -52,7 +39,6 @@ changelog:
 homebrew_casks:
   - name: thinking-tracer-tools
     binaries:
-      - thinkt-prompts
       - thinkt
     repository:
       owner: brain-stm-org
@@ -60,4 +46,4 @@ homebrew_casks:
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     directory: Casks
     homepage: https://github.com/Brain-STM-org/thinking-tracer-tools
-    description: CLI tools for exploring Claude Code conversation traces
+    description: CLI tools for exploring LLM conversation traces

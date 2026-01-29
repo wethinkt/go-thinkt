@@ -76,9 +76,55 @@ type Entry struct {
 	// Queue operation fields
 	Operation string `json:"operation,omitempty"`
 
-	// Parsed messages (populated by Parser, not from JSON)
-	UserMessage      *UserMessage      `json:"-"`
-	AssistantMessage *AssistantMessage `json:"-"`
+	// Parsed messages (lazily populated on first access via GetUserMessage/GetAssistantMessage)
+	userMessage      *UserMessage
+	assistantMessage *AssistantMessage
+	messageParsed    bool
+}
+
+// GetUserMessage returns the parsed user message, parsing lazily on first access.
+func (e *Entry) GetUserMessage() *UserMessage {
+	e.ensureMessageParsed()
+	return e.userMessage
+}
+
+// GetAssistantMessage returns the parsed assistant message, parsing lazily on first access.
+func (e *Entry) GetAssistantMessage() *AssistantMessage {
+	e.ensureMessageParsed()
+	return e.assistantMessage
+}
+
+// SetUserMessage sets the user message (for callers that pre-parse).
+func (e *Entry) SetUserMessage(msg *UserMessage) {
+	e.userMessage = msg
+	e.messageParsed = true
+}
+
+// SetAssistantMessage sets the assistant message (for callers that pre-parse).
+func (e *Entry) SetAssistantMessage(msg *AssistantMessage) {
+	e.assistantMessage = msg
+	e.messageParsed = true
+}
+
+// ensureMessageParsed parses the Message field if not already done.
+func (e *Entry) ensureMessageParsed() {
+	if e.messageParsed || len(e.Message) == 0 {
+		return
+	}
+	e.messageParsed = true
+
+	switch e.Type {
+	case EntryTypeUser:
+		var msg UserMessage
+		if err := json.Unmarshal(e.Message, &msg); err == nil {
+			e.userMessage = &msg
+		}
+	case EntryTypeAssistant:
+		var msg AssistantMessage
+		if err := json.Unmarshal(e.Message, &msg); err == nil {
+			e.assistantMessage = &msg
+		}
+	}
 }
 
 // ThinkingMetadata contains metadata about thinking mode.
@@ -227,19 +273,27 @@ type Prompt struct {
 // GetPromptText extracts user prompt text from an entry.
 // Returns empty string for non-user entries or tool results.
 func (e *Entry) GetPromptText() string {
-	if e.Type != EntryTypeUser || e.UserMessage == nil {
+	if e.Type != EntryTypeUser {
 		return ""
 	}
-	return e.UserMessage.Content.GetText()
+	msg := e.GetUserMessage()
+	if msg == nil {
+		return ""
+	}
+	return msg.Content.GetText()
 }
 
 // GetThinkingBlocks returns all thinking blocks from an assistant entry.
 func (e *Entry) GetThinkingBlocks() []string {
-	if e.Type != EntryTypeAssistant || e.AssistantMessage == nil {
+	if e.Type != EntryTypeAssistant {
+		return nil
+	}
+	msg := e.GetAssistantMessage()
+	if msg == nil {
 		return nil
 	}
 	var thinking []string
-	for _, b := range e.AssistantMessage.Content {
+	for _, b := range msg.Content {
 		if b.Type == "thinking" && b.Thinking != "" {
 			thinking = append(thinking, b.Thinking)
 		}
@@ -249,11 +303,15 @@ func (e *Entry) GetThinkingBlocks() []string {
 
 // GetToolCalls returns all tool use blocks from an assistant entry.
 func (e *Entry) GetToolCalls() []ContentBlock {
-	if e.Type != EntryTypeAssistant || e.AssistantMessage == nil {
+	if e.Type != EntryTypeAssistant {
+		return nil
+	}
+	msg := e.GetAssistantMessage()
+	if msg == nil {
 		return nil
 	}
 	var tools []ContentBlock
-	for _, b := range e.AssistantMessage.Content {
+	for _, b := range msg.Content {
 		if b.Type == "tool_use" {
 			tools = append(tools, b)
 		}

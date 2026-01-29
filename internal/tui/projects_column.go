@@ -152,6 +152,19 @@ func (m projectsModel) update(msg tea.Msg) (projectsModel, tea.Cmd) {
 }
 
 func (m projectsModel) view() string {
+	// Show loading/empty state if no items
+	if len(m.items) == 0 {
+		if m.height > 0 {
+			// Return empty lines to fill the space (border will show "Projects" title)
+			lines := make([]string, m.height)
+			for i := range lines {
+				lines[i] = ""
+			}
+			return strings.Join(lines, "\n")
+		}
+		return ""
+	}
+
 	content := m.list.View()
 	// Constrain to our dimensions in case list renders too much
 	if m.height > 0 {
