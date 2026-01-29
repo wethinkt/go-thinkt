@@ -273,15 +273,15 @@ func (e *Engine) GetWordFrequency(ctx context.Context, projectPath string, limit
 		limit = 50
 	}
 
-	// Build stopwords list for SQL
-	stopwordsList := make([]string, 0, len(stopwords))
+	// Build stopwords array for SQL parameter
+	stopwordsArray := make([]string, 0, len(stopwords))
 	for w := range stopwords {
-		stopwordsList = append(stopwordsList, "'"+w+"'")
+		stopwordsArray = append(stopwordsArray, w)
 	}
-	stopwordsSQL := strings.Join(stopwordsList, ",")
 
 	// User messages have type='user' and message.content
-	sqlQuery := fmt.Sprintf(`
+	// Stopwords are passed as a parameterized array to prevent SQL injection
+	sqlQuery := `
 		WITH user_content AS (
 			SELECT
 				COALESCE(
@@ -302,13 +302,13 @@ func (e *Engine) GetWordFrequency(ctx context.Context, projectPath string, limit
 		SELECT word, COUNT(*) as freq
 		FROM words
 		WHERE length(word) > 3
-		  AND word NOT IN (%s)
+		  AND word NOT IN (SELECT unnest($3::TEXT[]))
 		GROUP BY word
 		ORDER BY freq DESC
 		LIMIT $2
-	`, stopwordsSQL)
+	`
 
-	rows, err := e.db.QueryContext(ctx, sqlQuery, pattern, limit)
+	rows, err := e.db.QueryContext(ctx, sqlQuery, pattern, limit, stopwordsArray)
 	if err != nil {
 		return nil, fmt.Errorf("word frequency query: %w", err)
 	}
