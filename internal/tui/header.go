@@ -251,14 +251,13 @@ func truncateWithWidth(s string, maxWidth int) string {
 
 // Header styles
 var (
-	// headerBoxStyle wraps the entire header with a hidden border to match column widths
-	// The border matches the background so it's invisible but takes up space
+	// headerBoxStyle wraps the entire header with a subtle border
 	headerBoxStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("#90EE90")).  // Same as background (hidden)
-				Background(lipgloss.Color("#90EE90")).  // Light green background for debugging
-				Foreground(lipgloss.Color("#000000")).  // Black text for contrast
-				Padding(0, 1)  // Horizontal padding inside border
+				BorderForeground(lipgloss.Color("#444444")).
+				Background(lipgloss.Color("#1a1a1a")).
+				Foreground(lipgloss.Color("#cccccc")).
+				Padding(0, 1)
 
 	headerLabelStyle = lipgloss.NewStyle().
 				Bold(true).

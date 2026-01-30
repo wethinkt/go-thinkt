@@ -118,11 +118,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		tuilog.Log.Info("ProjectsLoadedMsg", "count", len(msg.Projects))
 		m.projects.setItems(msg.Projects)
-		// Auto-select first project if available
+		// Auto-select first project and load its sessions
 		if len(msg.Projects) > 0 {
 			m.selectedProject = &msg.Projects[0]
 			m.header.setProject(m.selectedProject)
-			return m, nil // loadSessionsCmd(msg.Projects[0].DirPath)
+			return m, loadSessionsCmd(m.registry, m.selectedProject)
 		}
 		return m, nil
 
@@ -275,8 +275,8 @@ func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if proj := m.projects.selectedProject(); proj != nil && (m.selectedProject == nil || proj.ID != m.selectedProject.ID) {
 			m.selectedProject = proj
 			m.header.setProject(proj)
-			// Batch the list's command with loading sessions
-			return m, cmd // tea.Batch(cmd, loadSessionsCmd(proj.ID))
+			// Load sessions for the newly selected project
+			return m, tea.Batch(cmd, loadSessionsCmd(m.registry, proj))
 		}
 		return m, cmd
 	case colSessions:
@@ -322,19 +322,30 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 func (m *Model) updateSizes() {
 	// Calculate column dimensions (same as View() for consistency)
 	headerHeight := m.header.height()
-	// Total height: header + projects column + status bar = m.height
-	availableHeight := max(3, m.height-headerHeight-1)
+	statusHeight := 1
+	// Total height: header + columns + status bar = m.height
+	availableHeight := max(3, m.height-headerHeight-statusHeight)
 
-	// Fixed width for projects column (simplifying for now)
-	colWidth := 40
+	// Width distribution: projects takes ~38%, sessions takes remaining ~62%
+	// Sessions column fills remaining space to right edge
+	projectsWidth := int(float64(m.width) * 0.38)
+	sessionsWidth := m.width - projectsWidth
+	if projectsWidth < 30 {
+		projectsWidth = 30
+	}
+	if sessionsWidth < 30 {
+		sessionsWidth = 30
+	}
 
 	// List height = available height - borders (2) - title (1) = height - 3
 	// Border frame: top(1) + title(1) + content(N) + bottom(1) = N + 3 = availableHeight
 	// Therefore N = availableHeight - 3
 	listHeight := max(1, availableHeight-3)
 	tuilog.Log.Debug("updateSizes", "termHeight", m.height, "headerHeight", headerHeight,
-		"availableHeight", availableHeight, "listHeight", listHeight)
-	m.projects.setSize(colWidth, listHeight-1)
+		"availableHeight", availableHeight, "listHeight", listHeight,
+		"projectsWidth", projectsWidth, "sessionsWidth", sessionsWidth)
+	m.projects.setSize(projectsWidth, listHeight)
+	m.sessions.setSize(sessionsWidth, listHeight)
 	m.header.setWidth(m.width)
 }
 
@@ -353,19 +364,32 @@ func (m Model) View() tea.View {
 	}
 
 	headerHeight := m.header.height()
-	// Total height: header + projects column + status bar = m.height
-	// Projects column includes its own border (2 lines) + title (1) + list content
-	// Available for the entire column frame: m.height - header - status
-	availableHeight := max(3, m.height-headerHeight-1)
+	statusHeight := 1 // Status bar is 1 line
+	
+	// Total height: header + columns + status bar = m.height
+	// Available height for columns (accounting for header and status bar)
+	availableHeight := max(3, m.height-headerHeight-statusHeight)
 
-	// For now, just render projects column at a fixed width
-	colWidth := 40
+	// Width distribution: projects takes ~38%, sessions takes remaining ~62%
+	// Sessions column fills remaining space to right edge
+	projectsWidth := int(float64(m.width) * 0.38)
+	sessionsWidth := m.width - projectsWidth
+	if projectsWidth < 30 {
+		projectsWidth = 30
+	}
+	if sessionsWidth < 30 {
+		sessionsWidth = 30
+	}
+
+	// Border frame: top(1) + title(1) + content(N) + bottom(1) = N + 3
+	// So content height = availableHeight - 3 (accounting for border + title)
+	colHeight := max(1, availableHeight-3)
 
 	statusText := "Tab: columns | Enter: select | s: sort | r: reverse | T: tracer | q: quit"
 
-	// Render projects column with border
-	col1 := renderColumnBorder(m.projects.view(), colWidth, availableHeight-5, m.activeColumn == colProjects)
-	col2 := renderColumnBorder(m.sessions.view(), colWidth, availableHeight-5, m.activeColumn == colSessions)
+	// Render columns with border
+	col1 := renderColumnBorder(m.projects.view(), projectsWidth, colHeight, m.activeColumn == colProjects)
+	col2 := renderColumnBorder(m.sessions.view(), sessionsWidth, colHeight, m.activeColumn == colSessions)
 	body := lipgloss.JoinHorizontal(lipgloss.Top, col1, col2)
 	// Build layout: header, projects column, status bar
 

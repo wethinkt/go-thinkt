@@ -16,25 +16,53 @@ type sessionItem struct {
 }
 
 func (i sessionItem) Title() string {
+	// Add source indicator prefix
+	sourcePrefix := ""
+	if i.meta.Source == "kimi" {
+		sourcePrefix = "[K] "
+	} else if i.meta.Source == "claude" {
+		sourcePrefix = "[C] "
+	}
+	
+	// Use FirstPrompt if available, otherwise show truncated ID
 	if i.meta.FirstPrompt != "" {
 		text := i.meta.FirstPrompt
-		if len(text) > 60 {
-			text = text[:60] + "..."
+		// Limit to reasonable display length
+		if len(text) > 50 {
+			text = text[:50] + "..."
 		}
-		return text
+		return sourcePrefix + text
 	}
-	return i.meta.ID[:8]
+	
+	// Fallback: show short ID with indicator it's empty
+	id := i.meta.ID
+	if len(id) > 8 {
+		id = id[:8]
+	}
+	return sourcePrefix + "[" + id + "] (no preview)"
 }
 
 func (i sessionItem) Description() string {
+	parts := []string{}
+	
+	// Timestamp
 	if !i.meta.CreatedAt.IsZero() {
-		ts := i.meta.CreatedAt.Local().Format("Jan 02, 3:04 PM")
-		if i.meta.EntryCount > 0 {
-			return fmt.Sprintf("%s  (%d msgs)", ts, i.meta.EntryCount)
-		}
-		return ts
+		parts = append(parts, i.meta.CreatedAt.Local().Format("Jan 02, 3:04 PM"))
 	}
-	return ""
+	
+	// Entry count
+	if i.meta.EntryCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d msgs", i.meta.EntryCount))
+	}
+	
+	// Show partial ID for reference
+	id := i.meta.ID
+	if len(id) > 6 {
+		id = id[:6]
+	}
+	parts = append(parts, "id:"+id)
+	
+	return strings.Join(parts, " | ")
 }
 
 func (i sessionItem) FilterValue() string {
@@ -52,11 +80,12 @@ type sessionsModel struct {
 func newSessionsModel() sessionsModel {
 	delegate := list.NewDefaultDelegate()
 	l := list.New(nil, delegate, 0, 0)
-	l.SetShowTitle(false)       // We render title in the column border
+	l.SetShowTitle(true)
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(false)
 	l.SetShowFilter(false)      // Hide filter bar to save space
 	l.SetFilteringEnabled(true) // But keep filtering functional (/ to search)
+	l.Title = "Sessions"
 	return sessionsModel{list: l}
 }
 
@@ -67,6 +96,27 @@ func (m *sessionsModel) setItems(sessions []thinkt.SessionMeta) {
 		items[i] = sessionItem{meta: s}
 	}
 	m.list.SetItems(items)
+	// Update title with count and source breakdown
+	m.updateTitle()
+}
+
+func (m *sessionsModel) updateTitle() {
+	kimiCount := 0
+	claudeCount := 0
+	for _, s := range m.items {
+		if s.Source == "kimi" {
+			kimiCount++
+		} else if s.Source == "claude" {
+			claudeCount++
+		}
+	}
+	
+	sourceInfo := ""
+	if kimiCount > 0 && claudeCount > 0 {
+		sourceInfo = fmt.Sprintf(" [K:%d C:%d]", kimiCount, claudeCount)
+	}
+	
+	m.list.Title = fmt.Sprintf("Sessions (%d)%s", len(m.items), sourceInfo)
 }
 
 func (m *sessionsModel) setSize(w, h int) {

@@ -149,7 +149,20 @@ func renderColumnBorder(content string, width, height int, active bool) string {
 	// }
 	// truncatedContent := strings.Join(contentLines, "\n")
 
-	// Use MaxHeight to strictly enforce height, not just minimum
-	// return style.Width(width).Height(height).MaxHeight(height).Render(truncatedContent)
+	// Apply width and height to the style
+	// The border takes 2 chars (left+right), so content width is width-2
+	contentWidth := max(1, width-2)
+	contentHeight := max(1, height-2) // -2 for top/bottom borders
+	
+	style = style.Width(contentWidth).Height(contentHeight)
+	
 	return style.Render(content)
+}
+
+// max returns the larger of a and b.
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

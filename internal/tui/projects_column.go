@@ -35,8 +35,27 @@ type projectItem struct {
 	project thinkt.Project
 }
 
-func (i projectItem) Title() string       { return i.project.Name }
-func (i projectItem) Description() string { return i.project.Path }
+func (i projectItem) Title() string {
+	// Add source indicator prefix
+	sourcePrefix := ""
+	if i.project.Source == "kimi" {
+		sourcePrefix = "[K] "
+	} else if i.project.Source == "claude" {
+		sourcePrefix = "[C] "
+	}
+	return sourcePrefix + i.project.Name
+}
+func (i projectItem) Description() string {
+	// Show shorter path and session count with source
+	display := i.project.Path
+	if len(display) > 30 {
+		display = "..." + display[len(display)-27:]
+	}
+	if i.project.SessionCount > 0 {
+		return fmt.Sprintf("%s (%d sessions)", display, i.project.SessionCount)
+	}
+	return display
+}
 func (i projectItem) FilterValue() string { return i.project.Name + " " + i.project.Path }
 
 // projectsModel manages the projects list (column 1).
@@ -52,7 +71,7 @@ type projectsModel struct {
 func newProjectsModel() projectsModel {
 	delegate := list.NewDefaultDelegate()
 	l := list.New(nil, delegate, 0, 0)
-	l.SetShowTitle(false) // We render title in the column border
+	l.SetShowTitle(true)
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(false)
 	l.SetShowFilter(false)      // Hide filter bar to save space
@@ -96,6 +115,16 @@ func (m *projectsModel) applySort() {
 		items[i] = projectItem{project: p}
 	}
 	m.list.SetItems(items)
+	// Update title with current sort
+	m.updateTitle()
+}
+
+func (m *projectsModel) updateTitle() {
+	order := "↑"
+	if !m.sortAsc {
+		order = "↓"
+	}
+	m.list.Title = fmt.Sprintf("Projects [%s %s]", m.sortField.String(), order)
 }
 
 func (m *projectsModel) toggleSortField() {
@@ -112,13 +141,7 @@ func (m *projectsModel) toggleSortOrder() {
 	m.applySort()
 }
 
-func (m *projectsModel) sortIndicator() string {
-	order := "asc"
-	if !m.sortAsc {
-		order = "desc"
-	}
-	return fmt.Sprintf("[%s %s]", m.sortField.String(), order)
-}
+
 
 func (m *projectsModel) setSize(w, h int) {
 	tuilog.Log.Debug("projectsModel.setSize", "width", w, "height", h, "itemCount", len(m.items))

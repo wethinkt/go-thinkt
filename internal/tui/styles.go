@@ -13,8 +13,9 @@ var (
 				BorderForeground(lipgloss.Color("#444444"))
 
 	statusBarStyle = lipgloss.NewStyle().
-				Background(lipgloss.Color("#90EE90")).  // Light green background for debugging
-				Foreground(lipgloss.Color("#000000")).  // Black text for contrast
+				Background(lipgloss.Color("#7D56F4")).
+				Foreground(lipgloss.Color("#ffffff")).
+				Bold(true).
 				Padding(0, 1)
 )
 
