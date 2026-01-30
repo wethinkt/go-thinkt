@@ -45,7 +45,18 @@ func (d *Discoverer) IsAvailable() (bool, error) {
 }
 
 // basePath returns the Kimi base directory.
+// Uses THINKT_KIMI_HOME environment variable if set, otherwise ~/.kimi.
 func (d *Discoverer) basePath() string {
+	// Check THINKT_KIMI_HOME environment variable first
+	if kimiHome := os.Getenv("THINKT_KIMI_HOME"); kimiHome != "" {
+		if _, err := os.Stat(kimiHome); err == nil {
+			return kimiHome
+		}
+		// If THINKT_KIMI_HOME is set but doesn't exist, still return it
+		// so the caller can decide how to handle it
+		return kimiHome
+	}
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""
@@ -57,6 +68,21 @@ func (d *Discoverer) basePath() string {
 	}
 
 	return kimiDir
+}
+
+// DefaultDir returns the Kimi base directory.
+// Uses THINKT_KIMI_HOME environment variable if set, otherwise ~/.kimi.
+func DefaultDir() (string, error) {
+	// Check THINKT_KIMI_HOME environment variable first
+	if kimiHome := os.Getenv("THINKT_KIMI_HOME"); kimiHome != "" {
+		return kimiHome, nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".kimi"), nil
 }
 
 // Factory returns a thinkt.StoreFactory for Kimi.

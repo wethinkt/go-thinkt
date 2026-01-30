@@ -29,7 +29,6 @@ import (
 
 // Global flags
 var (
-	baseDir     string
 	profilePath string
 	profileFile *os.File // held open for profiling
 	logPath     string
@@ -70,9 +69,9 @@ Commands:
 Examples:
   thinkt                          # Launch TUI
   thinkt sources list             # List available sources (kimi, claude)
-  thinkt tui -d /custom/path      # TUI with custom directory
+  thinkt projects list            # List all projects from all sources
   thinkt prompts extract          # Extract prompts from latest session
-  thinkt prompts list             # List available sessions`,
+  thinkt sessions list -p myproj  # List sessions for a project`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Start CPU profiling if requested
 		if profilePath != "" {
@@ -511,7 +510,6 @@ workspace ID, base path, and project count.`,
 
 func main() {
 	// Global flags on root
-	rootCmd.PersistentFlags().StringVarP(&baseDir, "dir", "d", "", "base directory (default ~/.claude)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().StringVar(&profilePath, "profile", "", "write CPU profile to file")
 
@@ -614,7 +612,7 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		defer tuilog.Log.Close()
 	}
 
-	tuilog.Log.Info("Starting TUI", "baseDir", baseDir)
+	tuilog.Log.Info("Starting TUI")
 
 	// Get initial terminal size - try stdout, stdin, stderr in order
 	var opts []tea.ProgramOption
@@ -629,7 +627,10 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	model := tui.NewModel(baseDir)
+	// TODO: Update TUI to use registry pattern for multi-source support
+	// For now, use Claude default for backward compatibility
+	claudeDir, _ := claude.DefaultDir()
+	model := tui.NewModel(claudeDir)
 	p := tea.NewProgram(model, opts...)
 	_, err := p.Run()
 
@@ -653,16 +654,16 @@ func runExtract(cmd *cobra.Command, args []string) error {
 	if inputFile == "" {
 		switch traceType {
 		case TraceTypeClaude:
-			latest, err := claude.FindLatestSession(baseDir)
+			claudeDir, dirErr := claude.DefaultDir()
+			if dirErr != nil {
+				return fmt.Errorf("could not find Claude directory: %w", dirErr)
+			}
+			latest, err := claude.FindLatestSession(claudeDir)
 			if err != nil {
 				return fmt.Errorf("could not find latest trace: %w", err)
 			}
 			if latest == "" {
-				dir := baseDir
-				if dir == "" {
-					dir = "~/.claude"
-				}
-				return fmt.Errorf("no traces found in %s/projects/", dir)
+				return fmt.Errorf("no traces found in %s/projects/", claudeDir)
 			}
 			inputFile = latest
 		}
@@ -767,7 +768,11 @@ func runList(cmd *cobra.Command, args []string) error {
 
 	switch traceType {
 	case TraceTypeClaude:
-		sessions, err = claude.FindSessions(baseDir)
+		claudeDir, dirErr := claude.DefaultDir()
+		if dirErr != nil {
+			return fmt.Errorf("could not find Claude directory: %w", dirErr)
+		}
+		sessions, err = claude.FindSessions(claudeDir)
 	}
 
 	if err != nil {
@@ -796,7 +801,11 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	} else {
 		switch traceType {
 		case TraceTypeClaude:
-			latest, err := claude.FindLatestSession(baseDir)
+			claudeDir, dirErr := claude.DefaultDir()
+			if dirErr != nil {
+				return fmt.Errorf("could not find Claude directory: %w", dirErr)
+			}
+			latest, err := claude.FindLatestSession(claudeDir)
 			if err != nil {
 				return err
 			}
@@ -944,14 +953,36 @@ func runProjectsSummary(cmd *cobra.Command, args []string) error {
 }
 
 func runProjectsDelete(cmd *cobra.Command, args []string) error {
-	deleter := cli.NewProjectDeleter(baseDir, cli.DeleteOptions{
+	// For multi-source delete, we need to find the project first
+	registry := createSourceRegistry()
+	
+	// TODO: Update ProjectDeleter to use registry for multi-source support
+	// For now, use Claude default for backward compatibility
+	claudeDir, err := claude.DefaultDir()
+	if err != nil {
+		return fmt.Errorf("could not find Claude directory: %w", err)
+	}
+	_ = registry // Use registry when ProjectDeleter is updated
+	
+	deleter := cli.NewProjectDeleter(claudeDir, cli.DeleteOptions{
 		Force: forceDelete,
 	})
 	return deleter.Delete(args[0])
 }
 
 func runProjectsCopy(cmd *cobra.Command, args []string) error {
-	copier := cli.NewProjectCopier(baseDir, cli.CopyOptions{})
+	// For multi-source copy, we need to find the project first
+	registry := createSourceRegistry()
+	
+	// TODO: Update ProjectCopier to use registry for multi-source support
+	// For now, use Claude default for backward compatibility
+	claudeDir, err := claude.DefaultDir()
+	if err != nil {
+		return fmt.Errorf("could not find Claude directory: %w", err)
+	}
+	_ = registry // Use registry when ProjectCopier is updated
+	
+	copier := cli.NewProjectCopier(claudeDir, cli.CopyOptions{})
 	return copier.Copy(args[0], args[1])
 }
 
@@ -1195,10 +1226,8 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 }
 
 // getAnalyticsBaseDir returns the base directory for analytics queries.
+// TODO: Update analytics to support multi-source
 func getAnalyticsBaseDir() (string, error) {
-	if baseDir != "" {
-		return baseDir, nil
-	}
 	return claude.DefaultDir()
 }
 

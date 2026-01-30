@@ -12,6 +12,23 @@ Our first tool extracts a `PROMPTS.md` file from a Claude Code trace using a def
 
 Released under the MIT license, see [LICENSE.txt](./LICENSE.txt).
 
+## Multi-Source Architecture
+
+The tool supports multiple AI coding assistants:
+- **Kimi Code** (`~/.kimi`)
+- **Claude Code** (`~/.claude`)
+
+Sources are automatically discovered. Use `--source kimi|claude` flags to filter commands.
+
+### Environment Variables
+
+Customize the storage locations using environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `THINKT_KIMI_HOME` | Kimi Code data directory | `~/.kimi` |
+| `THINKT_CLAUDE_HOME` | Claude Code data directory | `~/.claude` |
+
 ## Documentation Map
 
 We maintain a series of Markdown documents to facilitate this project.

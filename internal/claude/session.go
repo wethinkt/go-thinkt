@@ -50,8 +50,14 @@ func (s *Session) TurnCount() int {
 	return len(s.UserPrompts())
 }
 
-// DefaultDir returns the default Claude Code base directory (~/.claude).
+// DefaultDir returns the Claude Code base directory.
+// Uses THINKT_CLAUDE_HOME environment variable if set, otherwise ~/.claude.
 func DefaultDir() (string, error) {
+	// Check THINKT_CLAUDE_HOME environment variable first
+	if claudeHome := os.Getenv("THINKT_CLAUDE_HOME"); claudeHome != "" {
+		return claudeHome, nil
+	}
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err

@@ -45,7 +45,18 @@ func (d *Discoverer) IsAvailable() (bool, error) {
 }
 
 // basePath returns the Claude base directory.
+// Uses THINKT_CLAUDE_HOME environment variable if set, otherwise ~/.claude.
 func (d *Discoverer) basePath() string {
+	// Check THINKT_CLAUDE_HOME environment variable first
+	if claudeHome := os.Getenv("THINKT_CLAUDE_HOME"); claudeHome != "" {
+		if _, err := os.Stat(claudeHome); err == nil {
+			return claudeHome
+		}
+		// If THINKT_CLAUDE_HOME is set but doesn't exist, still return it
+		// so the caller can decide how to handle it
+		return claudeHome
+	}
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""
