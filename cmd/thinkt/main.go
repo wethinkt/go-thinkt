@@ -632,11 +632,9 @@ func runTUI(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// TODO: Update TUI to use registry pattern for multi-source support
-	// For now, use Claude default for backward compatibility
-	claudeDir, _ := claude.DefaultDir()
-	model := tui.NewModel(claudeDir)
-	p := tea.NewProgram(model, opts...)
+	// Use new Shell with NavStack for multi-source support
+	shell := tui.NewShell()
+	p := tea.NewProgram(shell, opts...)
 	_, err := p.Run()
 
 	tuilog.Log.Info("TUI exited", "error", err)

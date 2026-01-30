@@ -59,3 +59,20 @@ var (
 	thinkingLabel  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#af7ac5"))
 	toolLabel      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#f0b27a"))
 )
+
+// Viewer styles (used by multi_viewer.go)
+var (
+	viewerTitleStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("#ffffff"))
+
+	viewerInfoStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#888888"))
+
+	viewerHelpStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#666666"))
+
+	viewerBorderStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#444444"))
+)

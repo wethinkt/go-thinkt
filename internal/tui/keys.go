@@ -2,22 +2,56 @@ package tui
 
 import "charm.land/bubbles/v2/key"
 
-type keyMap struct {
-	Quit        key.Binding
-	Tab         key.Binding
-	ShiftTab    key.Binding
-	Enter       key.Binding
-	OpenTracer  key.Binding
-	ToggleSort  key.Binding
-	ToggleOrder key.Binding
+// listKeyMap defines key bindings for list views
+type listKeyMap struct {
+	up         key.Binding
+	down       key.Binding
+	selectItem key.Binding
+	back       key.Binding
+	quit       key.Binding
 }
 
-var keys = keyMap{
-	Quit:        key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
-	Tab:         key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "next column")),
-	ShiftTab:    key.NewBinding(key.WithKeys("shift+tab"), key.WithHelp("shift+tab", "prev column")),
-	Enter:       key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
-	OpenTracer:  key.NewBinding(key.WithKeys("T"), key.WithHelp("T", "open thinking-tracer")),
-	ToggleSort:  key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "toggle sort field")),
-	ToggleOrder: key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "reverse sort order")),
+// viewerKeyMap defines key bindings for the session viewer
+type viewerKeyMap struct {
+	Up     key.Binding
+	Down   key.Binding
+	PgUp   key.Binding
+	PgDown key.Binding
+	Home   key.Binding
+	End    key.Binding
+	Quit   key.Binding
+}
+
+// defaultViewerKeyMap returns the default key bindings for the viewer
+func defaultViewerKeyMap() viewerKeyMap {
+	return viewerKeyMap{
+		Up: key.NewBinding(
+			key.WithKeys("up", "k"),
+			key.WithHelp("↑/k", "scroll up"),
+		),
+		Down: key.NewBinding(
+			key.WithKeys("down", "j"),
+			key.WithHelp("↓/j", "scroll down"),
+		),
+		PgUp: key.NewBinding(
+			key.WithKeys("pgup", "b"),
+			key.WithHelp("pgup", "page up"),
+		),
+		PgDown: key.NewBinding(
+			key.WithKeys("pgdown", " "),
+			key.WithHelp("pgdn", "page down"),
+		),
+		Home: key.NewBinding(
+			key.WithKeys("home", "g"),
+			key.WithHelp("g", "go to top"),
+		),
+		End: key.NewBinding(
+			key.WithKeys("end", "G"),
+			key.WithHelp("G", "go to bottom"),
+		),
+		Quit: key.NewBinding(
+			key.WithKeys("q", "esc", "ctrl+c"),
+			key.WithHelp("q", "quit"),
+		),
+	}
 }

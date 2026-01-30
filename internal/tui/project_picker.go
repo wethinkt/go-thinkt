@@ -11,6 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
 )
 
 // pickerProjectItem wraps a thinkt.Project for the picker list.
@@ -128,6 +129,7 @@ func NewProjectPickerModel(projects []thinkt.Project) ProjectPickerModel {
 }
 
 func (m ProjectPickerModel) Init() tea.Cmd {
+	tuilog.Log.Info("ProjectPicker.Init", "projectCount", len(m.projects))
 	return nil
 }
 
@@ -150,18 +152,27 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch {
 		case key.Matches(msg, keys.Quit):
+			tuilog.Log.Info("ProjectPicker.Update: Quit key pressed")
 			m.result.Cancelled = true
 			m.quitting = true
-			return m, tea.Quit
+			// Return result message instead of tea.Quit - Shell handles navigation
+			return m, func() tea.Msg { return m.result }
 
 		case key.Matches(msg, keys.Enter):
+			tuilog.Log.Info("ProjectPicker.Update: Enter key pressed")
 			if item := m.list.SelectedItem(); item != nil {
 				if pi, ok := item.(pickerProjectItem); ok {
+					tuilog.Log.Info("ProjectPicker.Update: project selected", "projectName", pi.project.Name)
 					m.result.Selected = &pi.project
+				} else {
+					tuilog.Log.Error("ProjectPicker.Update: selected item is not a pickerProjectItem", "type", fmt.Sprintf("%T", item))
 				}
+			} else {
+				tuilog.Log.Warn("ProjectPicker.Update: no item selected")
 			}
 			m.quitting = true
-			return m, tea.Quit
+			// Return result message instead of tea.Quit - Shell handles navigation
+			return m, func() tea.Msg { return m.result }
 		}
 	}
 

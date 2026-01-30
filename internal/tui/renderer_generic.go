@@ -7,11 +7,14 @@ import (
 	"github.com/charmbracelet/glamour"
 
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
 )
 
 // RenderThinktSession converts a thinkt session's entries into a styled string for the viewport.
 func RenderThinktSession(session *thinkt.Session, width int) string {
+	tuilog.Log.Info("RenderThinktSession: starting", "entryCount", len(session.Entries), "width", width)
 	if session == nil || len(session.Entries) == 0 {
+		tuilog.Log.Info("RenderThinktSession: no content")
 		return "No content"
 	}
 
@@ -23,14 +26,17 @@ func RenderThinktSession(session *thinkt.Session, width int) string {
 	)
 
 	var b strings.Builder
-	for _, entry := range session.Entries {
+	for i, entry := range session.Entries {
+		tuilog.Log.Debug("RenderThinktSession: rendering entry", "index", i, "role", entry.Role)
 		s := renderThinktEntry(&entry, contentWidth, renderer, err == nil)
 		if s != "" {
 			b.WriteString(s)
 			b.WriteString("\n")
 		}
 	}
-	return b.String()
+	result := b.String()
+	tuilog.Log.Info("RenderThinktSession: complete", "outputLength", len(result))
+	return result
 }
 
 func renderThinktEntry(entry *thinkt.Entry, width int, renderer *glamour.TermRenderer, useGlamour bool) string {

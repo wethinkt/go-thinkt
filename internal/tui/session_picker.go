@@ -11,6 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
 )
 
 // pickerSessionItem wraps a thinkt.SessionMeta for the picker list.
@@ -167,6 +168,7 @@ func NewSessionPickerModel(sessions []thinkt.SessionMeta) SessionPickerModel {
 }
 
 func (m SessionPickerModel) Init() tea.Cmd {
+	tuilog.Log.Info("SessionPicker.Init", "sessionCount", len(m.sessions))
 	return nil
 }
 
@@ -175,6 +177,7 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		tuilog.Log.Info("SessionPicker.Update: WindowSizeMsg", "width", msg.Width, "height", msg.Height)
 		m.width = msg.Width
 		m.height = msg.Height
 		m.list.SetSize(msg.Width, msg.Height-2)
@@ -189,18 +192,28 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch {
 		case key.Matches(msg, keys.Quit):
+			tuilog.Log.Info("SessionPicker.Update: Quit key pressed")
 			m.result.Cancelled = true
 			m.quitting = true
-			return m, tea.Quit
+			// Return result message instead of tea.Quit - Shell handles navigation
+			return m, func() tea.Msg { return m.result }
 
 		case key.Matches(msg, keys.Enter):
+			tuilog.Log.Info("SessionPicker.Update: Enter key pressed")
 			if item := m.list.SelectedItem(); item != nil {
 				if si, ok := item.(pickerSessionItem); ok {
+					tuilog.Log.Info("SessionPicker.Update: session selected", "sessionID", si.meta.ID)
 					m.result.Selected = &si.meta
+				} else {
+					tuilog.Log.Error("SessionPicker.Update: selected item is not a pickerSessionItem", "type", fmt.Sprintf("%T", item))
 				}
+			} else {
+				tuilog.Log.Warn("SessionPicker.Update: no item selected")
 			}
 			m.quitting = true
-			return m, tea.Quit
+			tuilog.Log.Info("SessionPicker.Update: returning result")
+			// Return result message instead of tea.Quit - Shell handles navigation
+			return m, func() tea.Msg { return m.result }
 		}
 	}
 

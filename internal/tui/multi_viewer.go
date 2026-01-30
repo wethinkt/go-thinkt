@@ -12,6 +12,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
 )
 
 // MultiViewerModel displays multiple sessions in time order.
@@ -49,6 +50,7 @@ func NewMultiViewerModel(sessionPaths []string) MultiViewerModel {
 }
 
 func (m MultiViewerModel) Init() tea.Cmd {
+	tuilog.Log.Info("MultiViewer.Init", "sessionCount", len(m.sessionPaths))
 	// Start loading the first session
 	if len(m.sessionPaths) > 0 {
 		return m.loadSessionAt(0)
@@ -58,24 +60,33 @@ func (m MultiViewerModel) Init() tea.Cmd {
 
 func (m MultiViewerModel) loadSessionAt(idx int) tea.Cmd {
 	if idx >= len(m.sessionPaths) {
+		tuilog.Log.Info("MultiViewer.loadSessionAt: idx out of range", "idx", idx, "total", len(m.sessionPaths))
 		return nil
 	}
 	path := m.sessionPaths[idx]
+	tuilog.Log.Info("MultiViewer.loadSessionAt", "idx", idx, "path", path)
 	return func() tea.Msg {
+		tuilog.Log.Info("MultiViewer: opening lazy session", "idx", idx, "path", path)
 		ls, err := OpenLazySession(path)
 		if err != nil {
+			tuilog.Log.Error("MultiViewer: OpenLazySession failed", "idx", idx, "path", path, "error", err)
 			return multiSessionLoadedMsg{index: idx, err: err}
 		}
+		tuilog.Log.Info("MultiViewer: lazy session opened", "idx", idx, "path", path)
 		// Load all content for this session
+		tuilog.Log.Info("MultiViewer: loading all content", "idx", idx)
 		if err := ls.LoadAll(); err != nil {
+			tuilog.Log.Error("MultiViewer: LoadAll failed", "idx", idx, "error", err)
 			ls.Close()
 			return multiSessionLoadedMsg{index: idx, err: err}
 		}
+		tuilog.Log.Info("MultiViewer: content loaded successfully", "idx", idx, "entries", len(ls.Entries()))
 		return multiSessionLoadedMsg{session: ls, index: idx, err: nil}
 	}
 }
 
 func (m *MultiViewerModel) renderAllSessions() {
+	tuilog.Log.Info("MultiViewer.renderAllSessions: starting", "sessionCount", len(m.sessions))
 	// Sort sessions by start time
 	type sessionWithTime struct {
 		session thinkt.LazySession
@@ -130,12 +141,15 @@ func (m *MultiViewerModel) renderAllSessions() {
 		parts = append(parts, "")
 
 		// Render session content
+		tuilog.Log.Info("MultiViewer.renderAllSessions: rendering session", "idx", i, "entries", len(session.Entries))
 		rendered := RenderThinktSession(session, m.width-4)
 		parts = append(parts, rendered)
 	}
 
 	m.rendered = strings.Join(parts, "\n")
+	tuilog.Log.Info("MultiViewer.renderAllSessions: setting viewport content", "contentLength", len(m.rendered))
 	m.viewport.SetContent(m.rendered)
+	tuilog.Log.Info("MultiViewer.renderAllSessions: complete")
 }
 
 func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -144,12 +158,15 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case multiSessionLoadedMsg:
+		tuilog.Log.Info("MultiViewer.Update: multiSessionLoadedMsg received", "index", msg.index, "hasError", msg.err != nil)
 		if msg.err != nil {
 			// Log error but continue loading other sessions
+			tuilog.Log.Error("MultiViewer.Update: session load failed", "index", msg.index, "error", msg.err)
 			fmt.Printf("Warning: failed to load session %d: %v\n", msg.index, msg.err)
 		} else {
 			m.sessions[msg.index] = msg.session
 			m.loadedCount++
+			tuilog.Log.Info("MultiViewer.Update: session stored", "index", msg.index, "loadedCount", m.loadedCount)
 		}
 
 		// Load next session if any
@@ -161,11 +178,15 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// All sessions loaded, render
 			m.loadingMore = false
 			if m.ready {
+				tuilog.Log.Info("MultiViewer.Update: all sessions loaded, rendering")
 				m.renderAllSessions()
+			} else {
+				tuilog.Log.Info("MultiViewer.Update: all sessions loaded but viewport not ready yet")
 			}
 		}
 
 	case tea.WindowSizeMsg:
+		tuilog.Log.Info("MultiViewer.Update: WindowSizeMsg", "width", msg.Width, "height", msg.Height, "wasReady", m.ready)
 		m.width = msg.Width
 		m.height = msg.Height
 
@@ -181,6 +202,7 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Render if sessions already loaded
 			if m.loadedCount > 0 && m.currentIdx >= len(m.sessionPaths)-1 {
+				tuilog.Log.Info("MultiViewer.Update: viewport ready, rendering loaded sessions")
 				m.renderAllSessions()
 			}
 		} else {
@@ -213,6 +235,7 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m MultiViewerModel) View() tea.View {
 	if m.err != nil {
+		tuilog.Log.Error("MultiViewer.View: error state", "error", m.err)
 		v := tea.NewView(fmt.Sprintf("Error: %v", m.err))
 		v.AltScreen = true
 		return v
@@ -224,6 +247,7 @@ func (m MultiViewerModel) View() tea.View {
 		if m.currentIdx > 0 {
 			progress = fmt.Sprintf(" (%d/%d)", m.currentIdx, len(m.sessionPaths))
 		}
+		tuilog.Log.Debug("MultiViewer.View: still loading", "ready", m.ready, "renderedLen", len(m.rendered), "currentIdx", m.currentIdx)
 		v := tea.NewView("Loading..." + progress)
 		v.AltScreen = true
 		return v

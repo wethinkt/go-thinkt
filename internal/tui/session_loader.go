@@ -9,17 +9,21 @@ import (
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/kimi"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
 )
 
 // OpenLazySession opens a session file for viewing, auto-detecting the format.
 // It supports both Claude (.jsonl) and Kimi (context.jsonl) formats.
 func OpenLazySession(path string) (thinkt.LazySession, error) {
+	tuilog.Log.Info("OpenLazySession: opening", "path", path)
 	// Detect format based on file path patterns
 	if isKimiSession(path) {
+		tuilog.Log.Info("OpenLazySession: detected as kimi session")
 		return openKimiLazySession(path)
 	}
 
 	// Default to Claude format
+	tuilog.Log.Info("OpenLazySession: detected as claude session")
 	return openClaudeLazySession(path)
 }
 
