@@ -10,32 +10,57 @@ import (
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
 )
 
+// Shared glamour renderer (created lazily)
+var sharedRenderer *glamour.TermRenderer
+var sharedRendererWidth int
+
+func getRenderer(width int) *glamour.TermRenderer {
+	if sharedRenderer == nil || sharedRendererWidth != width {
+		r, err := glamour.NewTermRenderer(
+			glamour.WithAutoStyle(),
+			glamour.WithWordWrap(width),
+		)
+		if err == nil {
+			sharedRenderer = r
+			sharedRendererWidth = width
+		}
+	}
+	return sharedRenderer
+}
+
 // RenderThinktSession converts a thinkt session's entries into a styled string for the viewport.
 func RenderThinktSession(session *thinkt.Session, width int) string {
-	tuilog.Log.Info("RenderThinktSession: starting", "entryCount", len(session.Entries), "width", width)
-	if session == nil || len(session.Entries) == 0 {
-		tuilog.Log.Info("RenderThinktSession: no content")
-		return "No content"
+	return RenderThinktEntries(session.Entries, width)
+}
+
+// RenderThinktEntry renders a single entry into a styled string.
+func RenderThinktEntry(entry *thinkt.Entry, width int) string {
+	contentWidth := max(20, width-4)
+	renderer := getRenderer(contentWidth)
+	return renderThinktEntry(entry, contentWidth, renderer, renderer != nil)
+}
+
+// RenderThinktEntries renders a slice of entries into a styled string.
+func RenderThinktEntries(entries []thinkt.Entry, width int) string {
+	tuilog.Log.Info("RenderThinktEntries: starting", "entryCount", len(entries), "width", width)
+	if len(entries) == 0 {
+		return ""
 	}
 
 	contentWidth := max(20, width-4)
-
-	renderer, err := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
-		glamour.WithWordWrap(contentWidth),
-	)
+	renderer := getRenderer(contentWidth)
 
 	var b strings.Builder
-	for i, entry := range session.Entries {
-		tuilog.Log.Debug("RenderThinktSession: rendering entry", "index", i, "role", entry.Role)
-		s := renderThinktEntry(&entry, contentWidth, renderer, err == nil)
+	for i, entry := range entries {
+		tuilog.Log.Debug("RenderThinktEntries: rendering entry", "index", i, "role", entry.Role)
+		s := renderThinktEntry(&entry, contentWidth, renderer, renderer != nil)
 		if s != "" {
 			b.WriteString(s)
 			b.WriteString("\n")
 		}
 	}
 	result := b.String()
-	tuilog.Log.Info("RenderThinktSession: complete", "outputLength", len(result))
+	tuilog.Log.Info("RenderThinktEntries: complete", "outputLength", len(result))
 	return result
 }
 

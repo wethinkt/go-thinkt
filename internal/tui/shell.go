@@ -26,9 +26,17 @@ func NewNavStack() *NavStack {
 	return &NavStack{items: make([]NavItem, 0)}
 }
 
-func (ns *NavStack) Push(item NavItem) tea.Cmd {
+func (ns *NavStack) Push(item NavItem, width, height int) tea.Cmd {
 	ns.items = append(ns.items, item)
-	return item.Model.Init()
+	initCmd := item.Model.Init()
+	// Send current window size to the new model so it can initialize its viewport
+	if width > 0 && height > 0 {
+		sizeCmd := func() tea.Msg {
+			return tea.WindowSizeMsg{Width: width, Height: height}
+		}
+		return tea.Batch(initCmd, sizeCmd)
+	}
+	return initCmd
 }
 
 func (ns *NavStack) Pop() {
@@ -113,7 +121,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd := s.stack.Push(NavItem{
 			Title: "Projects",
 			Model: picker,
-		})
+		}, s.width, s.height)
 		cmds = append(cmds, cmd)
 
 	case ProjectPickerResult:
@@ -144,7 +152,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := s.stack.Push(NavItem{
 				Title: msg.Selected.Name,
 				Model: picker,
-			})
+			}, s.width, s.height)
 			cmds = append(cmds, cmd)
 		}
 
@@ -162,7 +170,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := s.stack.Push(NavItem{
 				Title: msg.Selected.ID[:8],
 				Model: viewer,
-			})
+			}, s.width, s.height)
 			cmds = append(cmds, cmd)
 		}
 

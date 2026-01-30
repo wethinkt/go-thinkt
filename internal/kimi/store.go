@@ -171,6 +171,7 @@ func (s *Store) listSessionsForHash(hash string) ([]thinkt.SessionMeta, error) {
 			FullPath:    contextPath,
 			FirstPrompt: firstPrompt,
 			EntryCount:  count,
+			FileSize:    info.Size(),
 			CreatedAt:   info.ModTime(),
 			ModifiedAt:  info.ModTime(),
 			Source:      thinkt.SourceKimi,

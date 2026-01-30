@@ -110,6 +110,7 @@ func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.Se
 			FirstPrompt: sess.FirstPrompt,
 			Summary:     sess.Summary,
 			EntryCount:  sess.MessageCount,
+			FileSize:    sess.FileSize,
 			CreatedAt:   sess.Created,
 			ModifiedAt:  sess.Modified,
 			GitBranch:   sess.GitBranch,

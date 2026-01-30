@@ -57,9 +57,9 @@ func (i pickerSessionItem) Description() string {
 		parts = append(parts, i.meta.CreatedAt.Local().Format("Jan 02, 3:04 PM"))
 	}
 
-	// Entry count (replaces MessageCount)
-	if i.meta.EntryCount > 0 {
-		parts = append(parts, fmt.Sprintf("%d entries", i.meta.EntryCount))
+	// File size
+	if i.meta.FileSize > 0 {
+		parts = append(parts, formatFileSize(i.meta.FileSize))
 	}
 
 	// Source indicator

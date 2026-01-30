@@ -120,6 +120,7 @@ type SessionMeta struct {
 	FirstPrompt  string    `json:"first_prompt,omitempty"`
 	Summary      string    `json:"summary,omitempty"`
 	EntryCount   int       `json:"entry_count"`
+	FileSize     int64     `json:"file_size"`    // Size in bytes
 	CreatedAt    time.Time `json:"created_at"`
 	ModifiedAt   time.Time `json:"modified_at"`
 	GitBranch    string    `json:"git_branch,omitempty"`

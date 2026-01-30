@@ -15,7 +15,7 @@ import (
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
 )
 
-// MultiViewerModel displays multiple sessions in time order.
+// MultiViewerModel displays multiple sessions in time order with lazy loading.
 type MultiViewerModel struct {
 	sessionPaths  []string
 	sessions      []thinkt.LazySession
@@ -30,22 +30,41 @@ type MultiViewerModel struct {
 	loadingMore   bool
 	currentIdx    int // Index of session currently being loaded
 	err           error
+	hasMoreData   bool // True if any session has more content to load
+	prefetchBytes int  // How many bytes to prefetch when scrolling near bottom
+
+	// Lazy rendering state
+	sortedSessions   []int      // Indices into sessions slice, sorted by time
+	entryCache       [][]string // Cached rendered entries: entryCache[origIdx][entryIdx]
+	displayedEntries []int      // Number of entries included in viewport per session (by origIdx)
+	totalLines       int        // Total lines currently in rendered output
+	renderBuffer     int        // Extra lines to render beyond viewport (buffer for smooth scroll)
 }
 
-// multiSessionLoadedMsg is sent when a session has been loaded.
+// multiSessionLoadedMsg is sent when a session has been loaded (initial open).
 type multiSessionLoadedMsg struct {
 	session thinkt.LazySession
 	index   int
 	err     error
 }
 
+// moreContentLoadedMsg is sent when additional content is loaded via LoadMore.
+type moreContentLoadedMsg struct {
+	loaded int
+	err    error
+}
+
 // NewMultiViewerModel creates a new multi-session viewer.
 func NewMultiViewerModel(sessionPaths []string) MultiViewerModel {
 	return MultiViewerModel{
-		sessionPaths: sessionPaths,
-		sessions:     make([]thinkt.LazySession, len(sessionPaths)),
-		title:        fmt.Sprintf("All Sessions (%d)", len(sessionPaths)),
-		keys:         defaultViewerKeyMap(),
+		sessionPaths:     sessionPaths,
+		sessions:         make([]thinkt.LazySession, len(sessionPaths)),
+		title:            fmt.Sprintf("All Sessions (%d)", len(sessionPaths)),
+		keys:             defaultViewerKeyMap(),
+		prefetchBytes:    32 * 1024, // Load 32KB chunks when scrolling
+		entryCache:       make([][]string, len(sessionPaths)),
+		displayedEntries: make([]int, len(sessionPaths)),
+		renderBuffer:     50, // Render 50 extra lines beyond viewport
 	}
 }
 
@@ -72,57 +91,189 @@ func (m MultiViewerModel) loadSessionAt(idx int) tea.Cmd {
 			tuilog.Log.Error("MultiViewer: OpenLazySession failed", "idx", idx, "path", path, "error", err)
 			return multiSessionLoadedMsg{index: idx, err: err}
 		}
-		tuilog.Log.Info("MultiViewer: lazy session opened", "idx", idx, "path", path)
-		// Load all content for this session
-		tuilog.Log.Info("MultiViewer: loading all content", "idx", idx)
-		if err := ls.LoadAll(); err != nil {
-			tuilog.Log.Error("MultiViewer: LoadAll failed", "idx", idx, "error", err)
-			ls.Close()
-			return multiSessionLoadedMsg{index: idx, err: err}
-		}
-		tuilog.Log.Info("MultiViewer: content loaded successfully", "idx", idx, "entries", len(ls.Entries()))
+		// Don't call LoadAll - OpenLazySession preloads first 8KB
+		tuilog.Log.Info("MultiViewer: session opened", "idx", idx, "entries", ls.EntryCount(), "hasMore", ls.HasMore())
 		return multiSessionLoadedMsg{session: ls, index: idx, err: nil}
 	}
 }
 
-func (m *MultiViewerModel) renderAllSessions() {
-	tuilog.Log.Info("MultiViewer.renderAllSessions: starting", "sessionCount", len(m.sessions))
-	// Sort sessions by start time
-	type sessionWithTime struct {
-		session thinkt.LazySession
-		start   int64
+// loadMoreContent loads additional content from sessions that have more data.
+func (m MultiViewerModel) loadMoreContent() tea.Cmd {
+	// Find sessions that have more content
+	sessions := m.sessions
+	prefetchBytes := m.prefetchBytes
+	return func() tea.Msg {
+		totalLoaded := 0
+		for _, s := range sessions {
+			if s != nil && s.HasMore() {
+				n, err := s.LoadMore(prefetchBytes)
+				if err != nil {
+					tuilog.Log.Error("MultiViewer: LoadMore failed", "error", err)
+				}
+				totalLoaded += n
+				tuilog.Log.Info("MultiViewer: loaded more content", "entries", n)
+			}
+		}
+		return moreContentLoadedMsg{loaded: totalLoaded}
 	}
-	var sessionsToSort []sessionWithTime
-	for _, s := range m.sessions {
+}
+
+// renderForViewport renders only enough content to fill the viewport + buffer.
+// It uses cached entry renders and only renders new entries as needed.
+func (m *MultiViewerModel) renderForViewport() {
+	tuilog.Log.Info("MultiViewer.renderForViewport: starting", "width", m.width, "height", m.height)
+
+	// Build sorted session indices if not already done
+	if m.sortedSessions == nil {
+		m.rebuildSortedSessions()
+	}
+
+	if len(m.sortedSessions) == 0 {
+		m.rendered = "No sessions loaded successfully"
+		m.viewport.SetContent(m.rendered)
+		return
+	}
+
+	// Calculate target lines: viewport height + buffer
+	targetLines := m.height + m.renderBuffer
+	if targetLines < 50 {
+		targetLines = 50 // Minimum
+	}
+
+	// Render entries until we have enough lines
+	m.renderUntilLines(targetLines)
+
+	// Build final output from displayed entries
+	m.rebuildRenderedOutput()
+	tuilog.Log.Info("MultiViewer.renderForViewport: complete", "totalLines", m.totalLines, "contentLen", len(m.rendered))
+	m.viewport.SetContent(m.rendered)
+}
+
+// renderUntilLines renders entries until we have at least targetLines of content.
+func (m *MultiViewerModel) renderUntilLines(targetLines int) {
+	// Already have enough?
+	if m.totalLines >= targetLines {
+		return
+	}
+
+	for _, origIdx := range m.sortedSessions {
+		s := m.sessions[origIdx]
+		if s == nil {
+			continue
+		}
+
+		entries := s.Entries()
+		displayed := m.displayedEntries[origIdx]
+
+		// Render more entries from this session
+		for displayed < len(entries) && m.totalLines < targetLines {
+			// Ensure cache is large enough
+			if m.entryCache[origIdx] == nil {
+				m.entryCache[origIdx] = make([]string, 0, len(entries))
+			}
+
+			// Render this entry if not cached
+			if displayed >= len(m.entryCache[origIdx]) {
+				entry := entries[displayed]
+				rendered := RenderThinktEntry(&entry, m.width-4)
+				m.entryCache[origIdx] = append(m.entryCache[origIdx], rendered)
+			}
+
+			// Count lines in this entry
+			entryContent := m.entryCache[origIdx][displayed]
+			lines := strings.Count(entryContent, "\n") + 1
+
+			m.displayedEntries[origIdx] = displayed + 1
+			m.totalLines += lines
+			displayed++
+
+			tuilog.Log.Debug("MultiViewer.renderUntilLines: rendered entry",
+				"origIdx", origIdx, "entryIdx", displayed-1, "lines", lines, "totalLines", m.totalLines)
+		}
+
+		// If we have enough lines, stop
+		if m.totalLines >= targetLines {
+			break
+		}
+	}
+}
+
+// renderMoreForScroll renders additional entries when user scrolls near bottom.
+func (m *MultiViewerModel) renderMoreForScroll() bool {
+	oldLines := m.totalLines
+	targetLines := m.totalLines + m.height // Add another viewport worth
+
+	m.renderUntilLines(targetLines)
+
+	if m.totalLines > oldLines {
+		m.rebuildRenderedOutput()
+		m.viewport.SetContent(m.rendered)
+		return true
+	}
+	return false
+}
+
+// hasUnrenderedEntries returns true if there are loaded but not yet rendered entries.
+func (m *MultiViewerModel) hasUnrenderedEntries() bool {
+	for _, origIdx := range m.sortedSessions {
+		s := m.sessions[origIdx]
+		if s == nil {
+			continue
+		}
+		if m.displayedEntries[origIdx] < len(s.Entries()) {
+			return true
+		}
+	}
+	return false
+}
+
+// rebuildSortedSessions creates a sorted list of session indices by start time.
+func (m *MultiViewerModel) rebuildSortedSessions() {
+	type sessionWithIdx struct {
+		idx   int
+		start int64
+	}
+	var toSort []sessionWithIdx
+	for i, s := range m.sessions {
 		if s != nil {
 			meta := s.Metadata()
 			start := int64(0)
 			if !meta.CreatedAt.IsZero() {
 				start = meta.CreatedAt.Unix()
 			}
-			sessionsToSort = append(sessionsToSort, sessionWithTime{session: s, start: start})
+			toSort = append(toSort, sessionWithIdx{idx: i, start: start})
 		}
 	}
 
-	sort.Slice(sessionsToSort, func(i, j int) bool {
-		return sessionsToSort[i].start < sessionsToSort[j].start
+	sort.Slice(toSort, func(i, j int) bool {
+		return toSort[i].start < toSort[j].start
 	})
 
-	// Render each session with a separator
-	var parts []string
+	m.sortedSessions = make([]int, len(toSort))
+	for i, s := range toSort {
+		m.sortedSessions[i] = s.idx
+	}
+	tuilog.Log.Info("MultiViewer.rebuildSortedSessions: sorted", "count", len(m.sortedSessions))
+}
+
+// rebuildRenderedOutput combines displayed entries with headers into final output.
+func (m *MultiViewerModel) rebuildRenderedOutput() {
 	separatorStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#7D56F4")).
 		Bold(true)
+	moreStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#888888")).
+		Italic(true)
 
-	for i, st := range sessionsToSort {
-		s := st.session
-		session := &thinkt.Session{
-			Meta:    s.Metadata(),
-			Entries: s.Entries(),
+	var parts []string
+	for _, origIdx := range m.sortedSessions {
+		s := m.sessions[origIdx]
+		if s == nil {
+			continue
 		}
 
 		// Add separator between sessions
-		if i > 0 {
+		if len(parts) > 0 {
 			parts = append(parts, "")
 		}
 
@@ -140,16 +291,35 @@ func (m *MultiViewerModel) renderAllSessions() {
 		parts = append(parts, header)
 		parts = append(parts, "")
 
-		// Render session content
-		tuilog.Log.Info("MultiViewer.renderAllSessions: rendering session", "idx", i, "entries", len(session.Entries))
-		rendered := RenderThinktSession(session, m.width-4)
-		parts = append(parts, rendered)
+		// Add displayed entries from cache
+		displayed := m.displayedEntries[origIdx]
+		for i := 0; i < displayed && i < len(m.entryCache[origIdx]); i++ {
+			if m.entryCache[origIdx][i] != "" {
+				parts = append(parts, m.entryCache[origIdx][i])
+			}
+		}
+
+		// Show indicator if there's more content (either unrendered or unloaded)
+		hasMoreToRender := displayed < len(s.Entries())
+		hasMoreToLoad := s.HasMore()
+		if hasMoreToRender || hasMoreToLoad {
+			parts = append(parts, "")
+			parts = append(parts, moreStyle.Render("  ▼ scroll down for more content..."))
+		}
 	}
 
 	m.rendered = strings.Join(parts, "\n")
-	tuilog.Log.Info("MultiViewer.renderAllSessions: setting viewport content", "contentLength", len(m.rendered))
-	m.viewport.SetContent(m.rendered)
-	tuilog.Log.Info("MultiViewer.renderAllSessions: complete")
+	m.totalLines = strings.Count(m.rendered, "\n") + 1
+}
+
+func (m *MultiViewerModel) updateHasMoreData() {
+	m.hasMoreData = false
+	for _, s := range m.sessions {
+		if s != nil && s.HasMore() {
+			m.hasMoreData = true
+			return
+		}
+	}
 }
 
 func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -166,7 +336,12 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.sessions[msg.index] = msg.session
 			m.loadedCount++
-			tuilog.Log.Info("MultiViewer.Update: session stored", "index", msg.index, "loadedCount", m.loadedCount)
+			// Invalidate sorted sessions so they get rebuilt with the new session
+			m.sortedSessions = nil
+			// Reset display counts but keep entry cache (entries don't change identity)
+			m.displayedEntries = make([]int, len(m.sessionPaths))
+			m.totalLines = 0
+			tuilog.Log.Info("MultiViewer.Update: session stored", "index", msg.index, "loadedCount", m.loadedCount, "hasMore", msg.session.HasMore())
 		}
 
 		// Load next session if any
@@ -175,14 +350,24 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.currentIdx = nextIdx
 			cmds = append(cmds, m.loadSessionAt(nextIdx))
 		} else {
-			// All sessions loaded, render
+			// All sessions opened, render initial viewport content
 			m.loadingMore = false
+			m.updateHasMoreData()
 			if m.ready {
-				tuilog.Log.Info("MultiViewer.Update: all sessions loaded, rendering")
-				m.renderAllSessions()
+				tuilog.Log.Info("MultiViewer.Update: all sessions opened, rendering", "hasMoreData", m.hasMoreData)
+				m.renderForViewport()
 			} else {
-				tuilog.Log.Info("MultiViewer.Update: all sessions loaded but viewport not ready yet")
+				tuilog.Log.Info("MultiViewer.Update: all sessions opened but viewport not ready yet")
 			}
+		}
+
+	case moreContentLoadedMsg:
+		tuilog.Log.Info("MultiViewer.Update: moreContentLoadedMsg received", "loaded", msg.loaded)
+		m.loadingMore = false
+		m.updateHasMoreData()
+		if msg.loaded > 0 && m.ready {
+			// New entries loaded, render more if we need them
+			m.renderMoreForScroll()
 		}
 
 	case tea.WindowSizeMsg:
@@ -203,7 +388,7 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Render if sessions already loaded
 			if m.loadedCount > 0 && m.currentIdx >= len(m.sessionPaths)-1 {
 				tuilog.Log.Info("MultiViewer.Update: viewport ready, rendering loaded sessions")
-				m.renderAllSessions()
+				m.renderForViewport()
 			}
 		} else {
 			m.viewport.SetWidth(m.width - 2)
@@ -223,12 +408,34 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Home):
 			m.viewport.GotoTop()
 		case key.Matches(msg, m.keys.End):
+			// When jumping to end, load all remaining content first if there's more
+			if m.hasMoreData && !m.loadingMore {
+				m.loadingMore = true
+				cmds = append(cmds, m.loadMoreContent())
+			}
 			m.viewport.GotoBottom()
 		}
 	}
 
 	m.viewport, cmd = m.viewport.Update(msg)
 	cmds = append(cmds, cmd)
+
+	// Check if we need more content when scrolled past 80%
+	if m.ready {
+		scrollPercent := m.viewport.ScrollPercent()
+		if scrollPercent > 0.8 {
+			// First, try rendering more already-loaded entries
+			if m.hasUnrenderedEntries() {
+				tuilog.Log.Info("MultiViewer.Update: scroll threshold, rendering more entries", "scrollPercent", scrollPercent)
+				m.renderMoreForScroll()
+			} else if m.hasMoreData && !m.loadingMore {
+				// No unrendered entries, need to load more from disk
+				tuilog.Log.Info("MultiViewer.Update: scroll threshold, loading more from disk", "scrollPercent", scrollPercent)
+				m.loadingMore = true
+				cmds = append(cmds, m.loadMoreContent())
+			}
+		}
+	}
 
 	return m, tea.Batch(cmds...)
 }
@@ -241,14 +448,25 @@ func (m MultiViewerModel) View() tea.View {
 		return v
 	}
 
-	// Don't show the frame until viewport is ready AND content is rendered
-	if !m.ready || m.rendered == "" {
+	// Check if we're still loading sessions
+	allSessionsLoaded := m.currentIdx >= len(m.sessionPaths)-1 || m.loadedCount >= len(m.sessionPaths)
+
+	// Don't show the frame until viewport is ready AND either content is rendered or all sessions loaded
+	if !m.ready || (!allSessionsLoaded && m.rendered == "") {
 		progress := ""
 		if m.currentIdx > 0 {
 			progress = fmt.Sprintf(" (%d/%d)", m.currentIdx, len(m.sessionPaths))
 		}
-		tuilog.Log.Debug("MultiViewer.View: still loading", "ready", m.ready, "renderedLen", len(m.rendered), "currentIdx", m.currentIdx)
+		tuilog.Log.Debug("MultiViewer.View: still loading", "ready", m.ready, "renderedLen", len(m.rendered), "currentIdx", m.currentIdx, "allSessionsLoaded", allSessionsLoaded)
 		v := tea.NewView("Loading..." + progress)
+		v.AltScreen = true
+		return v
+	}
+
+	// Handle case where content couldn't be rendered (e.g., all sessions failed)
+	if m.rendered == "" && allSessionsLoaded {
+		tuilog.Log.Warn("MultiViewer.View: no content to display", "loadedCount", m.loadedCount)
+		v := tea.NewView("No content to display")
 		v.AltScreen = true
 		return v
 	}
@@ -258,15 +476,23 @@ func (m MultiViewerModel) View() tea.View {
 	loadInfo := ""
 	if m.currentIdx < len(m.sessionPaths)-1 {
 		loadInfo = viewerInfoStyle.Render(fmt.Sprintf("  Loading %d/%d...", m.currentIdx+1, len(m.sessionPaths)))
+	} else if m.loadingMore {
+		loadInfo = viewerInfoStyle.Render("  Loading more...")
+	} else if m.hasMoreData {
+		loadInfo = viewerInfoStyle.Render("  (scroll for more)")
 	} else {
-		loadInfo = viewerInfoStyle.Render(fmt.Sprintf("  %d sessions loaded", m.loadedCount))
+		loadInfo = viewerInfoStyle.Render(fmt.Sprintf("  %d sessions", m.loadedCount))
 	}
 	header := title + loadInfo
 
 	// Footer
 	scrollPercent := m.viewport.ScrollPercent() * 100
 	position := viewerInfoStyle.Render(fmt.Sprintf("%3.0f%%", scrollPercent))
-	help := viewerHelpStyle.Render("↑/↓: scroll • pgup/pgdn: page • g/G: top/bottom • q: quit")
+	helpText := "↑/↓: scroll • pgup/pgdn: page • g/G: top/bottom • q: quit"
+	if m.hasMoreData {
+		helpText = "↑/↓: scroll • G: load all • q: quit"
+	}
+	help := viewerHelpStyle.Render(helpText)
 	footerWidth := m.width - lipgloss.Width(position) - 4
 	footer := help + lipgloss.NewStyle().Width(footerWidth).Align(lipgloss.Right).Render(position)
 

@@ -479,3 +479,45 @@ yes, source is important, as is workspace (machine/host)...  same project may li
 ## 2026-01-29T19:37:18Z
 
 i want to explore componentizing this more fully.  for example, given a trace, somebody could just embed a conversation pane.  or just the 3D view, etc.   create a report about the current component model
+
+---
+
+## 2026-01-30T19:21:44Z
+
+kimi worked on this project a bit.  we added multi-source to the TUI.  i am now working through displaying the content pane in the TUI and utilizing bubbleo navstack to better contain the content flow
+
+---
+
+## 2026-01-30T19:32:24Z
+
+it freezes when a session is selected.  i asked for better logging instrumentation, but wasn't seeing it
+
+---
+
+## 2026-01-30T19:37:19Z
+
+I've seen that Loading hang, can you please fix that?
+
+---
+
+## 2026-01-30T19:42:22Z
+
+I see content now, but I think it is not lazy loading it.  We don't need to read the whole session file, just up until the visible panel and maybe a little more as a pre-fetch
+
+---
+
+## 2026-01-30T19:51:26Z
+
+somestime it seems stuck at loading?   can we add file sizes to the sessions meta information in the UX
+
+---
+
+## 2026-01-30T20:33:10Z
+
+in renderer_generic line 29, you iterate over all of sessions.Entries i think we should read those more lazily as well
+
+---
+
+## 2026-01-30T20:45:52Z
+
+in multi_viewer.go line 149, you are rendering everything that's been rendered up to what's *READ*.  however, rendering can take a lot of time and we don't need to display it yet.  render each entry (we can cache the rendering for the duration of the TUI) and only render up to what needs to be displayed

@@ -235,6 +235,7 @@ func statBasedSessions(projectDir string) ([]SessionMeta, error) {
 		if info, err := entry.Info(); err == nil {
 			meta.Modified = info.ModTime()
 			meta.Created = info.ModTime() // Best guess without index
+			meta.FileSize = info.Size()
 		}
 
 		sessions = append(sessions, meta)
