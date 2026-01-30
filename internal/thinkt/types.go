@@ -195,7 +195,14 @@ type EntryIterator func(entry Entry) bool // return false to stop iteration
 
 // LazySession extends SessionReader with windowed loading capabilities.
 type LazySession interface {
-	SessionReader
+	// Metadata returns the session metadata.
+	Metadata() SessionMeta
+
+	// Entries returns all currently loaded entries.
+	Entries() []Entry
+
+	// EntryCount returns the number of loaded entries.
+	EntryCount() int
 
 	// HasMore returns true if there are more entries to load.
 	HasMore() bool
@@ -209,6 +216,9 @@ type LazySession interface {
 
 	// Progress returns loading progress (0.0 to 1.0).
 	Progress() float64
+
+	// Close releases any resources.
+	Close() error
 }
 
 // Prompt represents an extracted user prompt with metadata.

@@ -174,11 +174,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.Err
 			return m, nil
 		}
-		tuilog.Log.Info("LazySessionMsg", "path", msg.Session.Path,
+		meta := msg.Session.Metadata()
+		tuilog.Log.Info("LazySessionMsg", "path", msg.Path,
 			"entries", msg.Session.EntryCount(), "hasMore", msg.Session.HasMore())
-		cmd := m.content.setLazySession(msg.Session)
-		m.header.setSession(msg.Session.ToSession())
-		m.loadedSessionPath = msg.Session.Path
+		cmd := m.content.setLazySession(msg.Session, msg.Path)
+		m.header.setThinktSession(meta)
+		m.loadedSessionPath = msg.Path
 		return m, cmd
 
 	case LazyLoadedMsg:
@@ -189,7 +190,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.content.setLoadingMore(false)
 		// Update header with new session state
 		if m.content.lazySession != nil {
-			m.header.setSession(m.content.lazySession.ToSession())
+			meta := m.content.lazySession.Metadata()
+			m.header.setThinktSession(meta)
 		}
 		// Render newly loaded entries asynchronously
 		return m, m.content.renderEntriesCmd()
@@ -429,12 +431,12 @@ func loadSessionCmd(sessionPath string) tea.Cmd {
 		defer tuilog.Log.Timed("loadSession")()
 		tuilog.Log.Debug("loadSession", "path", sessionPath)
 
-		ls, err := claude.OpenLazySession(sessionPath)
+		ls, err := OpenLazySession(sessionPath)
 		if err != nil {
 			return LazySessionMsg{Err: err}
 		}
 
-		return LazySessionMsg{Session: ls}
+		return LazySessionMsg{Session: ls, Path: sessionPath}
 	}
 }
 

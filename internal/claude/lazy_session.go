@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/jsonl"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 )
 
 // LazySession provides lazy-loading access to a session file.
@@ -145,11 +146,24 @@ func (ls *LazySession) extractMetadata(entry *Entry) {
 	}
 }
 
-// Entries returns all currently loaded entries.
-func (ls *LazySession) Entries() []Entry {
+// ClaudeEntries returns all currently loaded entries as claude.Entry.
+func (ls *LazySession) ClaudeEntries() []Entry {
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
 	return ls.entries
+}
+
+// Entries returns all currently loaded entries as thinkt.Entry.
+// This implements the thinkt.LazySession interface.
+func (ls *LazySession) Entries() []thinkt.Entry {
+	ls.mu.Lock()
+	defer ls.mu.Unlock()
+
+	result := make([]thinkt.Entry, len(ls.entries))
+	for i, e := range ls.entries {
+		result[i] = e.ToThinktEntry()
+	}
+	return result
 }
 
 // EntryCount returns the number of loaded entries.
@@ -302,3 +316,36 @@ func (ls *LazySession) Window() *SessionWindow {
 		EntryCount: len(ls.entries),
 	}
 }
+
+// Metadata returns session metadata as thinkt.SessionMeta.
+// This implements the thinkt.LazySession interface.
+func (ls *LazySession) Metadata() thinkt.SessionMeta {
+	ls.mu.Lock()
+	defer ls.mu.Unlock()
+
+	return thinkt.SessionMeta{
+		ID:         ls.ID,
+		FullPath:   ls.Path,
+		GitBranch:  ls.Branch,
+		Model:      ls.Model,
+		CreatedAt:  ls.StartTime,
+		ModifiedAt: ls.StartTime,
+		EntryCount: len(ls.entries),
+	}
+}
+
+// ToThinktEntries converts Claude entries to thinkt.Entry slice.
+// This implements the thinkt.LazySession interface.
+func (ls *LazySession) ToThinktEntries() []thinkt.Entry {
+	ls.mu.Lock()
+	defer ls.mu.Unlock()
+
+	result := make([]thinkt.Entry, len(ls.entries))
+	for i, e := range ls.entries {
+		result[i] = e.ToThinktEntry()
+	}
+	return result
+}
+
+// ensure LazySession implements thinkt.LazySession
+var _ thinkt.LazySession = (*LazySession)(nil)

@@ -302,7 +302,7 @@ func (r *lazySessionReader) ReadNext() (*thinkt.Entry, error) {
 		}
 	}
 
-	entries := r.ls.Entries()
+	entries := r.ls.ClaudeEntries()
 	if r.idx >= len(entries) {
 		return nil, io.EOF
 	}

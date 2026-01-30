@@ -7,6 +7,7 @@ import (
 	"charm.land/bubbles/v2/viewport"
 
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
 )
 
@@ -18,7 +19,7 @@ type contentModel struct {
 
 	// Current session - lazy loaded
 	sessionPath  string
-	lazySession  *claude.LazySession
+	lazySession  thinkt.LazySession
 	renderedCount int // number of entries already rendered
 	rendered     string
 
@@ -28,6 +29,9 @@ type contentModel struct {
 	// Loading state
 	loading     bool
 	loadingMore bool
+
+	// Source info for display
+	source thinkt.Source
 }
 
 func newContentModel() contentModel {
@@ -44,14 +48,15 @@ func (m *contentModel) setSize(w, h int) {
 
 // setLazySession sets a lazy session for incremental content loading.
 // Returns a command to render content asynchronously.
-func (m *contentModel) setLazySession(ls *claude.LazySession) tea.Cmd {
+func (m *contentModel) setLazySession(ls thinkt.LazySession, path string) tea.Cmd {
 	// Close previous session if any
 	if m.lazySession != nil {
 		m.lazySession.Close()
 	}
 
 	m.lazySession = ls
-	m.sessionPath = ls.Path
+	m.sessionPath = path
+	m.source = ls.Metadata().Source
 	m.loading = false
 	m.loadingMore = false
 	m.renderedCount = 0
@@ -75,16 +80,20 @@ func (m *contentModel) renderEntriesCmd() tea.Cmd {
 	}
 
 	// Capture current state for the goroutine
-	newEntries := make([]claude.Entry, len(entries)-m.renderedCount)
+	newEntries := make([]thinkt.Entry, len(entries)-m.renderedCount)
 	copy(newEntries, entries[m.renderedCount:])
 	prevRendered := m.rendered
 	prevCount := m.renderedCount
 	width := m.width
+	meta := m.lazySession.Metadata()
 
 	return func() tea.Msg {
 		// Do expensive rendering in background
-		newSession := &claude.Session{Entries: newEntries}
-		newRendered := RenderSession(newSession, width)
+		newSession := &thinkt.Session{
+			Meta:    meta,
+			Entries: newEntries,
+		}
+		newRendered := RenderThinktSession(newSession, width)
 
 		var result string
 		if prevCount == 0 {
@@ -167,21 +176,24 @@ func (m *contentModel) updateViewportContent() {
 func (m *contentModel) statusLine() string {
 	// LazySession mode
 	if m.lazySession != nil {
-		sizeInfo := formatBytes(m.lazySession.FileSize)
-		readInfo := formatBytes(m.lazySession.BytesRead())
+		meta := m.lazySession.Metadata()
 		entryCount := m.lazySession.EntryCount()
+		totalEntries := meta.EntryCount
 
 		if m.loadingMore {
-			return fmt.Sprintf("--- Loading more... (%s / %s) ---", readInfo, sizeInfo)
+			return fmt.Sprintf("--- Loading more... (%d entries) ---", entryCount)
 		}
 
 		if m.lazySession.HasMore() {
 			pct := m.lazySession.Progress() * 100
-			return fmt.Sprintf("--- %d entries loaded (%.0f%% of %s) | scroll down for more ---",
-				entryCount, pct, sizeInfo)
+			if totalEntries > 0 {
+				return fmt.Sprintf("--- %d of %d entries loaded (%.0f%%) | scroll down for more ---",
+					entryCount, totalEntries, pct)
+			}
+			return fmt.Sprintf("--- %d entries loaded | scroll down for more ---", entryCount)
 		}
 
-		return fmt.Sprintf("--- %d entries (%s) ---", entryCount, sizeInfo)
+		return fmt.Sprintf("--- %d entries ---", entryCount)
 	}
 
 	// Legacy window mode

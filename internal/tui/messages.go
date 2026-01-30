@@ -27,7 +27,8 @@ type SessionWindowMsg struct {
 
 // LazySessionMsg is sent when a lazy session is opened.
 type LazySessionMsg struct {
-	Session *claude.LazySession
+	Session thinkt.LazySession
+	Path    string
 	Err     error
 }
 

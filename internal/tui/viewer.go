@@ -9,13 +9,15 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 )
+
+
 
 // ViewerModel is a standalone session viewer with scrolling and lazy loading.
 type ViewerModel struct {
 	sessionPath   string
-	lazySession   *claude.LazySession
+	lazySession   thinkt.LazySession
 	viewport      viewport.Model
 	width         int
 	height        int
@@ -82,7 +84,7 @@ func NewViewerModel(sessionPath string) ViewerModel {
 
 // sessionLoadedMsg is sent when the session has been loaded.
 type sessionLoadedMsg struct {
-	session *claude.LazySession
+	session thinkt.LazySession
 	err     error
 }
 
@@ -108,7 +110,7 @@ func (m ViewerModel) Init() tea.Cmd {
 
 func (m ViewerModel) loadSession() tea.Cmd {
 	return func() tea.Msg {
-		ls, err := claude.OpenLazySession(m.sessionPath)
+		ls, err := OpenLazySession(m.sessionPath)
 		return sessionLoadedMsg{session: ls, err: err}
 	}
 }
@@ -135,16 +137,20 @@ func (m ViewerModel) renderEntriesCmd() tea.Cmd {
 	}
 
 	// Capture current state for the goroutine
-	newEntries := make([]claude.Entry, len(entries)-m.renderedCount)
+	newEntries := make([]thinkt.Entry, len(entries)-m.renderedCount)
 	copy(newEntries, entries[m.renderedCount:])
 	prevRendered := m.rendered
 	prevCount := m.renderedCount
 	width := m.width
+	meta := m.lazySession.Metadata()
 
 	return func() tea.Msg {
 		// Do expensive rendering in background
-		newSession := &claude.Session{Entries: newEntries}
-		newRendered := RenderSession(newSession, width-4)
+		newSession := &thinkt.Session{
+			Meta:    meta,
+			Entries: newEntries,
+		}
+		newRendered := RenderThinktSession(newSession, width-4)
 
 		var result string
 		if prevCount == 0 {
@@ -163,6 +169,9 @@ func (m ViewerModel) renderEntriesCmd() tea.Cmd {
 func (m ViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
+
+	// Debug: log all messages
+	// fmt.Fprintf(os.Stderr, "[Viewer] Update: %T\n", msg)
 
 	switch msg := msg.(type) {
 	case sessionLoadedMsg:
@@ -183,6 +192,8 @@ func (m ViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case contentRenderedMsg:
 		m.rendered = msg.rendered
 		m.renderedCount = msg.renderedCount
+		// Debug: write content length to file
+
 		m.viewport.SetContent(m.rendered)
 		// Return early - don't pass this message to the viewport
 		return m, nil
@@ -197,6 +208,7 @@ func (m ViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.WindowSizeMsg:
+
 		m.width = msg.Width
 		m.height = msg.Height
 
@@ -286,6 +298,7 @@ func (m ViewerModel) View() tea.View {
 
 	// Don't show the frame until both viewport is ready AND session is loaded
 	if !m.ready || m.lazySession == nil {
+
 		v := tea.NewView("Loading...")
 		v.AltScreen = true
 		return v
@@ -295,17 +308,21 @@ func (m ViewerModel) View() tea.View {
 	title := viewerTitleStyle.Render(m.title)
 	info := ""
 	if m.lazySession != nil {
-		session := m.lazySession.ToSession()
+		meta := m.lazySession.Metadata()
 		entryCount := m.lazySession.EntryCount()
 		more := ""
 		if m.lazySession.HasMore() {
 			more = "+"
 		}
+		model := meta.Model
+		if model == "" {
+			model = string(meta.Source)
+		}
 		info = viewerInfoStyle.Render(fmt.Sprintf(
 			"  %d%s entries | %s",
 			entryCount,
 			more,
-			session.Model,
+			model,
 		))
 	}
 	header := title + info

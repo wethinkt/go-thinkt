@@ -176,6 +176,7 @@ var (
 	sessionSortDesc    bool
 	sessionTemplate    string
 	sessionViewAll     bool
+	sessionViewRaw     bool // --raw flag for undecorated output
 )
 
 // Search and stats command flags
@@ -385,11 +386,14 @@ Navigation:
   g/G         Go to top/bottom
   q/Esc       Quit
 
+Use --raw to output undecorated text to stdout (no TUI).
+
 Examples:
   thinkt sessions view              # Interactive picker across all sources
   thinkt sessions view /full/path/to/session.jsonl
   thinkt sessions view -p ./myproject abc123
-  thinkt sessions view -p ./myproject --all        # view all`,
+  thinkt sessions view -p ./myproject --all        # view all
+  thinkt sessions view /path/to/session --raw      # raw output to stdout`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runSessionsView,
 }
@@ -549,6 +553,7 @@ func main() {
 	sessionsSummaryCmd.Flags().Bool("asc", false, "sort ascending (default for name)")
 	sessionsDeleteCmd.Flags().BoolVarP(&sessionForceDelete, "force", "f", false, "skip confirmation prompt")
 	sessionsViewCmd.Flags().BoolVarP(&sessionViewAll, "all", "a", false, "view all sessions in time order")
+	sessionsViewCmd.Flags().BoolVar(&sessionViewRaw, "raw", false, "output raw text without decoration/rendering")
 
 	// Search command flags
 	searchCmd.Flags().StringVarP(&searchProject, "project", "p", "", "limit search to a project")
@@ -1129,6 +1134,10 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 	if sessionProject == "" {
 		// If a session path is provided as an absolute path, use it directly
 		if len(args) > 0 && strings.HasPrefix(args[0], "/") {
+			// Handle --raw flag for undecorated output
+			if sessionViewRaw {
+				return tui.ViewSessionRaw(args[0], os.Stdout)
+			}
 			return tui.RunViewer(args[0])
 		}
 
@@ -1195,6 +1204,10 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 			}
 		}
 
+		// Handle --raw flag for undecorated output
+		if sessionViewRaw {
+			return tui.ViewSessionRaw(sessionPath, os.Stdout)
+		}
 		return tui.RunViewer(sessionPath)
 	}
 
@@ -1222,6 +1235,10 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// Handle --raw flag for undecorated output
+	if sessionViewRaw {
+		return tui.ViewSessionRaw(selected.FullPath, os.Stdout)
+	}
 	return tui.RunViewer(selected.FullPath)
 }
 

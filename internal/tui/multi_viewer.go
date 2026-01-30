@@ -11,13 +11,13 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 )
 
 // MultiViewerModel displays multiple sessions in time order.
 type MultiViewerModel struct {
 	sessionPaths  []string
-	sessions      []*claude.LazySession
+	sessions      []thinkt.LazySession
 	viewport      viewport.Model
 	width         int
 	height        int
@@ -33,7 +33,7 @@ type MultiViewerModel struct {
 
 // multiSessionLoadedMsg is sent when a session has been loaded.
 type multiSessionLoadedMsg struct {
-	session *claude.LazySession
+	session thinkt.LazySession
 	index   int
 	err     error
 }
@@ -42,7 +42,7 @@ type multiSessionLoadedMsg struct {
 func NewMultiViewerModel(sessionPaths []string) MultiViewerModel {
 	return MultiViewerModel{
 		sessionPaths: sessionPaths,
-		sessions:     make([]*claude.LazySession, len(sessionPaths)),
+		sessions:     make([]thinkt.LazySession, len(sessionPaths)),
 		title:        fmt.Sprintf("All Sessions (%d)", len(sessionPaths)),
 		keys:         defaultViewerKeyMap(),
 	}
@@ -62,7 +62,7 @@ func (m MultiViewerModel) loadSessionAt(idx int) tea.Cmd {
 	}
 	path := m.sessionPaths[idx]
 	return func() tea.Msg {
-		ls, err := claude.OpenLazySession(path)
+		ls, err := OpenLazySession(path)
 		if err != nil {
 			return multiSessionLoadedMsg{index: idx, err: err}
 		}
@@ -78,15 +78,16 @@ func (m MultiViewerModel) loadSessionAt(idx int) tea.Cmd {
 func (m *MultiViewerModel) renderAllSessions() {
 	// Sort sessions by start time
 	type sessionWithTime struct {
-		session *claude.LazySession
+		session thinkt.LazySession
 		start   int64
 	}
 	var sessionsToSort []sessionWithTime
 	for _, s := range m.sessions {
 		if s != nil {
+			meta := s.Metadata()
 			start := int64(0)
-			if !s.StartTime.IsZero() {
-				start = s.StartTime.Unix()
+			if !meta.CreatedAt.IsZero() {
+				start = meta.CreatedAt.Unix()
 			}
 			sessionsToSort = append(sessionsToSort, sessionWithTime{session: s, start: start})
 		}
@@ -104,7 +105,10 @@ func (m *MultiViewerModel) renderAllSessions() {
 
 	for i, st := range sessionsToSort {
 		s := st.session
-		session := s.ToSession()
+		session := &thinkt.Session{
+			Meta:    s.Metadata(),
+			Entries: s.Entries(),
+		}
 
 		// Add separator between sessions
 		if i > 0 {
@@ -112,20 +116,21 @@ func (m *MultiViewerModel) renderAllSessions() {
 		}
 
 		// Session header
-		sessionName := filepath.Base(s.Path)
+		meta := s.Metadata()
+		sessionName := filepath.Base(meta.FullPath)
 		if len(sessionName) > 40 {
 			sessionName = sessionName[:40] + "..."
 		}
 		timestamp := ""
-		if !s.StartTime.IsZero() {
-			timestamp = s.StartTime.Local().Format("Jan 02, 2006 3:04 PM")
+		if !meta.CreatedAt.IsZero() {
+			timestamp = meta.CreatedAt.Local().Format("Jan 02, 2006 3:04 PM")
 		}
 		header := separatorStyle.Render(fmt.Sprintf("━━━ %s (%s) ━━━", sessionName, timestamp))
 		parts = append(parts, header)
 		parts = append(parts, "")
 
 		// Render session content
-		rendered := RenderSession(session, m.width-4)
+		rendered := RenderThinktSession(session, m.width-4)
 		parts = append(parts, rendered)
 	}
 

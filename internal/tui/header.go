@@ -43,6 +43,10 @@ func (m *headerModel) setSession(session *claude.Session) {
 	m.session = session
 }
 
+func (m *headerModel) setThinktSession(meta thinkt.SessionMeta) {
+	m.sessionMeta = &meta
+}
+
 func (m headerModel) height() int {
 	return 2 // Fixed two-line header
 }
