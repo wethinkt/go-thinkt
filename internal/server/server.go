@@ -11,7 +11,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 
+	_ "github.com/Brain-STM-org/thinking-tracer-tools/internal/server/docs" // swagger docs
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 )
 
@@ -83,18 +85,13 @@ func (s *HTTPServer) setupRouter() chi.Router {
 		r.Get("/sessions/*", s.handleGetSession)
 	})
 
-	// Root handler (placeholder for webapp)
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(`<!DOCTYPE html>
-<html>
-<head><title>Thinkt</title></head>
-<body>
-<h1>Thinkt Server</h1>
-<p>API available at <a href="/api/v1/sources">/api/v1/sources</a></p>
-</body>
-</html>`))
-	})
+	// Swagger documentation
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	))
+
+	// Serve embedded webapp for all other routes
+	r.Handle("/*", staticHandler())
 
 	return r
 }

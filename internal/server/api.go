@@ -14,6 +14,12 @@ import (
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui"
 )
 
+// @title Thinkt API
+// @version 1.0
+// @description API for exploring AI conversation traces from Claude Code, Kimi Code, and other sources.
+// @host localhost:7433
+// @BasePath /api/v1
+
 // API response types
 
 // SourcesResponse lists available trace sources.
@@ -65,6 +71,12 @@ func writeError(w http.ResponseWriter, status int, err string, msg string) {
 }
 
 // handleGetSources returns available trace sources.
+// @Summary List available trace sources
+// @Description Returns all configured trace sources (e.g., Claude Code, Kimi Code)
+// @Tags sources
+// @Produce json
+// @Success 200 {object} SourcesResponse
+// @Router /sources [get]
 func (s *HTTPServer) handleGetSources(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	status := s.registry.SourceStatus(ctx)
@@ -82,6 +94,14 @@ func (s *HTTPServer) handleGetSources(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleGetProjects returns all projects, optionally filtered by source.
+// @Summary List all projects
+// @Description Returns all projects from all sources, optionally filtered by source
+// @Tags projects
+// @Produce json
+// @Param source query string false "Filter by source (e.g., 'claude', 'kimi')"
+// @Success 200 {object} ProjectsResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /projects [get]
 func (s *HTTPServer) handleGetProjects(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	sourceFilter := r.URL.Query().Get("source")
@@ -107,6 +127,15 @@ func (s *HTTPServer) handleGetProjects(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleGetProjectSessions returns sessions for a project.
+// @Summary List sessions for a project
+// @Description Returns all sessions belonging to a specific project
+// @Tags sessions
+// @Produce json
+// @Param projectID path string true "Project ID (URL-encoded path)"
+// @Success 200 {object} SessionsResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /projects/{projectID}/sessions [get]
 func (s *HTTPServer) handleGetProjectSessions(w http.ResponseWriter, r *http.Request) {
 	projectID := chi.URLParam(r, "projectID")
 	if projectID == "" {
@@ -151,8 +180,17 @@ func (s *HTTPServer) findSessionsForProject(ctx context.Context, projectID strin
 }
 
 // handleGetSession returns session data.
-// Path format: /api/v1/sessions/{encoded_path}
-// Query params: limit, offset
+// @Summary Get session content
+// @Description Returns session metadata and entries with optional pagination
+// @Tags sessions
+// @Produce json
+// @Param path path string true "Session file path (URL-encoded)"
+// @Param limit query int false "Maximum number of entries to return (0 for all)"
+// @Param offset query int false "Number of entries to skip"
+// @Success 200 {object} SessionResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /sessions/{path} [get]
 func (s *HTTPServer) handleGetSession(w http.ResponseWriter, r *http.Request) {
 	// Get the path after /sessions/
 	path := chi.URLParam(r, "*")

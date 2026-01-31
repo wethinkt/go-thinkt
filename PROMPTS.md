@@ -614,3 +614,9 @@ For just the Http server, that's the base serve command
 ## 2026-01-31T02:06:16Z
 
 implement the http mcp server
+
+---
+
+## 2026-01-31T13:23:25Z
+
+we are now working on the primary "thinkt serve" http server.  it has two aspects, one is the API server (we will use OpenAPI and https://github.com/swaggo/swag ) and also serving the local web experience.    create the scaffolding for this and have the local web experience simply be a hello world html for now
