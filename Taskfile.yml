@@ -7,6 +7,11 @@ tasks:
   default:
     deps: [test, build]
 
+  # Things we need to install to do dev work
+  dev-deps:
+    cmds:
+      - go install "github.com/swaggo/swag/cmd/swag@v1.16.6"
+
   build:
     desc: Build the thinkt CLI
     deps: [go-tidy]
@@ -38,6 +43,8 @@ tasks:
 
   clean:
     desc: Remove build artifacts
+    deps:
+      - server:swag-clean
     cmds:
       - rm -rf {{.BIN_DIR}}
 
@@ -45,6 +52,10 @@ tasks:
     desc: Run golangci-lint
     cmds:
       - golangci-lint run
+
+  ###############################################################################
+  # MCP Server
+  ###############################################################################
 
   mcp:stdio-schema:
     desc: "Extracts the schema from the stdio server"
@@ -59,3 +70,24 @@ tasks:
     cmds:
       - printf '{"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"jsonrpc":"2.0","id":1}\n{"method":"tools/list","params":{},"jsonrpc":"2.0","id":2}\n' | ./bin/thinkt serve mcp {{.CLI_ARGS}}
       - printf '{"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"jsonrpc":"2.0","id":1}\n{"method":"resources/list","params":{},"jsonrpc":"2.0","id":2}\n' | ./bin/thinkt serve mcp {{.CLI_ARGS}}
+
+  ###############################################################################
+  # OpenAPI 2.0 Swagger
+  ###############################################################################
+
+  server:swag-v2:
+    deps: [go-tidy]
+    dir: ./internal/server
+    cmds:
+      - swag init --parseDependency --parseDepth 2 -o ./docs -g ./api.go
+    sources:
+      - "*.go"
+    generates:
+      - ./docs/docs.go
+      - ./docs/swagger.json
+      - ./docs/swagger.yaml
+
+  server:swag-clean:
+    dir: ./internal/server/docs
+    cmds:
+      - rm -f docs.go swagger.json swagger.yaml

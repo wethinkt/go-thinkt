@@ -1,0 +1,344 @@
+basePath: /api/v1
+definitions:
+  server.APISourceInfo:
+    properties:
+      available:
+        type: boolean
+      base_path:
+        type: string
+      name:
+        type: string
+    type: object
+  server.ErrorResponse:
+    properties:
+      error:
+        type: string
+      message:
+        type: string
+    type: object
+  server.ProjectsResponse:
+    properties:
+      projects:
+        items:
+          $ref: '#/definitions/thinkt.Project'
+        type: array
+    type: object
+  server.SessionResponse:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/thinkt.Entry'
+        type: array
+      has_more:
+        type: boolean
+      meta:
+        $ref: '#/definitions/thinkt.SessionMeta'
+      total:
+        type: integer
+    type: object
+  server.SessionsResponse:
+    properties:
+      sessions:
+        items:
+          $ref: '#/definitions/thinkt.SessionMeta'
+        type: array
+    type: object
+  server.SourcesResponse:
+    properties:
+      sources:
+        items:
+          $ref: '#/definitions/server.APISourceInfo'
+        type: array
+    type: object
+  thinkt.ContentBlock:
+    properties:
+      is_error:
+        type: boolean
+      media_data:
+        type: string
+      media_type:
+        description: Image/document block
+        type: string
+      signature:
+        description: For signed/encrypted thinking
+        type: string
+      text:
+        description: Text block
+        type: string
+      thinking:
+        description: Thinking block
+        type: string
+      tool_input: {}
+      tool_name:
+        type: string
+      tool_result:
+        description: Tool result block
+        type: string
+      tool_use_id:
+        description: Tool use block
+        type: string
+      type:
+        type: string
+    type: object
+  thinkt.Entry:
+    properties:
+      content_blocks:
+        description: Content (one of these will be set)
+        items:
+          $ref: '#/definitions/thinkt.ContentBlock'
+        type: array
+      cwd:
+        type: string
+      git_branch:
+        type: string
+      is_checkpoint:
+        type: boolean
+      is_sidechain:
+        description: For branched conversations
+        type: boolean
+      metadata:
+        additionalProperties: {}
+        description: Source-specific extras
+        type: object
+      model:
+        description: Metadata
+        type: string
+      parent_uuid:
+        description: For branching conversations
+        type: string
+      role:
+        $ref: '#/definitions/thinkt.Role'
+      source:
+        allOf:
+        - $ref: '#/definitions/thinkt.Source'
+        description: Provenance - where this entry came from
+      text:
+        description: Simple text shortcut
+        type: string
+      timestamp:
+        type: string
+      usage:
+        $ref: '#/definitions/thinkt.TokenUsage'
+      uuid:
+        description: Core identification
+        type: string
+      workspace_id:
+        description: Which machine/host
+        type: string
+    type: object
+  thinkt.Project:
+    properties:
+      display_path:
+        description: Human-readable path
+        type: string
+      id:
+        type: string
+      last_modified:
+        type: string
+      name:
+        description: Display name
+        type: string
+      path:
+        description: Full filesystem path
+        type: string
+      session_count:
+        type: integer
+      source:
+        allOf:
+        - $ref: '#/definitions/thinkt.Source'
+        description: Which tool
+      workspace_id:
+        description: Which machine/host
+        type: string
+    type: object
+  thinkt.Role:
+    enum:
+    - user
+    - assistant
+    - tool
+    - system
+    - summary
+    - progress
+    - checkpoint
+    type: string
+    x-enum-comments:
+      RoleCheckpoint: State recovery markers (Kimi _checkpoint, Claude file-history-snapshot)
+    x-enum-descriptions:
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - State recovery markers (Kimi _checkpoint, Claude file-history-snapshot)
+    x-enum-varnames:
+    - RoleUser
+    - RoleAssistant
+    - RoleTool
+    - RoleSystem
+    - RoleSummary
+    - RoleProgress
+    - RoleCheckpoint
+  thinkt.SessionMeta:
+    properties:
+      chunk_count:
+        description: 'Number of files: 0=unknown, 1=single, 2+=chunked'
+        type: integer
+      created_at:
+        type: string
+      entry_count:
+        type: integer
+      file_size:
+        description: Size in bytes
+        type: integer
+      first_prompt:
+        type: string
+      full_path:
+        description: Path to session file
+        type: string
+      git_branch:
+        type: string
+      id:
+        type: string
+      model:
+        type: string
+      modified_at:
+        type: string
+      project_path:
+        description: Normalized project path
+        type: string
+      source:
+        allOf:
+        - $ref: '#/definitions/thinkt.Source'
+        description: Which tool (kimi, claude)
+      summary:
+        type: string
+      workspace_id:
+        description: Which machine/host
+        type: string
+    type: object
+  thinkt.Source:
+    enum:
+    - kimi
+    - claude
+    type: string
+    x-enum-varnames:
+    - SourceKimi
+    - SourceClaude
+  thinkt.TokenUsage:
+    properties:
+      cache_creation_input_tokens:
+        type: integer
+      cache_read_input_tokens:
+        type: integer
+      input_tokens:
+        type: integer
+      output_tokens:
+        type: integer
+    type: object
+host: localhost:7433
+info:
+  contact: {}
+  description: API for exploring AI conversation traces from Claude Code, Kimi Code,
+    and other sources.
+  title: Thinkt API
+  version: "1.0"
+paths:
+  /projects:
+    get:
+      description: Returns all projects from all sources, optionally filtered by source
+      parameters:
+      - description: Filter by source (e.g., 'claude', 'kimi')
+        in: query
+        name: source
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.ProjectsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: List all projects
+      tags:
+      - projects
+  /projects/{projectID}/sessions:
+    get:
+      description: Returns all sessions belonging to a specific project
+      parameters:
+      - description: Project ID (URL-encoded path)
+        in: path
+        name: projectID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.SessionsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: List sessions for a project
+      tags:
+      - sessions
+  /sessions/{path}:
+    get:
+      description: Returns session metadata and entries with optional pagination
+      parameters:
+      - description: Session file path (URL-encoded)
+        in: path
+        name: path
+        required: true
+        type: string
+      - description: Maximum number of entries to return (0 for all)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of entries to skip
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.SessionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Get session content
+      tags:
+      - sessions
+  /sources:
+    get:
+      description: Returns all configured trace sources (e.g., Claude Code, Kimi Code)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.SourcesResponse'
+      summary: List available trace sources
+      tags:
+      - sources
+swagger: "2.0"
