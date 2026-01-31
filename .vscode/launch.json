@@ -17,7 +17,10 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/thinkt",
             "console": "integratedTerminal",
-            "args": ["--log", "${workspaceFolder}/thinkt.log"]
+            "args": [
+                "--log",
+                "${workspaceFolder}/thinkt.log"
+            ]
         },
         {
             "name": "Launch thinkt (with profiling)",
@@ -26,7 +29,10 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/thinkt",
             "console": "integratedTerminal",
-            "args": ["--profile", "${workspaceFolder}/cpu.prof"]
+            "args": [
+                "--profile",
+                "${workspaceFolder}/cpu.prof"
+            ]
         },
         {
             "name": "Launch thinkt (full debug)",
@@ -35,7 +41,12 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/thinkt",
             "console": "integratedTerminal",
-            "args": ["--log", "${workspaceFolder}/thinkt.log", "--profile", "${workspaceFolder}/cpu.prof"]
+            "args": [
+                "--log",
+                "${workspaceFolder}/thinkt.log",
+                "--profile",
+                "${workspaceFolder}/cpu.prof"
+            ]
         },
         {
             "name": "Launch thinkt (custom dir)",
@@ -44,7 +55,10 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/thinkt",
             "console": "integratedTerminal",
-            "args": ["--dir", "${input:claudeDir}"]
+            "args": [
+                "--dir",
+                "${input:claudeDir}"
+            ]
         },
         {
             "name": "Launch thinkt-prompts",
@@ -53,7 +67,9 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/thinkt-prompts",
             "console": "integratedTerminal",
-            "args": ["${input:sessionFile}"]
+            "args": [
+                "${input:sessionFile}"
+            ]
         },
         {
             "name": "Debug Current Test",
@@ -61,7 +77,11 @@
             "request": "launch",
             "mode": "test",
             "program": "${fileDirname}",
-            "args": ["-test.v", "-test.run", "${input:testName}"]
+            "args": [
+                "-test.v",
+                "-test.run",
+                "${input:testName}"
+            ]
         },
         {
             "name": "Debug All Tests",
@@ -69,7 +89,9 @@
             "request": "launch",
             "mode": "test",
             "program": "${workspaceFolder}/...",
-            "args": ["-test.v"]
+            "args": [
+                "-test.v"
+            ]
         },
         {
             "name": "Attach to Process",
@@ -95,7 +117,13 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/thinkt",
             "console": "integratedTerminal",
-            "args": ["sessions", "view", "-p", "${input:projectPath}", "${input:sessionId}"]
+            "args": [
+                "sessions",
+                "view",
+                "-p",
+                "${input:projectPath}",
+                "${input:sessionId}"
+            ]
         },
         {
             "name": "Launch thinkt sessions view (with profiling)",
@@ -104,7 +132,15 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/thinkt",
             "console": "integratedTerminal",
-            "args": ["--profile", "${workspaceFolder}/cpu.prof", "sessions", "view", "-p", "${input:projectPath}", "${input:sessionId}"]
+            "args": [
+                "--profile",
+                "${workspaceFolder}/cpu.prof",
+                "sessions",
+                "view",
+                "-p",
+                "${input:projectPath}",
+                "${input:sessionId}"
+            ]
         },
         {
             "name": "Launch thinkt sessions view (picker)",
@@ -113,7 +149,12 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/thinkt",
             "console": "integratedTerminal",
-            "args": ["sessions", "view", "-p", "${input:projectPath}"]
+            "args": [
+                "sessions",
+                "view",
+                "-p",
+                "${input:projectPath}"
+            ]
         },
         {
             "name": "Launch thinkt sessions view (all)",
@@ -122,7 +163,13 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/thinkt",
             "console": "integratedTerminal",
-            "args": ["sessions", "view", "-p", "${input:projectPath}", "--all"]
+            "args": [
+                "sessions",
+                "view",
+                "-p",
+                "${input:projectPath}",
+                "--all"
+            ]
         },
         {
             "name": "Launch thinkt sessions view (all, with profiling)",
@@ -131,8 +178,37 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/thinkt",
             "console": "integratedTerminal",
-            "args": ["--profile", "${workspaceFolder}/cpu.prof", "sessions", "view", "-p", "${input:projectPath}", "--all"]
-        }
+            "args": [
+                "--profile",
+                "${workspaceFolder}/cpu.prof",
+                "sessions",
+                "view",
+                "-p",
+                "${input:projectPath}",
+                "--all"
+            ]
+        },
+        {
+            "name": "Launch thinkt mcp server",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/thinkt",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "serve",
+                "--mcp-only",
+                "--log",
+                "/tmp/think-mcp-dev.log"
+            ]
+        },
+        {
+            "name": "Attach thinkt mcp",
+            "type": "go",
+            "request": "attach",
+            "mode": "local",
+            "processId": 0,
+        },
     ],
     "inputs": [
         {

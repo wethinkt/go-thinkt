@@ -521,3 +521,96 @@ in renderer_generic line 29, you iterate over all of sessions.Entries i think we
 ## 2026-01-30T20:45:52Z
 
 in multi_viewer.go line 149, you are rendering everything that's been rendered up to what's *READ*.  however, rendering can take a lot of time and we don't need to display it yet.  render each entry (we can cache the rendering for the duration of the TUI) and only render up to what needs to be displayed
+
+---
+
+## 2026-01-30T21:28:17Z
+
+we are now going to work on the "thinkt server"   see ../thinking-tracer-biz/reports/019-thinkt-serve-strategic-pitch.md 
+construct a plan to implement this.   we will also be create an MCP server which will load from the same URL path using https://github.com/modelcontextprotocol/go-sdk
+
+---
+
+## 2026-01-30T23:33:51Z
+
+Add the stdio implementation.   make mcp-server and http-server be separately instantiatable, but can be served from the same port and if it is done on the same, that is implementated efficiently.    one can't instantiate a mcp-stdio and api-http at the same time, that is an error
+
+---
+
+## 2026-01-30T23:48:39Z
+
+review how the other components use the JSONL data model.... they should use our thinkt typescript library instead.  make a plan for this
+
+---
+
+## 2026-01-30T23:53:51Z
+
+here's a good test for you... run  ./bin/thinkt serve --mcp-only and it should start clean.   I get this error:
+panic: AddTool: tool "list_projects": input schema: ForType(server.listProjectsInput): tag must not begin with 'WORD=': "description=Filter by source (kimi or claude)"
+
+goroutine 1 [running]:
+github.com/modelcontextprotocol/go-sdk/mcp.AddTool[...](0x140003521c0?, 0x140005d7908, 0x102ee47fc)
+        /Users/evan/go/pkg/mod/github.com/modelcontextprotocol/go-sdk@v1.2.0/mcp/server.go:450 +0xbc
+github.com/Brain-STM-org/thinking-tracer-tools/internal/server.(*MCPServer).registerTools(0x140001e2470)
+        /Users/evan/brainstm/thinking-tracer-tools/internal/server/mcp.go:47 +0x144
+github.com/Brain-STM-org/thinking-tracer-tools/internal/server.NewMCPServer(0x140003c4b40)
+        /Users/evan/brainstm/thinking-tracer-tools/internal/server/mcp.go:33 +0x94
+main.runServe(0x140001e9d00?, {0x104fb8f87?, 0x4?, 0x104fb8e5f?})
+        /Users/evan/brainstm/thinking-tracer-tools/cmd/thinkt/main.go:704 +0x2d8
+github.com/spf13/cobra.(*Command).execute(0x1063d9a40, {0x1400055e370, 0x1, 0x1})
+        /Users/evan/go/pkg/mod/github.com/spf13/cobra@v1.10.2/command.go:1015 +0x7d4
+github.com/spf13/cobra.(*Command).ExecuteC(0x1063d9480)
+        /Users/evan/go/pkg/mod/github.com/spf13/cobra@v1.10.2/command.go:1148 +0x350
+github.com/spf13/cobra.(*Command).Execute(...)
+        /Users/evan/go/pkg/mod/github.com/spf13/cobra@v1.10.2/command.go:1071
+main.main()
+        /Users/evan/brainstm/thinking-tracer-tools/cmd/thinkt/main.go:646 +0xf18
+
+---
+
+## 2026-01-31T00:01:44Z
+
+this test that is now part of task mcp:stdio-schema is not working: 
+echo '{"method":"tools/list","params":{},"jsonrpc":"2.0","id":1}' | ./bin/thinkt serve --mcp-only
+
+---
+
+## 2026-01-31T00:03:05Z
+
+are you sure it isn't related to not reading the whole stdio and handling the closed pipe properly?
+
+---
+
+## 2026-01-31T00:05:00Z
+
+use my simple test from before.  
+
+---
+
+## 2026-01-31T00:11:17Z
+
+fix the tests in the taskfile
+
+---
+
+## 2026-01-31T00:28:31Z
+
+add verbose logging to the server (use same --log) .  i need to troubleshoot why its not working
+
+---
+
+## 2026-01-31T02:03:22Z
+
+i want the serve interface to be slightly different.  we intentionally separate mcp and http.   they are commands.  so :
+* thinkt serve mcp
+* thinkt serve mcp --stdio
+* thinkt serve mcp --port 8081
+For just the Http server, that's the base serve command
+* thinkt serve
+* thinkt serve --port 8080
+
+---
+
+## 2026-01-31T02:06:16Z
+
+implement the http mcp server

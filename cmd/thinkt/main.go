@@ -4,13 +4,18 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"os/signal"
+	"runtime"
 	"runtime/pprof"
 	"slices"
 	"sort"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 
 	tea "charm.land/bubbletea/v2"
@@ -22,6 +27,7 @@ import (
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/cli"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/kimi"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/prompt"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/server"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
@@ -33,6 +39,20 @@ var (
 	profileFile *os.File // held open for profiling
 	logPath     string
 	verbose     bool
+)
+
+// Serve command flags
+var (
+	servePort int
+	serveHost string
+	serveOpen bool
+)
+
+// Serve MCP subcommand flags
+var (
+	mcpStdio bool
+	mcpPort  int
+	mcpHost  string
 )
 
 // Prompts subcommand flags
@@ -116,6 +136,41 @@ Press T to open thinking-tracer for the selected session.`,
 	RunE: runTUI,
 }
 
+var serveCmd = &cobra.Command{
+	Use:   "serve",
+	Short: "Start local HTTP server for trace exploration",
+	Long: `Start a local HTTP server for exploring AI conversation traces.
+
+The server provides:
+  - REST API for accessing projects and sessions
+  - Web interface for visual trace exploration
+
+All data stays on your machine - nothing is uploaded to external servers.
+
+Use 'thinkt serve mcp' for MCP (Model Context Protocol) server.
+
+Examples:
+  thinkt serve                    # Start HTTP server on default port 7433
+  thinkt serve -p 8080            # Start on custom port
+  thinkt serve --no-open          # Don't auto-open browser`,
+	RunE: runServeHTTP,
+}
+
+var serveMcpCmd = &cobra.Command{
+	Use:   "mcp",
+	Short: "Start MCP server for AI tool integration",
+	Long: `Start an MCP (Model Context Protocol) server for AI tool integration.
+
+By default, runs on stdio for use with Claude Desktop and other MCP clients.
+Use --port to run over HTTP instead.
+
+Examples:
+  thinkt serve mcp                # MCP server on stdio (default)
+  thinkt serve mcp --stdio        # Explicitly use stdio transport
+  thinkt serve mcp --port 8081    # MCP server over HTTP`,
+	RunE: runServeMCP,
+}
+
 var promptsCmd = &cobra.Command{
 	Use:   "prompts",
 	Short: "Extract and manage prompts from trace files",
@@ -191,9 +246,9 @@ var (
 
 // Projects command flags
 var (
-	projectSources    []string // --source flag (can be specified multiple times)
-	withSessions      bool     // --with-sessions flag for summary
-	longFormat        bool     // --long flag for columnar output
+	projectSources []string // --source flag (can be specified multiple times)
+	withSessions   bool     // --with-sessions flag for summary
+	longFormat     bool     // --long flag for columnar output
 )
 
 var projectsCmd = &cobra.Command{
@@ -590,6 +645,7 @@ func main() {
 	promptsCmd.AddCommand(templatesCmd)
 
 	rootCmd.AddCommand(tuiCmd)
+	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(promptsCmd)
 	rootCmd.AddCommand(searchCmd)
 	rootCmd.AddCommand(statsCmd)
@@ -597,6 +653,18 @@ func main() {
 	rootCmd.AddCommand(projectsCmd)
 	rootCmd.AddCommand(sessionsCmd)
 	rootCmd.AddCommand(sourcesCmd)
+
+	// Serve command flags
+	serveCmd.Flags().IntVarP(&servePort, "port", "p", 7433, "server port")
+	serveCmd.Flags().StringVar(&serveHost, "host", "localhost", "server host")
+	serveCmd.Flags().BoolVar(&serveOpen, "open", true, "auto-open browser")
+	serveCmd.PersistentFlags().StringVar(&logPath, "log", "", "write debug log to file")
+
+	// Serve MCP subcommand
+	serveCmd.AddCommand(serveMcpCmd)
+	serveMcpCmd.Flags().BoolVar(&mcpStdio, "stdio", false, "use stdio transport (default if no --port)")
+	serveMcpCmd.Flags().IntVarP(&mcpPort, "port", "p", 0, "run MCP over HTTP on this port")
+	serveMcpCmd.Flags().StringVar(&mcpHost, "host", "localhost", "host to bind MCP HTTP server")
 
 	// Sources subcommands
 	sourcesCmd.AddCommand(sourcesListCmd)
@@ -639,6 +707,135 @@ func runTUI(cmd *cobra.Command, args []string) error {
 
 	tuilog.Log.Info("TUI exited", "error", err)
 	return err
+}
+
+func runServeHTTP(cmd *cobra.Command, args []string) error {
+	// Initialize logger if requested
+	if logPath != "" {
+		if err := tuilog.Init(logPath); err != nil {
+			return fmt.Errorf("init logger: %w", err)
+		}
+		defer tuilog.Log.Close()
+	}
+
+	tuilog.Log.Info("Starting HTTP server", "port", servePort, "host", serveHost)
+
+	// Create source registry
+	registry := createSourceRegistry()
+	tuilog.Log.Info("Source registry created", "stores", len(registry.All()))
+
+	// Create context that cancels on interrupt
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle interrupt signal
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		tuilog.Log.Info("Received interrupt signal, shutting down")
+		fmt.Fprintln(os.Stderr, "\nShutting down...")
+		cancel()
+	}()
+
+	// HTTP mode: start HTTP server
+	config := server.Config{
+		Mode: server.ModeHTTPOnly,
+		Port: servePort,
+		Host: serveHost,
+	}
+	srv := server.NewHTTPServer(registry, config)
+
+	// Print startup message
+	fmt.Println("🚀 Thinkt server starting...")
+	fmt.Println("📁 Serving traces from local sources")
+
+	// Auto-open browser if requested (after small delay for server to start)
+	if serveOpen {
+		go func() {
+			url := fmt.Sprintf("http://%s", srv.Addr())
+			fmt.Printf("🌐 Opening %s in browser...\n", url)
+			openBrowser(url)
+		}()
+	}
+
+	// Start server
+	return srv.ListenAndServe(ctx)
+}
+
+func runServeMCP(cmd *cobra.Command, args []string) error {
+	// Initialize logger if requested
+	if logPath != "" {
+		if err := tuilog.Init(logPath); err != nil {
+			return fmt.Errorf("init logger: %w", err)
+		}
+		defer tuilog.Log.Close()
+	}
+
+	// Determine transport mode: stdio (default) or HTTP
+	useStdio := mcpStdio || mcpPort == 0
+
+	tuilog.Log.Info("Starting MCP server", "stdio", useStdio, "port", mcpPort)
+
+	// Create source registry
+	registry := createSourceRegistry()
+	tuilog.Log.Info("Source registry created", "stores", len(registry.All()))
+
+	// Create context that cancels on interrupt
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle interrupt signal
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		tuilog.Log.Info("Received interrupt signal, shutting down")
+		fmt.Fprintln(os.Stderr, "\nShutting down...")
+		cancel()
+	}()
+
+	// Create MCP server
+	tuilog.Log.Info("Creating MCP server")
+	mcpServer := server.NewMCPServer(registry)
+
+	if useStdio {
+		// Stdio transport
+		fmt.Fprintln(os.Stderr, "Starting MCP server on stdio...")
+		tuilog.Log.Info("Running MCP server on stdio")
+		err := mcpServer.RunStdio(ctx)
+		tuilog.Log.Info("MCP server exited", "error", err)
+		// EOF on stdin is normal termination (client disconnected), not an error
+		if err != nil {
+			if errors.Is(err, io.EOF) || strings.Contains(err.Error(), "EOF") {
+				tuilog.Log.Info("EOF received, treating as normal termination")
+				return nil
+			}
+			return err
+		}
+		return nil
+	}
+
+	// HTTP transport (SSE)
+	tuilog.Log.Info("Running MCP server on HTTP", "host", mcpHost, "port", mcpPort)
+	return mcpServer.RunHTTP(ctx, mcpHost, mcpPort)
+}
+
+// openBrowser opens a URL in the default browser.
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "linux":
+		cmd = exec.Command("xdg-open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		fmt.Printf("Please open %s in your browser\n", url)
+		return
+	}
+	cmd.Start()
 }
 
 func validateTraceType() error {
@@ -897,15 +1094,15 @@ func runProjects(cmd *cobra.Command, args []string) error {
 	})
 
 	formatter := cli.NewProjectsFormatter(os.Stdout)
-	
+
 	if treeFormat {
 		return formatter.FormatTree(projects)
 	}
-	
+
 	if longFormat {
 		return formatter.FormatVerbose(projects)
 	}
-	
+
 	return formatter.FormatLong(projects)
 }
 
@@ -958,7 +1155,7 @@ func runProjectsSummary(cmd *cobra.Command, args []string) error {
 func runProjectsDelete(cmd *cobra.Command, args []string) error {
 	// For multi-source delete, we need to find the project first
 	registry := createSourceRegistry()
-	
+
 	// TODO: Update ProjectDeleter to use registry for multi-source support
 	// For now, use Claude default for backward compatibility
 	claudeDir, err := claude.DefaultDir()
@@ -966,7 +1163,7 @@ func runProjectsDelete(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("could not find Claude directory: %w", err)
 	}
 	_ = registry // Use registry when ProjectDeleter is updated
-	
+
 	deleter := cli.NewProjectDeleter(claudeDir, cli.DeleteOptions{
 		Force: forceDelete,
 	})
@@ -976,7 +1173,7 @@ func runProjectsDelete(cmd *cobra.Command, args []string) error {
 func runProjectsCopy(cmd *cobra.Command, args []string) error {
 	// For multi-source copy, we need to find the project first
 	registry := createSourceRegistry()
-	
+
 	// TODO: Update ProjectCopier to use registry for multi-source support
 	// For now, use Claude default for backward compatibility
 	claudeDir, err := claude.DefaultDir()
@@ -984,7 +1181,7 @@ func runProjectsCopy(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("could not find Claude directory: %w", err)
 	}
 	_ = registry // Use registry when ProjectCopier is updated
-	
+
 	copier := cli.NewProjectCopier(claudeDir, cli.CopyOptions{})
 	return copier.Copy(args[0], args[1])
 }
