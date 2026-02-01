@@ -30,6 +30,7 @@ import (
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/server"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui/theme"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
 )
 
@@ -546,6 +547,50 @@ Examples:
 	RunE: runQuery,
 }
 
+// Theme command
+var themeCmd = &cobra.Command{
+	Use:   "theme",
+	Short: "Display and manage TUI theme settings",
+	Long: `Display the current TUI theme with styled samples.
+
+The theme controls colors for conversation blocks, labels, borders,
+and other UI elements. Themes are stored in ~/.thinkt/themes/.
+
+Built-in themes: dark, light
+User themes can be added to ~/.thinkt/themes/
+
+Examples:
+  thinkt theme             # Show current theme with samples
+  thinkt theme --json      # Output theme as JSON
+  thinkt theme list        # List all available themes
+  thinkt theme set light   # Switch to light theme
+  thinkt theme builder     # Interactive theme builder (coming soon)`,
+	RunE: runTheme,
+}
+
+var themeListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all available themes",
+	Long:  `List all built-in and user themes. The active theme is marked with *.`,
+	RunE:  runThemeList,
+}
+
+var themeSetCmd = &cobra.Command{
+	Use:   "set <name>",
+	Short: "Set the active theme",
+	Long: `Set the active theme by name.
+
+Available built-in themes: dark, light
+User themes from ~/.thinkt/themes/ are also available.
+
+Examples:
+  thinkt theme set dark
+  thinkt theme set light
+  thinkt theme set my-custom-theme`,
+	Args: cobra.ExactArgs(1),
+	RunE: runThemeSet,
+}
+
 // Source management commands
 var sourcesCmd = &cobra.Command{
 	Use:   "sources",
@@ -667,6 +712,14 @@ func main() {
 	rootCmd.AddCommand(projectsCmd)
 	rootCmd.AddCommand(sessionsCmd)
 	rootCmd.AddCommand(sourcesCmd)
+	rootCmd.AddCommand(themeCmd)
+
+	// Theme subcommands
+	themeCmd.AddCommand(themeListCmd)
+	themeCmd.AddCommand(themeSetCmd)
+
+	// Theme command flags
+	themeCmd.Flags().BoolVar(&outputJSON, "json", false, "output theme as JSON")
 
 	// Serve command flags
 	serveCmd.Flags().IntVarP(&servePort, "port", "p", 7433, "server port")
@@ -1963,5 +2016,39 @@ func runSourcesStatus(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	return nil
+}
+
+// runTheme displays the current theme.
+func runTheme(cmd *cobra.Command, args []string) error {
+	t, err := theme.Load()
+	if err != nil {
+		// Fall back to defaults on error
+		t = theme.DefaultTheme()
+	}
+
+	display := cli.NewThemeDisplay(os.Stdout, t)
+
+	if outputJSON {
+		return display.ShowJSON()
+	}
+
+	return display.Show()
+}
+
+// runThemeList lists all available themes.
+func runThemeList(cmd *cobra.Command, args []string) error {
+	return cli.ListThemes(os.Stdout)
+}
+
+// runThemeSet sets the active theme.
+func runThemeSet(cmd *cobra.Command, args []string) error {
+	name := args[0]
+
+	if err := theme.SetActive(name); err != nil {
+		return fmt.Errorf("failed to set theme: %w", err)
+	}
+
+	fmt.Printf("Theme set to: %s\n", name)
 	return nil
 }

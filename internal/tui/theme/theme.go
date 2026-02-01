@@ -2,91 +2,108 @@
 package theme
 
 import (
+	"embed"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-// Theme defines all colors used in the TUI.
+//go:embed themes/*.json
+var embeddedThemes embed.FS
+
+// Style defines colors and text attributes for a UI element.
+type Style struct {
+	Fg        string `json:"fg,omitempty"`
+	Bg        string `json:"bg,omitempty"`
+	Bold      bool   `json:"bold,omitempty"`
+	Italic    bool   `json:"italic,omitempty"`
+	Underline bool   `json:"underline,omitempty"`
+}
+
+// Theme defines all styles used in the TUI.
 type Theme struct {
-	// Accent colors
-	AccentPrimary  string `json:"accent_primary"`  // Primary accent (active borders, status bar bg, separators)
-	BorderInactive string `json:"border_inactive"` // Inactive borders, viewer border
+	// Metadata
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
 
-	// Text colors
-	TextPrimary   string `json:"text_primary"`   // Main text (status bar, titles)
-	TextSecondary string `json:"text_secondary"` // Secondary text (info, indicators)
-	TextMuted     string `json:"text_muted"`     // Muted text (help text)
+	// UI chrome - accent colors for borders, highlights
+	Accent         string `json:"accent,omitempty"`          // Primary accent (active elements)
+	BorderActive   string `json:"border_active,omitempty"`   // Active/focused borders
+	BorderInactive string `json:"border_inactive,omitempty"` // Inactive borders
 
-	// Block backgrounds
-	UserBlockBg       string `json:"user_block_bg"`
-	AssistantBlockBg  string `json:"assistant_block_bg"`
-	ThinkingBlockBg   string `json:"thinking_block_bg"`
-	ToolCallBlockBg   string `json:"tool_call_block_bg"`
-	ToolResultBlockBg string `json:"tool_result_block_bg"`
+	// Text styles (typically fg-only, on terminal default bg)
+	TextPrimary   Style `json:"text_primary,omitempty"`
+	TextSecondary Style `json:"text_secondary,omitempty"`
+	TextMuted     Style `json:"text_muted,omitempty"`
 
-	// Block foregrounds
-	UserBlockFg       string `json:"user_block_fg"`
-	AssistantBlockFg  string `json:"assistant_block_fg"`
-	ThinkingBlockFg   string `json:"thinking_block_fg"`
-	ToolCallBlockFg   string `json:"tool_call_block_fg"`
-	ToolResultBlockFg string `json:"tool_result_block_fg"`
+	// Conversation blocks (fg + bg)
+	UserBlock       Style `json:"user_block,omitempty"`
+	AssistantBlock  Style `json:"assistant_block,omitempty"`
+	ThinkingBlock   Style `json:"thinking_block,omitempty"`
+	ToolCallBlock   Style `json:"tool_call_block,omitempty"`
+	ToolResultBlock Style `json:"tool_result_block,omitempty"`
 
-	// Label colors
-	UserLabel      string `json:"user_label"`
-	AssistantLabel string `json:"assistant_label"`
-	ThinkingLabel  string `json:"thinking_label"`
-	ToolLabel      string `json:"tool_label"`
+	// Labels (typically fg-only or fg + bold)
+	UserLabel      Style `json:"user_label,omitempty"`
+	AssistantLabel Style `json:"assistant_label,omitempty"`
+	ThinkingLabel  Style `json:"thinking_label,omitempty"`
+	ToolLabel      Style `json:"tool_label,omitempty"`
 
-	// Confirm dialog colors
-	ConfirmPromptFg     string `json:"confirm_prompt_fg"`
-	ConfirmSelectedFg   string `json:"confirm_selected_fg"`
-	ConfirmSelectedBg   string `json:"confirm_selected_bg"`
-	ConfirmUnselectedFg string `json:"confirm_unselected_fg"`
+	// Confirm dialog
+	ConfirmPrompt     Style `json:"confirm_prompt,omitempty"`
+	ConfirmSelected   Style `json:"confirm_selected,omitempty"`
+	ConfirmUnselected Style `json:"confirm_unselected,omitempty"`
 }
 
-// DefaultTheme returns the default dark theme.
+// ThemeMeta holds metadata about an available theme.
+type ThemeMeta struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Path        string `json:"path"`     // File path (empty for embedded)
+	Embedded    bool   `json:"embedded"` // True if this is a built-in theme
+}
+
+// DefaultTheme returns the default dark theme (embedded fallback).
 func DefaultTheme() Theme {
-	return Theme{
-		// Accent colors
-		AccentPrimary:  "#7D56F4",
-		BorderInactive: "#444444",
-
-		// Text colors
-		TextPrimary:   "#ffffff",
-		TextSecondary: "#888888",
-		TextMuted:     "#666666",
-
-		// Block backgrounds
-		UserBlockBg:       "#1a3a5c",
-		AssistantBlockBg:  "#1a3c1a",
-		ThinkingBlockBg:   "#3a1a3c",
-		ToolCallBlockBg:   "#3c2a1a",
-		ToolResultBlockBg: "#1a2a3c",
-
-		// Block foregrounds
-		UserBlockFg:       "#e0e0e0",
-		AssistantBlockFg:  "#e0e0e0",
-		ThinkingBlockFg:   "#c0a0c0",
-		ToolCallBlockFg:   "#e0c080",
-		ToolResultBlockFg: "#a0c0e0",
-
-		// Label colors
-		UserLabel:      "#5dade2",
-		AssistantLabel: "#58d68d",
-		ThinkingLabel:  "#af7ac5",
-		ToolLabel:      "#f0b27a",
-
-		// Confirm dialog colors
-		ConfirmPromptFg:     "#ffffff",
-		ConfirmSelectedFg:   "#000000",
-		ConfirmSelectedBg:   "#ff87d7",
-		ConfirmUnselectedFg: "#9e9e9e",
-	}
+	theme, _ := LoadEmbedded("dark")
+	return theme
 }
 
-// ThemeDir returns the path to the .thinkt directory.
-func ThemeDir() (string, error) {
+// LoadEmbedded loads a theme from the embedded themes.
+func LoadEmbedded(name string) (Theme, error) {
+	data, err := embeddedThemes.ReadFile("themes/" + name + ".json")
+	if err != nil {
+		return Theme{}, err
+	}
+
+	var theme Theme
+	if err := json.Unmarshal(data, &theme); err != nil {
+		return Theme{}, err
+	}
+
+	return theme, nil
+}
+
+// ListEmbedded returns the names of all embedded themes.
+func ListEmbedded() []string {
+	entries, err := embeddedThemes.ReadDir("themes")
+	if err != nil {
+		return nil
+	}
+
+	var names []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".json") {
+			name := strings.TrimSuffix(entry.Name(), ".json")
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// ConfigDir returns the path to the .thinkt directory.
+func ConfigDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
@@ -94,67 +111,211 @@ func ThemeDir() (string, error) {
 	return filepath.Join(home, ".thinkt"), nil
 }
 
-// ThemePath returns the full path to the theme file.
-func ThemePath() (string, error) {
-	dir, err := ThemeDir()
+// ThemesDir returns the path to the themes directory.
+func ThemesDir() (string, error) {
+	configDir, err := ConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "thinkt-theme.json"), nil
+	return filepath.Join(configDir, "themes"), nil
 }
 
-// Load loads the theme from ~/.thinkt/thinkt-theme.json.
-// If the file doesn't exist, it creates it with default values.
-// If the file exists but has missing fields, the defaults are used for those fields.
+// ConfigPath returns the path to the main config file.
+func ConfigPath() (string, error) {
+	configDir, err := ConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(configDir, "config.json"), nil
+}
+
+// Config holds the thinkt configuration.
+type Config struct {
+	Theme string `json:"theme"` // Name of the active theme
+}
+
+// LoadConfig loads the configuration from ~/.thinkt/config.json.
+func LoadConfig() (Config, error) {
+	configPath, err := ConfigPath()
+	if err != nil {
+		return Config{Theme: "dark"}, err
+	}
+
+	data, err := os.ReadFile(configPath)
+	if os.IsNotExist(err) {
+		return Config{Theme: "dark"}, nil
+	} else if err != nil {
+		return Config{Theme: "dark"}, err
+	}
+
+	var config Config
+	if err := json.Unmarshal(data, &config); err != nil {
+		return Config{Theme: "dark"}, err
+	}
+
+	if config.Theme == "" {
+		config.Theme = "dark"
+	}
+
+	return config, nil
+}
+
+// SaveConfig saves the configuration to ~/.thinkt/config.json.
+func SaveConfig(config Config) error {
+	configPath, err := ConfigPath()
+	if err != nil {
+		return err
+	}
+
+	// Ensure directory exists
+	dir := filepath.Dir(configPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(configPath, data, 0644)
+}
+
+// ListAvailable returns all available themes (embedded + user themes).
+func ListAvailable() ([]ThemeMeta, error) {
+	var themes []ThemeMeta
+
+	// Add embedded themes
+	for _, name := range ListEmbedded() {
+		theme, err := LoadEmbedded(name)
+		if err != nil {
+			continue
+		}
+		themes = append(themes, ThemeMeta{
+			Name:        name,
+			Description: theme.Description,
+			Embedded:    true,
+		})
+	}
+
+	// Add user themes from ~/.thinkt/themes/
+	themesDir, err := ThemesDir()
+	if err == nil {
+		entries, err := os.ReadDir(themesDir)
+		if err == nil {
+			for _, entry := range entries {
+				if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+					continue
+				}
+
+				name := strings.TrimSuffix(entry.Name(), ".json")
+				path := filepath.Join(themesDir, entry.Name())
+
+				// Try to load and get description
+				description := "User theme"
+				if data, err := os.ReadFile(path); err == nil {
+					var t Theme
+					if json.Unmarshal(data, &t) == nil && t.Description != "" {
+						description = t.Description
+					}
+				}
+
+				themes = append(themes, ThemeMeta{
+					Name:        name,
+					Description: description,
+					Path:        path,
+					Embedded:    false,
+				})
+			}
+		}
+	}
+
+	return themes, nil
+}
+
+// LoadByName loads a theme by name, checking user themes first, then embedded.
+func LoadByName(name string) (Theme, error) {
+	// First, check user themes directory
+	themesDir, err := ThemesDir()
+	if err == nil {
+		userPath := filepath.Join(themesDir, name+".json")
+		if data, err := os.ReadFile(userPath); err == nil {
+			theme := DefaultTheme() // Start with defaults for missing fields
+			if err := json.Unmarshal(data, &theme); err == nil {
+				theme.Name = name
+				return theme, nil
+			}
+		}
+	}
+
+	// Fall back to embedded themes
+	return LoadEmbedded(name)
+}
+
+// Load loads the currently configured theme.
+// Falls back to embedded dark theme if anything fails.
 func Load() (Theme, error) {
-	themePath, err := ThemePath()
+	config, err := LoadConfig()
 	if err != nil {
 		return DefaultTheme(), err
 	}
 
-	// Start with defaults
-	theme := DefaultTheme()
-
-	// Check if file exists
-	data, err := os.ReadFile(themePath)
-	if os.IsNotExist(err) {
-		// Create the theme file with defaults
-		if err := Save(theme); err != nil {
-			return theme, err
-		}
-		return theme, nil
-	} else if err != nil {
-		return theme, err
-	}
-
-	// Parse existing theme (defaults remain for missing fields)
-	if err := json.Unmarshal(data, &theme); err != nil {
+	theme, err := LoadByName(config.Theme)
+	if err != nil {
 		return DefaultTheme(), err
 	}
 
 	return theme, nil
 }
 
-// Save writes the theme to ~/.thinkt/thinkt-theme.json.
-func Save(theme Theme) error {
-	themePath, err := ThemePath()
+// Save writes a theme to the user themes directory.
+func Save(name string, theme Theme) error {
+	themesDir, err := ThemesDir()
 	if err != nil {
 		return err
 	}
 
 	// Ensure directory exists
-	dir := filepath.Dir(themePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(themesDir, 0755); err != nil {
 		return err
 	}
 
-	// Write theme as formatted JSON
+	theme.Name = name
 	data, err := json.MarshalIndent(theme, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(themePath, data, 0644)
+	path := filepath.Join(themesDir, name+".json")
+	return os.WriteFile(path, data, 0644)
+}
+
+// SetActive sets the active theme in the config.
+func SetActive(name string) error {
+	// Verify the theme exists
+	if _, err := LoadByName(name); err != nil {
+		return err
+	}
+
+	config, _ := LoadConfig()
+	config.Theme = name
+	return SaveConfig(config)
+}
+
+// ActiveName returns the name of the currently active theme.
+func ActiveName() string {
+	config, _ := LoadConfig()
+	return config.Theme
+}
+
+// EnsureUserThemesDir creates the themes directory and copies embedded themes if needed.
+func EnsureUserThemesDir() error {
+	themesDir, err := ThemesDir()
+	if err != nil {
+		return err
+	}
+
+	return os.MkdirAll(themesDir, 0755)
 }
 
 // current holds the loaded theme (initialized on first access).
@@ -163,7 +324,7 @@ var current *Theme
 // Current returns the current theme, loading it if necessary.
 func Current() Theme {
 	if current == nil {
-		theme, _ := Load() // Ignore errors, use defaults
+		theme, _ := Load()
 		current = &theme
 	}
 	return *current
@@ -179,3 +340,28 @@ func Reload() (Theme, error) {
 	return theme, nil
 }
 
+// Helper methods for backward compatibility and convenience
+
+// GetAccent returns the accent color, with fallback.
+func (t Theme) GetAccent() string {
+	if t.Accent != "" {
+		return t.Accent
+	}
+	return "#7D56F4"
+}
+
+// GetBorderActive returns the active border color.
+func (t Theme) GetBorderActive() string {
+	if t.BorderActive != "" {
+		return t.BorderActive
+	}
+	return t.GetAccent()
+}
+
+// GetBorderInactive returns the inactive border color.
+func (t Theme) GetBorderInactive() string {
+	if t.BorderInactive != "" {
+		return t.BorderInactive
+	}
+	return "#444444"
+}

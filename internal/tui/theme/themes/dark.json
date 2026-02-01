@@ -1,0 +1,27 @@
+{
+  "name": "dark",
+  "description": "Default dark theme",
+
+  "accent": "#7D56F4",
+  "border_active": "#7D56F4",
+  "border_inactive": "#444444",
+
+  "text_primary": { "fg": "#ffffff" },
+  "text_secondary": { "fg": "#888888" },
+  "text_muted": { "fg": "#666666" },
+
+  "user_block": { "fg": "#e0e0e0", "bg": "#1a3a5c" },
+  "assistant_block": { "fg": "#e0e0e0", "bg": "#1a3c1a" },
+  "thinking_block": { "fg": "#c0a0c0", "bg": "#3a1a3c", "italic": true },
+  "tool_call_block": { "fg": "#e0c080", "bg": "#3c2a1a" },
+  "tool_result_block": { "fg": "#a0c0e0", "bg": "#1a2a3c" },
+
+  "user_label": { "fg": "#5dade2", "bold": true },
+  "assistant_label": { "fg": "#58d68d", "bold": true },
+  "thinking_label": { "fg": "#af7ac5", "bold": true },
+  "tool_label": { "fg": "#f0b27a", "bold": true },
+
+  "confirm_prompt": { "fg": "#ffffff" },
+  "confirm_selected": { "fg": "#000000", "bg": "#ff87d7" },
+  "confirm_unselected": { "fg": "#9e9e9e" }
+}

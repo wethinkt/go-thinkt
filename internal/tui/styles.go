@@ -66,99 +66,105 @@ func ReloadStyles() *Styles {
 	return &styles
 }
 
+// applyStyle applies a theme.Style to a lipgloss.Style builder.
+func applyStyle(s lipgloss.Style, ts theme.Style) lipgloss.Style {
+	if ts.Fg != "" {
+		s = s.Foreground(lipgloss.Color(ts.Fg))
+	}
+	if ts.Bg != "" {
+		s = s.Background(lipgloss.Color(ts.Bg))
+	}
+	if ts.Bold {
+		s = s.Bold(true)
+	}
+	if ts.Italic {
+		s = s.Italic(true)
+	}
+	if ts.Underline {
+		s = s.Underline(true)
+	}
+	return s
+}
+
 // buildStyles creates Styles from a Theme.
 func buildStyles(t theme.Theme) Styles {
 	return Styles{
 		// Column border styles
 		ActiveBorder: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(t.AccentPrimary)),
+			BorderForeground(lipgloss.Color(t.GetBorderActive())),
 
 		InactiveBorder: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(t.BorderInactive)),
+			BorderForeground(lipgloss.Color(t.GetBorderInactive())),
 
 		// Status bar
 		StatusBar: lipgloss.NewStyle().
-			Background(lipgloss.Color(t.AccentPrimary)).
-			Foreground(lipgloss.Color(t.TextPrimary)).
+			Background(lipgloss.Color(t.GetAccent())).
+			Foreground(lipgloss.Color(t.TextPrimary.Fg)).
 			Bold(true).
 			Padding(0, 1),
 
 		// Conversation block styles
-		UserBlock: lipgloss.NewStyle().
-			Background(lipgloss.Color(t.UserBlockBg)).
-			Foreground(lipgloss.Color(t.UserBlockFg)).
+		UserBlock: applyStyle(lipgloss.NewStyle(), t.UserBlock).
 			Padding(0, 1).
 			MarginBottom(1),
 
-		AssistantBlock: lipgloss.NewStyle().
-			Background(lipgloss.Color(t.AssistantBlockBg)).
-			Foreground(lipgloss.Color(t.AssistantBlockFg)).
+		AssistantBlock: applyStyle(lipgloss.NewStyle(), t.AssistantBlock).
 			Padding(0, 1).
 			MarginBottom(1),
 
-		ThinkingBlock: lipgloss.NewStyle().
-			Background(lipgloss.Color(t.ThinkingBlockBg)).
-			Foreground(lipgloss.Color(t.ThinkingBlockFg)).
+		ThinkingBlock: applyStyle(lipgloss.NewStyle(), t.ThinkingBlock).
 			Padding(0, 1).
 			MarginBottom(1),
 
-		ToolCallBlock: lipgloss.NewStyle().
-			Background(lipgloss.Color(t.ToolCallBlockBg)).
-			Foreground(lipgloss.Color(t.ToolCallBlockFg)).
+		ToolCallBlock: applyStyle(lipgloss.NewStyle(), t.ToolCallBlock).
 			Padding(0, 1).
 			MarginBottom(1),
 
-		ToolResultBlock: lipgloss.NewStyle().
-			Background(lipgloss.Color(t.ToolResultBlockBg)).
-			Foreground(lipgloss.Color(t.ToolResultBlockFg)).
+		ToolResultBlock: applyStyle(lipgloss.NewStyle(), t.ToolResultBlock).
 			Padding(0, 1).
 			MarginBottom(1),
 
 		// Block labels
-		UserLabel:      lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.UserLabel)),
-		AssistantLabel: lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.AssistantLabel)),
-		ThinkingLabel:  lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.ThinkingLabel)),
-		ToolLabel:      lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.ToolLabel)),
+		UserLabel:      applyStyle(lipgloss.NewStyle(), t.UserLabel),
+		AssistantLabel: applyStyle(lipgloss.NewStyle(), t.AssistantLabel),
+		ThinkingLabel:  applyStyle(lipgloss.NewStyle(), t.ThinkingLabel),
+		ToolLabel:      applyStyle(lipgloss.NewStyle(), t.ToolLabel),
 
 		// Viewer styles
 		ViewerTitle: lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color(t.TextPrimary)),
+			Foreground(lipgloss.Color(t.TextPrimary.Fg)),
 
 		ViewerInfo: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(t.TextSecondary)),
+			Foreground(lipgloss.Color(t.TextSecondary.Fg)),
 
 		ViewerHelp: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(t.TextMuted)),
+			Foreground(lipgloss.Color(t.TextMuted.Fg)),
 
 		ViewerBorder: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(t.BorderInactive)),
+			BorderForeground(lipgloss.Color(t.GetBorderInactive())),
 
 		// Separators
 		Separator: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(t.AccentPrimary)).
+			Foreground(lipgloss.Color(t.GetAccent())).
 			Bold(true),
 
 		MoreText: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(t.TextSecondary)).
+			Foreground(lipgloss.Color(t.TextSecondary.Fg)).
 			Italic(true),
 
 		// Confirm dialog
-		ConfirmPrompt: lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color(t.ConfirmPromptFg)),
+		ConfirmPrompt: applyStyle(lipgloss.NewStyle(), t.ConfirmPrompt).
+			Bold(true),
 
-		ConfirmSelected: lipgloss.NewStyle().
+		ConfirmSelected: applyStyle(lipgloss.NewStyle(), t.ConfirmSelected).
 			Bold(true).
-			Foreground(lipgloss.Color(t.ConfirmSelectedFg)).
-			Background(lipgloss.Color(t.ConfirmSelectedBg)).
 			Padding(0, 2),
 
-		ConfirmUnselected: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(t.ConfirmUnselectedFg)).
+		ConfirmUnselected: applyStyle(lipgloss.NewStyle(), t.ConfirmUnselected).
 			Padding(0, 2),
 	}
 }

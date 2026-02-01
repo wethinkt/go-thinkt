@@ -1,0 +1,27 @@
+{
+  "name": "light",
+  "description": "Light theme for bright terminals",
+
+  "accent": "#6941C6",
+  "border_active": "#6941C6",
+  "border_inactive": "#d0d0d0",
+
+  "text_primary": { "fg": "#1a1a1a" },
+  "text_secondary": { "fg": "#666666" },
+  "text_muted": { "fg": "#999999" },
+
+  "user_block": { "fg": "#1565c0", "bg": "#e3f2fd" },
+  "assistant_block": { "fg": "#2e7d32", "bg": "#e8f5e9" },
+  "thinking_block": { "fg": "#7b1fa2", "bg": "#f3e5f5", "italic": true },
+  "tool_call_block": { "fg": "#e65100", "bg": "#fff3e0" },
+  "tool_result_block": { "fg": "#00695c", "bg": "#e0f2f1" },
+
+  "user_label": { "fg": "#1976d2", "bold": true },
+  "assistant_label": { "fg": "#388e3c", "bold": true },
+  "thinking_label": { "fg": "#8e24aa", "bold": true },
+  "tool_label": { "fg": "#f57c00", "bold": true },
+
+  "confirm_prompt": { "fg": "#1a1a1a" },
+  "confirm_selected": { "fg": "#ffffff", "bg": "#6941C6" },
+  "confirm_unselected": { "fg": "#757575" }
+}

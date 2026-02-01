@@ -695,3 +695,45 @@ ok now that we have addedmachinery to find the project path, let's update ./bin/
 ## 2026-02-01T07:19:25Z
 
 for --pick , when i chose or press escape, the app freezes.  i have to pkill it from another terminal!
+
+---
+
+## 2026-02-01T15:48:15Z
+
+that worked well, now when we run "thinkt" for the tui and we are in a project directory, we should go straight to its selection and list its sessions.
+
+---
+
+## 2026-02-01T16:10:56Z
+
+create a thinkt theme command which displays the current theme, showing its styling and perhaps a same-line contextual sample.  we will next add a theme builder, which shows a mock display and has an interface to change the colors of various settings.  Here's a nice color-picker although it's not very componentized? https://github.com/ChausseBenjamin/termpicker/
+
+---
+
+## 2026-02-01T16:32:15Z
+
+let's fixup some things.  first of all, we will have an embedded default JSON that is always available as a fallback.  we will have a .thinkt/themes directory with a few default themes and users can put their own.   create a light theme as well
+
+---
+
+## 2026-02-01T16:37:52Z
+
+should it be that each theme entry has a foreground and a background color?
+
+---
+
+## 2026-02-01T16:41:11Z
+
+how do other TUI themeing systems handle that? 
+
+---
+
+## 2026-02-01T16:48:14Z
+
+is bold a commonly supported by tty 
+
+---
+
+## 2026-02-01T16:50:53Z
+
+ok lets use that Style and lean on the omitempty.   update the project accordingly

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"os"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -109,8 +110,33 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			tuilog.Log.Error("Shell.Update: sources loading failed", "error", msg.err)
 			return s, nil
 		}
-		// Push project picker as first page
+
 		ctx := context.Background()
+
+		// Check if we're in a known project directory
+		cwd, err := os.Getwd()
+		if err == nil {
+			if project := s.registry.FindProjectForPath(ctx, cwd); project != nil {
+				tuilog.Log.Info("Shell.Update: auto-detected project from cwd", "project", project.Name, "path", project.Path)
+				// Skip project picker, go directly to session picker
+				store, ok := s.registry.Get(project.Source)
+				if ok {
+					sessions, err := store.ListSessions(ctx, project.ID)
+					if err == nil && len(sessions) > 0 {
+						tuilog.Log.Info("Shell.Update: pushing session picker for auto-detected project", "sessionCount", len(sessions))
+						picker := NewSessionPickerModel(sessions)
+						cmd := s.stack.Push(NavItem{
+							Title: project.Name,
+							Model: picker,
+						}, s.width, s.height)
+						cmds = append(cmds, cmd)
+						return s, tea.Batch(cmds...)
+					}
+				}
+			}
+		}
+
+		// Fallback: Push project picker as first page
 		projects, err := s.registry.ListAllProjects(ctx)
 		if err != nil {
 			tuilog.Log.Error("Shell.Update: failed to list projects", "error", err)
