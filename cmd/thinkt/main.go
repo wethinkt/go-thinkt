@@ -560,11 +560,11 @@ Built-in themes: dark, light
 User themes can be added to ~/.thinkt/themes/
 
 Examples:
-  thinkt theme             # Show current theme with samples
-  thinkt theme --json      # Output theme as JSON
-  thinkt theme list        # List all available themes
-  thinkt theme set light   # Switch to light theme
-  thinkt theme builder     # Interactive theme builder (coming soon)`,
+  thinkt theme               # Show current theme with samples
+  thinkt theme --json        # Output theme as JSON
+  thinkt theme list          # List all available themes
+  thinkt theme set light     # Switch to light theme
+  thinkt theme builder       # Interactive theme builder`,
 	RunE: runTheme,
 }
 
@@ -589,6 +589,25 @@ Examples:
   thinkt theme set my-custom-theme`,
 	Args: cobra.ExactArgs(1),
 	RunE: runThemeSet,
+}
+
+var themeBuilderCmd = &cobra.Command{
+	Use:   "builder [name]",
+	Short: "Launch interactive theme builder",
+	Long: `Launch an interactive TUI for building and editing themes.
+
+The theme builder shows a live preview of conversation styles and
+allows editing colors for all theme elements interactively.
+
+If no name is provided, edits a copy of the current theme.
+If the theme doesn't exist, creates a new one based on the default.
+
+Examples:
+  thinkt theme builder             # Edit current theme
+  thinkt theme builder my-theme    # Edit or create my-theme
+  thinkt theme builder dark        # Edit the dark theme`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runThemeBuilder,
 }
 
 // Source management commands
@@ -717,6 +736,7 @@ func main() {
 	// Theme subcommands
 	themeCmd.AddCommand(themeListCmd)
 	themeCmd.AddCommand(themeSetCmd)
+	themeCmd.AddCommand(themeBuilderCmd)
 
 	// Theme command flags
 	themeCmd.Flags().BoolVar(&outputJSON, "json", false, "output theme as JSON")
@@ -2051,4 +2071,13 @@ func runThemeSet(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Theme set to: %s\n", name)
 	return nil
+}
+
+func runThemeBuilder(cmd *cobra.Command, args []string) error {
+	name := theme.ActiveName()
+	if len(args) > 0 {
+		name = args[0]
+	}
+
+	return tui.RunThemeBuilder(name)
 }

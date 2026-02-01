@@ -737,3 +737,21 @@ is bold a commonly supported by tty
 ## 2026-02-01T16:50:53Z
 
 ok lets use that Style and lean on the omitempty.   update the project accordingly
+
+---
+
+## 2026-02-01T16:57:58Z
+
+create the theme builder.  if you need to create a sample generic thinkt trace JSONL to use, go ahead and create a mock one.
+
+---
+
+## 2026-02-01T17:10:45Z
+
+look at the color picker example from earlier (https://github.com/ChausseBenjamin/termpicker/)   add color controls for that.  also add keyboard commands for toggling  bold/italic/underline of a style.
+
+---
+
+## 2026-02-01T17:21:04Z
+
+ensure you are building this color picker out as a component.  perhaps we even make it a library.   we want to be able to edit the hex value.  we want the 'r' key to reset it to the original value pre-editing (in case it goes off rails).  we can tab to a pallete of 16 colors and jump between 5 pre-made pallete.   do some research on a good set of palletes to show there
