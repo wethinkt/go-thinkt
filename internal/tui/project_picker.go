@@ -73,13 +73,14 @@ type ProjectPickerResult struct {
 
 // ProjectPickerModel is a standalone project picker TUI.
 type ProjectPickerModel struct {
-	list     list.Model
-	projects []thinkt.Project
-	result   ProjectPickerResult
-	quitting bool
-	width    int
-	height   int
-	ready    bool
+	list       list.Model
+	projects   []thinkt.Project
+	result     ProjectPickerResult
+	quitting   bool
+	width      int
+	height     int
+	ready      bool
+	standalone bool // true when run via PickProject(), false when embedded in Shell
 }
 
 type projectPickerKeyMap struct {
@@ -155,7 +156,10 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			tuilog.Log.Info("ProjectPicker.Update: Quit key pressed")
 			m.result.Cancelled = true
 			m.quitting = true
-			// Return result message instead of tea.Quit - Shell handles navigation
+			// In standalone mode, quit the program; in Shell mode, return result for navigation
+			if m.standalone {
+				return m, tea.Quit
+			}
 			return m, func() tea.Msg { return m.result }
 
 		case key.Matches(msg, keys.Enter):
@@ -171,7 +175,10 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				tuilog.Log.Warn("ProjectPicker.Update: no item selected")
 			}
 			m.quitting = true
-			// Return result message instead of tea.Quit - Shell handles navigation
+			// In standalone mode, quit the program; in Shell mode, return result for navigation
+			if m.standalone {
+				return m, tea.Quit
+			}
 			return m, func() tea.Msg { return m.result }
 		}
 	}
@@ -213,6 +220,7 @@ func PickProject(projects []thinkt.Project) (*thinkt.Project, error) {
 	}
 
 	model := NewProjectPickerModel(projects)
+	model.standalone = true // Mark as standalone so it returns tea.Quit
 	p := tea.NewProgram(model)
 	finalModel, err := p.Run()
 	if err != nil {

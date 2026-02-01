@@ -125,6 +125,92 @@ func TestRegistry_SourceStatus(t *testing.T) {
 	}
 }
 
+func TestRegistry_FindProjectForPath(t *testing.T) {
+	reg := NewRegistry()
+
+	// Set up projects with various paths
+	kimi := &mockStore{
+		source: SourceKimi,
+		projects: []Project{
+			{ID: "p1", Path: "/Users/evan/projects/foo", Source: SourceKimi},
+			{ID: "p2", Path: "/Users/evan/projects/foobar", Source: SourceKimi}, // Similar prefix, different project
+		},
+	}
+	claude := &mockStore{
+		source: SourceClaude,
+		projects: []Project{
+			{ID: "p3", Path: "/Users/evan/projects/foo/subproject", Source: SourceClaude}, // Nested in p1
+			{ID: "p4", Path: "/Users/evan/other", Source: SourceClaude},
+		},
+	}
+
+	reg.Register(kimi)
+	reg.Register(claude)
+
+	ctx := context.Background()
+
+	tests := []struct {
+		name     string
+		path     string
+		wantID   string
+		wantNil  bool
+	}{
+		{
+			name:   "exact match",
+			path:   "/Users/evan/projects/foo",
+			wantID: "p1",
+		},
+		{
+			name:   "subdirectory match",
+			path:   "/Users/evan/projects/foo/src/main.go",
+			wantID: "p1",
+		},
+		{
+			name:   "most specific match (nested project)",
+			path:   "/Users/evan/projects/foo/subproject/file.go",
+			wantID: "p3", // Should match the nested project, not the parent
+		},
+		{
+			name:   "exact nested project",
+			path:   "/Users/evan/projects/foo/subproject",
+			wantID: "p3",
+		},
+		{
+			name:    "no match",
+			path:    "/Users/evan/unknown/path",
+			wantNil: true,
+		},
+		{
+			name:   "similar prefix but different project",
+			path:   "/Users/evan/projects/foobar/file.go",
+			wantID: "p2", // Should match foobar, not foo
+		},
+		{
+			name:    "partial prefix should not match",
+			path:    "/Users/evan/projects/foob", // Not a real subdir of foo
+			wantNil: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := reg.FindProjectForPath(ctx, tt.path)
+			if tt.wantNil {
+				if got != nil {
+					t.Errorf("expected nil, got project %s", got.ID)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatalf("expected project %s, got nil", tt.wantID)
+			}
+			if got.ID != tt.wantID {
+				t.Errorf("expected project %s, got %s", tt.wantID, got.ID)
+			}
+		})
+	}
+}
+
 func TestMultiStore(t *testing.T) {
 	reg := NewRegistry()
 	

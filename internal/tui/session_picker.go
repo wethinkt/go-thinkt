@@ -104,13 +104,14 @@ type SessionPickerResult struct {
 
 // SessionPickerModel is a standalone session picker TUI.
 type SessionPickerModel struct {
-	list     list.Model
-	sessions []thinkt.SessionMeta
-	result   SessionPickerResult
-	quitting bool
-	width    int
-	height   int
-	ready    bool
+	list       list.Model
+	sessions   []thinkt.SessionMeta
+	result     SessionPickerResult
+	quitting   bool
+	width      int
+	height     int
+	ready      bool
+	standalone bool // true when run via PickSession(), false when embedded in Shell
 }
 
 type pickerKeyMap struct {
@@ -195,7 +196,10 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			tuilog.Log.Info("SessionPicker.Update: Quit key pressed")
 			m.result.Cancelled = true
 			m.quitting = true
-			// Return result message instead of tea.Quit - Shell handles navigation
+			// In standalone mode, quit the program; in Shell mode, return result for navigation
+			if m.standalone {
+				return m, tea.Quit
+			}
 			return m, func() tea.Msg { return m.result }
 
 		case key.Matches(msg, keys.Enter):
@@ -212,7 +216,10 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.quitting = true
 			tuilog.Log.Info("SessionPicker.Update: returning result")
-			// Return result message instead of tea.Quit - Shell handles navigation
+			// In standalone mode, quit the program; in Shell mode, return result for navigation
+			if m.standalone {
+				return m, tea.Quit
+			}
 			return m, func() tea.Msg { return m.result }
 		}
 	}
@@ -254,6 +261,7 @@ func PickSession(sessions []thinkt.SessionMeta) (*thinkt.SessionMeta, error) {
 	}
 
 	model := NewSessionPickerModel(sessions)
+	model.standalone = true // Mark as standalone so it returns tea.Quit
 	p := tea.NewProgram(model)
 	finalModel, err := p.Run()
 	if err != nil {

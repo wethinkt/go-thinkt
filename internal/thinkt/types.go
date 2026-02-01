@@ -4,6 +4,7 @@ package thinkt
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 )
@@ -325,6 +326,35 @@ type SourceInfo struct {
 	WorkspaceID string `json:"workspace_id,omitempty"`
 	BasePath    string `json:"base_path,omitempty"`
 	ProjectCount int   `json:"project_count,omitempty"`
+}
+
+// FindProjectForPath returns the project whose Path matches or contains the given path.
+// If multiple projects match (e.g., nested directories), returns the most specific match
+// (longest path). Returns nil if no matching project is found.
+//
+// This is useful for CLI commands that want to automatically scope to the current
+// working directory, similar to how git commands work within a repository.
+func (r *StoreRegistry) FindProjectForPath(ctx context.Context, path string) *Project {
+	projects, err := r.ListAllProjects(ctx)
+	if err != nil {
+		return nil
+	}
+
+	var best *Project
+	for _, p := range projects {
+		// Check if the given path is within this project's path
+		if strings.HasPrefix(path, p.Path) {
+			// Ensure it's a proper path prefix (not just a string prefix)
+			// e.g., /foo/bar should not match /foo/barbaz
+			if len(path) == len(p.Path) || path[len(p.Path)] == '/' {
+				if best == nil || len(p.Path) > len(best.Path) {
+					match := p // Create a copy to avoid loop variable issues
+					best = &match
+				}
+			}
+		}
+	}
+	return best
 }
 
 // SourceStatus returns status information for all registered sources.

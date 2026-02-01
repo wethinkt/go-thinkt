@@ -225,6 +225,7 @@ var (
 // Sessions command flags
 var (
 	sessionProject     string
+	sessionForcePicker bool     // --pick flag to force project picker
 	sessionSources     []string // --source flag for sessions
 	sessionForceDelete bool
 	sessionSortBy      string
@@ -336,12 +337,17 @@ var sessionsCmd = &cobra.Command{
 	Short: "List and manage sessions across all sources",
 	Long: `List and manage sessions from Kimi, Claude, and other sources.
 
-By default, shows an interactive picker when no project is specified.
-Use -p/--project to target a specific project directly.
+Project selection:
+  - In a project directory: automatically uses that project
+  - Otherwise: shows interactive project picker
+  - -p/--project <path>: use specified project
+  - --pick: force picker even if in a project directory
+
 Use --source to filter by source (kimi, claude).
 
 Examples:
-  thinkt sessions list              # Interactive picker or all sessions
+  thinkt sessions list              # Auto-detect or picker
+  thinkt sessions list --pick       # Force project picker
   thinkt sessions list -p ./myproject
   thinkt sessions summary -p ./myproject --source kimi
   thinkt sessions view              # Interactive picker
@@ -352,14 +358,18 @@ Examples:
 
 var sessionsListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List sessions (interactive picker if no project)",
-	Long: `List all sessions across sources or in a specific project.
+	Short: "List sessions (auto-detects project from cwd)",
+	Long: `List all sessions in a project.
 
-Without -p/--project, shows an interactive picker of recent sessions.
-With -p/--project, lists sessions for that project.
+Project selection:
+  - In a project directory: automatically uses that project
+  - Otherwise: shows interactive project picker
+  - -p/--project <path>: use specified project
+  - --pick: force picker even if in a project directory
 
 Examples:
-  thinkt sessions list              # Interactive picker of all sessions
+  thinkt sessions list              # Auto-detect from cwd or picker
+  thinkt sessions list --pick       # Force project picker
   thinkt sessions list -p ./myproject
   thinkt sessions list --source kimi`,
 	RunE: runSessionsList,
@@ -599,9 +609,13 @@ func main() {
 	projectsDeleteCmd.Flags().BoolVarP(&forceDelete, "force", "f", false, "skip confirmation prompt")
 
 	// Sessions command flags
-	sessionsCmd.PersistentFlags().StringVarP(&sessionProject, "project", "p", "", "project path (optional, shows picker if not set)")
+	// Project selection:
+	// - No flags: auto-detect from cwd, fallback to picker
+	// - --pick: force picker even if in a project directory
+	// - -p <path>: use specified path
+	sessionsCmd.PersistentFlags().StringVarP(&sessionProject, "project", "p", "", "project path (auto-detects from cwd if not set)")
+	sessionsCmd.PersistentFlags().BoolVar(&sessionForcePicker, "pick", false, "force project picker even if in a known project directory")
 	sessionsCmd.PersistentFlags().StringArrayVarP(&sessionSources, "source", "s", nil, "filter by source (kimi|claude, can be specified multiple times)")
-	sessionsListCmd.Flags().StringVarP(&sessionProject, "project", "p", "", "project path (optional, shows picker if not set)")
 	sessionsSummaryCmd.Flags().StringVar(&sessionTemplate, "template", "", "custom Go text/template for output")
 	sessionsSummaryCmd.Flags().StringVar(&sessionSortBy, "sort", "time", "sort by: name, time")
 	sessionsSummaryCmd.Flags().BoolVar(&sessionSortDesc, "desc", false, "sort descending (default for time)")
@@ -1188,8 +1202,19 @@ func runProjectsCopy(cmd *cobra.Command, args []string) error {
 
 func runSessionsList(cmd *cobra.Command, args []string) error {
 	registry := createSourceRegistry()
+	ctx := context.Background()
 
-	// If no project specified, show project picker
+	// If no project specified and not forcing picker, try auto-detection from cwd
+	if sessionProject == "" && !sessionForcePicker {
+		cwd, err := os.Getwd()
+		if err == nil {
+			if project := registry.FindProjectForPath(ctx, cwd); project != nil {
+				sessionProject = project.ID
+			}
+		}
+	}
+
+	// If still no project (no match or forcing picker), show project picker
 	if sessionProject == "" {
 		projects, err := getProjectsFromSources(registry, sessionSources)
 		if err != nil {
@@ -1238,8 +1263,19 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 
 func runSessionsSummary(cmd *cobra.Command, args []string) error {
 	registry := createSourceRegistry()
+	ctx := context.Background()
 
-	// If no project specified, show project picker
+	// If no project specified and not forcing picker, try auto-detection from cwd
+	if sessionProject == "" && !sessionForcePicker {
+		cwd, err := os.Getwd()
+		if err == nil {
+			if project := registry.FindProjectForPath(ctx, cwd); project != nil {
+				sessionProject = project.ID
+			}
+		}
+	}
+
+	// If still no project, show project picker
 	if sessionProject == "" {
 		projects, err := getProjectsFromSources(registry, sessionSources)
 		if err != nil {
@@ -1295,10 +1331,21 @@ func runSessionsSummary(cmd *cobra.Command, args []string) error {
 
 func runSessionsDelete(cmd *cobra.Command, args []string) error {
 	registry := createSourceRegistry()
+	ctx := context.Background()
 
-	// If no project specified and not an absolute path, we need to find the session
-	if sessionProject == "" && !strings.HasPrefix(args[0], "/") {
-		return fmt.Errorf("--project/-p is required when not using an absolute path")
+	// If no project specified and not an absolute path, try auto-detection from cwd
+	// (--pick is not useful for delete since we need a specific session, but we check for consistency)
+	if sessionProject == "" && !strings.HasPrefix(args[0], "/") && !sessionForcePicker {
+		cwd, err := os.Getwd()
+		if err == nil {
+			if project := registry.FindProjectForPath(ctx, cwd); project != nil {
+				sessionProject = project.ID
+			}
+		}
+		// If still no project, error out
+		if sessionProject == "" {
+			return fmt.Errorf("--project/-p is required when not using an absolute path\n\n(Not in a known project directory)")
+		}
 	}
 
 	deleter := cli.NewSessionDeleter(registry, cli.SessionDeleteOptions{
@@ -1310,10 +1357,21 @@ func runSessionsDelete(cmd *cobra.Command, args []string) error {
 
 func runSessionsCopy(cmd *cobra.Command, args []string) error {
 	registry := createSourceRegistry()
+	ctx := context.Background()
 
-	// If no project specified and not an absolute path, we need to find the session
-	if sessionProject == "" && !strings.HasPrefix(args[0], "/") {
-		return fmt.Errorf("--project/-p is required when not using an absolute path")
+	// If no project specified and not an absolute path, try auto-detection from cwd
+	// (--pick is not useful for copy since we need a specific session, but we check for consistency)
+	if sessionProject == "" && !strings.HasPrefix(args[0], "/") && !sessionForcePicker {
+		cwd, err := os.Getwd()
+		if err == nil {
+			if project := registry.FindProjectForPath(ctx, cwd); project != nil {
+				sessionProject = project.ID
+			}
+		}
+		// If still no project, error out
+		if sessionProject == "" {
+			return fmt.Errorf("--project/-p is required when not using an absolute path\n\n(Not in a known project directory)")
+		}
 	}
 
 	copier := cli.NewSessionCopier(registry, cli.SessionCopyOptions{
@@ -1324,18 +1382,28 @@ func runSessionsCopy(cmd *cobra.Command, args []string) error {
 
 func runSessionsView(cmd *cobra.Command, args []string) error {
 	registry := createSourceRegistry()
+	ctx := context.Background()
 
-	// If no project specified, show project picker (or list all sessions for picking)
-	if sessionProject == "" {
-		// If a session path is provided as an absolute path, use it directly
-		if len(args) > 0 && strings.HasPrefix(args[0], "/") {
-			// Handle --raw flag for undecorated output
-			if sessionViewRaw {
-				return tui.ViewSessionRaw(args[0], os.Stdout)
-			}
-			return tui.RunViewer(args[0])
+	// Handle absolute path first (doesn't need project)
+	if len(args) > 0 && strings.HasPrefix(args[0], "/") {
+		if sessionViewRaw {
+			return tui.ViewSessionRaw(args[0], os.Stdout)
 		}
+		return tui.RunViewer(args[0])
+	}
 
+	// If no project specified and not forcing picker, try auto-detection from cwd
+	if sessionProject == "" && !sessionForcePicker {
+		cwd, err := os.Getwd()
+		if err == nil {
+			if project := registry.FindProjectForPath(ctx, cwd); project != nil {
+				sessionProject = project.ID
+			}
+		}
+	}
+
+	// If still no project, show project picker
+	if sessionProject == "" {
 		projects, err := getProjectsFromSources(registry, sessionSources)
 		if err != nil {
 			return err

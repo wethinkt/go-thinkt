@@ -671,3 +671,27 @@ to fix an issue with the to-be-embedded front-end, I was given this to inject.  
 ## 2026-02-01T06:16:12Z
 
 users will have a .thinkt directory.   we want to add themeing support, with a file called ./thinkt/thinkt-theme.json.   as a first pass scan through the TUI for the use of colors and create a themes struct and a default theme.  we will read that  (or write it upon initialization)
+
+---
+
+## 2026-02-01T06:44:12Z
+
+does it make sense, for when we are in a directory that we know the working directory is in a directory tree of a project, that that project because the current selection?   for example "thinkt sessions list" would use the current project if it exists
+
+---
+
+## 2026-02-01T06:45:49Z
+
+yes implement that helper.  i suspect we will use it elsewhere
+
+---
+
+## 2026-02-01T07:04:22Z
+
+ok now that we have addedmachinery to find the project path, let's update ./bin/think sessions list to affect the current directory if is a project directory.  otherwise, we show the project selection.  --project still works, and --project without any argument will force the TUI selection  
+
+---
+
+## 2026-02-01T07:19:25Z
+
+for --pick , when i chose or press escape, the app freezes.  i have to pkill it from another terminal!
