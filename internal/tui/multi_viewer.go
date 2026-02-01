@@ -258,12 +258,9 @@ func (m *MultiViewerModel) rebuildSortedSessions() {
 
 // rebuildRenderedOutput combines displayed entries with headers into final output.
 func (m *MultiViewerModel) rebuildRenderedOutput() {
-	separatorStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#7D56F4")).
-		Bold(true)
-	moreStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#888888")).
-		Italic(true)
+	s := GetStyles()
+	separatorStyle := s.Separator
+	moreStyle := s.MoreText
 
 	var parts []string
 	for _, origIdx := range m.sortedSessions {

@@ -665,3 +665,9 @@ to fix an issue with the to-be-embedded front-end, I was given this to inject.  
   }
 
   This way, the API app will automatically connect to the correct port regardless of what port the user starts the server on.
+
+---
+
+## 2026-02-01T06:16:12Z
+
+users will have a .thinkt directory.   we want to add themeing support, with a file called ./thinkt/thinkt-theme.json.   as a first pass scan through the TUI for the use of colors and create a themes struct and a default theme.  we will read that  (or write it upon initialization)

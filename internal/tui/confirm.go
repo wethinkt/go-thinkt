@@ -108,6 +108,7 @@ func defaultConfirmKeyMap(affirmative, negative string) confirmKeyMap {
 }
 
 func newConfirmModel(opts ConfirmOptions) confirmModel {
+	s := GetStyles()
 	return confirmModel{
 		prompt:      opts.Prompt,
 		affirmative: opts.Affirmative,
@@ -116,17 +117,9 @@ func newConfirmModel(opts ConfirmOptions) confirmModel {
 		result:      ConfirmCancelled,
 		keys:        defaultConfirmKeyMap(opts.Affirmative, opts.Negative),
 
-		promptStyle: lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("15")),
-		selectedStyle: lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("0")).
-			Background(lipgloss.Color("212")).
-			Padding(0, 2),
-		unselectedStyle: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("247")).
-			Padding(0, 2),
+		promptStyle:     s.ConfirmPrompt,
+		selectedStyle:   s.ConfirmSelected,
+		unselectedStyle: s.ConfirmUnselected,
 	}
 }
 
