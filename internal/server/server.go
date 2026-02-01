@@ -90,8 +90,8 @@ func (s *HTTPServer) setupRouter() chi.Router {
 		httpSwagger.URL("/swagger/doc.json"),
 	))
 
-	// Serve embedded webapp for all other routes
-	r.Handle("/*", staticHandler())
+	// Serve embedded webapp for all other routes (with API URL injected)
+	r.Handle("/*", staticHandler(s.config.Port))
 
 	return r
 }
