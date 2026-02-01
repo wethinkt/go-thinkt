@@ -14,6 +14,7 @@ import (
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/config"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui/theme"
 )
 
 // @title Thinkt API
@@ -384,4 +385,138 @@ func (s *HTTPServer) handleGetAllowedApps(w http.ResponseWriter, r *http.Request
 	}
 
 	writeJSON(w, http.StatusOK, AllowedAppsResponse{Apps: cfg.GetEnabledApps()})
+}
+
+// ThemeStyle is the API representation of a theme style.
+type ThemeStyle struct {
+	Fg        string `json:"fg,omitempty"`
+	Bg        string `json:"bg,omitempty"`
+	Bold      bool   `json:"bold,omitempty"`
+	Italic    bool   `json:"italic,omitempty"`
+	Underline bool   `json:"underline,omitempty"`
+}
+
+// ThemeColors contains all the color/style definitions for a theme.
+type ThemeColors struct {
+	// UI chrome
+	Accent         string `json:"accent,omitempty"`
+	BorderActive   string `json:"border_active,omitempty"`
+	BorderInactive string `json:"border_inactive,omitempty"`
+
+	// Text styles
+	TextPrimary   ThemeStyle `json:"text_primary,omitempty"`
+	TextSecondary ThemeStyle `json:"text_secondary,omitempty"`
+	TextMuted     ThemeStyle `json:"text_muted,omitempty"`
+
+	// Conversation blocks
+	UserBlock       ThemeStyle `json:"user_block,omitempty"`
+	AssistantBlock  ThemeStyle `json:"assistant_block,omitempty"`
+	ThinkingBlock   ThemeStyle `json:"thinking_block,omitempty"`
+	ToolCallBlock   ThemeStyle `json:"tool_call_block,omitempty"`
+	ToolResultBlock ThemeStyle `json:"tool_result_block,omitempty"`
+
+	// Labels
+	UserLabel      ThemeStyle `json:"user_label,omitempty"`
+	AssistantLabel ThemeStyle `json:"assistant_label,omitempty"`
+	ThinkingLabel  ThemeStyle `json:"thinking_label,omitempty"`
+	ToolLabel      ThemeStyle `json:"tool_label,omitempty"`
+
+	// Confirm dialog
+	ConfirmPrompt     ThemeStyle `json:"confirm_prompt,omitempty"`
+	ConfirmSelected   ThemeStyle `json:"confirm_selected,omitempty"`
+	ConfirmUnselected ThemeStyle `json:"confirm_unselected,omitempty"`
+}
+
+// ThemeInfo is the API representation of a theme.
+type ThemeInfo struct {
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	Embedded    bool        `json:"embedded"`
+	Active      bool        `json:"active"`
+	Colors      ThemeColors `json:"colors"`
+}
+
+// ThemesResponse lists available themes.
+type ThemesResponse struct {
+	Themes []ThemeInfo `json:"themes"`
+	Active string      `json:"active"`
+}
+
+// handleGetThemes returns the list of available themes.
+// @Summary List available themes
+// @Description Returns all available themes (built-in and user themes) with their color definitions
+// @Tags themes
+// @Produce json
+// @Success 200 {object} ThemesResponse
+// @Router /themes [get]
+func (s *HTTPServer) handleGetThemes(w http.ResponseWriter, r *http.Request) {
+	available, err := theme.ListAvailable()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "themes_error", err.Error())
+		return
+	}
+
+	activeName := theme.ActiveName()
+
+	themes := make([]ThemeInfo, len(available))
+	for i, t := range available {
+		// Load the full theme to get colors
+		fullTheme, err := theme.LoadByName(t.Name)
+		if err != nil {
+			// Skip themes that fail to load
+			continue
+		}
+
+		themes[i] = ThemeInfo{
+			Name:        t.Name,
+			Description: t.Description,
+			Embedded:    t.Embedded,
+			Active:      t.Name == activeName,
+			Colors:      themeToColors(fullTheme),
+		}
+	}
+
+	writeJSON(w, http.StatusOK, ThemesResponse{
+		Themes: themes,
+		Active: activeName,
+	})
+}
+
+// themeToColors converts a theme.Theme to ThemeColors for the API.
+func themeToColors(t theme.Theme) ThemeColors {
+	return ThemeColors{
+		Accent:         t.Accent,
+		BorderActive:   t.BorderActive,
+		BorderInactive: t.BorderInactive,
+
+		TextPrimary:   styleToAPI(t.TextPrimary),
+		TextSecondary: styleToAPI(t.TextSecondary),
+		TextMuted:     styleToAPI(t.TextMuted),
+
+		UserBlock:       styleToAPI(t.UserBlock),
+		AssistantBlock:  styleToAPI(t.AssistantBlock),
+		ThinkingBlock:   styleToAPI(t.ThinkingBlock),
+		ToolCallBlock:   styleToAPI(t.ToolCallBlock),
+		ToolResultBlock: styleToAPI(t.ToolResultBlock),
+
+		UserLabel:      styleToAPI(t.UserLabel),
+		AssistantLabel: styleToAPI(t.AssistantLabel),
+		ThinkingLabel:  styleToAPI(t.ThinkingLabel),
+		ToolLabel:      styleToAPI(t.ToolLabel),
+
+		ConfirmPrompt:     styleToAPI(t.ConfirmPrompt),
+		ConfirmSelected:   styleToAPI(t.ConfirmSelected),
+		ConfirmUnselected: styleToAPI(t.ConfirmUnselected),
+	}
+}
+
+// styleToAPI converts a theme.Style to ThemeStyle for the API.
+func styleToAPI(s theme.Style) ThemeStyle {
+	return ThemeStyle{
+		Fg:        s.Fg,
+		Bg:        s.Bg,
+		Bold:      s.Bold,
+		Italic:    s.Italic,
+		Underline: s.Underline,
+	}
 }

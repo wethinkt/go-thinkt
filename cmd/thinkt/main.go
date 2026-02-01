@@ -44,9 +44,10 @@ var (
 
 // Serve command flags
 var (
-	servePort int
-	serveHost string
-	serveOpen bool
+	servePort     int
+	serveLitePort int
+	serveHost     string
+	serveOpen     bool
 )
 
 // Serve MCP subcommand flags
@@ -170,6 +171,26 @@ Examples:
   thinkt serve mcp --stdio        # Explicitly use stdio transport
   thinkt serve mcp --port 8081    # MCP server over HTTP`,
 	RunE: runServeMCP,
+}
+
+var serveLiteCmd = &cobra.Command{
+	Use:   "lite",
+	Short: "Start lightweight webapp for debugging and development",
+	Long: `Start a lightweight HTTP server with a simple debug interface.
+
+The lite webapp provides:
+  - Overview of available sources and their status
+  - List of all projects with session counts
+  - Quick links to API endpoints and documentation
+
+This is useful for developers and debugging. For the full experience,
+use 'thinkt serve' (coming soon) or the TUI with 'thinkt'.
+
+Examples:
+  thinkt serve lite               # Start lite server on port 7434
+  thinkt serve lite -p 8080       # Start on custom port
+  thinkt serve lite --no-open     # Don't auto-open browser`,
+	RunE: runServeLite,
 }
 
 var promptsCmd = &cobra.Command{
@@ -741,10 +762,10 @@ func main() {
 	// Theme command flags
 	themeCmd.Flags().BoolVar(&outputJSON, "json", false, "output theme as JSON")
 
-	// Serve command flags
-	serveCmd.Flags().IntVarP(&servePort, "port", "p", 7433, "server port")
-	serveCmd.Flags().StringVar(&serveHost, "host", "localhost", "server host")
-	serveCmd.Flags().BoolVar(&serveOpen, "open", true, "auto-open browser")
+	// Serve command flags (persistent so they're inherited by subcommands like 'lite')
+	serveCmd.PersistentFlags().IntVarP(&servePort, "port", "p", 7433, "server port")
+	serveCmd.PersistentFlags().StringVar(&serveHost, "host", "localhost", "server host")
+	serveCmd.PersistentFlags().BoolVar(&serveOpen, "open", true, "auto-open browser")
 	serveCmd.PersistentFlags().StringVar(&logPath, "log", "", "write debug log to file")
 
 	// Serve MCP subcommand
@@ -752,6 +773,10 @@ func main() {
 	serveMcpCmd.Flags().BoolVar(&mcpStdio, "stdio", false, "use stdio transport (default if no --port)")
 	serveMcpCmd.Flags().IntVarP(&mcpPort, "port", "p", 0, "run MCP over HTTP on this port")
 	serveMcpCmd.Flags().StringVar(&mcpHost, "host", "localhost", "host to bind MCP HTTP server")
+
+	// Serve Lite subcommand (has its own port default)
+	serveCmd.AddCommand(serveLiteCmd)
+	serveLiteCmd.Flags().IntVarP(&serveLitePort, "port", "p", 7434, "server port")
 
 	// Sources subcommands
 	sourcesCmd.AddCommand(sourcesListCmd)
@@ -838,6 +863,60 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 	fmt.Println("📁 Serving traces from local sources")
 
 	// Auto-open browser if requested (after small delay for server to start)
+	if serveOpen {
+		go func() {
+			url := fmt.Sprintf("http://%s", srv.Addr())
+			fmt.Printf("🌐 Opening %s in browser...\n", url)
+			openBrowser(url)
+		}()
+	}
+
+	// Start server
+	return srv.ListenAndServe(ctx)
+}
+
+func runServeLite(cmd *cobra.Command, args []string) error {
+	// Initialize logger if requested
+	if logPath != "" {
+		if err := tuilog.Init(logPath); err != nil {
+			return fmt.Errorf("init logger: %w", err)
+		}
+		defer tuilog.Log.Close()
+	}
+
+	tuilog.Log.Info("Starting Lite HTTP server", "port", serveLitePort, "host", serveHost)
+
+	// Create source registry
+	registry := createSourceRegistry()
+	tuilog.Log.Info("Source registry created", "stores", len(registry.All()))
+
+	// Create context that cancels on interrupt
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle interrupt signal
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		tuilog.Log.Info("Received interrupt signal, shutting down")
+		fmt.Fprintln(os.Stderr, "\nShutting down...")
+		cancel()
+	}()
+
+	// HTTP mode: start HTTP server
+	config := server.Config{
+		Mode: server.ModeHTTPOnly,
+		Port: serveLitePort,
+		Host: serveHost,
+	}
+	srv := server.NewHTTPServer(registry, config)
+
+	// Print startup message
+	fmt.Println("🔧 Thinkt Lite server starting...")
+	fmt.Println("📁 Lightweight debug interface for developers")
+
+	// Auto-open browser if requested
 	if serveOpen {
 		go func() {
 			url := fmt.Sprintf("http://%s", srv.Addr())

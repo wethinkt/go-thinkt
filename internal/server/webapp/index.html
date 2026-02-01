@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thinkt</title>
+    <title>Thinkt Lite</title>
     <style>
         * {
             margin: 0;
@@ -14,111 +14,553 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
             color: #e0e0e0;
-        }
-        .container {
-            text-align: center;
             padding: 2rem;
         }
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
         h1 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
             background: linear-gradient(90deg, #00d9ff, #00ff88);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
         .subtitle {
-            font-size: 1.2rem;
+            font-size: 1rem;
             color: #888;
-            margin-bottom: 2rem;
         }
-        .links {
+        .nav {
             display: flex;
             gap: 1rem;
             justify-content: center;
+            margin-bottom: 2rem;
             flex-wrap: wrap;
         }
-        a {
+        .nav a, .nav button {
             color: #00d9ff;
             text-decoration: none;
             padding: 0.5rem 1rem;
             border: 1px solid #00d9ff;
             border-radius: 4px;
             transition: all 0.2s;
+            font-size: 0.9rem;
+            background: transparent;
+            cursor: pointer;
+            font-family: inherit;
         }
-        a:hover {
+        .nav a:hover, .nav button:hover {
             background: #00d9ff;
             color: #1a1a2e;
         }
-        .status {
-            margin-top: 2rem;
-            padding: 1rem;
-            background: rgba(0, 217, 255, 0.1);
-            border-radius: 8px;
-            font-family: monospace;
+        .nav .primary {
+            background: #00d9ff;
+            color: #1a1a2e;
+            font-weight: 600;
         }
-        .status-item {
+        .nav .primary:hover {
+            background: #00ff88;
+            border-color: #00ff88;
+        }
+        .content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 1.5rem;
+        }
+        @media (max-width: 700px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+            .projects-panel {
+                order: -1;
+            }
+        }
+        .panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        .panel h2 {
+            font-size: 0.9rem;
+            color: #00d9ff;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(0, 217, 255, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .panel h2 .icon {
+            opacity: 0.7;
+        }
+        .source-item, .app-item, .theme-item {
             display: flex;
             justify-content: space-between;
-            padding: 0.25rem 0;
+            align-items: center;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            background: rgba(0, 217, 255, 0.05);
+            border-radius: 4px;
         }
-        .status-label {
-            color: #888;
+        .source-name, .app-name, .theme-name {
+            font-weight: 500;
+            font-size: 0.9rem;
         }
-        .status-value {
+        .source-status, .app-status {
+            font-size: 0.75rem;
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+        }
+        .source-status.available, .app-status.enabled {
+            background: rgba(0, 255, 136, 0.2);
             color: #00ff88;
+        }
+        .source-status.unavailable, .app-status.disabled {
+            background: rgba(255, 100, 100, 0.2);
+            color: #ff6464;
+        }
+        .source-meta, .app-meta, .theme-meta {
+            font-size: 0.7rem;
+            color: #666;
+            margin-top: 0.2rem;
+        }
+        .theme-item.active {
+            border: 1px solid #00ff88;
+        }
+        .theme-badge {
+            font-size: 0.7rem;
+            padding: 0.1rem 0.3rem;
+            border-radius: 3px;
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+        }
+        .theme-type {
+            font-size: 0.7rem;
+            color: #666;
+        }
+        .project-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .project-item {
+            padding: 0.6rem;
+            margin-bottom: 0.5rem;
+            background: rgba(0, 217, 255, 0.05);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .project-item:hover {
+            background: rgba(0, 217, 255, 0.1);
+        }
+        .project-path {
+            font-family: monospace;
+            font-size: 0.8rem;
+            word-break: break-all;
+        }
+        .project-meta {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.25rem;
+            font-size: 0.7rem;
+            color: #666;
+        }
+        .project-source {
+            color: #00d9ff;
+        }
+        .loading {
+            color: #888;
+            font-style: italic;
+            font-size: 0.85rem;
+        }
+        .error {
+            color: #ff6464;
+            font-size: 0.85rem;
+        }
+        .badge {
+            background: rgba(0, 217, 255, 0.2);
+            color: #00d9ff;
+            padding: 0.1rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
+        }
+        .empty-state {
+            color: #666;
+            text-align: center;
+            padding: 1.5rem;
+            font-size: 0.85rem;
+        }
+        .left-column {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Modal styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal {
+            background: #1a1a2e;
+            border-radius: 12px;
+            width: 95%;
+            max-width: 1200px;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(0, 217, 255, 0.3);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(0, 217, 255, 0.2);
+        }
+        .modal-title {
+            font-size: 1.1rem;
+            color: #00d9ff;
+            font-weight: 600;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .modal-actions button, .modal-actions a {
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-decoration: none;
+            border: 1px solid #00d9ff;
+            background: transparent;
+            color: #00d9ff;
+            font-family: inherit;
+        }
+        .modal-actions button:hover, .modal-actions a:hover {
+            background: #00d9ff;
+            color: #1a1a2e;
+        }
+        .modal-actions .close-btn {
+            border-color: #666;
+            color: #666;
+        }
+        .modal-actions .close-btn:hover {
+            background: #666;
+            color: #1a1a2e;
+        }
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .json-view {
+            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .json-key {
+            color: #00d9ff;
+        }
+        .json-string {
+            color: #00ff88;
+        }
+        .json-number {
+            color: #ffb86c;
+        }
+        .json-boolean {
+            color: #ff79c6;
+        }
+        .json-null {
+            color: #666;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Thinkt</h1>
-        <p class="subtitle">AI Conversation Trace Explorer</p>
+    <div class="header">
+        <h1>Thinkt Lite</h1>
+        <p class="subtitle">Quick Trace Explorer for Developers</p>
+    </div>
 
-        <div class="links">
-            <a href="/api/v1/sources">API: Sources</a>
-            <a href="/api/v1/projects">API: Projects</a>
-            <a href="/swagger/">API Docs</a>
+    <div class="nav">
+        <a href="/swagger/" class="primary">API Docs</a>
+        <button onclick="showApiModal('Sources', '/api/v1/sources')">API: Sources</button>
+        <button onclick="showApiModal('Projects', '/api/v1/projects')">API: Projects</button>
+        <button onclick="showApiModal('Apps', '/api/v1/open-in/apps')">API: Apps</button>
+        <button onclick="showApiModal('Themes', '/api/v1/themes')">API: Themes</button>
+    </div>
+
+    <div class="content">
+        <div class="left-column">
+            <div class="panel">
+                <h2><span class="icon">📦</span> Sources</h2>
+                <div id="sources-list" class="loading">Loading...</div>
+            </div>
+
+            <div class="panel">
+                <h2><span class="icon">🚀</span> Apps</h2>
+                <div id="apps-list" class="loading">Loading...</div>
+            </div>
+
+            <div class="panel">
+                <h2><span class="icon">🎨</span> Themes</h2>
+                <div id="themes-list" class="loading">Loading...</div>
+            </div>
         </div>
 
-        <div class="status" id="status">
-            <div class="status-item">
-                <span class="status-label">Status:</span>
-                <span class="status-value" id="server-status">Loading...</span>
+        <div class="panel projects-panel">
+            <h2><span class="icon">📁</span> Projects <span id="project-count" class="badge">-</span></h2>
+            <div id="projects-list" class="project-list loading">Loading...</div>
+        </div>
+    </div>
+
+    <!-- API Response Modal -->
+    <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <span class="modal-title" id="modal-title">API Response</span>
+                <div class="modal-actions">
+                    <a id="modal-raw-link" href="#" target="_blank">View Raw</a>
+                    <button onclick="copyUrl()">Copy URL</button>
+                    <button class="close-btn" onclick="closeModal()">Close</button>
+                </div>
             </div>
-            <div class="status-item">
-                <span class="status-label">Sources:</span>
-                <span class="status-value" id="sources-count">-</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">Projects:</span>
-                <span class="status-value" id="projects-count">-</span>
+            <div class="modal-body">
+                <div class="json-view" id="modal-content"></div>
             </div>
         </div>
     </div>
 
     <script>
-        async function loadStatus() {
+        const API_BASE = '';
+
+        async function showApiModal(title, endpoint) {
+            const overlay = document.getElementById('modal-overlay');
+            const modalTitle = document.getElementById('modal-title');
+            const modalContent = document.getElementById('modal-content');
+            const rawLink = document.getElementById('modal-raw-link');
+
+            modalTitle.textContent = `API: ${title}`;
+            rawLink.href = endpoint;
+            modalContent.innerHTML = '<span class="loading">Loading...</span>';
+            overlay.classList.add('active');
+
             try {
-                const sourcesRes = await fetch('/api/v1/sources');
-                const sources = await sourcesRes.json();
-                document.getElementById('sources-count').textContent = sources.sources?.length || 0;
-
-                const projectsRes = await fetch('/api/v1/projects');
-                const projects = await projectsRes.json();
-                document.getElementById('projects-count').textContent = projects.projects?.length || 0;
-
-                document.getElementById('server-status').textContent = 'Connected';
+                const res = await fetch(endpoint);
+                const data = await res.json();
+                modalContent.innerHTML = syntaxHighlight(JSON.stringify(data, null, 2));
             } catch (e) {
-                document.getElementById('server-status').textContent = 'Error: ' + e.message;
+                modalContent.innerHTML = `<span class="error">Error: ${escapeHtml(e.message)}</span>`;
             }
         }
-        loadStatus();
+
+        function closeModal(event) {
+            if (event && event.target !== event.currentTarget) return;
+            document.getElementById('modal-overlay').classList.remove('active');
+        }
+
+        function copyUrl() {
+            const url = document.getElementById('modal-raw-link').href;
+            navigator.clipboard.writeText(url).then(() => {
+                const btn = event.target;
+                const original = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = original, 1500);
+            }).catch(() => {});
+        }
+
+        function syntaxHighlight(json) {
+            json = escapeHtml(json);
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'json-null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        async function loadSources() {
+            const container = document.getElementById('sources-list');
+            try {
+                const res = await fetch(`${API_BASE}/api/v1/sources`);
+                const data = await res.json();
+
+                if (!data.sources || data.sources.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No sources found</div>';
+                    return;
+                }
+
+                container.innerHTML = data.sources.map(s => `
+                    <div class="source-item">
+                        <div>
+                            <div class="source-name">${escapeHtml(s.name)}</div>
+                            ${s.base_path ? `<div class="source-meta">${escapeHtml(truncatePath(s.base_path))}</div>` : ''}
+                        </div>
+                        <span class="source-status ${s.available ? 'available' : 'unavailable'}">
+                            ${s.available ? 'OK' : 'N/A'}
+                        </span>
+                    </div>
+                `).join('');
+            } catch (e) {
+                container.innerHTML = `<div class="error">Error: ${escapeHtml(e.message)}</div>`;
+            }
+        }
+
+        async function loadApps() {
+            const container = document.getElementById('apps-list');
+            try {
+                const res = await fetch(`${API_BASE}/api/v1/open-in/apps`);
+                const data = await res.json();
+
+                if (!data.apps || data.apps.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No apps configured</div>';
+                    return;
+                }
+
+                container.innerHTML = data.apps.map(app => `
+                    <div class="app-item">
+                        <div>
+                            <div class="app-name">${escapeHtml(app.name)}</div>
+                            <div class="app-meta">${escapeHtml(app.id)}</div>
+                        </div>
+                        <span class="app-status enabled">Ready</span>
+                    </div>
+                `).join('');
+            } catch (e) {
+                container.innerHTML = `<div class="error">Error: ${escapeHtml(e.message)}</div>`;
+            }
+        }
+
+        async function loadThemes() {
+            const container = document.getElementById('themes-list');
+            try {
+                const res = await fetch(`${API_BASE}/api/v1/themes`);
+                const data = await res.json();
+
+                if (!data.themes || data.themes.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No themes found</div>';
+                    return;
+                }
+
+                container.innerHTML = data.themes.map(t => `
+                    <div class="theme-item ${t.active ? 'active' : ''}">
+                        <div>
+                            <div class="theme-name">${escapeHtml(t.name)}${t.active ? ' <span class="theme-badge">active</span>' : ''}</div>
+                            <div class="theme-meta">${escapeHtml(t.description || (t.embedded ? 'Built-in theme' : 'User theme'))}</div>
+                        </div>
+                        <span class="theme-type">${t.embedded ? 'built-in' : 'user'}</span>
+                    </div>
+                `).join('');
+            } catch (e) {
+                container.innerHTML = `<div class="error">Error: ${escapeHtml(e.message)}</div>`;
+            }
+        }
+
+        async function loadProjects() {
+            const container = document.getElementById('projects-list');
+            const countBadge = document.getElementById('project-count');
+            try {
+                const res = await fetch(`${API_BASE}/api/v1/projects`);
+                const data = await res.json();
+
+                if (!data.projects || data.projects.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No projects found</div>';
+                    countBadge.textContent = '0';
+                    return;
+                }
+
+                countBadge.textContent = data.projects.length;
+
+                const sorted = data.projects.sort((a, b) => {
+                    const aTime = new Date(a.modified_at || 0);
+                    const bTime = new Date(b.modified_at || 0);
+                    return bTime - aTime;
+                });
+
+                container.innerHTML = sorted.map(p => `
+                    <div class="project-item" onclick="copyPath('${escapeHtml(p.path)}')" title="Click to copy path">
+                        <div class="project-path">${escapeHtml(p.path)}</div>
+                        <div class="project-meta">
+                            <span class="project-source">${escapeHtml(p.source)}</span>
+                            <span>${p.session_count || 0} sessions</span>
+                            ${p.modified_at ? `<span>${formatDate(p.modified_at)}</span>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                container.innerHTML = `<div class="error">Error: ${escapeHtml(e.message)}</div>`;
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function truncatePath(path) {
+            if (path.length <= 30) return path;
+            return '~' + path.slice(-29);
+        }
+
+        function formatDate(isoString) {
+            const date = new Date(isoString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 0) return 'Today';
+            if (diffDays === 1) return 'Yesterday';
+            if (diffDays < 7) return `${diffDays}d ago`;
+            return date.toLocaleDateString();
+        }
+
+        function copyPath(path) {
+            navigator.clipboard.writeText(path).then(() => {
+                // Could add visual feedback
+            }).catch(() => {});
+        }
+
+        // Load all data
+        loadSources();
+        loadApps();
+        loadThemes();
+        loadProjects();
     </script>
 </body>
 </html>

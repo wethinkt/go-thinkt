@@ -82,6 +82,89 @@ definitions:
           $ref: '#/definitions/server.APISourceInfo'
         type: array
     type: object
+  server.ThemeColors:
+    properties:
+      accent:
+        description: UI chrome
+        type: string
+      assistant_block:
+        $ref: '#/definitions/server.ThemeStyle'
+      assistant_label:
+        $ref: '#/definitions/server.ThemeStyle'
+      border_active:
+        type: string
+      border_inactive:
+        type: string
+      confirm_prompt:
+        allOf:
+        - $ref: '#/definitions/server.ThemeStyle'
+        description: Confirm dialog
+      confirm_selected:
+        $ref: '#/definitions/server.ThemeStyle'
+      confirm_unselected:
+        $ref: '#/definitions/server.ThemeStyle'
+      text_muted:
+        $ref: '#/definitions/server.ThemeStyle'
+      text_primary:
+        allOf:
+        - $ref: '#/definitions/server.ThemeStyle'
+        description: Text styles
+      text_secondary:
+        $ref: '#/definitions/server.ThemeStyle'
+      thinking_block:
+        $ref: '#/definitions/server.ThemeStyle'
+      thinking_label:
+        $ref: '#/definitions/server.ThemeStyle'
+      tool_call_block:
+        $ref: '#/definitions/server.ThemeStyle'
+      tool_label:
+        $ref: '#/definitions/server.ThemeStyle'
+      tool_result_block:
+        $ref: '#/definitions/server.ThemeStyle'
+      user_block:
+        allOf:
+        - $ref: '#/definitions/server.ThemeStyle'
+        description: Conversation blocks
+      user_label:
+        allOf:
+        - $ref: '#/definitions/server.ThemeStyle'
+        description: Labels
+    type: object
+  server.ThemeInfo:
+    properties:
+      active:
+        type: boolean
+      colors:
+        $ref: '#/definitions/server.ThemeColors'
+      description:
+        type: string
+      embedded:
+        type: boolean
+      name:
+        type: string
+    type: object
+  server.ThemeStyle:
+    properties:
+      bg:
+        type: string
+      bold:
+        type: boolean
+      fg:
+        type: string
+      italic:
+        type: boolean
+      underline:
+        type: boolean
+    type: object
+  server.ThemesResponse:
+    properties:
+      active:
+        type: string
+      themes:
+        items:
+          $ref: '#/definitions/server.ThemeInfo'
+        type: array
+    type: object
   thinkt.ContentBlock:
     properties:
       is_error:
@@ -422,4 +505,18 @@ paths:
       summary: List available trace sources
       tags:
       - sources
+  /themes:
+    get:
+      description: Returns all available themes (built-in and user themes) with their
+        color definitions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.ThemesResponse'
+      summary: List available themes
+      tags:
+      - themes
 swagger: "2.0"

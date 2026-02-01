@@ -32,6 +32,7 @@ tasks:
 
   go-tidy:
     desc: Tidy Go modules
+    deps: [server:swag-v2]
     cmds:
       - go mod tidy
 
@@ -76,7 +77,6 @@ tasks:
   ###############################################################################
 
   server:swag-v2:
-    deps: [go-tidy]
     dir: ./internal/server
     cmds:
       - swag init --parseDependency --parseDepth 2 -o ./docs -g ./api.go

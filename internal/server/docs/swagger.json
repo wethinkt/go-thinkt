@@ -228,6 +228,26 @@
                     }
                 }
             }
+        },
+        "/themes": {
+            "get": {
+                "description": "Returns all available themes (built-in and user themes) with their color definitions",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "themes"
+                ],
+                "summary": "List available themes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.ThemesResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -354,6 +374,140 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/server.APISourceInfo"
+                    }
+                }
+            }
+        },
+        "server.ThemeColors": {
+            "type": "object",
+            "properties": {
+                "accent": {
+                    "description": "UI chrome",
+                    "type": "string"
+                },
+                "assistant_block": {
+                    "$ref": "#/definitions/server.ThemeStyle"
+                },
+                "assistant_label": {
+                    "$ref": "#/definitions/server.ThemeStyle"
+                },
+                "border_active": {
+                    "type": "string"
+                },
+                "border_inactive": {
+                    "type": "string"
+                },
+                "confirm_prompt": {
+                    "description": "Confirm dialog",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/server.ThemeStyle"
+                        }
+                    ]
+                },
+                "confirm_selected": {
+                    "$ref": "#/definitions/server.ThemeStyle"
+                },
+                "confirm_unselected": {
+                    "$ref": "#/definitions/server.ThemeStyle"
+                },
+                "text_muted": {
+                    "$ref": "#/definitions/server.ThemeStyle"
+                },
+                "text_primary": {
+                    "description": "Text styles",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/server.ThemeStyle"
+                        }
+                    ]
+                },
+                "text_secondary": {
+                    "$ref": "#/definitions/server.ThemeStyle"
+                },
+                "thinking_block": {
+                    "$ref": "#/definitions/server.ThemeStyle"
+                },
+                "thinking_label": {
+                    "$ref": "#/definitions/server.ThemeStyle"
+                },
+                "tool_call_block": {
+                    "$ref": "#/definitions/server.ThemeStyle"
+                },
+                "tool_label": {
+                    "$ref": "#/definitions/server.ThemeStyle"
+                },
+                "tool_result_block": {
+                    "$ref": "#/definitions/server.ThemeStyle"
+                },
+                "user_block": {
+                    "description": "Conversation blocks",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/server.ThemeStyle"
+                        }
+                    ]
+                },
+                "user_label": {
+                    "description": "Labels",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/server.ThemeStyle"
+                        }
+                    ]
+                }
+            }
+        },
+        "server.ThemeInfo": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean"
+                },
+                "colors": {
+                    "$ref": "#/definitions/server.ThemeColors"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "embedded": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "server.ThemeStyle": {
+            "type": "object",
+            "properties": {
+                "bg": {
+                    "type": "string"
+                },
+                "bold": {
+                    "type": "boolean"
+                },
+                "fg": {
+                    "type": "string"
+                },
+                "italic": {
+                    "type": "boolean"
+                },
+                "underline": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "server.ThemesResponse": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "themes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/server.ThemeInfo"
                     }
                 }
             }

@@ -87,6 +87,9 @@ func (s *HTTPServer) setupRouter() chi.Router {
 		// Open-in endpoints
 		r.Post("/open-in", s.handleOpenIn)
 		r.Get("/open-in/apps", s.handleGetAllowedApps)
+
+		// Themes endpoint
+		r.Get("/themes", s.handleGetThemes)
 	})
 
 	// Swagger documentation
@@ -185,6 +188,9 @@ func NewCombinedServer(registry *thinkt.StoreRegistry, config Config) *CombinedS
 		// Open-in endpoints
 		r.Post("/open-in", httpServer.handleOpenIn)
 		r.Get("/open-in/apps", httpServer.handleGetAllowedApps)
+
+		// Themes endpoint
+		r.Get("/themes", httpServer.handleGetThemes)
 	})
 
 	// MCP endpoint placeholder (for SSE transport in future)

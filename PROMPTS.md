@@ -811,3 +811,51 @@ i don't want the general passing of arguments, the invocation is specified in th
 ## 2026-02-01T18:16:19Z
 
 in  the openapi config.AppConfig, i do not want an exec field.  that is determined by what the user has configured locally and is not exposed by the API.  the rest is OK.   within the app configuration, the intended filename can be embedded using the "{}" template like how the find -exec command injects.
+
+---
+
+## 2026-02-01T18:32:55Z
+
+i like the current lightweight "thinkt serve" webapp.  i am building a more full-fledged local webapp, but for debugging and developers and interested people,  this view is helpful.   add a subcommand for serve called lite that brings up this lightweight one.   Expand it to show the list of projects and sources.  It's not a full fledged explorer, just a quick detail extractor.  The API docs link is great.
+
+---
+
+## 2026-02-01T18:55:06Z
+
+thinkt serve lite should go on a different port than thinkt serve, increment it by one
+
+---
+
+## 2026-02-01T18:59:15Z
+
+that's great.  you can also create a panel for the apps and the themes. 
+
+---
+
+## 2026-02-01T19:05:38Z
+
+put the "API Docs" button as the leftmost and make it bolder.   when the "API: Projects" and other raw API call buttons are pressed, open large pane that pretty-displays it, with a button therein for the external raw page (current behavior)
+
+---
+
+## 2026-02-01T19:31:15Z
+
+move the theme box to be below the apps box
+
+---
+
+## 2026-02-01T20:30:09Z
+
+put the "API Docs" button as the leftmost and make it bolder.   when the "API: Projects" and other raw API call buttons are pressed, open large pane that pretty-displays it, with a button therein for the external raw page (current behavior)
+
+---
+
+## 2026-02-01T20:36:47Z
+
+i had to fix the taskfile a bit, things were stale.  it looks great.  on the json preview, make it a larger percentage of the space.  next to the view raw, have a copy-url button
+
+---
+
+## 2026-02-01T20:39:42Z
+
+on the themes api, one should be able to read the theme colors, in addition the names
