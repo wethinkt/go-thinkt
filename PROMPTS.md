@@ -755,3 +755,59 @@ look at the color picker example from earlier (https://github.com/ChausseBenjami
 ## 2026-02-01T17:21:04Z
 
 ensure you are building this color picker out as a component.  perhaps we even make it a library.   we want to be able to edit the hex value.  we want the 'r' key to reset it to the original value pre-editing (in case it goes off rails).  we can tab to a pallete of 16 colors and jump between 5 pre-made pallete.   do some research on a good set of palletes to show there
+
+---
+
+## 2026-02-01T17:48:23Z
+
+we need to update the "thinkt serve" .... we added support for this endpoint in the local webapp, and need to implement it here in the server:
+  The user will need to add the server-side endpoint in the Go code to handle the POST to /api/open-in and execute the approp
+  riate system commands to open the requested app.
+What the Go Server Needs
+
+  Add a POST endpoint at /api/open-in that:
+
+  1. Accepts JSON body: { "app": "finder", "path": "/path/to/project" }
+  2. Executes the appropriate system command based on app and OS:
+
+  macOS examples:
+
+  case "finder":
+      exec.Command("open", "-R", path).Run()  // Reveal in Finder
+  case "ghostty":
+      exec.Command("open", "-a", "Ghostty", path).Run()
+  case "vscode":
+      exec.Command("code", path).Run()
+  case "cursor":
+      exec.Command("cursor", path).Run()
+  case "terminal":
+      exec.Command("open", "-a", "Terminal", path).Run()
+
+  The frontend will console log the API calls for debugging. Check the browser console to see the flow!
+
+
+I don't have Cursor, but the idea that we can allow-list what apps are there... that should be configurable and set up upon initial run (part of the default setup)
+
+---
+
+## 2026-02-01T17:59:37Z
+
+the app config should be its own package, internal/config  ... move that from the theme package, which is only concerned with themeing and representing the themes
+
+---
+
+## 2026-02-01T18:02:50Z
+
+now within internal/config extract the AppConfig concern to its own file apps.go
+
+---
+
+## 2026-02-01T18:12:41Z
+
+i don't want the general passing of arguments, the invocation is specified in the config.
+
+---
+
+## 2026-02-01T18:16:19Z
+
+in  the openapi config.AppConfig, i do not want an exec field.  that is determined by what the user has configured locally and is not exposed by the API.  the rest is OK.   within the app configuration, the intended filename can be embedded using the "{}" template like how the find -exec command injects.

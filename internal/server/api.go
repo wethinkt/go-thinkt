@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/config"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui"
 )
@@ -282,4 +284,104 @@ func (s *HTTPServer) loadSession(ctx context.Context, path string, limit, offset
 func openLazySession(path string) (thinkt.LazySession, error) {
 	// Use the TUI session loader which handles both Claude and Kimi formats
 	return tui.OpenLazySession(path)
+}
+
+// OpenInRequest is the request body for the open-in endpoint.
+type OpenInRequest struct {
+	App  string `json:"app"`  // App ID (e.g., "finder", "vscode", "cursor")
+	Path string `json:"path"` // Path to open
+}
+
+// OpenInResponse is the response for the open-in endpoint.
+type OpenInResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+}
+
+// AllowedAppsResponse lists enabled apps for the open-in feature.
+type AllowedAppsResponse struct {
+	Apps []config.AppInfo `json:"apps"`
+}
+
+// handleOpenIn opens a path in the specified application.
+// @Summary Open a path in an application
+// @Description Opens the specified path in an allowed application (e.g., Finder, VS Code)
+// @Tags open-in
+// @Accept json
+// @Produce json
+// @Param request body OpenInRequest true "Open-in request"
+// @Success 200 {object} OpenInResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /open-in [post]
+func (s *HTTPServer) handleOpenIn(w http.ResponseWriter, r *http.Request) {
+	var req OpenInRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "Invalid JSON body")
+		return
+	}
+
+	if req.App == "" {
+		writeError(w, http.StatusBadRequest, "missing_app", "App ID is required")
+		return
+	}
+
+	if req.Path == "" {
+		writeError(w, http.StatusBadRequest, "missing_path", "Path is required")
+		return
+	}
+
+	// Load config and find the app
+	cfg, err := config.Load()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "config_error", err.Error())
+		return
+	}
+
+	app := cfg.GetApp(req.App)
+	if app == nil {
+		writeError(w, http.StatusForbidden, "app_not_allowed",
+			"App '"+req.App+"' is not enabled or not configured")
+		return
+	}
+
+	// Build the command using the app's Exec template
+	cmdName, args := app.BuildCommand(req.Path)
+	if cmdName == "" {
+		writeError(w, http.StatusInternalServerError, "invalid_config", "App has no exec command")
+		return
+	}
+	cmd := exec.Command(cmdName, args...)
+
+	// Execute the command
+	if err := cmd.Start(); err != nil {
+		writeError(w, http.StatusInternalServerError, "exec_error", err.Error())
+		return
+	}
+
+	// Don't wait for the command to finish - it's opening an external app
+	go cmd.Wait()
+
+	writeJSON(w, http.StatusOK, OpenInResponse{
+		Success: true,
+		Message: "Opened in " + app.Name,
+	})
+}
+
+// handleGetAllowedApps returns the list of enabled apps for open-in.
+// @Summary List allowed apps for open-in
+// @Description Returns the list of enabled applications that can be used with open-in
+// @Tags open-in
+// @Produce json
+// @Success 200 {object} AllowedAppsResponse
+// @Router /open-in/apps [get]
+func (s *HTTPServer) handleGetAllowedApps(w http.ResponseWriter, r *http.Request) {
+	cfg, err := config.Load()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "config_error", err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, AllowedAppsResponse{Apps: cfg.GetEnabledApps()})
 }

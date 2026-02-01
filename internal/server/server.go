@@ -83,6 +83,10 @@ func (s *HTTPServer) setupRouter() chi.Router {
 		r.Get("/projects", s.handleGetProjects)
 		r.Get("/projects/{projectID}/sessions", s.handleGetProjectSessions)
 		r.Get("/sessions/*", s.handleGetSession)
+
+		// Open-in endpoints
+		r.Post("/open-in", s.handleOpenIn)
+		r.Get("/open-in/apps", s.handleGetAllowedApps)
 	})
 
 	// Swagger documentation
@@ -177,6 +181,10 @@ func NewCombinedServer(registry *thinkt.StoreRegistry, config Config) *CombinedS
 		r.Get("/projects", httpServer.handleGetProjects)
 		r.Get("/projects/{projectID}/sessions", httpServer.handleGetProjectSessions)
 		r.Get("/sessions/*", httpServer.handleGetSession)
+
+		// Open-in endpoints
+		r.Post("/open-in", httpServer.handleOpenIn)
+		r.Get("/open-in/apps", httpServer.handleGetAllowedApps)
 	})
 
 	// MCP endpoint placeholder (for SSE transport in future)

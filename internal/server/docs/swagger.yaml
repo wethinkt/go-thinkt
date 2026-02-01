@@ -1,5 +1,14 @@
 basePath: /api/v1
 definitions:
+  config.AppInfo:
+    properties:
+      enabled:
+        type: boolean
+      id:
+        type: string
+      name:
+        type: string
+    type: object
   server.APISourceInfo:
     properties:
       available:
@@ -9,12 +18,35 @@ definitions:
       name:
         type: string
     type: object
+  server.AllowedAppsResponse:
+    properties:
+      apps:
+        items:
+          $ref: '#/definitions/config.AppInfo'
+        type: array
+    type: object
   server.ErrorResponse:
     properties:
       error:
         type: string
       message:
         type: string
+    type: object
+  server.OpenInRequest:
+    properties:
+      app:
+        description: App ID (e.g., "finder", "vscode", "cursor")
+        type: string
+      path:
+        description: Path to open
+        type: string
+    type: object
+  server.OpenInResponse:
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
     type: object
   server.ProjectsResponse:
     properties:
@@ -244,6 +276,55 @@ info:
   title: Thinkt API
   version: "1.0"
 paths:
+  /open-in:
+    post:
+      consumes:
+      - application/json
+      description: Opens the specified path in an allowed application (e.g., Finder,
+        VS Code)
+      parameters:
+      - description: Open-in request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/server.OpenInRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.OpenInResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Open a path in an application
+      tags:
+      - open-in
+  /open-in/apps:
+    get:
+      description: Returns the list of enabled applications that can be used with
+        open-in
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.AllowedAppsResponse'
+      summary: List allowed apps for open-in
+      tags:
+      - open-in
   /projects:
     get:
       description: Returns all projects from all sources, optionally filtered by source

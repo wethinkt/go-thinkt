@@ -15,6 +15,78 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/open-in": {
+            "post": {
+                "description": "Opens the specified path in an allowed application (e.g., Finder, VS Code)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "open-in"
+                ],
+                "summary": "Open a path in an application",
+                "parameters": [
+                    {
+                        "description": "Open-in request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/server.OpenInRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.OpenInResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/open-in/apps": {
+            "get": {
+                "description": "Returns the list of enabled applications that can be used with open-in",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "open-in"
+                ],
+                "summary": "List allowed apps for open-in",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.AllowedAppsResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/projects": {
             "get": {
                 "description": "Returns all projects from all sources, optionally filtered by source",
@@ -165,6 +237,20 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "config.AppInfo": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "server.APISourceInfo": {
             "type": "object",
             "properties": {
@@ -179,6 +265,17 @@ const docTemplate = `{
                 }
             }
         },
+        "server.AllowedAppsResponse": {
+            "type": "object",
+            "properties": {
+                "apps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/config.AppInfo"
+                    }
+                }
+            }
+        },
         "server.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -187,6 +284,30 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string"
+                }
+            }
+        },
+        "server.OpenInRequest": {
+            "type": "object",
+            "properties": {
+                "app": {
+                    "description": "App ID (e.g., \"finder\", \"vscode\", \"cursor\")",
+                    "type": "string"
+                },
+                "path": {
+                    "description": "Path to open",
+                    "type": "string"
+                }
+            }
+        },
+        "server.OpenInResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
                 }
             }
         },

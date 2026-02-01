@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/config"
 )
 
 //go:embed themes/*.json
@@ -102,83 +104,13 @@ func ListEmbedded() []string {
 	return names
 }
 
-// ConfigDir returns the path to the .thinkt directory.
-func ConfigDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".thinkt"), nil
-}
-
 // ThemesDir returns the path to the themes directory.
 func ThemesDir() (string, error) {
-	configDir, err := ConfigDir()
+	configDir, err := config.Dir()
 	if err != nil {
 		return "", err
 	}
 	return filepath.Join(configDir, "themes"), nil
-}
-
-// ConfigPath returns the path to the main config file.
-func ConfigPath() (string, error) {
-	configDir, err := ConfigDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(configDir, "config.json"), nil
-}
-
-// Config holds the thinkt configuration.
-type Config struct {
-	Theme string `json:"theme"` // Name of the active theme
-}
-
-// LoadConfig loads the configuration from ~/.thinkt/config.json.
-func LoadConfig() (Config, error) {
-	configPath, err := ConfigPath()
-	if err != nil {
-		return Config{Theme: "dark"}, err
-	}
-
-	data, err := os.ReadFile(configPath)
-	if os.IsNotExist(err) {
-		return Config{Theme: "dark"}, nil
-	} else if err != nil {
-		return Config{Theme: "dark"}, err
-	}
-
-	var config Config
-	if err := json.Unmarshal(data, &config); err != nil {
-		return Config{Theme: "dark"}, err
-	}
-
-	if config.Theme == "" {
-		config.Theme = "dark"
-	}
-
-	return config, nil
-}
-
-// SaveConfig saves the configuration to ~/.thinkt/config.json.
-func SaveConfig(config Config) error {
-	configPath, err := ConfigPath()
-	if err != nil {
-		return err
-	}
-
-	// Ensure directory exists
-	dir := filepath.Dir(configPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-
-	data, err := json.MarshalIndent(config, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(configPath, data, 0644)
 }
 
 // ListAvailable returns all available themes (embedded + user themes).
@@ -255,12 +187,12 @@ func LoadByName(name string) (Theme, error) {
 // Load loads the currently configured theme.
 // Falls back to embedded dark theme if anything fails.
 func Load() (Theme, error) {
-	config, err := LoadConfig()
+	cfg, err := config.Load()
 	if err != nil {
 		return DefaultTheme(), err
 	}
 
-	theme, err := LoadByName(config.Theme)
+	theme, err := LoadByName(cfg.Theme)
 	if err != nil {
 		return DefaultTheme(), err
 	}
@@ -297,15 +229,15 @@ func SetActive(name string) error {
 		return err
 	}
 
-	config, _ := LoadConfig()
-	config.Theme = name
-	return SaveConfig(config)
+	cfg, _ := config.Load()
+	cfg.Theme = name
+	return config.Save(cfg)
 }
 
 // ActiveName returns the name of the currently active theme.
 func ActiveName() string {
-	config, _ := LoadConfig()
-	return config.Theme
+	cfg, _ := config.Load()
+	return cfg.Theme
 }
 
 // EnsureUserThemesDir creates the themes directory and copies embedded themes if needed.
