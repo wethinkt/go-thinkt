@@ -66,11 +66,17 @@ func (ms *MCPServer) registerTools() {
 		Description: "List sessions for a specific project",
 	}, ms.handleListSessions)
 
-	// get_session - Get session content
+	// get_session_metadata - Get session metadata without full content
 	mcp.AddTool(ms.server, &mcp.Tool{
-		Name:        "get_session",
-		Description: "Get the content of a session by path. Supports pagination with limit/offset.",
-	}, ms.handleGetSession)
+		Name:        "get_session_metadata",
+		Description: "Get session metadata and entry summaries without loading full content. Returns description, entry count by role, and a lightweight summary of each entry (index, role, timestamp, content_length, has_thinking, has_tool_use). Use this first to understand a session before fetching specific entries.",
+	}, ms.handleGetSessionMetadata)
+
+	// get_session_entries - Get session entries with tight controls
+	mcp.AddTool(ms.server, &mcp.Tool{
+		Name:        "get_session_entries",
+		Description: "Get session entry content with pagination and filtering. Defaults: limit=5, max_content_length=500, include_thinking=false. Use entry_indices to fetch specific entries by index, or roles to filter by role type.",
+	}, ms.handleGetSessionEntries)
 }
 
 // Tool input/output types
@@ -121,25 +127,84 @@ type sessionInfo struct {
 	Source     string `json:"source"`
 }
 
-type getSessionInput struct {
-	Path   string `json:"path"`             // Full path to the session file (required)
-	Limit  int    `json:"limit,omitempty"`  // Maximum number of entries to return (0 for all)
-	Offset int    `json:"offset,omitempty"` // Number of entries to skip
+// get_session_metadata types
+
+type getSessionMetadataInput struct {
+	Path string `json:"path"` // Full path to the session file (required)
 }
 
-type getSessionOutput struct {
-	Meta    sessionMeta    `json:"meta"`
-	Entries []thinkt.Entry `json:"entries"`
-	HasMore bool           `json:"has_more"`
-	Total   int            `json:"total"`
+type getSessionMetadataOutput struct {
+	Meta         sessionMetaInfo  `json:"meta"`
+	Description  string           `json:"description,omitempty"`  // First user prompt or extracted description
+	RoleCounts   map[string]int   `json:"role_counts"`            // Count of entries by role
+	EntrySummary []entrySummary   `json:"entry_summary"`          // Lightweight summary of each entry
+	TotalEntries int              `json:"total_entries"`
+	TotalBytes   int              `json:"total_content_bytes"`    // Approximate total content size
 }
 
-type sessionMeta struct {
-	ID        string `json:"id"`
-	Path      string `json:"path"`
-	CreatedAt string `json:"created_at,omitempty"`
-	Model     string `json:"model,omitempty"`
-	GitBranch string `json:"git_branch,omitempty"`
+type sessionMetaInfo struct {
+	ID         string `json:"id"`
+	Path       string `json:"path"`
+	CreatedAt  string `json:"created_at,omitempty"`
+	ModifiedAt string `json:"modified_at,omitempty"`
+	Model      string `json:"model,omitempty"`
+	GitBranch  string `json:"git_branch,omitempty"`
+	Source     string `json:"source,omitempty"`
+}
+
+type entrySummary struct {
+	Index         int    `json:"index"`
+	Role          string `json:"role"`
+	Timestamp     string `json:"timestamp,omitempty"`
+	ContentLength int    `json:"content_length"`     // Approximate size in bytes
+	HasThinking   bool   `json:"has_thinking"`       // Contains thinking blocks
+	HasToolUse    bool   `json:"has_tool_use"`       // Contains tool_use blocks
+	HasToolResult bool   `json:"has_tool_result"`    // Contains tool_result blocks
+	Preview       string `json:"preview,omitempty"`  // First 100 chars of text content
+}
+
+// get_session_entries types
+
+type getSessionEntriesInput struct {
+	Path             string   `json:"path"`                        // Full path to the session file (required)
+	Limit            int      `json:"limit,omitempty"`             // Max entries to return (default: 5)
+	Offset           int      `json:"offset,omitempty"`            // Number of entries to skip (default: 0)
+	EntryIndices     []int    `json:"entry_indices,omitempty"`     // Specific entry indices to fetch (overrides limit/offset)
+	Roles            []string `json:"roles,omitempty"`             // Filter to specific roles (e.g., ["user", "assistant"])
+	MaxContentLength int      `json:"max_content_length,omitempty"` // Truncate text content (default: 500, 0 for no limit)
+	IncludeThinking  bool     `json:"include_thinking,omitempty"`  // Include thinking blocks (default: false)
+}
+
+type getSessionEntriesOutput struct {
+	Entries  []entryContent `json:"entries"`
+	HasMore  bool           `json:"has_more"`
+	Total    int            `json:"total"`           // Total entries in session
+	Returned int            `json:"returned"`        // Number of entries returned
+}
+
+type entryContent struct {
+	Index         int                  `json:"index"`
+	UUID          string               `json:"uuid"`
+	Role          string               `json:"role"`
+	Timestamp     string               `json:"timestamp,omitempty"`
+	Text          string               `json:"text,omitempty"`           // Main text content (possibly truncated)
+	TextTruncated bool                 `json:"text_truncated,omitempty"` // True if text was truncated
+	Thinking      string               `json:"thinking,omitempty"`       // Thinking content (if include_thinking=true)
+	ToolUses      []toolUseInfo        `json:"tool_uses,omitempty"`      // Tool use blocks
+	ToolResults   []toolResultInfo     `json:"tool_results,omitempty"`   // Tool result blocks
+	Model         string               `json:"model,omitempty"`
+}
+
+type toolUseInfo struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Input string `json:"input,omitempty"` // JSON string of input (possibly truncated)
+}
+
+type toolResultInfo struct {
+	ToolUseID string `json:"tool_use_id"`
+	Result    string `json:"result,omitempty"` // Result text (possibly truncated)
+	IsError   bool   `json:"is_error,omitempty"`
 }
 
 // Tool handlers
@@ -252,72 +317,310 @@ func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRe
 	}, output, nil
 }
 
-func (ms *MCPServer) handleGetSession(ctx context.Context, req *mcp.CallToolRequest, input getSessionInput) (*mcp.CallToolResult, getSessionOutput, error) {
-	tuilog.Log.Info("handleGetSession: called", "path", input.Path, "limit", input.Limit, "offset", input.Offset)
+func (ms *MCPServer) handleGetSessionMetadata(ctx context.Context, req *mcp.CallToolRequest, input getSessionMetadataInput) (*mcp.CallToolResult, getSessionMetadataOutput, error) {
+	tuilog.Log.Info("handleGetSessionMetadata: called", "path", input.Path)
 	if input.Path == "" {
-		tuilog.Log.Error("handleGetSession: path is required")
-		return nil, getSessionOutput{}, fmt.Errorf("path is required")
+		tuilog.Log.Error("handleGetSessionMetadata: path is required")
+		return nil, getSessionMetadataOutput{}, fmt.Errorf("path is required")
 	}
 
 	// Open the session
-	tuilog.Log.Info("handleGetSession: opening session")
 	ls, err := tui.OpenLazySession(input.Path)
 	if err != nil {
-		tuilog.Log.Error("handleGetSession: failed to open session", "error", err)
-		return nil, getSessionOutput{}, fmt.Errorf("open session: %w", err)
+		tuilog.Log.Error("handleGetSessionMetadata: failed to open session", "error", err)
+		return nil, getSessionMetadataOutput{}, fmt.Errorf("open session: %w", err)
 	}
 	defer ls.Close()
 
-	// Load entries based on limit
-	if input.Limit > 0 {
-		targetBytes := (input.Offset + input.Limit) * 4096
-		tuilog.Log.Info("handleGetSession: loading partial", "target_bytes", targetBytes)
-		ls.LoadMore(targetBytes)
-	} else {
-		tuilog.Log.Info("handleGetSession: loading all")
-		ls.LoadAll()
-	}
-
+	// Load all entries for metadata scanning
+	ls.LoadAll()
 	entries := ls.Entries()
-	total := len(entries)
-	hasMore := ls.HasMore()
-	tuilog.Log.Info("handleGetSession: loaded entries", "total", total, "has_more", hasMore)
+	meta := ls.Metadata()
 
-	// Apply offset and limit
-	if input.Offset > 0 {
-		if input.Offset >= len(entries) {
-			entries = nil
-		} else {
-			entries = entries[input.Offset:]
+	// Build role counts and entry summaries
+	roleCounts := make(map[string]int)
+	summaries := make([]entrySummary, len(entries))
+	totalBytes := 0
+	description := ""
+
+	for i, entry := range entries {
+		roleCounts[string(entry.Role)]++
+
+		// Calculate content length and detect block types
+		contentLen := len(entry.Text)
+		hasThinking := false
+		hasToolUse := false
+		hasToolResult := false
+		preview := ""
+
+		for _, block := range entry.ContentBlocks {
+			switch block.Type {
+			case "thinking":
+				hasThinking = true
+				contentLen += len(block.Thinking)
+			case "tool_use":
+				hasToolUse = true
+				if input, ok := block.ToolInput.(string); ok {
+					contentLen += len(input)
+				}
+			case "tool_result":
+				hasToolResult = true
+				contentLen += len(block.ToolResult)
+			case "text":
+				contentLen += len(block.Text)
+				if preview == "" && block.Text != "" {
+					preview = truncateString(block.Text, 100)
+				}
+			}
+		}
+
+		// Use entry.Text for preview if no text blocks
+		if preview == "" && entry.Text != "" {
+			preview = truncateString(entry.Text, 100)
+		}
+
+		// Extract description from first user message
+		if description == "" && entry.Role == thinkt.RoleUser {
+			if entry.Text != "" {
+				description = truncateString(entry.Text, 200)
+			} else {
+				for _, block := range entry.ContentBlocks {
+					if block.Type == "text" && block.Text != "" {
+						description = truncateString(block.Text, 200)
+						break
+					}
+				}
+			}
+		}
+
+		totalBytes += contentLen
+
+		summaries[i] = entrySummary{
+			Index:         i,
+			Role:          string(entry.Role),
+			ContentLength: contentLen,
+			HasThinking:   hasThinking,
+			HasToolUse:    hasToolUse,
+			HasToolResult: hasToolResult,
+			Preview:       preview,
+		}
+		if !entry.Timestamp.IsZero() {
+			summaries[i].Timestamp = entry.Timestamp.Format("2006-01-02T15:04:05Z07:00")
 		}
 	}
-	if input.Limit > 0 && input.Limit < len(entries) {
-		entries = entries[:input.Limit]
-		hasMore = true
+
+	// Use FirstPrompt from meta if we didn't find a description
+	if description == "" && meta.FirstPrompt != "" {
+		description = truncateString(meta.FirstPrompt, 200)
 	}
 
-	meta := ls.Metadata()
-	output := getSessionOutput{
-		Meta: sessionMeta{
+	output := getSessionMetadataOutput{
+		Meta: sessionMetaInfo{
 			ID:        meta.ID,
 			Path:      meta.FullPath,
 			Model:     meta.Model,
 			GitBranch: meta.GitBranch,
+			Source:    string(meta.Source),
 		},
-		Entries: entries,
-		HasMore: hasMore,
-		Total:   total,
+		Description:  description,
+		RoleCounts:   roleCounts,
+		EntrySummary: summaries,
+		TotalEntries: len(entries),
+		TotalBytes:   totalBytes,
 	}
 	if !meta.CreatedAt.IsZero() {
 		output.Meta.CreatedAt = meta.CreatedAt.Format("2006-01-02T15:04:05Z07:00")
 	}
+	if !meta.ModifiedAt.IsZero() {
+		output.Meta.ModifiedAt = meta.ModifiedAt.Format("2006-01-02T15:04:05Z07:00")
+	}
 
-	tuilog.Log.Info("handleGetSession: returning", "entries", len(entries), "total", total, "has_more", hasMore)
+	tuilog.Log.Info("handleGetSessionMetadata: returning", "entries", len(entries), "total_bytes", totalBytes)
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
 			&mcp.TextContent{Text: formatJSON(output)},
 		},
 	}, output, nil
+}
+
+func (ms *MCPServer) handleGetSessionEntries(ctx context.Context, req *mcp.CallToolRequest, input getSessionEntriesInput) (*mcp.CallToolResult, getSessionEntriesOutput, error) {
+	tuilog.Log.Info("handleGetSessionEntries: called", "path", input.Path, "limit", input.Limit, "offset", input.Offset,
+		"entry_indices", input.EntryIndices, "roles", input.Roles, "max_content_length", input.MaxContentLength)
+
+	if input.Path == "" {
+		tuilog.Log.Error("handleGetSessionEntries: path is required")
+		return nil, getSessionEntriesOutput{}, fmt.Errorf("path is required")
+	}
+
+	// Apply defaults
+	limit := input.Limit
+	if limit == 0 {
+		limit = 5 // Default: 5 entries
+	}
+	maxContentLen := input.MaxContentLength
+	if maxContentLen == 0 {
+		maxContentLen = 500 // Default: 500 chars
+	}
+
+	// Open the session
+	ls, err := tui.OpenLazySession(input.Path)
+	if err != nil {
+		tuilog.Log.Error("handleGetSessionEntries: failed to open session", "error", err)
+		return nil, getSessionEntriesOutput{}, fmt.Errorf("open session: %w", err)
+	}
+	defer ls.Close()
+
+	// Load all entries (we need indices)
+	ls.LoadAll()
+	allEntries := ls.Entries()
+	total := len(allEntries)
+
+	// Build role filter set
+	roleFilter := make(map[string]bool)
+	for _, r := range input.Roles {
+		roleFilter[r] = true
+	}
+
+	// Build list of candidate indices (applying role filter first)
+	var candidateIndices []int
+	for i, entry := range allEntries {
+		// Apply role filter if specified
+		if len(roleFilter) > 0 && !roleFilter[string(entry.Role)] {
+			continue
+		}
+		candidateIndices = append(candidateIndices, i)
+	}
+	filteredTotal := len(candidateIndices)
+
+	// Determine which entries to return
+	var indicesToFetch []int
+	if len(input.EntryIndices) > 0 {
+		// Specific indices requested - filter to valid candidates
+		candidateSet := make(map[int]bool)
+		for _, idx := range candidateIndices {
+			candidateSet[idx] = true
+		}
+		for _, idx := range input.EntryIndices {
+			if candidateSet[idx] {
+				indicesToFetch = append(indicesToFetch, idx)
+			}
+		}
+	} else {
+		// Use offset/limit on filtered candidates
+		start := input.Offset
+		end := start + limit
+		if start >= filteredTotal {
+			indicesToFetch = nil
+		} else {
+			if end > filteredTotal {
+				end = filteredTotal
+			}
+			indicesToFetch = candidateIndices[start:end]
+		}
+	}
+
+	// Build output entries
+	var resultEntries []entryContent
+	for _, idx := range indicesToFetch {
+		if idx < 0 || idx >= total {
+			continue
+		}
+		entry := allEntries[idx]
+
+		ec := entryContent{
+			Index: idx,
+			UUID:  entry.UUID,
+			Role:  string(entry.Role),
+			Model: entry.Model,
+		}
+		if !entry.Timestamp.IsZero() {
+			ec.Timestamp = entry.Timestamp.Format("2006-01-02T15:04:05Z07:00")
+		}
+
+		// Extract text content
+		textContent := entry.Text
+		for _, block := range entry.ContentBlocks {
+			switch block.Type {
+			case "text":
+				if textContent == "" {
+					textContent = block.Text
+				} else {
+					textContent += "\n" + block.Text
+				}
+			case "thinking":
+				if input.IncludeThinking && block.Thinking != "" {
+					ec.Thinking = truncateString(block.Thinking, maxContentLen)
+				}
+			case "tool_use":
+				inputStr := ""
+				if s, ok := block.ToolInput.(string); ok {
+					inputStr = truncateString(s, maxContentLen)
+				} else if block.ToolInput != nil {
+					b, _ := json.Marshal(block.ToolInput)
+					inputStr = truncateString(string(b), maxContentLen)
+				}
+				ec.ToolUses = append(ec.ToolUses, toolUseInfo{
+					ID:    block.ToolUseID,
+					Name:  block.ToolName,
+					Input: inputStr,
+				})
+			case "tool_result":
+				ec.ToolResults = append(ec.ToolResults, toolResultInfo{
+					ToolUseID: block.ToolUseID,
+					Result:    truncateString(block.ToolResult, maxContentLen),
+					IsError:   block.IsError,
+				})
+			}
+		}
+
+		// Truncate text content
+		if len(textContent) > maxContentLen && maxContentLen > 0 {
+			ec.Text = textContent[:maxContentLen] + "..."
+			ec.TextTruncated = true
+		} else {
+			ec.Text = textContent
+		}
+
+		resultEntries = append(resultEntries, ec)
+	}
+
+	// Determine if there are more entries
+	hasMore := false
+	if len(input.EntryIndices) == 0 {
+		// Using offset/limit - check if there are more in filtered set
+		hasMore = input.Offset+limit < filteredTotal
+	}
+
+	// Report filtered total if roles filter is applied
+	reportedTotal := total
+	if len(roleFilter) > 0 {
+		reportedTotal = filteredTotal
+	}
+
+	output := getSessionEntriesOutput{
+		Entries:  resultEntries,
+		HasMore:  hasMore,
+		Total:    reportedTotal,
+		Returned: len(resultEntries),
+	}
+
+	tuilog.Log.Info("handleGetSessionEntries: returning", "returned", len(resultEntries), "total", total, "has_more", hasMore)
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: formatJSON(output)},
+		},
+	}, output, nil
+}
+
+// truncateString truncates a string to maxLen characters, adding "..." if truncated.
+func truncateString(s string, maxLen int) string {
+	if maxLen <= 0 || len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return s[:maxLen]
+	}
+	return s[:maxLen-3] + "..."
 }
 
 // RunStdio runs the MCP server on stdin/stdout.
