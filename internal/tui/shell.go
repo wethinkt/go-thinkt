@@ -187,6 +187,9 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Cancelled {
 			tuilog.Log.Info("Shell.Update: session picker cancelled, popping")
 			s.stack.Pop()
+			if s.stack.IsEmpty() {
+				return s, tea.Quit
+			}
 			return s, nil
 		}
 		if msg.Selected != nil {
