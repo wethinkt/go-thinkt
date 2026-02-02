@@ -2,27 +2,77 @@
 
 ## Project Overview
 
-`thinking-tracer-tools` is a companion to the [`thinking-tracer` web application ](https://github.com/Brain-STM-org/thinking-tracer) that provides tools for extracting and processing LLM conversation traces.
+`thinking-tracer-tools` provides `thinkt`, a CLI tool for exploring and extracting data from AI coding assistant sessions. It is a companion to the [thinking-tracer](https://github.com/Brain-STM-org/thinking-tracer) web visualization application.
 
-We maintain libraries that help access to them, across client.  Our initial focus is Claude Code.
-
-We will implement this in Golang and maintin a Taskfile.
-
-Our first tool extracts a `PROMPTS.md` file from a Claude Code trace using a default template.
+**Stack**: Go, Cobra (CLI), BubbleTea (TUI), DuckDB (analytics), Chi (HTTP), MCP SDK
 
 Released under the MIT license, see [LICENSE.txt](./LICENSE.txt).
 
-## Multi-Source Architecture
+## Architecture
 
-The tool supports multiple AI coding assistants:
-- **Kimi Code** (`~/.kimi`)
-- **Claude Code** (`~/.claude`)
+### Multi-Source Design
 
-Sources are automatically discovered. Use `--source kimi|claude` flags to filter commands.
+The tool supports multiple AI coding assistants via a `Store` interface:
+- **Claude Code** (`~/.claude`) - Primary source
+- **Kimi Code** (`~/.kimi`) - Secondary source
+
+Sources are auto-discovered. Use `--source kimi|claude` flags to filter.
+
+### Key Packages
+
+| Package | Purpose |
+|---------|---------|
+| `cmd/thinkt` | CLI entry point (Cobra commands) |
+| `internal/thinkt` | Core types, Store interface, registry |
+| `internal/claude` | Claude Code storage implementation |
+| `internal/kimi` | Kimi Code storage implementation |
+| `internal/tui` | BubbleTea terminal UI |
+| `internal/server` | HTTP REST API and MCP server |
+| `internal/analytics` | DuckDB-powered search and stats |
+| `internal/prompt` | Prompt extraction and formatting |
+
+### Command Structure
+
+```
+thinkt
+├── tui                 # Interactive TUI browser (default)
+├── serve               # HTTP/MCP servers
+│   ├── mcp             # MCP server (stdio or HTTP)
+│   └── lite            # Lightweight debug webapp
+├── sources             # Source management
+│   ├── list
+│   └── status
+├── projects            # Project management
+│   ├── summary
+│   ├── delete
+│   └── copy
+├── sessions            # Session management
+│   ├── list
+│   ├── summary
+│   ├── view
+│   ├── delete
+│   └── copy
+├── search              # Full-text search (DuckDB)
+├── stats               # Analytics
+│   ├── tokens
+│   ├── tools
+│   ├── words
+│   ├── activity
+│   ├── models
+│   └── errors
+├── query               # Raw SQL queries
+├── prompts             # Prompt extraction
+│   ├── extract
+│   ├── list
+│   ├── info
+│   └── templates
+└── theme               # Theme management
+    ├── list
+    ├── set
+    └── builder
+```
 
 ### Environment Variables
-
-Customize the storage locations using environment variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -30,8 +80,6 @@ Customize the storage locations using environment variables:
 | `THINKT_CLAUDE_HOME` | Claude Code data directory | `~/.claude` |
 
 ## Documentation Map
-
-We maintain a series of Markdown documents to facilitate this project.
 
 | File | Purpose | Editable |
 |------|---------|----------|
@@ -47,5 +95,19 @@ Persisted research reports are available in `etc/reports`.
 
 | File | Topic |
 |------|-------|
-| [etc/reports/thinking-tracer.md](./etc/reports/thinking-tracer.md) | Architecture and features of the thinking-tracer visualization app |
-| [etc/reports/go-patterns.md](./etc/reports/go-patterns.md) | Go project conventions from dbn-go and screentime-mcp |
+| [etc/reports/thinking-tracer.md](./etc/reports/thinking-tracer.md) | Architecture of the thinking-tracer visualization app |
+| [etc/reports/go-patterns.md](./etc/reports/go-patterns.md) | Go project conventions |
+| [etc/reports/CLAUDE_STRUCTURE.md](./etc/reports/CLAUDE_STRUCTURE.md) | Claude Code storage structure |
+| [etc/reports/KIMI_STRUCTURE.md](./etc/reports/KIMI_STRUCTURE.md) | Kimi Code storage structure |
+| [etc/reports/SESSION_STORAGE.md](./etc/reports/SESSION_STORAGE.md) | Session storage comparison |
+| [etc/reports/ONTOLOGY_ANALYSIS.md](./etc/reports/ONTOLOGY_ANALYSIS.md) | Data model ontology |
+| [etc/reports/COMPONENT_MODEL.md](./etc/reports/COMPONENT_MODEL.md) | Component architecture |
+
+## Development
+
+```bash
+task build      # Build binary to ./bin/thinkt
+task test       # Run tests
+task lint       # Run linter
+task install    # Install to GOPATH/bin
+```

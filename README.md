@@ -3,31 +3,35 @@
 [![CI](https://github.com/Brain-STM-org/thinking-tracer-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/Brain-STM-org/thinking-tracer-tools/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/Brain-STM-org/thinking-tracer-tools.svg)](https://pkg.go.dev/github.com/Brain-STM-org/thinking-tracer-tools)
 
-Companion tools for [thinking-tracer](https://github.com/Brain-STM-org/thinking-tracer), providing utilities for extracting and processing LLM conversation traces.
+Companion tools for [thinking-tracer](https://github.com/Brain-STM-org/thinking-tracer), providing utilities for exploring and extracting data from AI coding assistant sessions.
 
 ## Overview
 
-This project provides command-line tools to work with LLM conversation trace files. The initial focus is on Claude Code traces (`.jsonl` files from `~/.claude/projects/`).
+`thinkt` is a CLI tool for exploring conversation traces from AI coding assistants. It supports multiple sources including Claude Code and Kimi Code.
 
 ### Features
 
-- **Prompt Extraction**: Generate a timestamped log of user prompts from conversation traces
-- **Multiple Formats**: Output as markdown, JSON, or plain text
-- **Custom Templates**: Customize markdown output with Go templates
-- **Session Inspection**: List trace files and view session metadata
+- **Interactive TUI**: Three-column terminal interface for browsing projects, sessions, and conversation content
+- **Multi-Source Support**: Works with Claude Code (`~/.claude`) and Kimi Code (`~/.kimi`)
+- **Full-Text Search**: DuckDB-powered search across all sessions
+- **Analytics**: Token usage, tool frequency, word analysis, activity timelines
+- **Prompt Extraction**: Generate timestamped logs of user prompts in markdown, JSON, or plain text
+- **MCP Server**: Model Context Protocol integration for use with AI assistants
+- **REST API**: HTTP server for programmatic access
+- **Themes**: Customizable color themes with interactive theme builder
 
 ## Installation
 
 ### Homebrew
 
 ```bash
-brew install --cask brain-stm-org/tap/thinkt-prompts
+brew install brain-stm-org/tap/thinkt
 ```
 
 ### Go
 
 ```bash
-go install github.com/Brain-STM-org/thinking-tracer-tools/cmd/thinkt-prompts@latest
+go install github.com/Brain-STM-org/thinking-tracer-tools/cmd/thinkt@latest
 ```
 
 ### From Source
@@ -38,35 +42,87 @@ cd thinking-tracer-tools
 task build
 ```
 
-## Tools
-
-### thinkt-prompts
-
-Extract user prompts from LLM agent trace files.
+## Quick Start
 
 ```bash
-# Extract prompts from the latest Claude Code session
-thinkt-prompts extract -t claude
+# Launch interactive TUI (default)
+thinkt
 
-# Extract from a specific trace file
-thinkt-prompts extract -t claude -i session.jsonl
+# List available sources
+thinkt sources list
 
-# Write to a file instead of stdout
-thinkt-prompts extract -t claude -o PROMPTS.md
+# Browse projects
+thinkt projects
+thinkt projects --long
+thinkt projects --tree
 
-# Use a different base directory
-thinkt-prompts extract -t claude -d /path/to/.claude
+# View sessions
+thinkt sessions list
+thinkt sessions view
 
-# List available trace files
-thinkt-prompts list -t claude
+# Search across all sessions
+thinkt search "authentication"
 
-# Show session info
-thinkt-prompts info -t claude
+# Analytics
+thinkt stats tokens
+thinkt stats tools
+thinkt stats activity --days 7
 ```
 
-Output defaults to stdout. Markdown, JSON, and plain text formats are supported via `-f`.
+## Commands
 
-Templates control the markdown output format and can be customized with `--template`. See the [thinkt-prompts README](cmd/thinkt-prompts/README.md) for the full template reference and available variables.
+| Command | Description |
+|---------|-------------|
+| `thinkt` | Launch interactive TUI (default) |
+| `thinkt tui` | Launch interactive TUI |
+| `thinkt sources list` | List available sources (kimi, claude) |
+| `thinkt sources status` | Show detailed source status |
+| `thinkt projects` | List all projects |
+| `thinkt projects summary` | Detailed project info |
+| `thinkt sessions list` | List sessions in a project |
+| `thinkt sessions view` | View session in terminal |
+| `thinkt search <query>` | Full-text search with DuckDB |
+| `thinkt stats tokens` | Token usage by session |
+| `thinkt stats tools` | Tool usage frequency |
+| `thinkt stats words` | Word frequency analysis |
+| `thinkt stats activity` | Daily activity timeline |
+| `thinkt stats models` | Model usage statistics |
+| `thinkt stats errors` | Tool errors and failures |
+| `thinkt query <sql>` | Run raw SQL with DuckDB |
+| `thinkt prompts extract` | Extract prompts to markdown/JSON |
+| `thinkt serve` | Start HTTP server |
+| `thinkt serve mcp` | Start MCP server |
+| `thinkt theme` | Display current theme |
+| `thinkt theme builder` | Interactive theme editor |
+
+## MCP Integration
+
+Use `thinkt` as an MCP server for AI assistants like Claude Desktop:
+
+```json
+{
+  "mcpServers": {
+    "thinkt": {
+      "command": "thinkt",
+      "args": ["serve", "mcp"]
+    }
+  }
+}
+```
+
+Available MCP tools:
+- `list_sources` - List available session sources
+- `list_projects` - List projects from all sources
+- `list_sessions` - List sessions for a project
+- `get_session_metadata` - Get session metadata
+- `get_session_entries` - Get session content with pagination
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `THINKT_CLAUDE_HOME` | Claude Code data directory | `~/.claude` |
+| `THINKT_KIMI_HOME` | Kimi Code data directory | `~/.kimi` |
 
 ## Related Projects
 

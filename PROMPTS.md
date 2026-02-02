@@ -859,3 +859,21 @@ i had to fix the taskfile a bit, things were stale.  it looks great.  on the jso
 ## 2026-02-01T20:39:42Z
 
 on the themes api, one should be able to read the theme colors, in addition the names
+
+---
+
+## 2026-02-01T23:14:26Z
+
+review the codebase here and make a plan to improve its quality
+
+---
+
+## 2026-02-01T23:52:13Z
+
+i only want you to extract constants.  do just that
+
+---
+
+## 2026-02-02T00:48:35Z
+
+review the project and update the readme.md and agents.md
