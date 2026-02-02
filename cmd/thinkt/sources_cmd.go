@@ -63,6 +63,7 @@ func runSourcesList(cmd *cobra.Command, args []string) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "SOURCE\tSTATUS\tPROJECTS\tWORKSPACE")
 
+	const workspaceColumnWidth = 40
 	for _, s := range sources {
 		status := "no data"
 		if s.Available {
@@ -70,8 +71,8 @@ func runSourcesList(cmd *cobra.Command, args []string) error {
 		}
 		projects := fmt.Sprintf("%d", s.ProjectCount)
 		workspace := s.WorkspaceID
-		if len(workspace) > 8 {
-			workspace = workspace[:8] + "..."
+		if len(workspace) > workspaceColumnWidth {
+			workspace = workspace[:(workspaceColumnWidth-3)] + "..."
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", s.Name, status, projects, workspace)
 	}

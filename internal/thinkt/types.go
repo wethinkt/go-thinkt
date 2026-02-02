@@ -13,11 +13,52 @@ import (
 type Source string
 
 const (
-	SourceKimi    Source = "kimi"
+	SourceThinkt  Source = "thinkt"
 	SourceClaude  Source = "claude"
-	SourceGemini  Source = "gemini"
 	SourceCopilot Source = "copilot"
+	SourceGemini  Source = "gemini"
+	SourceKimi    Source = "kimi"
 )
+
+func (s Source) String() string {
+	switch s {
+	case SourceThinkt:
+		return "thinkt"
+	case SourceClaude:
+		return "claude"
+	case SourceCopilot:
+		return "copilot"
+	case SourceKimi:
+		return "kimi"
+	case SourceGemini:
+		return "gemini"
+	case "":
+		return "unknown"
+	default:
+		return string(s)
+	}
+}
+
+func (s Source) Description() string {
+	switch s {
+	case SourceThinkt:
+		return "thinkt sessions"
+	case SourceClaude:
+		return "Claude Code sessions (~/.claude)"
+	case SourceCopilot:
+		return "GitHub Copilot sessions"
+	case SourceKimi:
+		return "Kimi Code sessions (~/.kimi)"
+	case SourceGemini:
+		return "Gemini CLI sessions"
+	case "":
+		return "unknown source"
+	default:
+		return string(s) + " sessions"
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////////
 
 // Workspace identifies a machine/host where sessions originate.
 // Like git repos, the same project path may exist on multiple workspaces
@@ -379,14 +420,7 @@ func (r *StoreRegistry) SourceStatus(ctx context.Context) []SourceInfo {
 		}
 
 		// Add descriptions
-		switch store.Source() {
-		case SourceKimi:
-			info.Name = "Kimi Code"
-			info.Description = "Kimi Code sessions (~/.kimi)"
-		case SourceClaude:
-			info.Name = "Claude Code"
-			info.Description = "Claude Code sessions (~/.claude)"
-		}
+		info.Name = store.Source().String()
 
 		infos = append(infos, info)
 	}
