@@ -5,8 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -36,9 +38,12 @@ const (
 
 // Config holds server configuration.
 type Config struct {
-	Mode Mode
-	Port int
-	Host string
+	Mode        Mode
+	Port        int
+	Host        string
+	Quiet       bool     // suppress HTTP request logging
+	HTTPLog     string   // path to HTTP access log file (empty = stdout, "-" = discard unless Quiet)
+	httpLogFile *os.File // internal: opened log file handle
 }
 
 // DefaultConfig returns a default configuration.
@@ -47,6 +52,52 @@ func DefaultConfig() Config {
 		Mode: ModeCombined,
 		Port: 7433,
 		Host: "localhost",
+	}
+}
+
+// logWriter wraps an io.Writer to implement middleware.LoggerInterface.
+type logWriter struct {
+	w io.Writer
+}
+
+func (l *logWriter) Print(v ...interface{}) {
+	// Ensure newline - chi's middleware doesn't add them
+	fmt.Fprintln(l.w, v...)
+}
+
+func (l *logWriter) Println(v ...interface{}) {
+	fmt.Fprintln(l.w, v...)
+}
+
+func (l *logWriter) Printf(format string, v ...interface{}) {
+	fmt.Fprintf(l.w, format, v...)
+}
+
+// httpLogWriter returns the writer for HTTP access logs based on config.
+// It returns nil if logging should be suppressed.
+func (c *Config) httpLogWriter() (*logWriter, io.Closer, error) {
+	if c.Quiet {
+		return nil, nil, nil
+	}
+	if c.HTTPLog == "" {
+		return &logWriter{w: os.Stdout}, nil, nil
+	}
+	if c.HTTPLog == "-" {
+		return nil, nil, nil
+	}
+	f, err := os.OpenFile(c.HTTPLog, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return nil, nil, fmt.Errorf("open http log: %w", err)
+	}
+	c.httpLogFile = f
+	return &logWriter{w: f}, f, nil
+}
+
+// Close cleans up any opened resources.
+func (c *Config) Close() {
+	if c.httpLogFile != nil {
+		c.httpLogFile.Close()
+		c.httpLogFile = nil
 	}
 }
 
@@ -71,8 +122,20 @@ func NewHTTPServer(registry *thinkt.StoreRegistry, config Config) *HTTPServer {
 func (s *HTTPServer) setupRouter() chi.Router {
 	r := chi.NewRouter()
 
+	// HTTP access logging middleware
+	logWriter, _, err := s.config.httpLogWriter()
+	if err != nil {
+		// Log error to stderr but continue (non-fatal)
+		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+	}
+	if logWriter != nil {
+		r.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{
+			Logger:  logWriter,
+			NoColor: true,
+		}))
+	}
+
 	// Middleware
-	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 	r.Use(corsMiddleware)
@@ -173,7 +236,19 @@ func NewCombinedServer(registry *thinkt.StoreRegistry, config Config) *CombinedS
 
 	// Create combined router
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
+
+	// HTTP access logging middleware
+	logWriter, _, err := config.httpLogWriter()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+	}
+	if logWriter != nil {
+		r.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{
+			Logger:  logWriter,
+			NoColor: true,
+		}))
+	}
+
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 	r.Use(corsMiddleware)

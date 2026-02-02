@@ -336,10 +336,12 @@ definitions:
     enum:
     - kimi
     - claude
+    - gemini
     type: string
     x-enum-varnames:
     - SourceKimi
     - SourceClaude
+    - SourceGemini
   thinkt.TokenUsage:
     properties:
       cache_creation_input_tokens:

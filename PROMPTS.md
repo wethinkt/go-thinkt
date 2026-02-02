@@ -877,3 +877,27 @@ i only want you to extract constants.  do just that
 ## 2026-02-02T00:48:35Z
 
 review the project and update the readme.md and agents.md
+
+---
+
+## 2026-02-02T12:39:42Z
+
+for "thinkt serve lite", the projects listbox does not fill its panel fully
+
+---
+
+## 2026-02-02T12:43:55Z
+
+if you look at that image you will see the dark background, the list box inside it should go all the way to the bottom of that container, but it goes about 75% of the way
+
+---
+
+## 2026-02-02T12:53:05Z
+
+for the lite webapp, does it make sense to seperate the HTML from the CSS?
+
+---
+
+## 2026-02-02T12:58:44Z
+
+keep as is.  that project list is not expanding to the bottom of projects-panel.   

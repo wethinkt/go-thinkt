@@ -10,6 +10,7 @@ import (
 )
 
 //go:embed webapp/*
+//go:embed webapp/**/*
 var webappFS embed.FS
 
 // staticHandler returns an http.Handler that serves the embedded webapp files

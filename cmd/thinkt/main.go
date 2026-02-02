@@ -48,7 +48,9 @@ var (
 	servePort     int
 	serveLitePort int
 	serveHost     string
-	serveOpen     bool
+	serveNoOpen   bool
+	serveQuiet    bool
+	serveHTTPLog  string
 )
 
 // Serve MCP subcommand flags
@@ -766,8 +768,10 @@ func main() {
 	// Serve command flags (persistent so they're inherited by subcommands like 'lite')
 	serveCmd.PersistentFlags().IntVarP(&servePort, "port", "p", 7433, "server port")
 	serveCmd.PersistentFlags().StringVar(&serveHost, "host", "localhost", "server host")
-	serveCmd.PersistentFlags().BoolVar(&serveOpen, "open", true, "auto-open browser")
+	serveCmd.PersistentFlags().BoolVar(&serveNoOpen, "no-open", false, "don't auto-open browser")
 	serveCmd.PersistentFlags().StringVar(&logPath, "log", "", "write debug log to file")
+	serveCmd.PersistentFlags().BoolVarP(&serveQuiet, "quiet", "q", false, "suppress HTTP request logging (errors still go to stderr)")
+	serveCmd.PersistentFlags().StringVar(&serveHTTPLog, "http-log", "", "write HTTP access log to file (default: stdout, unless --quiet)")
 
 	// Serve MCP subcommand
 	serveCmd.AddCommand(serveMcpCmd)
@@ -853,9 +857,11 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 
 	// HTTP mode: start HTTP server
 	config := server.Config{
-		Mode: server.ModeHTTPOnly,
-		Port: servePort,
-		Host: serveHost,
+		Mode:    server.ModeHTTPOnly,
+		Port:    servePort,
+		Host:    serveHost,
+		Quiet:   serveQuiet,
+		HTTPLog: serveHTTPLog,
 	}
 	srv := server.NewHTTPServer(registry, config)
 
@@ -864,7 +870,7 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 	fmt.Println("📁 Serving traces from local sources")
 
 	// Auto-open browser if requested (after small delay for server to start)
-	if serveOpen {
+	if !serveNoOpen {
 		go func() {
 			url := fmt.Sprintf("http://%s", srv.Addr())
 			fmt.Printf("🌐 Opening %s in browser...\n", url)
@@ -907,21 +913,18 @@ func runServeLite(cmd *cobra.Command, args []string) error {
 
 	// HTTP mode: start HTTP server
 	config := server.Config{
-		Mode: server.ModeHTTPOnly,
-		Port: serveLitePort,
-		Host: serveHost,
+		Mode:    server.ModeHTTPOnly,
+		Port:    serveLitePort,
+		Host:    serveHost,
+		Quiet:   serveQuiet,
+		HTTPLog: serveHTTPLog,
 	}
 	srv := server.NewHTTPServer(registry, config)
 
-	// Print startup message
-	fmt.Println("🔧 Thinkt Lite server starting...")
-	fmt.Println("📁 Lightweight debug interface for developers")
-
 	// Auto-open browser if requested
-	if serveOpen {
+	if !serveNoOpen {
 		go func() {
 			url := fmt.Sprintf("http://%s", srv.Addr())
-			fmt.Printf("🌐 Opening %s in browser...\n", url)
 			openBrowser(url)
 		}()
 	}

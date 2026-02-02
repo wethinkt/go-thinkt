@@ -759,11 +759,13 @@ const docTemplate = `{
             "type": "string",
             "enum": [
                 "kimi",
-                "claude"
+                "claude",
+                "gemini"
             ],
             "x-enum-varnames": [
                 "SourceKimi",
-                "SourceClaude"
+                "SourceClaude",
+                "SourceGemini"
             ]
         },
         "thinkt.TokenUsage": {
