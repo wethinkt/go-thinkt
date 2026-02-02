@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/sources/claude"
 )
 
 func TestDefaultTemplate(t *testing.T) {

@@ -337,11 +337,13 @@ definitions:
     - kimi
     - claude
     - gemini
+    - copilot
     type: string
     x-enum-varnames:
     - SourceKimi
     - SourceClaude
     - SourceGemini
+    - SourceCopilot
   thinkt.TokenUsage:
     properties:
       cache_creation_input_tokens:

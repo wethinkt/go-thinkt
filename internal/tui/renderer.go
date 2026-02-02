@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/glamour"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/sources/claude"
 )
 
 // RenderSession converts a session's entries into a styled string for the viewport.

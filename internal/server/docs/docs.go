@@ -760,12 +760,14 @@ const docTemplate = `{
             "enum": [
                 "kimi",
                 "claude",
-                "gemini"
+                "gemini",
+                "copilot"
             ],
             "x-enum-varnames": [
                 "SourceKimi",
                 "SourceClaude",
-                "SourceGemini"
+                "SourceGemini",
+                "SourceCopilot"
             ]
         },
         "thinkt.TokenUsage": {

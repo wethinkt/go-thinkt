@@ -2,7 +2,7 @@
 package prompt
 
 import (
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/sources/claude"
 )
 
 // Prompt is an alias for claude.Prompt for API convenience.
