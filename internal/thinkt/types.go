@@ -15,6 +15,7 @@ type Source string
 const (
 	SourceKimi   Source = "kimi"
 	SourceClaude Source = "claude"
+	SourceGemini Source = "gemini"
 )
 
 // Workspace identifies a machine/host where sessions originate.

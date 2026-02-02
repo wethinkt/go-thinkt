@@ -25,6 +25,7 @@ import (
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/analytics"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/cli"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/gemini"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/kimi"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/prompt"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/server"
@@ -77,7 +78,7 @@ var rootCmd = &cobra.Command{
 	Short: "Tools for AI assistant session exploration and extraction",
 	Long: `thinkt provides tools for exploring and extracting data from AI coding assistant sessions.
 
-Supports: Claude Code, Kimi Code
+Supports: Claude Code, Kimi Code, Gemini CLI
 
 Running without a subcommand launches the interactive TUI.
 
@@ -90,7 +91,7 @@ Commands:
 
 Examples:
   thinkt                          # Launch TUI
-  thinkt sources list             # List available sources (kimi, claude)
+  thinkt sources list             # List available sources (kimi, claude, gemini)
   thinkt projects list            # List all projects from all sources
   thinkt prompts extract          # Extract prompts from latest session
   thinkt sessions list -p myproj  # List sessions for a project`,
@@ -1967,6 +1968,7 @@ func createSourceRegistry() *thinkt.StoreRegistry {
 	discovery := thinkt.NewDiscovery(
 		kimi.Factory(),
 		claude.Factory(),
+		gemini.Factory(),
 	)
 
 	ctx := context.Background()
@@ -1995,7 +1997,7 @@ func getProjectsFromSources(registry *thinkt.StoreRegistry, sources []string) ([
 		source := thinkt.Source(sourceName)
 		store, ok := registry.Get(source)
 		if !ok {
-			return nil, fmt.Errorf("unknown source: %s (available: kimi, claude)", sourceName)
+			return nil, fmt.Errorf("unknown source: %s (available: kimi, claude, gemini)", sourceName)
 		}
 
 		projects, err := store.ListProjects(ctx)
