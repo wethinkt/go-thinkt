@@ -7,17 +7,18 @@ Companion tools for [thinking-tracer](https://github.com/Brain-STM-org/thinking-
 
 ## Overview
 
-`thinkt` is a CLI tool for exploring conversation traces from AI coding assistants. It supports multiple sources including Claude Code and Kimi Code.
+`thinkt` is a CLI tool for exploring conversation traces from AI coding assistants. It supports multiple sources including Claude Code, Kimi Code, Gemini CLI, and GitHub Copilot.
 
 ### Features
 
 - **Interactive TUI**: Three-column terminal interface for browsing projects, sessions, and conversation content
-- **Multi-Source Support**: Works with Claude Code (`~/.claude`) and Kimi Code (`~/.kimi`)
+- **Multi-Source Support**: Works with Claude Code (`~/.claude`), Kimi Code (`~/.kimi`), Gemini CLI, and Copilot
 - **Full-Text Search**: DuckDB-powered search across all sessions
 - **Analytics**: Token usage, tool frequency, word analysis, activity timelines
 - **Prompt Extraction**: Generate timestamped logs of user prompts in markdown, JSON, or plain text
 - **MCP Server**: Model Context Protocol integration for use with AI assistants
 - **REST API**: HTTP server for programmatic access
+- **Lite Webapp**: Lightweight debug interface with i18n (EN/ES/中文), connection status, and "open-in" buttons
 - **Themes**: Customizable color themes with interactive theme builder
 
 ## Installation
@@ -67,6 +68,12 @@ thinkt search "authentication"
 thinkt stats tokens
 thinkt stats tools
 thinkt stats activity --days 7
+
+# Start the lite webapp
+thinkt serve lite
+
+# Start HTTP server without opening browser
+thinkt serve --no-open
 ```
 
 ## Commands
@@ -75,7 +82,7 @@ thinkt stats activity --days 7
 |---------|-------------|
 | `thinkt` | Launch interactive TUI (default) |
 | `thinkt tui` | Launch interactive TUI |
-| `thinkt sources list` | List available sources (kimi, claude) |
+| `thinkt sources list` | List available sources (kimi, claude, gemini, copilot) |
 | `thinkt sources status` | Show detailed source status |
 | `thinkt projects` | List all projects |
 | `thinkt projects summary` | Detailed project info |
@@ -90,10 +97,33 @@ thinkt stats activity --days 7
 | `thinkt stats errors` | Tool errors and failures |
 | `thinkt query <sql>` | Run raw SQL with DuckDB |
 | `thinkt prompts extract` | Extract prompts to markdown/JSON |
-| `thinkt serve` | Start HTTP server |
+| `thinkt serve` | Start HTTP server (port 7433) |
+| `thinkt serve lite` | Start lightweight webapp (port 7434) |
 | `thinkt serve mcp` | Start MCP server |
 | `thinkt theme` | Display current theme |
 | `thinkt theme builder` | Interactive theme editor |
+
+## Serve Options
+
+```bash
+# Control HTTP logging
+thinkt serve --quiet              # Suppress HTTP logs
+thinkt serve --http-log file.log  # Log to file
+thinkt serve --no-open            # Don't auto-open browser
+
+# These also work with serve lite
+thinkt serve lite --quiet --no-open
+```
+
+## Lite Webapp Features
+
+The lightweight webapp (`thinkt serve lite`) provides:
+
+- **Internationalization**: English, Spanish, and Chinese (auto-detected)
+- **Connection Status**: Real-time indicator showing server connectivity
+- **Source Visibility**: Toggle eye icons to show/hide projects by source
+- **Open-In Buttons**: Quick buttons to open projects in VS Code, Cursor, etc.
+- **Language Selector**: Switch between EN/ES/中文 in the top-right corner
 
 ## MCP Integration
 
@@ -123,6 +153,8 @@ Available MCP tools:
 |----------|-------------|---------|
 | `THINKT_CLAUDE_HOME` | Claude Code data directory | `~/.claude` |
 | `THINKT_KIMI_HOME` | Kimi Code data directory | `~/.kimi` |
+| `THINKT_GEMINI_HOME` | Gemini CLI data directory | `~/.gemini` |
+| `THINKT_COPILOT_HOME` | Copilot data directory | `~/.copilot` |
 
 ## Related Projects
 

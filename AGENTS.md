@@ -15,8 +15,10 @@ Released under the MIT license, see [LICENSE.txt](./LICENSE.txt).
 The tool supports multiple AI coding assistants via a `Store` interface:
 - **Claude Code** (`~/.claude`) - Primary source
 - **Kimi Code** (`~/.kimi`) - Secondary source
+- **Gemini CLI** (`~/.gemini`) - Tertiary source
+- **GitHub Copilot** (`~/.copilot`) - Quaternary source
 
-Sources are auto-discovered. Use `--source kimi|claude` flags to filter.
+Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot` flags to filter.
 
 ### Key Packages
 
@@ -24,12 +26,16 @@ Sources are auto-discovered. Use `--source kimi|claude` flags to filter.
 |---------|---------|
 | `cmd/thinkt` | CLI entry point (Cobra commands) |
 | `internal/thinkt` | Core types, Store interface, registry |
-| `internal/claude` | Claude Code storage implementation |
-| `internal/kimi` | Kimi Code storage implementation |
+| `internal/sources/claude` | Claude Code storage implementation |
+| `internal/sources/kimi` | Kimi Code storage implementation |
+| `internal/sources/gemini` | Gemini CLI storage implementation |
+| `internal/sources/copilot` | Copilot storage implementation |
 | `internal/tui` | BubbleTea terminal UI |
 | `internal/server` | HTTP REST API and MCP server |
+| `internal/server/webapp` | Lite webapp (HTML/CSS/JS) |
 | `internal/analytics` | DuckDB-powered search and stats |
 | `internal/prompt` | Prompt extraction and formatting |
+| `internal/config` | Configuration management |
 
 ### Command Structure
 
@@ -72,12 +78,51 @@ thinkt
     └── builder
 ```
 
+### Serve Command Flags
+
+| Flag | Description |
+|------|-------------|
+| `--port, -p` | Server port (default: 7433 for serve, 7434 for lite) |
+| `--host` | Server host (default: localhost) |
+| `--no-open` | Don't auto-open browser |
+| `--quiet, -q` | Suppress HTTP request logging |
+| `--http-log <file>` | Write HTTP access log to file |
+| `--log` | Write debug log to file |
+
 ### Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `THINKT_KIMI_HOME` | Kimi Code data directory | `~/.kimi` |
 | `THINKT_CLAUDE_HOME` | Claude Code data directory | `~/.claude` |
+| `THINKT_GEMINI_HOME` | Gemini CLI data directory | `~/.gemini` |
+| `THINKT_COPILOT_HOME` | Copilot data directory | `~/.copilot` |
+
+## Lite Webapp
+
+The lightweight webapp (`thinkt serve lite`) is a single-page debug interface located at `internal/server/webapp/`.
+
+### Structure
+
+```
+internal/server/webapp/
+├── index.html          # Main HTML file
+└── static/
+    ├── style.css       # Stylesheet
+    └── i18n.js         # Internationalization (EN/ES/ZH)
+```
+
+### Features
+
+- **i18n**: Auto-detects browser language, supports English, Spanish, and Chinese
+- **Connection Status**: Real-time ping every 10s with visual indicator
+- **Source Visibility**: Eye icons to toggle source visibility in project list
+- **Open-In Dropdown**: Split-button to open projects in configured apps
+- **Language Selector**: EN/ES/中文 buttons in top-right corner
+
+### Static File Serving
+
+Files are embedded using Go's `//go:embed` directive in `internal/server/static.go`.
 
 ## Documentation Map
 
@@ -111,3 +156,11 @@ task test       # Run tests
 task lint       # Run linter
 task install    # Install to GOPATH/bin
 ```
+
+### Adding a New Source
+
+1. Create package in `internal/sources/<name>/`
+2. Implement `thinkt.Store` interface
+3. Add `Factory()` function returning `thinkt.StoreFactory`
+4. Register in `cmd/thinkt/main.go` `createSourceRegistry()`
+5. Add environment variable support if needed
