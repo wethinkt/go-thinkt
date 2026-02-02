@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 func TestHandleGetAllowedApps(t *testing.T) {

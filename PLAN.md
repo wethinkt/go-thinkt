@@ -71,7 +71,7 @@ func main() {
 
 ### Phase 1: Project Scaffolding
 
-- [x] Initialize Go module (`go mod init github.com/Brain-STM-org/thinking-tracer-tools`)
+- [x] Initialize Go module (`go mod init github.com/wethinkt/go-thinkt`)
 - [x] Create `Taskfile.yml`
 - [x] Add `.gitignore` for Go
 - [x] Create directory structure

@@ -1,4 +1,4 @@
-module github.com/Brain-STM-org/thinking-tracer-tools
+module github.com/wethinkt/go-thinkt
 
 go 1.25.5
 

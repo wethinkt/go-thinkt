@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 // mockStatsigStableID creates a minimal statsig stable_id file

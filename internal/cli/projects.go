@@ -10,7 +10,7 @@ import (
 	"text/tabwriter"
 	"text/template"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 // DefaultSummaryTemplate is the default template for project summaries.

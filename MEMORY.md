@@ -1,6 +1,6 @@
 # MEMORY: Long-term Concepts and Decisions
 
-This document captures architectural decisions, design rationale, and persistent context for the thinking-tracer-tools project.
+This document captures architectural decisions, design rationale, and persistent context for the `thinkt` project.
 
 ## Technology Stack
 
@@ -43,7 +43,7 @@ This document captures architectural decisions, design rationale, and persistent
 
 ## Naming Conventions
 
-- CLI binary: `thinking-tracer-tools`
+- CLI binary: `thinkt`
 - Hooks directory: `.claude/hooks/`
 - Generated files: `PROMPTS.md` (uppercase, markdown)
 

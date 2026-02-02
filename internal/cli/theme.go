@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui/theme"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
 // ThemeDisplay handles theme visualization in the terminal.

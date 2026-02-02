@@ -6,10 +6,10 @@ import (
 	"io"
 	"path/filepath"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/sources/claude"
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/sources/kimi"
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
+	"github.com/wethinkt/go-thinkt/internal/sources/claude"
+	"github.com/wethinkt/go-thinkt/internal/sources/kimi"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 // OpenLazySession opens a session file for viewing, auto-detecting the format.

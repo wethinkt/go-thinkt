@@ -15,8 +15,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
-	_ "github.com/Brain-STM-org/thinking-tracer-tools/internal/server/docs" // swagger docs
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
+	_ "github.com/wethinkt/go-thinkt/internal/server/docs" // swagger docs
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 // ErrInvalidConfiguration is returned when server options conflict.

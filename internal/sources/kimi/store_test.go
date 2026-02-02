@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 // createTestStore creates a temporary Kimi store structure for testing.

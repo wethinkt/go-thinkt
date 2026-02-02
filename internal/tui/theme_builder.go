@@ -8,9 +8,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui/colorpicker"
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui/theme"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tui/colorpicker"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
 // editMode represents what is being edited

@@ -14,9 +14,9 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui"
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tuilog"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tui"
+	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 // MCPServer wraps an MCP server for thinkt.

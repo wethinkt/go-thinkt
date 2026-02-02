@@ -9,7 +9,7 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 // SessionPickerItem represents a selectable session in the picker.

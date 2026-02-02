@@ -12,8 +12,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tui"
 )
 
 // SessionsFormatter handles session listing output.

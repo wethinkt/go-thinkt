@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 // Store implements thinkt.Store for Claude Code sessions.

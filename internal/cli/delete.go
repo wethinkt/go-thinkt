@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/sources/claude"
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui"
+	"github.com/wethinkt/go-thinkt/internal/sources/claude"
+	"github.com/wethinkt/go-thinkt/internal/tui"
 )
 
 // DeleteOptions configures project deletion behavior.

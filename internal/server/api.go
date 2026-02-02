@@ -11,10 +11,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/config"
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui"
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui/theme"
+	"github.com/wethinkt/go-thinkt/internal/config"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tui"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
 // @title Thinkt API

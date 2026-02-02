@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/jsonl"
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/jsonl"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 // LazySession provides lazy-loading access to a session file.

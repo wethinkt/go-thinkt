@@ -1,13 +1,12 @@
-# thinking-tracer-tools
+# go-thinkt
 
-[![CI](https://github.com/Brain-STM-org/thinking-tracer-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/Brain-STM-org/thinking-tracer-tools/actions/workflows/ci.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/Brain-STM-org/thinking-tracer-tools.svg)](https://pkg.go.dev/github.com/Brain-STM-org/thinking-tracer-tools)
+[![CI](https://github.com/wethinkt/go-thinkt/actions/workflows/ci.yml/badge.svg)](https://github.com/wethinkt/go-thinkt/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/wethinkt/go-thinkt.svg)](https://pkg.go.dev/github.com/wethinkt/go-thinkt)
 
-Companion tools for [thinking-tracer](https://github.com/Brain-STM-org/thinking-tracer), providing utilities for exploring and extracting data from AI coding assistant sessions.
-
-## Overview
 
 `thinkt` is a CLI tool for exploring conversation traces from AI coding assistants. It supports multiple sources including Claude Code, Kimi Code, Gemini CLI, and GitHub Copilot.
+
+Right now much of the implementation is in package `internal`, but we will eventually build out a public package as it stabilizes.
 
 ### Features
 
@@ -32,14 +31,14 @@ brew install brain-stm-org/tap/thinkt
 ### Go
 
 ```bash
-go install github.com/Brain-STM-org/thinking-tracer-tools/cmd/thinkt@latest
+go install github.com/wethinkt/go-thinkt/cmd/thinkt@latest
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/Brain-STM-org/thinking-tracer-tools.git
-cd thinking-tracer-tools
+git clone https://github.com/wethinkt/go-thinkt.git
+cd go-thinkt
 task build
 ```
 
@@ -158,7 +157,7 @@ Available MCP tools:
 
 ## Related Projects
 
-- [thinking-tracer](https://github.com/Brain-STM-org/thinking-tracer) - 3D visualization tool for exploring LLM conversation traces
+- [wethinkt](https://github.com/wethinkt/wethinkt) - 3D visualization tool for exploring LLM conversation traces
 
 ## License
 

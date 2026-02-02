@@ -1,8 +1,8 @@
-# AGENTS: `thinking-tracer-tools`
+# AGENTS: `go-thinkt`
 
 ## Project Overview
 
-`thinking-tracer-tools` provides `thinkt`, a CLI tool for exploring and extracting data from AI coding assistant sessions. It is a companion to the [thinking-tracer](https://github.com/Brain-STM-org/thinking-tracer) web visualization application.
+`go-thinkt` provides `thinkt`, a CLI tool for exploring and extracting data from AI coding assistant sessions. It is a companion to the [wethinkt](https://github.com/wethinkt/wethinkt) web visualization application.  Right now much is internal, but we will eventually build out a public package.
 
 **Stack**: Go, Cobra (CLI), BubbleTea (TUI), DuckDB (analytics), Chi (HTTP), MCP SDK
 

@@ -37,13 +37,13 @@ changelog:
       - "^ci:"
 
 homebrew_casks:
-  - name: thinking-tracer-tools
+  - name: thinkt
     binaries:
       - thinkt
     repository:
-      owner: brain-stm-org
+      owner: wethinkt
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     directory: Casks
-    homepage: https://github.com/Brain-STM-org/thinking-tracer-tools
+    homepage: https://github.com/wethinkt/go-thinkt
     description: CLI tools for exploring LLM conversation traces

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/sources/claude"
+	"github.com/wethinkt/go-thinkt/internal/sources/claude"
 )
 
 func TestFormatter_Markdown(t *testing.T) {

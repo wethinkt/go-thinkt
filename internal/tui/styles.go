@@ -5,7 +5,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/tui/theme"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
 // Styles holds all the computed lipgloss styles for the TUI.

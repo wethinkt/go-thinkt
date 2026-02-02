@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/jsonl"
+	"github.com/wethinkt/go-thinkt/internal/jsonl"
 )
 
 // Parser reads Claude Code JSONL trace files.

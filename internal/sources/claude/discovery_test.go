@@ -3,7 +3,7 @@ package claude
 import (
 	"testing"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 func TestDiscoverer_Source(t *testing.T) {

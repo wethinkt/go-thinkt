@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Brain-STM-org/thinking-tracer-tools/internal/config"
+	"github.com/wethinkt/go-thinkt/internal/config"
 )
 
 //go:embed themes/*.json
