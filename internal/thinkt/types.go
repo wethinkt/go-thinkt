@@ -13,9 +13,10 @@ import (
 type Source string
 
 const (
-	SourceKimi   Source = "kimi"
-	SourceClaude Source = "claude"
-	SourceGemini Source = "gemini"
+	SourceKimi    Source = "kimi"
+	SourceClaude  Source = "claude"
+	SourceGemini  Source = "gemini"
+	SourceCopilot Source = "copilot"
 )
 
 // Workspace identifies a machine/host where sessions originate.

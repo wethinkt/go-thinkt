@@ -25,6 +25,7 @@ import (
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/analytics"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/claude"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/cli"
+	"github.com/Brain-STM-org/thinking-tracer-tools/internal/copilot"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/gemini"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/kimi"
 	"github.com/Brain-STM-org/thinking-tracer-tools/internal/prompt"
@@ -1972,6 +1973,7 @@ func createSourceRegistry() *thinkt.StoreRegistry {
 		kimi.Factory(),
 		claude.Factory(),
 		gemini.Factory(),
+		copilot.Factory(),
 	)
 
 	ctx := context.Background()
