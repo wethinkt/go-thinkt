@@ -19,7 +19,6 @@ type GenericLazySession struct {
 	// Reader state
 	reader      SessionReader
 	fullyLoaded bool
-	bytesRead   int64
 }
 
 // NewLazySession creates a new lazy session wrapper around a SessionReader.

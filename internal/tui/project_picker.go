@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"path/filepath"
 	"sort"
 
 	"charm.land/bubbles/v2/key"
@@ -234,24 +233,4 @@ func PickProject(projects []thinkt.Project) (*thinkt.Project, error) {
 	return result.Selected, nil
 }
 
-// formatFileSize returns a human-readable file size string.
-// This is duplicated from session_picker.go for internal use.
-func formatFileSizeForProject(size int64) string {
-	const (
-		KB = 1024
-		MB = 1024 * KB
-	)
-	switch {
-	case size >= MB:
-		return fmt.Sprintf("%.1f MB", float64(size)/float64(MB))
-	case size >= KB:
-		return fmt.Sprintf("%.1f KB", float64(size)/float64(KB))
-	default:
-		return fmt.Sprintf("%d B", size)
-	}
-}
 
-//nolint:unused
-func getProjectPathName(path string) string {
-	return filepath.Base(path)
-}

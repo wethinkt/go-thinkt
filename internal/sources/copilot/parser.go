@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
@@ -180,10 +179,4 @@ func (p *Parser) convertEvent(e Event) *thinkt.Entry {
 	}
 
 	return entry
-}
-
-// Helper to parse timestamp
-func parseTime(s string) time.Time {
-	t, _ := time.Parse(time.RFC3339, s)
-	return t
 }

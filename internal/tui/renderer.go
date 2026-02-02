@@ -124,41 +124,6 @@ func renderContentBlock(block *claude.ContentBlock, width int, renderer *glamour
 	}
 }
 
-func renderColumnBorder(content string, width, height int, active bool) string {
-	style := inactiveBorderStyle
-	if active {
-		style = activeBorderStyle
-	}
-
-	// The border frame structure:
-	// - Top border: 1 line
-	// - Title: 1 line
-	// - Content: N lines
-	// - Bottom border: 1 line
-	// Total = N + 3 lines. For a frame height of `height`, content can be at most height-3 lines.
-	// maxContentLines := max(0, height-3) // -2 for borders, -1 for title
-
-	// Truncate content to fit within available lines
-	// contentLines := strings.Split(content, "\n")
-	// if len(contentLines) > maxContentLines {
-	// 	contentLines = contentLines[:maxContentLines]
-	// }
-	// // Pad content to exactly maxContentLines to maintain consistent height
-	// for len(contentLines) < maxContentLines {
-	// 	contentLines = append(contentLines, "")
-	// }
-	// truncatedContent := strings.Join(contentLines, "\n")
-
-	// Apply width and height to the style
-	// The border takes 2 chars (left+right), so content width is width-2
-	contentWidth := max(1, width-2)
-	contentHeight := max(1, height-2) // -2 for top/bottom borders
-	
-	style = style.Width(contentWidth).Height(contentHeight)
-	
-	return style.Render(content)
-}
-
 // max returns the larger of a and b.
 func max(a, b int) int {
 	if a > b {

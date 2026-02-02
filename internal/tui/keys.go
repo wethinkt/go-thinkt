@@ -2,15 +2,6 @@ package tui
 
 import "charm.land/bubbles/v2/key"
 
-// listKeyMap defines key bindings for list views
-type listKeyMap struct {
-	up         key.Binding
-	down       key.Binding
-	selectItem key.Binding
-	back       key.Binding
-	quit       key.Binding
-}
-
 // viewerKeyMap defines key bindings for the session viewer
 type viewerKeyMap struct {
 	Up     key.Binding

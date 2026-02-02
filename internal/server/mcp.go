@@ -1,15 +1,12 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -690,73 +687,6 @@ func (ms *MCPServer) RunHTTP(ctx context.Context, host string, port int) error {
 	}
 	tuilog.Log.Error("RunHTTP: serve error", "error", err)
 	return err
-}
-
-// nopWriteCloser wraps an io.Writer with a no-op Close.
-type nopWriteCloser struct {
-	io.Writer
-}
-
-func (nopWriteCloser) Close() error { return nil }
-
-// bufferedStdinReader reads all of stdin into a buffer, then delays EOF
-// to give the server time to process and respond.
-type bufferedStdinReader struct {
-	buf     *bytes.Reader
-	ctx     context.Context
-	eofSent bool
-	mu      sync.Mutex
-}
-
-func newBufferedStdinReader(ctx context.Context) *bufferedStdinReader {
-	tuilog.Log.Info("bufferedStdinReader: reading all stdin")
-	input, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		tuilog.Log.Error("bufferedStdinReader: failed to read stdin", "error", err)
-	}
-	tuilog.Log.Info("bufferedStdinReader: read complete", "bytes", len(input), "content", string(input))
-	return &bufferedStdinReader{
-		buf: bytes.NewReader(input),
-		ctx: ctx,
-	}
-}
-
-func (r *bufferedStdinReader) Read(p []byte) (n int, err error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	// Return buffered content first
-	n, err = r.buf.Read(p)
-	if n > 0 {
-		tuilog.Log.Debug("bufferedStdinReader.Read: returning buffered data", "bytes", n)
-		return n, err
-	}
-	if err != io.EOF {
-		tuilog.Log.Debug("bufferedStdinReader.Read: non-EOF error", "error", err)
-		return n, err
-	}
-
-	// Buffer exhausted - delay EOF to allow response processing
-	if r.eofSent {
-		tuilog.Log.Debug("bufferedStdinReader.Read: returning EOF (already sent)")
-		return 0, io.EOF
-	}
-
-	tuilog.Log.Info("bufferedStdinReader.Read: buffer exhausted, waiting 100ms before EOF")
-	// Wait briefly for server to process and write responses
-	select {
-	case <-time.After(100 * time.Millisecond):
-		tuilog.Log.Info("bufferedStdinReader.Read: wait complete, sending EOF")
-	case <-r.ctx.Done():
-		tuilog.Log.Info("bufferedStdinReader.Read: context cancelled, sending EOF")
-	}
-
-	r.eofSent = true
-	return 0, io.EOF
-}
-
-func (r *bufferedStdinReader) Close() error {
-	return nil
 }
 
 // Server returns the underlying mcp.Server for HTTP integration.

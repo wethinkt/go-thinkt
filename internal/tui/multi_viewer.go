@@ -29,7 +29,6 @@ type MultiViewerModel struct {
 	loadedCount   int
 	loadingMore   bool
 	currentIdx    int // Index of session currently being loaded
-	err           error
 	hasMoreData   bool // True if any session has more content to load
 	prefetchBytes int  // How many bytes to prefetch when scrolling near bottom
 
@@ -51,7 +50,6 @@ type multiSessionLoadedMsg struct {
 // moreContentLoadedMsg is sent when additional content is loaded via LoadMore.
 type moreContentLoadedMsg struct {
 	loaded int
-	err    error
 }
 
 // NewMultiViewerModel creates a new multi-session viewer.
@@ -438,13 +436,6 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m MultiViewerModel) View() tea.View {
-	if m.err != nil {
-		tuilog.Log.Error("MultiViewer.View: error state", "error", m.err)
-		v := tea.NewView(fmt.Sprintf("Error: %v", m.err))
-		v.AltScreen = true
-		return v
-	}
-
 	// Check if we're still loading sessions
 	allSessionsLoaded := m.currentIdx >= len(m.sessionPaths)-1 || m.loadedCount >= len(m.sessionPaths)
 

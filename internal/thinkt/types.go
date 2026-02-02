@@ -117,20 +117,20 @@ type TokenUsage struct {
 
 // SessionMeta contains metadata about a session without loading full content.
 type SessionMeta struct {
-	ID           string    `json:"id"`
-	ProjectPath  string    `json:"project_path"` // Normalized project path
-	FullPath     string    `json:"full_path"`    // Path to session file
-	FirstPrompt  string    `json:"first_prompt,omitempty"`
-	Summary      string    `json:"summary,omitempty"`
-	EntryCount   int       `json:"entry_count"`
-	FileSize     int64     `json:"file_size"`    // Size in bytes
-	CreatedAt    time.Time `json:"created_at"`
-	ModifiedAt   time.Time `json:"modified_at"`
-	GitBranch    string    `json:"git_branch,omitempty"`
-	Model        string    `json:"model,omitempty"`
-	Source       Source    `json:"source"`       // Which tool (kimi, claude)
-	WorkspaceID  string    `json:"workspace_id"` // Which machine/host
-	ChunkCount   int       `json:"chunk_count"`  // Number of files: 0=unknown, 1=single, 2+=chunked
+	ID          string    `json:"id"`
+	ProjectPath string    `json:"project_path"` // Normalized project path
+	FullPath    string    `json:"full_path"`    // Path to session file
+	FirstPrompt string    `json:"first_prompt,omitempty"`
+	Summary     string    `json:"summary,omitempty"`
+	EntryCount  int       `json:"entry_count"`
+	FileSize    int64     `json:"file_size"` // Size in bytes
+	CreatedAt   time.Time `json:"created_at"`
+	ModifiedAt  time.Time `json:"modified_at"`
+	GitBranch   string    `json:"git_branch,omitempty"`
+	Model       string    `json:"model,omitempty"`
+	Source      Source    `json:"source"`       // Which tool (kimi, claude)
+	WorkspaceID string    `json:"workspace_id"` // Which machine/host
+	ChunkCount  int       `json:"chunk_count"`  // Number of files: 0=unknown, 1=single, 2+=chunked
 }
 
 // Session represents a complete conversation session.
@@ -143,9 +143,9 @@ type Session struct {
 // The same project path may exist on multiple workspaces.
 type Project struct {
 	ID           string    `json:"id"`
-	Name         string    `json:"name"`          // Display name
-	Path         string    `json:"path"`          // Full filesystem path
-	DisplayPath  string    `json:"display_path"`  // Human-readable path
+	Name         string    `json:"name"`         // Display name
+	Path         string    `json:"path"`         // Full filesystem path
+	DisplayPath  string    `json:"display_path"` // Human-readable path
 	SessionCount int       `json:"session_count"`
 	LastModified time.Time `json:"last_modified"`
 	Source       Source    `json:"source"`       // Which tool
@@ -237,8 +237,8 @@ type SessionFilter struct {
 	ProjectPath string
 	GitBranch   string
 	Model       string
-	Source      Source     // Filter by tool (kimi, claude)
-	WorkspaceID string     // Filter by workspace
+	Source      Source // Filter by tool (kimi, claude)
+	WorkspaceID string // Filter by workspace
 	After       *time.Time
 	Before      *time.Time
 	Limit       int
@@ -321,13 +321,13 @@ func (r *StoreRegistry) ListAllProjects(ctx context.Context) ([]Project, error) 
 
 // SourceInfo provides information about a source for display.
 type SourceInfo struct {
-	Source      Source `json:"source"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Available   bool   `json:"available"`
-	WorkspaceID string `json:"workspace_id,omitempty"`
-	BasePath    string `json:"base_path,omitempty"`
-	ProjectCount int   `json:"project_count,omitempty"`
+	Source       Source `json:"source"`
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	Available    bool   `json:"available"`
+	WorkspaceID  string `json:"workspace_id,omitempty"`
+	BasePath     string `json:"base_path,omitempty"`
+	ProjectCount int    `json:"project_count,omitempty"`
 }
 
 // FindProjectForPath returns the project whose Path matches or contains the given path.
@@ -369,7 +369,7 @@ func (r *StoreRegistry) SourceStatus(ctx context.Context) []SourceInfo {
 			Name:     string(store.Source()),
 			BasePath: ws.BasePath,
 		}
-		
+
 		// Get project count to determine availability
 		projects, err := store.ListProjects(ctx)
 		if err == nil {
@@ -377,7 +377,7 @@ func (r *StoreRegistry) SourceStatus(ctx context.Context) []SourceInfo {
 			info.ProjectCount = len(projects)
 			info.WorkspaceID = ws.ID
 		}
-		
+
 		// Add descriptions
 		switch store.Source() {
 		case SourceKimi:
@@ -387,7 +387,7 @@ func (r *StoreRegistry) SourceStatus(ctx context.Context) []SourceInfo {
 			info.Name = "Claude Code"
 			info.Description = "Claude Code sessions (~/.claude)"
 		}
-		
+
 		infos = append(infos, info)
 	}
 	return infos

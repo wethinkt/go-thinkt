@@ -172,10 +172,6 @@ func buildStyles(t theme.Theme) Styles {
 // Package-level style accessors for backward compatibility.
 // These are initialized on first access via GetStyles().
 var (
-	activeBorderStyle   = lipgloss.Style{}
-	inactiveBorderStyle = lipgloss.Style{}
-	statusBarStyle      = lipgloss.Style{}
-
 	userBlockStyle       = lipgloss.Style{}
 	assistantBlockStyle  = lipgloss.Style{}
 	thinkingBlockStyle   = lipgloss.Style{}
@@ -195,10 +191,6 @@ var (
 
 func init() {
 	s := GetStyles()
-
-	activeBorderStyle = s.ActiveBorder
-	inactiveBorderStyle = s.InactiveBorder
-	statusBarStyle = s.StatusBar
 
 	userBlockStyle = s.UserBlock
 	assistantBlockStyle = s.AssistantBlock
