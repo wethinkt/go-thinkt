@@ -3,8 +3,9 @@
 [![CI](https://github.com/wethinkt/go-thinkt/actions/workflows/ci.yml/badge.svg)](https://github.com/wethinkt/go-thinkt/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/wethinkt/go-thinkt.svg)](https://pkg.go.dev/github.com/wethinkt/go-thinkt)
 
+**This tool is still in alpha stages and is for educational purposes only in its current state.**
 
-`thinkt` is a CLI tool for exploring conversation traces from AI coding assistants. 
+`thinkt` is a CLI tool for exploring conversation traces from AI coding assistants.   You can learn more about us at [wethinkt.com](https://wethinkt.com).
 
 There are many local agentic coding environments such as Claude Code, Kimi Code, and Gemini CLI.  As you use them, session data is written locally.  `thinkt` unlocks those "thinking traces" for you.
 
@@ -182,5 +183,7 @@ Available MCP tools:
 - [wethinkt](https://github.com/wethinkt/wethinkt) - 3D visualization tool for exploring LLM conversation traces
 
 ## License
+
+Created with :heart: and :fire: by the team at [Neomantra](https://www.neomantra.net) and [BrainSTM](https://brain-stm.org).
 
 MIT License - see [LICENSE.txt](./LICENSE.txt)
