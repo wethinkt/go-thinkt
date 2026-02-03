@@ -19,7 +19,7 @@ jobs:
           - os: ubuntu-latest
             goos: linux
             goarch: arm64
-          - os: macos-13
+          - os: macos-15-intel
             goos: darwin
             goarch: amd64
           - os: macos-latest
@@ -34,6 +34,19 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+
+      - name: Setup Zig (for cross-compilation)
+        if: matrix.goos == 'darwin' && matrix.goarch == 'amd64'
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.13.0
+
+      - name: Set up Zig as CGO compiler (Intel Mac)
+        if: matrix.goos == 'darwin' && matrix.goarch == 'amd64'
+        run: |
+          echo "CC=zig cc -target x86_64-macos-none" >> $GITHUB_ENV
+          echo "CXX=zig c++ -target x86_64-macos-none" >> $GITHUB_ENV
+          echo "CGO_ENABLED=1" >> $GITHUB_ENV
 
       - name: Run GoReleaser (split)
         uses: goreleaser/goreleaser-action@v6

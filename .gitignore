@@ -29,6 +29,9 @@ go.work.sum
 # Generated Documentation
 /docs/man
 
+# Release artifacts
+/dist
+
 # IDE
 .idea/
 *.swp
