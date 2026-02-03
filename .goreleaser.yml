@@ -1,5 +1,11 @@
 version: 2
 
+before:
+  hooks:
+    - go mod tidy
+    - go build -o /tmp/thinkt ./cmd/thinkt
+    - /tmp/thinkt docs man -o ./docs/man
+
 builds:
   - id: thinkt
     main: ./cmd/thinkt
@@ -24,6 +30,10 @@ archives:
           - zip
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - src: ./docs/man/*
+        dst: man/man1/
+        strip_parent: true
 
 checksum:
   name_template: checksums.txt
