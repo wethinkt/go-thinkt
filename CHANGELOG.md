@@ -1,6 +1,6 @@
 # `go-thinkt` CHANGELOG
 
- ## v0.2.0 (2026-02-03)
+ ## v0.2.4 (2026-02-03)
 
 So much more stuff...
 
