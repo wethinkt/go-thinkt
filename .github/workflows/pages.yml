@@ -37,7 +37,7 @@ jobs:
         run: go build -o thinkt ./cmd/thinkt
 
       - name: Generate command docs
-        run: ./thinkt docs markdown --hugo -o docs/hugo/command -v
+        run: ./thinkt docs markdown --hugo -o docs/hugo/content/command -v
 
       - name: Setup Pages
         id: pages

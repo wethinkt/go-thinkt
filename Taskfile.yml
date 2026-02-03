@@ -118,9 +118,10 @@ tasks:
     cmds:
       - hugo serve
 
-  docs:hugo:deploy:
-    desc: Serve hugo docs for deployment
+  docs:hugo:build:
+    desc: Build hugo docs
     deps: [docs:md:build]
     dir: ./docs/hugo
     cmds:
-      - hugo build
+      - rm -rf public
+      - hugo --minify
