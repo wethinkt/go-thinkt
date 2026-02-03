@@ -907,3 +907,21 @@ keep as is.  that project list is not expanding to the bottom of projects-panel.
 ## 2026-02-02T18:06:31Z
 
 we are going to refactor the command in this project.  cmd/thinkt/main.go has become quite large.  within the same folder cmd/thinkt make files scoped to each significant command.  for example sessions_cmd.go
+
+---
+
+## 2026-02-02T18:57:53Z
+
+what's the difference between those _cmd files and the internal/cli files?
+
+---
+
+## 2026-02-02T19:59:35Z
+
+when i run the TUI and escape out, it blanks and prints "No pages to display" and hangs.  i have to kill it from another termial.  look at the flow and tell me what's going on
+
+---
+
+## 2026-02-02T20:04:08Z
+
+yes

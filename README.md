@@ -4,7 +4,29 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/wethinkt/go-thinkt.svg)](https://pkg.go.dev/github.com/wethinkt/go-thinkt)
 
 
-`thinkt` is a CLI tool for exploring conversation traces from AI coding assistants. It supports multiple sources including Claude Code, Kimi Code, Gemini CLI, and GitHub Copilot.
+`thinkt` is a CLI tool for exploring conversation traces from AI coding assistants. 
+
+There are many local agentic coding environments such as Claude Code, Kimi Code, and Gemini CLI.  As you use them, session data is written locally.  `thinkt` unlocks those "thinking traces" for you.
+
+You can use `thinkt` to...
+
+ * *Explore* the conversation traces with a CLI, TUI, or webapp
+ * *Analyze* and index these traces for understanding and governance
+ * *Share* these with your tooling and LLMs via an OpenAPI HTTP server and MCP server
+
+All of these thinking `Source`s have similar structures and use common machinery such as JSONL file: 
+ * `Projects` located in *local  folders*, which hold:
+   * `Session`s of many conversation `Turn`s, which each have:
+      * one `User Input`
+      * multiple `Tool Calls` and `Results`
+      * miltiple `Thinking` blocks
+      * one `LLM Output `
+
+We have a common `thinkt` interface to enable uniform access to various `Sources`.  We maintain a library of implementations and currently support:
+  - [*Claude Code*](https://claude.com/product/claude-code) from Anthropic
+  - [*Kimi Code*](https://www.kimi.com/code) from Moonshot
+  - [*Gemini CLI*](https://geminicli.com) from Google
+  - [*Copilot CLI*](https://github.com/features/copilot/cli) from GitHub
 
 Right now much of the implementation is in package `internal`, but we will eventually build out a public package as it stabilizes.
 

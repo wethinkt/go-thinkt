@@ -90,3 +90,37 @@ tasks:
     dir: ./internal/server/docs
     cmds:
       - rm -f docs.go swagger.json swagger.yaml
+
+  ###############################################################################
+  # Documentation
+  ###############################################################################
+
+  docs:man:build:
+    desc: Generate man pages
+    deps: [build]
+    cmds:
+      - ./bin/thinkt docs man -o docs/man -v
+    sources:
+      - ./cmd/thinkt/**/*.go
+
+  docs:md:build:
+    desc: Generate hugo docs
+    deps: [build]
+    cmds:
+      - ./bin/thinkt docs markdown --hugo -o docs/hugo/content/command -v
+    sources:
+      - ./cmd/thinkt/**/*.go
+
+  docs:hugo:serve:
+    desc: Serve hugo docs server
+    deps: [docs:md:build]
+    dir: ./docs/hugo
+    cmds:
+      - hugo serve
+
+  docs:hugo:deploy:
+    desc: Serve hugo docs for deployment
+    deps: [docs:md:build]
+    dir: ./docs/hugo
+    cmds:
+      - hugo build

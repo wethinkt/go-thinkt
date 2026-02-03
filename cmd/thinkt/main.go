@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/pprof"
+	"slices"
 
 	"github.com/spf13/cobra"
 )
@@ -190,6 +191,18 @@ func main() {
 	sourcesCmd.AddCommand(sourcesListCmd)
 	sourcesCmd.AddCommand(sourcesStatusCmd)
 	sourcesCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "output as JSON")
+
+	// Docs command (hidden unless --verbose)
+	docsCmd.PersistentFlags().StringVarP(&docsOutputDir, "output", "o", "./docs", "output directory for generated docs")
+	docsCmd.PersistentFlags().BoolVar(&docsEnableAutoGenTag, "enableAutoGenTag", false, "include auto-generation tag (timestamp footer) for publishing")
+	docsMarkdownCmd.Flags().BoolVar(&docsHugo, "hugo", false, "generate Hugo-compatible markdown with YAML front matter")
+	docsCmd.AddCommand(docsMarkdownCmd)
+	docsCmd.AddCommand(docsManCmd)
+	rootCmd.AddCommand(docsCmd)
+	if slices.Contains(os.Args, "-v") || slices.Contains(os.Args, "--verbose") {
+		// Show hidden commands in help when --verbose is used
+		docsCmd.Hidden = false
+	}
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

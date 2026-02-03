@@ -1,5 +1,6 @@
 // Package jsonl provides streaming access to JSON Lines files.
 // JSON Lines is a format where each line is a valid JSON value.
+// JSONL is used broadly by local LLM applications for storing structured data.
 package jsonl
 
 import (

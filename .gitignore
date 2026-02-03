@@ -26,6 +26,9 @@ bin/
 go.work
 go.work.sum
 
+# Generated Documentation
+/docs/man
+
 # IDE
 .idea/
 *.swp
