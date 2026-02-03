@@ -1,5 +1,8 @@
 version: 2
 
+partial:
+  by: target
+
 before:
   hooks:
     - go mod tidy
@@ -11,14 +14,9 @@ builds:
     main: ./cmd/thinkt
     binary: thinkt
     env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-      - darwin
-      - windows
-    goarch:
-      - amd64
-      - arm64
+      - CGO_ENABLED=1
+    targets:
+      - '{{ .Env.GORELEASER_CURRENT_GOOS }}_{{ .Env.GORELEASER_CURRENT_GOARCH }}'
 
 archives:
   - id: default
@@ -37,6 +35,7 @@ archives:
 
 checksum:
   name_template: checksums.txt
+  split: true
 
 changelog:
   sort: asc
