@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Use goreleaser-cross image for CGO cross-compilation
-      GORELEASER_CROSS_VERSION: v1.25.5
+      GORELEASER_CROSS_VERSION: v1.25.6
     steps:
       - uses: actions/checkout@v4
         with:

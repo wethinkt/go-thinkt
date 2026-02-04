@@ -132,6 +132,7 @@ dockers_v2:
   - images:
       - wethinkt/thinkt
       - ghcr.io/wethinkt/thinkt
+    dockerfile: etc/Dockerfile.goreleaser
     tags:
       - "v{{ .Version }}"
       - "{{ if .IsNightly }}nightly{{ end }}"
@@ -143,3 +144,8 @@ dockers_v2:
       "label=org.opencontainers.image.created": "{{ .Date }}"
       "label=org.opencontainers.image.revision": "{{ .FullCommit }}"
       "label=org.opencontainers.image.source": "{{ .GitURL }}"
+    platforms:
+      - linux-amd64
+      - linux-arm64
+      - darwin-amd64
+      - darwin-arm64
