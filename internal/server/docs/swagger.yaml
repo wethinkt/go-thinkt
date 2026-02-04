@@ -334,16 +334,18 @@ definitions:
     type: object
   thinkt.Source:
     enum:
-    - kimi
+    - thinkt
     - claude
-    - gemini
     - copilot
+    - gemini
+    - kimi
     type: string
     x-enum-varnames:
-    - SourceKimi
+    - SourceThinkt
     - SourceClaude
-    - SourceGemini
     - SourceCopilot
+    - SourceGemini
+    - SourceKimi
   thinkt.TokenUsage:
     properties:
       cache_creation_input_tokens:
