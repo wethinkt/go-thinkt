@@ -127,7 +127,7 @@ homebrew_casks:
     binaries:
       - thinkt
     manpages:
-      - man/man1
+      - docs/man
 
 dockers:
   - id: linux-amd64
