@@ -148,6 +148,32 @@ Persisted research reports are available in `etc/reports`.
 | [etc/reports/ONTOLOGY_ANALYSIS.md](./etc/reports/ONTOLOGY_ANALYSIS.md) | Data model ontology |
 | [etc/reports/COMPONENT_MODEL.md](./etc/reports/COMPONENT_MODEL.md) | Component architecture |
 
+## Docker
+
+Multi-platform Docker images (`linux/amd64`, `linux/arm64`) are published to `ghcr.io/wethinkt/thinkt`.
+
+### Dockerfile
+
+Located at project root. Based on `debian:bookworm-slim` (required for glibc/CGO compatibility with DuckDB).
+
+- Runs as non-root user `thinkt` (uid 5454)
+- Home directory: `/data` (so `~/.claude` → `/data/.claude`)
+- Entrypoint: `thinkt` (requires subcommand)
+
+### Building
+
+Docker images are built via GoReleaser using the `goreleaser-cross` image for CGO cross-compilation. See `.goreleaser.yml` for configuration.
+
+### Usage
+
+```bash
+# Bind-mount session directories (paths resolve automatically via $HOME=/data)
+docker run -p 7433:7433 \
+  -v ~/.claude:/data/.claude:ro \
+  -v ~/.kimi:/data/.kimi:ro \
+  ghcr.io/wethinkt/thinkt:latest serve --host 0.0.0.0
+```
+
 ## Development
 
 ```bash

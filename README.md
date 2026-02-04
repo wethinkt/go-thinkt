@@ -5,7 +5,7 @@
 [![User Guide](https://img.shields.io/badge/User%20Guide-6B2DAD)](https://wethinkt.github.io/go-thinkt/)
 
 
-**This tool is still in alpha stages and is for educational purposes only in its current state.**
+**This tool is still in alpha stages and is for educational purposes only in its current state. Consider running it [in a container](#docker).**
 
 `thinkt` is a CLI tool for exploring conversation traces from AI coding assistants.   You can learn more about us at [wethinkt.com](https://wethinkt.com).
 
@@ -69,6 +69,31 @@ go install github.com/wethinkt/go-thinkt/cmd/thinkt@latest
 git clone https://github.com/wethinkt/go-thinkt.git
 cd go-thinkt
 task build
+```
+
+### Docker
+
+Multi-platform Docker images are available for `linux/amd64` and `linux/arm64`:
+
+```bash
+docker pull ghcr.io/wethinkt/thinkt:latest
+```
+
+The container user's home directory is `/data`, so default paths like `~/.claude` resolve to `/data/.claude`. Simply bind-mount your session directories:
+
+```bash
+# Run the HTTP server
+docker run -p 7433:7433 \
+  -v ~/.claude:/data/.claude:ro \
+  -v ~/.kimi:/data/.kimi:ro \
+  ghcr.io/wethinkt/thinkt:latest serve --host 0.0.0.0
+
+# Run any command
+docker run -v ~/.claude:/data/.claude:ro \
+  ghcr.io/wethinkt/thinkt:latest projects --long
+
+# Show help
+docker run ghcr.io/wethinkt/thinkt:latest --help
 ```
 
 ## Quick Start
