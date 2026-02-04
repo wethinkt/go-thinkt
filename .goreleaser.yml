@@ -2,24 +2,90 @@
 
 version: 2
 
-partial:
-  by: goos
-
 before:
   hooks:
     - go mod tidy
     - go run ./cmd/thinkt docs man -o ./docs/man
 
 builds:
-  - id: thinkt
+  - id: linux-amd64
     main: ./cmd/thinkt
     binary: thinkt
+    goos:
+      - linux
+    goarch:
+      - amd64
     env:
       - CGO_ENABLED=1
-    targets: [go_first_class]
+      - CC=x86_64-linux-gnu-gcc
+      - CXX=x86_64-linux-gnu-g++
+    ldflags:
+      - -s -w
+
+  - id: linux-arm64
+    main: ./cmd/thinkt
+    binary: thinkt
+    goos:
+      - linux
+    goarch:
+      - arm64
+    env:
+      - CGO_ENABLED=1
+      - CC=aarch64-linux-gnu-gcc
+      - CXX=aarch64-linux-gnu-g++
+    ldflags:
+      - -s -w
+
+  - id: darwin-amd64
+    main: ./cmd/thinkt
+    binary: thinkt
+    goos:
+      - darwin
+    goarch:
+      - amd64
+    env:
+      - CGO_ENABLED=1
+      - CC=o64-clang
+      - CXX=o64-clang++
+    ldflags:
+      - -s -w
+
+  - id: darwin-arm64
+    main: ./cmd/thinkt
+    binary: thinkt
+    goos:
+      - darwin
+    goarch:
+      - arm64
+    env:
+      - CGO_ENABLED=1
+      - CC=oa64-clang
+      - CXX=oa64-clang++
+    ldflags:
+      - -s -w
+
+  - id: windows-amd64
+    main: ./cmd/thinkt
+    binary: thinkt
+    goos:
+      - windows
+    goarch:
+      - amd64
+    env:
+      - CGO_ENABLED=1
+      - CC=x86_64-w64-mingw32-gcc
+      - CXX=x86_64-w64-mingw32-g++
+    ldflags:
+      - -s -w
 
 archives:
   - id: default
+    builds:
+      - linux-amd64
+      - linux-arm64
+      - darwin-amd64
+      - darwin-arm64
+      - windows-amd64
     formats:
       - tar.gz
     format_overrides:
@@ -35,7 +101,6 @@ archives:
 
 checksum:
   name_template: checksums.txt
-  split: true
 
 changelog:
   sort: asc
