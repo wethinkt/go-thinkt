@@ -117,7 +117,7 @@ brews:
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     homepage: https://github.com/wethinkt/go-thinkt
-    description: CLI tools for exploring LLM conversation traces
+    description: Tools for exploring LLM conversation traces
     license: MIT
     install: |
       bin.install "thinkt"
@@ -127,6 +127,7 @@ dockers:
   - id: linux-amd64
     ids:
       - linux-amd64
+    dockerfile: etc/Dockerfile.goreleaser
     image_templates:
       - "ghcr.io/wethinkt/thinkt:{{ .Version }}-amd64"
       - "ghcr.io/wethinkt/thinkt:latest-amd64"
@@ -144,6 +145,7 @@ dockers:
   - id: linux-arm64
     ids:
       - linux-arm64
+    dockerfile: etc/Dockerfile.goreleaser
     image_templates:
       - "ghcr.io/wethinkt/thinkt:{{ .Version }}-arm64"
       - "ghcr.io/wethinkt/thinkt:latest-arm64"

@@ -152,9 +152,16 @@ Persisted research reports are available in `etc/reports`.
 
 Multi-platform Docker images (`linux/amd64`, `linux/arm64`) are published to `ghcr.io/wethinkt/thinkt`.
 
-### Dockerfile
+### Dockerfiles
 
-Located at project root. Based on `debian:bookworm-slim` (required for glibc/CGO compatibility with DuckDB).
+Two Dockerfiles exist:
+
+| File | Purpose |
+|------|---------|
+| `Dockerfile` | Multi-stage build for CI and local use. Builds binary from source. |
+| `Dockerfile.goreleaser` | Simple runtime image for GoReleaser. Uses pre-built cross-compiled binary. |
+
+Both use `debian:bookworm-slim` runtime (required for glibc/CGO compatibility with DuckDB).
 
 - Runs as non-root user `thinkt` (uid 5454)
 - Home directory: `/data` (so `~/.claude` → `/data/.claude`)
@@ -162,7 +169,8 @@ Located at project root. Based on `debian:bookworm-slim` (required for glibc/CGO
 
 ### Building
 
-Docker images are built via GoReleaser using the `goreleaser-cross` image for CGO cross-compilation. See `.goreleaser.yml` for configuration.
+- **CI/Local**: Uses `Dockerfile` with multi-stage build (golang → debian-slim)
+- **Release**: Uses `Dockerfile.goreleaser` with `goreleaser-cross` for CGO cross-compilation. See `.goreleaser.yml`.
 
 ### Usage
 
