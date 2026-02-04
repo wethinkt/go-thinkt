@@ -110,14 +110,15 @@ changelog:
       - "^test:"
       - "^ci:"
 
-homebrew_casks:
+brews:
   - name: thinkt
-    binaries:
-      - thinkt
     repository:
       owner: wethinkt
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
-    directory: Casks
     homepage: https://github.com/wethinkt/go-thinkt
     description: CLI tools for exploring LLM conversation traces
+    license: MIT
+    install: |
+      bin.install "thinkt"
+      man1.install Dir["man/man1/*"]
