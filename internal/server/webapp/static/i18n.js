@@ -5,6 +5,13 @@ const i18n = {
     lang: navigator.language.startsWith('zh') ? 'zh' :
           navigator.language.startsWith('es') ? 'es' : 'en',
 
+    // Language display names
+    languageNames: {
+        en: 'English',
+        es: 'Español',
+        zh: '中文'
+    },
+
     // Translations
     translations: {
         en: {
@@ -256,11 +263,44 @@ function setLanguage(lang) {
     if (typeof loadProjects === 'function') loadProjects();
 }
 
-// Update language selector active state
+// Toggle language dropdown menu
+function toggleLangMenu() {
+    const selector = document.getElementById('lang-selector');
+    selector.classList.toggle('open');
+}
+
+// Close language menu when clicking outside
+document.addEventListener('click', (e) => {
+    const selector = document.getElementById('lang-selector');
+    if (selector && !selector.contains(e.target)) {
+        selector.classList.remove('open');
+    }
+});
+
+// Update language selector
 function updateLangSelector() {
-    document.querySelectorAll('.lang-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.lang === i18n.lang);
-    });
+    const currentEl = document.querySelector('.lang-current');
+    const menuEl = document.getElementById('lang-menu');
+
+    if (currentEl) {
+        currentEl.textContent = i18n.languageNames[i18n.lang] || i18n.lang.toUpperCase();
+    }
+
+    if (menuEl) {
+        const languages = i18n.getLanguages();
+        menuEl.innerHTML = languages.map(lang => `
+            <button class="lang-menu-item ${lang === i18n.lang ? 'active' : ''}"
+                    onclick="selectLanguage('${lang}')">
+                <span class="lang-check">✓</span>${i18n.languageNames[lang] || lang.toUpperCase()}
+            </button>
+        `).join('');
+    }
+}
+
+// Select language from dropdown
+function selectLanguage(lang) {
+    setLanguage(lang);
+    document.getElementById('lang-selector').classList.remove('open');
 }
 
 // Initialize on page load
@@ -282,6 +322,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Set initial language selector state
+    // Build and set initial language selector state
     updateLangSelector();
+});
+
+// Close dropdown on Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const selector = document.getElementById('lang-selector');
+        if (selector) selector.classList.remove('open');
+    }
 });

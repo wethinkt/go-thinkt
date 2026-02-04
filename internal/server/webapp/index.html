@@ -16,9 +16,11 @@
             <span class="status-text">Connecting...</span>
         </div>
         <div class="lang-selector" id="lang-selector">
-            <button class="lang-btn" data-lang="en" onclick="setLanguage('en')">EN</button>
-            <button class="lang-btn" data-lang="es" onclick="setLanguage('es')">ES</button>
-            <button class="lang-btn" data-lang="zh" onclick="setLanguage('zh')">中文</button>
+            <button class="lang-toggle" onclick="toggleLangMenu()">
+                <span class="lang-current">EN</span>
+                <span class="lang-caret">▼</span>
+            </button>
+            <div class="lang-menu" id="lang-menu"></div>
         </div>
     </div>
 
@@ -50,7 +52,8 @@
         </div>
 
         <div class="panel projects-panel">
-            <h2><span class="icon">📁</span> <span data-i18n="projects">Projects</span> <span id="project-count" class="badge">-</span></h2>
+            <h2><span class="icon">📁</span> <span data-i18n="projects">Projects</span> <span id="project-count"
+                    class="badge">-</span></h2>
             <div id="projects-list" class="project-list loading" data-i18n="loading">Loading...</div>
         </div>
     </div>
@@ -155,7 +158,7 @@
                 data.sources.forEach(s => visibleSources.add(s.name));
 
                 container.innerHTML = data.sources.map(s => `
-                    <div class="source-item">
+                    <div class="source-item source-${s.name.toLowerCase()}">
                         <div>
                             <div class="source-name">${escapeHtml(s.name)}</div>
                             ${s.base_path ? `<div class="source-meta">${escapeHtml(truncatePath(s.base_path))}</div>` : ''}
@@ -221,11 +224,11 @@
 
         function renderOpenInDropdown(path) {
             if (availableApps.length === 0) return '';
-            
+
             const defaultApp = availableApps[0];
             const otherApps = availableApps.slice(1);
             const dropdownId = `dropdown-${path.replace(/[^a-zA-Z0-9]/g, '-')}`;
-            
+
             return `
                 <div class="project-actions">
                     <div class="open-in-dropdown">
@@ -295,6 +298,57 @@
             }
         }
 
+        // Detect home directory prefix
+        function detectHomeDir(projects) {
+            if (!projects || projects.length === 0) return null;
+            // Look for common home directory patterns
+            const homePrefixes = ['/Users/', '/home/', 'C:\\Users\\'];
+            for (const p of projects) {
+                for (const prefix of homePrefixes) {
+                    const idx = p.path.indexOf(prefix);
+                    if (idx !== -1) {
+                        // Extract full home dir (e.g., /Users/evan or /home/user)
+                        const afterPrefix = p.path.slice(idx + prefix.length);
+                        const nextSlash = afterPrefix.indexOf('/');
+                        const nextBackslash = afterPrefix.indexOf('\\');
+                        let endIdx = -1;
+                        if (nextSlash !== -1 && nextBackslash !== -1) {
+                            endIdx = Math.min(nextSlash, nextBackslash);
+                        } else if (nextSlash !== -1) {
+                            endIdx = nextSlash;
+                        } else if (nextBackslash !== -1) {
+                            endIdx = nextBackslash;
+                        }
+                        if (endIdx !== -1) {
+                            return p.path.slice(0, idx + prefix.length + endIdx);
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        // Format path with dimmed home directory
+        function formatPathWithDim(path, homeDir) {
+            if (!homeDir || !path.startsWith(homeDir)) {
+                return `<span class="path-highlight">${escapeHtml(path)}</span>`;
+            }
+            const dimPart = path.slice(0, homeDir.length);
+            const highlightPart = path.slice(homeDir.length);
+            return `<span class="path-dim">${escapeHtml(dimPart)}</span><span class="path-highlight">${escapeHtml(highlightPart)}</span>`;
+        }
+
+        // Render source badges
+        function renderSourceBadges(sources) {
+            return sources.map(s => {
+                const sourceClass = `source-${s.name.toLowerCase()}`;
+                return `<span class="source-badge ${sourceClass}">
+                    ${escapeHtml(s.name)}
+                    <span class="session-count">(${s.sessionCount})</span>
+                </span>`;
+            }).join('');
+        }
+
         async function loadProjects() {
             const container = document.getElementById('projects-list');
             const countBadge = document.getElementById('project-count');
@@ -310,10 +364,45 @@
 
                 // Filter by visible sources
                 const filtered = data.projects.filter(p => visibleSources.has(p.source));
-                countBadge.textContent = filtered.length;
+
+                // Aggregate projects by path
+                const projectMap = new Map();
+                for (const p of filtered) {
+                    const existing = projectMap.get(p.path);
+                    if (existing) {
+                        // Add source info
+                        existing.sources.push({
+                            name: p.source,
+                            sessionCount: p.session_count || 0
+                        });
+                        existing.totalSessions += p.session_count || 0;
+                        // Use most recent modified_at
+                        if (p.modified_at) {
+                            const pTime = new Date(p.modified_at).getTime();
+                            const existingTime = existing.modified_at ? new Date(existing.modified_at).getTime() : 0;
+                            if (pTime > existingTime) {
+                                existing.modified_at = p.modified_at;
+                            }
+                        }
+                    } else {
+                        projectMap.set(p.path, {
+                            path: p.path,
+                            name: p.name,
+                            sources: [{
+                                name: p.source,
+                                sessionCount: p.session_count || 0
+                            }],
+                            totalSessions: p.session_count || 0,
+                            modified_at: p.modified_at
+                        });
+                    }
+                }
+
+                const aggregated = Array.from(projectMap.values());
+                countBadge.textContent = aggregated.length;
 
                 // Sort by modified_at desc (newest first), nulls last
-                const sorted = filtered.sort((a, b) => {
+                const sorted = aggregated.sort((a, b) => {
                     const aTime = a.modified_at ? new Date(a.modified_at).getTime() : 0;
                     const bTime = b.modified_at ? new Date(b.modified_at).getTime() : 0;
                     return bTime - aTime;
@@ -324,13 +413,18 @@
                     return;
                 }
 
+                // Detect home directory for dimming
+                const homeDir = detectHomeDir(sorted);
+
                 container.innerHTML = sorted.map(p => `
                     <div class="project-item" title="${t('click-to-copy')}">
                         <div class="project-info" onclick="copyPath('${escapeHtml(p.path)}')">
-                            <div class="project-path">${escapeHtml(p.path)}</div>
+                            <div class="project-path">${formatPathWithDim(p.path, homeDir)}</div>
+                            <div class="source-badges">
+                                ${renderSourceBadges(p.sources)}
+                            </div>
                             <div class="project-meta">
-                                <span class="project-source">${escapeHtml(p.source)}</span>
-                                <span>${p.session_count || 0} ${p.session_count === 1 ? t('session') : t('sessions')}</span>
+                                <span>${p.totalSessions} ${p.totalSessions === 1 ? t('session') : t('sessions')}</span>
                                 ${p.modified_at ? `<span>${formatDate(p.modified_at)}</span>` : ''}
                             </div>
                         </div>
@@ -393,7 +487,7 @@
         function updateConnectionStatus(status, text) {
             const statusEl = document.getElementById('connection-status');
             const textEl = statusEl.querySelector('.status-text');
-            
+
             statusEl.classList.remove('connected', 'disconnected', 'checking');
             statusEl.classList.add(status);
             textEl.textContent = text;
@@ -401,16 +495,16 @@
 
         async function pingServer() {
             updateConnectionStatus('checking', t('checking') || 'Checking...');
-            
+
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 5000);
-                
+
                 const res = await fetch(`${API_BASE}/api/v1/sources`, {
                     signal: controller.signal
                 });
                 clearTimeout(timeoutId);
-                
+
                 if (res.ok) {
                     updateConnectionStatus('connected', t('connected') || 'Connected');
                 } else {

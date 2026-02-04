@@ -40,8 +40,9 @@ h1 {
     top: 1rem;
     right: 1rem;
     display: flex;
-    align-items: center;
-    gap: 1rem;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
 }
 
 /* ===== Connection Status ===== */
@@ -109,11 +110,13 @@ h1 {
 
 /* ===== Language Selector ===== */
 .lang-selector {
-    display: flex;
-    gap: 0.3rem;
+    position: relative;
 }
 
-.lang-btn {
+.lang-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
     color: #888;
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid rgba(0, 217, 255, 0.2);
@@ -125,16 +128,75 @@ h1 {
     font-family: inherit;
 }
 
-.lang-btn:hover {
+.lang-toggle:hover {
     color: #00d9ff;
     border-color: #00d9ff;
 }
 
-.lang-btn.active {
-    color: #1a1a2e;
-    background: #00d9ff;
-    border-color: #00d9ff;
-    font-weight: 600;
+.lang-current {
+    min-width: 2.5em;
+    text-align: left;
+}
+
+.lang-caret {
+    font-size: 0.6rem;
+    transition: transform 0.2s;
+}
+
+.lang-selector.open .lang-caret {
+    transform: rotate(180deg);
+}
+
+.lang-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.25rem;
+    background: #1a1a2e;
+    border: 1px solid rgba(0, 217, 255, 0.3);
+    border-radius: 4px;
+    min-width: 100%;
+    z-index: 200;
+    display: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.lang-selector.open .lang-menu {
+    display: block;
+}
+
+.lang-menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font-size: 0.75rem;
+    padding: 0.5rem 0.8rem;
+    background: transparent;
+    border: none;
+    color: #e0e0e0;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.lang-menu-item:hover {
+    background: rgba(0, 217, 255, 0.15);
+    color: #00d9ff;
+}
+
+.lang-menu-item.active {
+    background: rgba(0, 217, 255, 0.1);
+    color: #00d9ff;
+}
+
+.lang-menu-item .lang-check {
+    margin-right: 0.4rem;
+    opacity: 0;
+}
+
+.lang-menu-item.active .lang-check {
+    opacity: 1;
 }
 
 /* ===== Navigation ===== */
@@ -317,6 +379,35 @@ h1 {
     margin-top: 0.2rem;
 }
 
+/* ===== Source Colors (Panel) ===== */
+.source-item.source-claude {
+    border-left: 3px solid #d68946;
+}
+.source-item.source-claude .source-name {
+    color: #d68946;
+}
+
+.source-item.source-kimi {
+    border-left: 3px solid #a67fff;
+}
+.source-item.source-kimi .source-name {
+    color: #a67fff;
+}
+
+.source-item.source-gemini {
+    border-left: 3px solid #6ba3ff;
+}
+.source-item.source-gemini .source-name {
+    color: #6ba3ff;
+}
+
+.source-item.source-copilot {
+    border-left: 3px solid #7fcc5a;
+}
+.source-item.source-copilot .source-name {
+    color: #7fcc5a;
+}
+
 /* ===== Themes ===== */
 .theme-item.active {
     border: 1px solid #00ff88;
@@ -370,13 +461,77 @@ h1 {
 .project-meta {
     display: flex;
     gap: 1rem;
-    margin-top: 0.25rem;
+    margin-top: 0.35rem;
     font-size: 0.7rem;
     color: #666;
 }
 
-.project-source {
+.project-meta span {
+    display: inline-flex;
+    align-items: center;
+}
+
+/* ===== Source Badges ===== */
+.source-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.3rem;
+}
+
+.source-badge {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.source-badge .session-count {
+    opacity: 0.8;
+    font-weight: 400;
+}
+
+/* Source-specific colors */
+.source-badge.source-claude {
+    background: rgba(214, 137, 70, 0.2);
+    color: #d68946;
+    border: 1px solid rgba(214, 137, 70, 0.3);
+}
+
+.source-badge.source-kimi {
+    background: rgba(138, 79, 255, 0.2);
+    color: #a67fff;
+    border: 1px solid rgba(138, 79, 255, 0.3);
+}
+
+.source-badge.source-gemini {
+    background: rgba(66, 133, 244, 0.2);
+    color: #6ba3ff;
+    border: 1px solid rgba(66, 133, 244, 0.3);
+}
+
+.source-badge.source-copilot {
+    background: rgba(110, 186, 76, 0.2);
+    color: #7fcc5a;
+    border: 1px solid rgba(110, 186, 76, 0.3);
+}
+
+.source-badge.source-default {
+    background: rgba(0, 217, 255, 0.2);
     color: #00d9ff;
+    border: 1px solid rgba(0, 217, 255, 0.3);
+}
+
+/* ===== Project Path Styling ===== */
+.project-path .path-dim {
+    color: #505060;
+}
+
+.project-path .path-highlight {
+    color: #e0e0e0;
 }
 
 .project-info {
