@@ -6,6 +6,9 @@ before:
   hooks:
     - go mod tidy
     - go run ./cmd/thinkt docs man -o ./docs/man
+    - go run ./cmd/thinkt completion bash > ./docs/completion.bash
+    - go run ./cmd/thinkt completion fish > ./docs/completion.fish
+    - go run ./cmd/thinkt completion zsh > ./docs/completion.zsh
 
 builds:
   - id: linux-amd64
@@ -128,6 +131,10 @@ homebrew_casks:
       - thinkt
     manpages:
       - docs/man
+    completions:
+      bash: docs/completions.bash
+      zsh: docs/completions.zsh
+      fish: docs/completions.fish
 
 dockers:
   - id: linux-amd64
