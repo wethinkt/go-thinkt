@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/wethinkt/go-thinkt/actions/workflows/ci.yml/badge.svg)](https://github.com/wethinkt/go-thinkt/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/wethinkt/go-thinkt.svg)](https://pkg.go.dev/github.com/wethinkt/go-thinkt)
+[![User Guide](https://img.shields.io/badge/User%20Guide-6B2DAD)](https://wethinkt.github.io/go-thinkt/)
+
 
 **This tool is still in alpha stages and is for educational purposes only in its current state.**
 
@@ -15,13 +17,14 @@ You can use `thinkt` to...
  * *Analyze* and index these traces for understanding and governance
  * *Share* these with your tooling and LLMs via an OpenAPI HTTP server and MCP server
 
-All of these thinking `Source`s have similar structures and use common machinery such as JSONL file: 
- * `Projects` located in *local  folders*, which hold:
-   * `Session`s of many conversation `Turn`s, which each have:
-      * one `User Input`
-      * multiple `Tool Calls` and `Results`
-      * miltiple `Thinking` blocks
-      * one `LLM Output `
+All of these LLM Assistant `Source`s have similar structures and use common machinery such as JSONL file: 
+ * `Project`s located in *local folders*, which hold many:
+ * `Session`s that has many conversation
+ * `Turn`s, which each have:
+    * one `User Input`
+    * multiple `Tool Call`s and `Tool Result`
+    * multiple `Thinking` blocks
+    * one `LLM Output`
 
 We have a common `thinkt` interface to enable uniform access to various `Sources`.  We maintain a library of implementations and currently support:
   - [*Claude Code*](https://claude.com/product/claude-code) from Anthropic
@@ -31,7 +34,9 @@ We have a common `thinkt` interface to enable uniform access to various `Sources
 
 Right now much of the implementation is in package `internal`, but we will eventually build out a public package as it stabilizes.
 
-### Features
+## [User Guide](https://wethinkt.github.io/go-thinkt/)
+
+## Features
 
 - **Interactive TUI**: Three-column terminal interface for browsing projects, sessions, and conversation content
 - **Multi-Source Support**: Works with Claude Code (`~/.claude`), Kimi Code (`~/.kimi`), Gemini CLI, and Copilot
@@ -47,8 +52,9 @@ Right now much of the implementation is in package `internal`, but we will event
 
 ### Homebrew
 
+*Homewbrew is NOT AVAILABLE YET*
 ```bash
-brew install brain-stm-org/tap/thinkt
+brew install wethinkt/tap/thinkt
 ```
 
 ### Go
@@ -180,10 +186,10 @@ Available MCP tools:
 
 ## Related Projects
 
-- [wethinkt](https://github.com/wethinkt/wethinkt) - 3D visualization tool for exploring LLM conversation traces
+- [Thinking Tracer](https://github.com/Brain-STM-org/thinking-tracer) - visualization tool for exploring LLM conversation traces
 
 ## License
 
 Created with :heart: and :fire: by the team at [Neomantra](https://www.neomantra.net) and [BrainSTM](https://brain-stm.org).
 
-MIT License - see [LICENSE.txt](./LICENSE.txt)
+Released under the MIT License - see [LICENSE.txt](./LICENSE.txt)

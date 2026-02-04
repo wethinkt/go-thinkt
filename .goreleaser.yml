@@ -1,7 +1,6 @@
-version: 2
+# .goreleaser.yml
 
-partial:
-  by: target
+version: 2
 
 before:
   hooks:
@@ -15,8 +14,7 @@ builds:
     binary: thinkt
     env:
       - CGO_ENABLED=1
-    targets:
-      - '{{ .Env.GORELEASER_CURRENT_GOOS }}_{{ .Env.GORELEASER_CURRENT_GOARCH }}'
+    targets: [go_first_class]
 
 archives:
   - id: default

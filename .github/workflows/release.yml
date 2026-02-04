@@ -1,6 +1,7 @@
 name: Release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
@@ -9,88 +10,106 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  prepare:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            goos: linux
-            goarch: amd64
-          - os: ubuntu-latest
-            goos: linux
-            goarch: arm64
-          #- os: macos-15-intel
-          #  goos: darwin
-          #  goarch: amd64
-          - os: macos-latest
-            goos: darwin
-            goarch: arm64
+          - os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      flags: ""
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
-      - name: Setup Zig (for cross-compilation)
-        if: matrix.goos == 'darwin' && matrix.goarch == 'amd64'
-        uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.13.0
-
-      - name: Set up Zig as CGO compiler (Intel Mac)
-        if: matrix.goos == 'darwin' && matrix.goarch == 'amd64'
+      - if: ${{ github.event_name == 'workflow_dispatch' }}
+        shell: bash
         run: |
-          echo "CC=zig cc -target x86_64-macos-none" >> $GITHUB_ENV
-          echo "CXX=zig c++ -target x86_64-macos-none" >> $GITHUB_ENV
-          echo "CGO_ENABLED=1" >> $GITHUB_ENV
+          echo "flags=--nightly" >> $GITHUB_ENV
+
+      - name: Get short SHA
+        run: |
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - uses: actions/cache@v5
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          path: dist/linux
+          key: linux-${{ env.sha_short }}${{ env.flags }}
+      - uses: actions/cache@v5
+        if: matrix.os == 'macos-latest'
+        with:
+          path: dist/darwin
+          key: darwin-${{ env.sha_short }}${{ env.flags }}
+      - uses: actions/cache@v5
+        if: matrix.os == 'windows-latest'
+        with:
+          path: dist/windows
+          key: windows-${{ env.sha_short }}${{ env.flags }}
+          enableCrossOsArchive: true
 
       - name: Run GoReleaser (split)
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser-pro
-          version: "~> v2"
-          args: release --clean --split
+          version: latest
+          args: release --clean --split ${{ env.flags}}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
-          GORELEASER_CURRENT_GOOS: ${{ matrix.goos }}
-          GORELEASER_CURRENT_GOARCH: ${{ matrix.goarch }}
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: artifacts-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: dist/
 
   release:
     runs-on: ubuntu-latest
-    needs: build
+    needs: prepare
+    env:
+      flags: ""
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-          pattern: artifacts-*
-          merge-multiple: true
+      - name: Get short SHA
+        run: |
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
+      # copy the cashes from prepare
+      - if: ${{ github.event_name == 'workflow_dispatch' }}
+        shell: bash
+        run: |
+          echo "flags=--nightly" >> $GITHUB_ENV
+      - shell: bash
+        run: |
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      - uses: actions/cache@v5
+        with:
+          path: dist/linux
+          key: linux-${{ env.sha_short }}${{ env.flags }}
+      - uses: actions/cache@v5
+        with:
+          path: dist/darwin
+          key: darwin-${{ env.sha_short }}${{ env.flags }}
+      - uses: actions/cache@v5
+        with:
+          path: dist/windows
+          key: windows-${{ env.sha_short }}${{ env.flags }}
+          enableCrossOsArchive: true
+
+      # release
       - name: Merge releases
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser-pro
-          version: "~> v2"
+          version: latest
           args: continue --merge
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

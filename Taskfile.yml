@@ -135,8 +135,13 @@ tasks:
           exit 1
         fi
       - goreleaser release --snapshot --clean --split
-    env:
-      GORELEASER_CURRENT_GOOS:
-        sh: go env GOOS
-      GORELEASER_CURRENT_GOARCH:
-        sh: go env GOARCH
+
+  release:merge:
+    desc: Merge split release builds (requires PRO key)
+    cmds:
+      - |
+        if [ -z "$GORELEASER_KEY" ]; then
+          echo "Error: GORELEASER_KEY env var not set"
+          exit 1
+        fi
+      - goreleaser continue --merge
