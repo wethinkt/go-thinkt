@@ -95,6 +95,19 @@ tasks:
   # Documentation
   ###############################################################################
 
+  docker:release:
+    cmds:
+      - |
+        docker run --rm \
+          -v $(pwd):/go/src/github.com/wethinkt/go-thinkt \
+          -w /go/src/github.com/wethinkt/go-thinkt \
+          ghcr.io/goreleaser/goreleaser-cross:v1.25.6 \
+          build --snapshot --clean
+
+  ###############################################################################
+  # Documentation
+  ###############################################################################
+
   docs:man:build:
     desc: Generate man pages
     deps: [build]

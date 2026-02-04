@@ -44,6 +44,7 @@ builds:
     goarch:
       - amd64
     env:
+      - MACOSX_DEPLOYMENT_TARGET=11.0
       - CGO_ENABLED=1
       - CC=o64-clang
       - CXX=o64-clang++
@@ -58,34 +59,35 @@ builds:
     goarch:
       - arm64
     env:
+      - MACOSX_DEPLOYMENT_TARGET=11.0
       - CGO_ENABLED=1
       - CC=oa64-clang
       - CXX=oa64-clang++
     ldflags:
       - -s -w
 
-  - id: windows-amd64
-    main: ./cmd/thinkt
-    binary: thinkt
-    goos:
-      - windows
-    goarch:
-      - amd64
-    env:
-      - CGO_ENABLED=1
-      - CC=x86_64-w64-mingw32-gcc
-      - CXX=x86_64-w64-mingw32-g++
-    ldflags:
-      - -s -w
+  # - id: windows-amd64
+  #   main: ./cmd/thinkt
+  #   binary: thinkt
+  #   goos:
+  #     - windows
+  #   goarch:
+  #     - amd64
+  #   env:
+  #     - CGO_ENABLED=1
+  #     - CC=x86_64-w64-mingw32-gcc
+  #     - CXX=x86_64-w64-mingw32-g++
+  #   ldflags:
+  #     - -extldflags "-static -static-libgcc -static-libstdc++ -lpthread -lucrt"
 
 archives:
   - id: default
-    builds:
+    ids:
       - linux-amd64
       - linux-arm64
       - darwin-amd64
       - darwin-arm64
-      - windows-amd64
+      #- windows-amd64
     formats:
       - tar.gz
     format_overrides:
@@ -110,8 +112,10 @@ changelog:
       - "^test:"
       - "^ci:"
 
-brews:
+homebrew_casks:
   - name: thinkt
+    url:
+      verified: github.com/wethinkt/go-thinkt
     repository:
       owner: wethinkt
       name: homebrew-tap
@@ -119,55 +123,23 @@ brews:
     homepage: https://github.com/wethinkt/go-thinkt
     description: Tools for exploring LLM conversation traces
     license: MIT
-    install: |
-      bin.install "thinkt"
-      man1.install Dir["man/man1/*"]
+    binaries:
+      - thinkt
+    manpages:
+      - man/man1
 
-dockers:
-  - id: linux-amd64
-    ids:
-      - linux-amd64
-    dockerfile: etc/Dockerfile.goreleaser
-    image_templates:
-      - "ghcr.io/wethinkt/thinkt:{{ .Version }}-amd64"
-      - "ghcr.io/wethinkt/thinkt:latest-amd64"
-    build_flag_templates:
-      - "--pull"
-      - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.title=thinkt"
-      - "--label=org.opencontainers.image.description=Tools for exploring LLM conversation traces"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.source={{ .GitURL }}"
-    use: buildx
-
-  - id: linux-arm64
-    ids:
-      - linux-arm64
-    dockerfile: etc/Dockerfile.goreleaser
-    image_templates:
-      - "ghcr.io/wethinkt/thinkt:{{ .Version }}-arm64"
-      - "ghcr.io/wethinkt/thinkt:latest-arm64"
-    build_flag_templates:
-      - "--pull"
-      - "--platform=linux/arm64"
-      - "--label=org.opencontainers.image.title=thinkt"
-      - "--label=org.opencontainers.image.description=Tools for exploring LLM conversation traces"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.source={{ .GitURL }}"
-    use: buildx
-    goarch: arm64
-
-docker_manifests:
-  - name_template: "ghcr.io/wethinkt/thinkt:{{ .Version }}"
-    image_templates:
-      - "ghcr.io/wethinkt/thinkt:{{ .Version }}-amd64"
-      - "ghcr.io/wethinkt/thinkt:{{ .Version }}-arm64"
-
-  - name_template: "ghcr.io/wethinkt/thinkt:latest"
-    image_templates:
-      - "ghcr.io/wethinkt/thinkt:latest-amd64"
-      - "ghcr.io/wethinkt/thinkt:latest-arm64"
+dockers_v2:
+  - images:
+      - wethinkt/thinkt
+      - ghcr.io/wethinkt/thinkt
+    tags:
+      - "v{{ .Version }}"
+      - "{{ if .IsNightly }}nightly{{ end }}"
+      - "{{ if not .IsNightly }}latest{{ end }}"
+    labels:
+      "label=org.opencontainers.image.title": "{{ .ProjectName }}"
+      "label=org.opencontainers.image.description": "Tools for exploring LLM conversation traces"
+      "label=org.opencontainers.image.version": "{{ .Version }}"
+      "label=org.opencontainers.image.created": "{{ .Date }}"
+      "label=org.opencontainers.image.revision": "{{ .FullCommit }}"
+      "label=org.opencontainers.image.source": "{{ .GitURL }}"
