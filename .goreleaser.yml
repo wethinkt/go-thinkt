@@ -3,7 +3,7 @@
 version: 2
 
 partial:
-  by: target
+  by: goos
 
 before:
   hooks:
