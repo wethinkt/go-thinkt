@@ -129,24 +129,51 @@ homebrew_casks:
     manpages:
       - man/man1
 
-dockers_v2:
-  - images:
-      - wethinkt/thinkt
-      - ghcr.io/wethinkt/thinkt
+dockers:
+  - id: linux-amd64
+    ids:
+      - linux-amd64
     dockerfile: etc/Dockerfile.goreleaser
-    tags:
-      - "v{{ .Version }}"
-      - "{{ if .IsNightly }}nightly{{ end }}"
-      - "{{ if not .IsNightly }}latest{{ end }}"
-    labels:
-      "label=org.opencontainers.image.title": "{{ .ProjectName }}"
-      "label=org.opencontainers.image.description": "Tools for exploring LLM conversation traces"
-      "label=org.opencontainers.image.version": "{{ .Version }}"
-      "label=org.opencontainers.image.created": "{{ .Date }}"
-      "label=org.opencontainers.image.revision": "{{ .FullCommit }}"
-      "label=org.opencontainers.image.source": "{{ .GitURL }}"
-    platforms:
-      - linux/amd64
-      - linux/arm64
-      - darwin/amd64
-      - darwin/arm64
+    image_templates:
+      - "ghcr.io/wethinkt/thinkt:{{ .Version }}-amd64"
+      - "ghcr.io/wethinkt/thinkt:latest-amd64"
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title=thinkt"
+      - "--label=org.opencontainers.image.description=Tools for exploring LLM conversation traces"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.source={{ .GitURL }}"
+    use: buildx
+
+  - id: linux-arm64
+    ids:
+      - linux-arm64
+    dockerfile: etc/Dockerfile.goreleaser
+    image_templates:
+      - "ghcr.io/wethinkt/thinkt:{{ .Version }}-arm64"
+      - "ghcr.io/wethinkt/thinkt:latest-arm64"
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title=thinkt"
+      - "--label=org.opencontainers.image.description=Tools for exploring LLM conversation traces"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.source={{ .GitURL }}"
+    use: buildx
+    goarch: arm64
+
+docker_manifests:
+  - name_template: "ghcr.io/wethinkt/thinkt:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/wethinkt/thinkt:{{ .Version }}-amd64"
+      - "ghcr.io/wethinkt/thinkt:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/wethinkt/thinkt:latest"
+    image_templates:
+      - "ghcr.io/wethinkt/thinkt:latest-amd64"
+      - "ghcr.io/wethinkt/thinkt:latest-arm64"
