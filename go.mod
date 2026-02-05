@@ -5,7 +5,7 @@ go 1.25.5
 require (
 	charm.land/bubbles/v2 v2.0.0-rc.1
 	charm.land/bubbletea/v2 v2.0.0-rc.2
-	charm.land/lipgloss/v2 v2.0.0-beta.3.0.20251106192539-4b304240aab7
+	charm.land/lipgloss/v2 v2.0.0-beta.3.0.20251106193318-19329a3e8410
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/duckdb/duckdb-go/v2 v2.5.5
 	github.com/go-chi/chi/v5 v5.2.4

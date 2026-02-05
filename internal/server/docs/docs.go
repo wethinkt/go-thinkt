@@ -648,6 +648,10 @@ const docTemplate = `{
                     "description": "Full filesystem path",
                     "type": "string"
                 },
+                "path_exists": {
+                    "description": "Whether the project directory still exists on disk",
+                    "type": "boolean"
+                },
                 "session_count": {
                     "type": "integer"
                 },

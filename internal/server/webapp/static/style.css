@@ -577,6 +577,19 @@ h1 {
     color: #e0e0e0;
 }
 
+.project-item.path-missing {
+    opacity: 0.6;
+}
+
+.path-missing-icon {
+    cursor: help;
+    font-size: 0.75rem;
+}
+
+.light-mode .project-item.path-missing {
+    opacity: 0.5;
+}
+
 .project-info {
     flex: 1;
     min-width: 0;
@@ -596,6 +609,48 @@ h1 {
     gap: 0.3rem;
     flex-shrink: 0;
     margin-top: 0.1rem;
+}
+
+/* ===== Copy Path Button ===== */
+.copy-path-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: 1px solid rgba(0, 217, 255, 0.2);
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.copy-path-btn:hover {
+    background: rgba(0, 217, 255, 0.15);
+    border-color: #00d9ff;
+}
+
+.copy-path-btn.copied {
+    background: rgba(0, 255, 136, 0.15);
+    border-color: #00ff88;
+    color: #00ff88;
+}
+
+.light-mode .copy-path-btn {
+    border-color: rgba(37, 99, 235, 0.2);
+}
+
+.light-mode .copy-path-btn:hover {
+    background: rgba(37, 99, 235, 0.1);
+    border-color: #2563eb;
+}
+
+.light-mode .copy-path-btn.copied {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: #16a34a;
+    color: #16a34a;
 }
 
 /* ===== Open In Dropdown ===== */

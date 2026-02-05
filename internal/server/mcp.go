@@ -104,6 +104,7 @@ type projectInfo struct {
 	Path         string `json:"path"`
 	SessionCount int    `json:"session_count"`
 	Source       string `json:"source"`
+	PathExists   bool   `json:"path_exists"`
 }
 
 type listSessionsInput struct {
@@ -258,6 +259,7 @@ func (ms *MCPServer) handleListProjects(ctx context.Context, req *mcp.CallToolRe
 			Path:         p.Path,
 			SessionCount: p.SessionCount,
 			Source:       string(p.Source),
+			PathExists:   p.PathExists,
 		}
 	}
 

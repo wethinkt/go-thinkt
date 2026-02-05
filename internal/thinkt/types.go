@@ -4,6 +4,7 @@ package thinkt
 
 import (
 	"context"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -191,6 +192,7 @@ type Project struct {
 	LastModified time.Time `json:"last_modified"`
 	Source       Source    `json:"source"`       // Which tool
 	WorkspaceID  string    `json:"workspace_id"` // Which machine/host
+	PathExists   bool      `json:"path_exists"`  // Whether the project directory still exists on disk
 }
 
 // Store provides access to projects and sessions from a single workspace.
@@ -348,12 +350,17 @@ func (r *StoreRegistry) AvailableSources(ctx context.Context) []Source {
 }
 
 // ListAllProjects returns projects from all registered stores.
+// It checks whether each project's directory still exists on disk.
 func (r *StoreRegistry) ListAllProjects(ctx context.Context) ([]Project, error) {
 	var all []Project
 	for _, store := range r.All() {
 		projects, err := store.ListProjects(ctx)
 		if err != nil {
 			continue // Log error but don't fail entirely
+		}
+		for i := range projects {
+			_, err := os.Stat(projects[i].Path)
+			projects[i].PathExists = err == nil
 		}
 		all = append(all, projects...)
 	}

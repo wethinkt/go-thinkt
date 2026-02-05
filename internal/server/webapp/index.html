@@ -235,24 +235,22 @@
             const dropdownId = `dropdown-${path.replace(/[^a-zA-Z0-9]/g, '-')}`;
 
             return `
-                <div class="project-actions">
-                    <div class="open-in-dropdown">
-                        <button class="open-in-default" onclick="event.stopPropagation(); openInApp('${escapeHtml(defaultApp.id)}', '${escapeHtml(path)}')" title="${escapeHtml(defaultApp.name)}">
-                            ${escapeHtml(defaultApp.name.split(' ')[0])}
+                <div class="open-in-dropdown">
+                    <button class="open-in-default" onclick="event.stopPropagation(); openInApp('${escapeHtml(defaultApp.id)}', '${escapeHtml(path)}')" title="${escapeHtml(defaultApp.name)}">
+                        ${escapeHtml(defaultApp.name.split(' ')[0])}
+                    </button>
+                    ${otherApps.length > 0 ? `
+                        <button class="open-in-toggle" onclick="event.stopPropagation(); toggleOpenInMenu('${dropdownId}')" title="More options">
+                            ▼
                         </button>
-                        ${otherApps.length > 0 ? `
-                            <button class="open-in-toggle" onclick="event.stopPropagation(); toggleOpenInMenu('${dropdownId}')" title="More options">
-                                ▼
-                            </button>
-                            <div class="open-in-menu" id="${dropdownId}">
-                                ${otherApps.map(app => `
-                                    <button class="open-in-menu-item" onclick="event.stopPropagation(); openInApp('${escapeHtml(app.id)}', '${escapeHtml(path)}'); hideOpenInMenu('${dropdownId}')">
-                                        ${escapeHtml(app.name)}
-                                    </button>
-                                `).join('')}
-                            </div>
-                        ` : ''}
-                    </div>
+                        <div class="open-in-menu" id="${dropdownId}">
+                            ${otherApps.map(app => `
+                                <button class="open-in-menu-item" onclick="event.stopPropagation(); openInApp('${escapeHtml(app.id)}', '${escapeHtml(path)}'); hideOpenInMenu('${dropdownId}')">
+                                    ${escapeHtml(app.name)}
+                                </button>
+                            `).join('')}
+                        </div>
+                    ` : ''}
                 </div>
             `;
         }
@@ -393,6 +391,7 @@
                         projectMap.set(p.path, {
                             path: p.path,
                             name: p.name,
+                            pathExists: p.path_exists,
                             sources: [{
                                 name: p.source,
                                 sessionCount: p.session_count || 0
@@ -422,9 +421,9 @@
                 const homeDir = detectHomeDir(sorted);
 
                 container.innerHTML = sorted.map(p => `
-                    <div class="project-item" title="${t('click-to-copy')}">
-                        <div class="project-info" onclick="copyPath('${escapeHtml(p.path)}')">
-                            <div class="project-path">${formatPathWithDim(p.path, homeDir)}</div>
+                    <div class="project-item${p.pathExists ? '' : ' path-missing'}">
+                        <div class="project-info">
+                            <div class="project-path">${!p.pathExists ? `<span class="path-missing-icon" title="${t('path-missing')}">🚫</span> ` : ''}${formatPathWithDim(p.path, homeDir)}</div>
                             <div class="source-row">
                                 <div class="source-badges">
                                     ${renderSourceBadges(p.sources)}
@@ -433,7 +432,10 @@
                             </div>
                             ${p.modified_at ? `<div class="project-meta"><span>${formatDate(p.modified_at)}</span></div>` : ''}
                         </div>
-                        ${renderOpenInDropdown(p.path)}
+                        <div class="project-actions">
+                            <button class="copy-path-btn" onclick="event.stopPropagation(); copyPath('${escapeHtml(p.path)}', this)" title="${t('click-to-copy')}">📋</button>
+                            ${renderOpenInDropdown(p.path)}
+                        </div>
                     </div>
                 `).join('');
             } catch (e) {
@@ -465,9 +467,16 @@
             return date.toLocaleDateString();
         }
 
-        function copyPath(path) {
+        function copyPath(path, btn) {
             navigator.clipboard.writeText(path).then(() => {
-                // Could add visual feedback
+                if (btn) {
+                    btn.textContent = '✓';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.textContent = '📋';
+                        btn.classList.remove('copied');
+                    }, 1500);
+                }
             }).catch(() => { });
         }
 

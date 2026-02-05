@@ -64,6 +64,9 @@ const i18n = {
             // Toggle visibility
             'toggle-visibility': 'Toggle visibility',
 
+            // Path status
+            'path-missing': 'Folder does not exist',
+
             // Time formatting
             'today': 'Today',
             'yesterday': 'Yesterday',
@@ -131,6 +134,9 @@ const i18n = {
             // Alternar visibilidad
             'toggle-visibility': 'Alternar visibilidad',
 
+            // Estado de ruta
+            'path-missing': 'La carpeta no existe',
+
             // Formato de tiempo
             'today': 'Hoy',
             'yesterday': 'Ayer',
@@ -197,6 +203,9 @@ const i18n = {
 
             // 切换可见性
             'toggle-visibility': '切换可见性',
+
+            // 路径状态
+            'path-missing': '文件夹不存在',
 
             // 时间格式
             'today': '今天',
