@@ -66,7 +66,7 @@ go install github.com/wethinkt/go-thinkt/cmd/thinkt@latest
 ### From Source
 
 ```bash
-git clone https://github.com/wethinkt/go-thinkt.git
+git clone --recurse-submodules https://github.com/wethinkt/go-thinkt.git
 cd go-thinkt
 task build
 ```

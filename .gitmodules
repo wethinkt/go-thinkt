@@ -1,3 +1,6 @@
 [submodule "docs/hugo/themes/hugo-book"]
 	path = docs/hugo/themes/hugo-book
 	url = https://github.com/alex-shpak/hugo-book
+[submodule "internal/server/web-lite"]
+	path = internal/server/web-lite
+	url = git@github.com:wethinkt/thinkt-web-lite.git

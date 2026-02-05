@@ -32,7 +32,7 @@ Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot` flags to 
 | `internal/sources/copilot` | Copilot storage implementation |
 | `internal/tui` | BubbleTea terminal UI |
 | `internal/server` | HTTP REST API and MCP server |
-| `internal/server/webapp` | Lite webapp (HTML/CSS/JS) |
+| `internal/server/web-lite` | Lite webapp submodule ([thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite)) |
 | `internal/analytics` | Analytics |
 | `internal/prompt` | Prompt extraction and formatting |
 | `internal/config` | Configuration management |
@@ -128,29 +128,39 @@ thinkt serve token  # Generates thinkt_YYYYMMDD_<random> format
 
 ## Lite Webapp
 
-The lightweight webapp (`thinkt serve lite`) is a single-page debug interface located at `internal/server/webapp/`.
+The lightweight webapp (`thinkt serve lite`) lives in the [thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite) repo, included as a git submodule at `internal/server/web-lite/`.
+
+### Submodule Setup
+
+After cloning, initialize submodules if not already done:
+
+```bash
+git submodule update --init --recursive
+```
 
 ### Structure
 
 ```
-internal/server/webapp/
-├── index.html          # Main HTML file
+internal/server/web-lite/   # git submodule → thinkt-web-lite
+├── index.html              # Main HTML file
 └── static/
-    ├── style.css       # Stylesheet
-    └── i18n.js         # Internationalization (EN/ES/ZH)
+    ├── style.css           # Stylesheet
+    └── i18n.js             # Internationalization (EN/ES/ZH)
 ```
-
-### Features
-
-- **i18n**: Auto-detects browser language, supports English, Spanish, and Chinese
-- **Connection Status**: Real-time ping every 10s with visual indicator
-- **Source Visibility**: Eye icons to toggle source visibility in project list
-- **Open-In Dropdown**: Split-button to open projects in configured apps
-- **Language Selector**: EN/ES/中文 buttons in top-right corner
 
 ### Static File Serving
 
-Files are embedded using Go's `//go:embed` directive in `internal/server/static.go`.
+Only `index.html` and `static/*` are embedded via `//go:embed` in `internal/server/static.go`. Other files in the submodule (README, AGENTS.md, LICENSE, etc.) are excluded from the binary.
+
+### Updating the Webapp
+
+1. Make changes inside `internal/server/web-lite/`
+2. Commit and push from within the submodule
+3. Back in the go-thinkt root, stage the updated ref:
+   ```bash
+   git add internal/server/web-lite
+   git commit -m "update web-lite submodule"
+   ```
 
 ## Documentation Map
 
