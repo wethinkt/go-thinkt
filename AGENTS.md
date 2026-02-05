@@ -4,7 +4,7 @@
 
 `go-thinkt` provides `thinkt`, a CLI tool for exploring and extracting data from AI coding assistant sessions. It is a companion to the [wethinkt](https://github.com/wethinkt/wethinkt) web visualization application.  Right now much is internal, but we will eventually build out a public package.
 
-**Stack**: Go, Cobra (CLI), BubbleTea (TUI), DuckDB (analytics), Chi (HTTP), MCP SDK
+**Stack**: Go, Cobra (CLI), BubbleTea (TUI), Chi (HTTP), MCP SDK
 
 Released under the MIT license, see [LICENSE.txt](./LICENSE.txt).
 
@@ -33,7 +33,7 @@ Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot` flags to 
 | `internal/tui` | BubbleTea terminal UI |
 | `internal/server` | HTTP REST API and MCP server |
 | `internal/server/webapp` | Lite webapp (HTML/CSS/JS) |
-| `internal/analytics` | DuckDB-powered search and stats |
+| `internal/analytics` | Analytics |
 | `internal/prompt` | Prompt extraction and formatting |
 | `internal/config` | Configuration management |
 
@@ -59,8 +59,7 @@ thinkt
 │   ├── view
 │   ├── delete
 │   └── copy
-├── search              # Full-text search (DuckDB)
-├── stats               # Analytics
+
 │   ├── tokens
 │   ├── tools
 │   ├── words
@@ -190,7 +189,7 @@ Two Dockerfiles exist:
 | `Dockerfile` | Multi-stage build for CI and local use. Builds binary from source. |
 | `Dockerfile.goreleaser` | Simple runtime image for GoReleaser. Uses pre-built cross-compiled binary. |
 
-Both use `debian:bookworm-slim` runtime (required for glibc/CGO compatibility with DuckDB).
+Both use `debian:bookworm-slim` runtime.
 
 - Runs as non-root user `thinkt` (uid 5454)
 - Home directory: `/data` (so `~/.claude` → `/data/.claude`)

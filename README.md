@@ -40,7 +40,7 @@ Right now much of the implementation is in package `internal`, but we will event
 
 - **Interactive TUI**: Three-column terminal interface for browsing projects, sessions, and conversation content
 - **Multi-Source Support**: Works with Claude Code (`~/.claude`), Kimi Code (`~/.kimi`), Gemini CLI, and Copilot
-- **Full-Text Search**: DuckDB-powered search across all sessions
+
 - **Analytics**: Token usage, tool frequency, word analysis, activity timelines
 - **Prompt Extraction**: Generate timestamped logs of user prompts in markdown, JSON, or plain text
 - **MCP Server**: Model Context Protocol integration for use with AI assistants
@@ -114,14 +114,6 @@ thinkt projects --tree
 thinkt sessions list
 thinkt sessions view
 
-# Search across all sessions
-thinkt search "authentication"
-
-# Analytics
-thinkt stats tokens
-thinkt stats tools
-thinkt stats activity --days 7
-
 # Start the lite webapp
 thinkt serve lite
 
@@ -141,14 +133,7 @@ thinkt serve --no-open
 | `thinkt projects summary` | Detailed project info |
 | `thinkt sessions list` | List sessions in a project |
 | `thinkt sessions view` | View session in terminal |
-| `thinkt search <query>` | Full-text search with DuckDB |
-| `thinkt stats tokens` | Token usage by session |
-| `thinkt stats tools` | Tool usage frequency |
-| `thinkt stats words` | Word frequency analysis |
-| `thinkt stats activity` | Daily activity timeline |
-| `thinkt stats models` | Model usage statistics |
-| `thinkt stats errors` | Tool errors and failures |
-| `thinkt query <sql>` | Run raw SQL with DuckDB |
+
 | `thinkt prompts extract` | Extract prompts to markdown/JSON |
 | `thinkt serve` | Start HTTP server (port 7433) |
 | `thinkt serve lite` | Start lightweight webapp (port 7434) |

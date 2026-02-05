@@ -8,7 +8,7 @@ The core CLI is functional with multi-source support, TUI, analytics, HTTP/MCP s
 
 ### Recently Completed
 
-- [x] **GoReleaser Pro with goreleaser-cross** - CGO cross-compilation for DuckDB
+- [x] **GoReleaser Pro with goreleaser-cross** - CGO cross-compilation
   - Builds: `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`, `windows/amd64`
   - Uses `ghcr.io/goreleaser/goreleaser-cross` Docker image
   - Explicit CC/CXX per target for cross-compilation
@@ -79,7 +79,7 @@ Tag push (v*) → GitHub Actions → goreleaser-cross container
   - Sources respect enabled/disabled in config
   - Environment variables still override for Docker
 
-- [ ] **Windows arm64 support** - Currently excluded (DuckDB limitation)
+- [ ] **Windows arm64 support** - Currently excluded (dependency limitations)
 - [ ] **Shell completions** - Add to release archives
 - [ ] **Manpage improvements** - Verify man pages work in Docker
 
@@ -104,7 +104,7 @@ internal/
   sources/            Source implementations (claude, kimi, gemini, copilot)
   tui/                BubbleTea terminal UI
   server/             HTTP REST API, MCP server, lite webapp
-  analytics/          DuckDB-powered search and stats
+  analytics/          Analytics
   prompt/             Prompt extraction
   config/             Configuration management
 ```
@@ -150,5 +150,5 @@ Planned config structure for `thinkt setup`:
 | Linux | arm64 | aarch64-linux-gnu-gcc | ✅ |
 | Darwin | amd64 | o64-clang | ✅ |
 | Darwin | arm64 | oa64-clang | ✅ |
-| Windows | amd64 | - | ❌ (DuckDB pthread issues with mingw) |
-| Windows | arm64 | - | ❌ (DuckDB) |
+| Windows | amd64 | - | ❌ (pthread issues with mingw) |
+| Windows | arm64 | - | ❌ (dependency limitations) |

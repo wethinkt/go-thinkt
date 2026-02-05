@@ -130,27 +130,13 @@ docker run --rm \
   ghcr.io/wethinkt/thinkt sessions list -p /data/.claude/projects/your-project
 ```
 
-### Search Sessions
+### View Sessions
 
 ```bash
 docker run --rm \
   -v ~/.claude:/data/.claude:ro \
-  ghcr.io/wethinkt/thinkt search "authentication"
+  ghcr.io/wethinkt/thinkt sessions view
 ```
-
-### View Statistics
-
-```bash
-docker run --rm \
-  -v ~/.claude:/data/.claude:ro \
-  ghcr.io/wethinkt/thinkt stats tokens
-
-docker run --rm \
-  -v ~/.claude:/data/.claude:ro \
-  ghcr.io/wethinkt/thinkt stats tools
-```
-
-### Run SQL Queries
 
 ```bash
 docker run --rm \
@@ -235,8 +221,8 @@ alias thinkt-docker='docker run --rm \
 Usage:
 ```bash
 thinkt-docker projects
-thinkt-docker search "error handling"
-thinkt-docker stats tokens
+thinkt-docker sessions list
+thinkt-docker sessions view
 ```
 {{< /tab >}}
 {{< tab "Fish" >}}

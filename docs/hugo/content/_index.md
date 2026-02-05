@@ -29,8 +29,8 @@ thinkt projects
 # View sessions for a project
 thinkt sessions list <project-id>
 
-# Search across all sessions
-thinkt search "error handling"
+# View a session
+thinkt sessions view
 ```
 
 ## Features
@@ -38,8 +38,7 @@ thinkt search "error handling"
 - **Interactive TUI** - Browse and explore sessions with a terminal UI
 - **Project Management** - Organize and manage projects across sources
 - **Session Viewer** - View session entries with thinking blocks and tool usage
-- **Search** - Full-text search across all sessions
-- **Stats** - Token usage, model stats, tool usage analytics
+
 - [**REST API**](/rest-api) - Programmatic access with OpenAPI/Swagger documentation
 - [**Lite Server**](/serve-lite) - Lightweight web interface for quick exploration
 - [**MCP Server**](/mcp-server) - Expose session data via Model Context Protocol for AI assistants

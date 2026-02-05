@@ -16,11 +16,9 @@ thinkt
 # List all your projects
 thinkt projects
 
-# Search across all sessions
-thinkt search "authentication"
-
-# View token usage stats
-thinkt stats tokens
+# Browse sessions
+thinkt sessions list
+thinkt sessions view
 ```
 
 ## Interactive TUI
@@ -127,63 +125,7 @@ thinkt sessions delete <session-id>          # Delete session
 
 ---
 
-## Search
-
-Full-text search across all sessions using DuckDB:
-
-```bash
-thinkt search "error handling"
-thinkt search -p ./myproject "database"      # Limit to project
-thinkt search --limit 100 "authentication"   # More results
-thinkt search --json "api" | jq .            # JSON output
-```
-
-Search looks in both user messages and assistant responses.
-
-**Reference:** [thinkt search](/command/thinkt_search)
-
----
-
-## Statistics
-
-Analyze your AI coding sessions with various analytics:
-
-### Token Usage
-
-```bash
-thinkt stats tokens                   # Token usage by session
-thinkt stats tokens -p ./myproject    # Limit to project
-thinkt stats tokens --json            # JSON output
-```
-
-### Tool Usage
-
-```bash
-thinkt stats tools                    # Most used tools
-thinkt stats tools --limit 50         # More results
-thinkt stats errors                   # Tool errors and failures
-```
-
-### Activity
-
-```bash
-thinkt stats activity                 # Daily activity timeline
-thinkt stats activity --days 7        # Last week
-```
-
-### Other Stats
-
-```bash
-thinkt stats models                   # Model usage breakdown
-thinkt stats words                    # Word frequency in prompts
-thinkt stats words --limit 100        # Top 100 words
-```
-
-**Reference:** [thinkt stats](/command/thinkt_stats)
-
----
-
-## Raw SQL Queries
+## Prompt Extraction
 
 For advanced analysis, run raw SQL queries against session data:
 
@@ -194,7 +136,7 @@ thinkt query "SELECT DISTINCT json_extract_string(entry, '$.model')
               FROM read_json_auto('~/.claude/projects/*/*.jsonl')"
 ```
 
-DuckDB can read JSONL files directly with `read_json_auto()`.
+Raw SQL queries can be executed against session data.
 
 **Reference:** [thinkt query](/command/thinkt_query)
 
@@ -307,34 +249,18 @@ These options work with all commands:
 ### Daily Review
 
 ```bash
-# See what you worked on today
-thinkt stats activity --days 1
-
-# Check token usage
-thinkt stats tokens
-
 # Browse sessions in TUI
 thinkt
+
+# List recent sessions
+thinkt sessions list
 ```
 
-### Find Past Conversations
+### View Sessions
 
 ```bash
-# Search for a topic
-thinkt search "websocket implementation"
-
-# View matching session
+# View a session
 thinkt sessions view <session-id>
-```
-
-### Analyze Tool Usage
-
-```bash
-# What tools are used most?
-thinkt stats tools
-
-# Any errors?
-thinkt stats errors
 ```
 
 ### Export for Sharing

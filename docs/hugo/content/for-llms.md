@@ -70,9 +70,7 @@ MCP provides direct tool access for AI assistants.
 ```bash
 thinkt projects                     # List projects
 thinkt sessions list -p <path>      # List sessions
-thinkt search "query"               # Full-text search
-thinkt stats tokens                 # Token usage
-thinkt stats tools                  # Tool frequency
+thinkt sessions view                # View session content
 ```
 
 ### 3. REST API
@@ -132,9 +130,7 @@ Source (claude|kimi|gemini|copilot)
 
 | Task | Method |
 |------|--------|
-| Find sessions about topic | `thinkt search "topic"` |
-| Get token usage | `thinkt stats tokens` |
-| List tool usage | `thinkt stats tools` |
+
 | Get user prompts only | MCP: `get_session_entries` with `roles: ["user"]` |
 | Export session | API: `GET /sessions/{path}` |
 
@@ -145,5 +141,3 @@ Source (claude|kimi|gemini|copilot)
 1. **Metadata first** - Check session size before loading full content
 2. **Paginate** - Sessions can have hundreds of entries
 3. **Filter by role** - Often only user or assistant messages are needed
-4. **Use search** - DuckDB-powered full-text search is fast
-5. **Stats for insights** - Understand patterns with stats commands
