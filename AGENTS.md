@@ -82,7 +82,7 @@ thinkt
 
 | Flag | Description |
 |------|-------------|
-| `--port, -p` | Server port (default: 8784 for serve, 8785 for lite, 8786 for mcp) |
+| `--port, -p` | Server port (default: 8784 for serve, 8785 for lite, 8786 for mcp, 8787 reserved for VS Code extension) |
 | `--host` | Server host (default: localhost) |
 | `--no-open` | Don't auto-open browser |
 | `--quiet, -q` | Suppress HTTP request logging |

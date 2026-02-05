@@ -161,6 +161,7 @@ thinkt serve lite --quiet --no-open
 | `thinkt serve` | 8784 | REST API and web interface |
 | `thinkt serve lite` | 8785 | Lightweight debug webapp |
 | `thinkt serve mcp --port` | 8786 | MCP server over HTTP |
+| [VS Code extension](https://github.com/wethinkt/thinkt-vscode) | 8787 | Reserved for embedded server |
 
 Use `-p` or `--port` to override the default port for any server.
 
