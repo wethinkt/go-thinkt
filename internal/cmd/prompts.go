@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"fmt"
@@ -23,9 +23,9 @@ var (
 )
 
 // Supported trace types
-const TraceTypeClaude = "claude"
+const traceTypeClaude = "claude"
 
-var supportedTypes = []string{TraceTypeClaude}
+var supportedTypes = []string{traceTypeClaude}
 
 var promptsCmd = &cobra.Command{
 	Use:   "prompts",
@@ -84,7 +84,7 @@ func runExtract(cmd *cobra.Command, args []string) error {
 	// Validate input
 	if inputFile == "" {
 		switch traceType {
-		case TraceTypeClaude:
+		case traceTypeClaude:
 			claudeDir, dirErr := claude.DefaultDir()
 			if dirErr != nil {
 				return fmt.Errorf("could not find Claude directory: %w", dirErr)
@@ -127,7 +127,7 @@ func runExtract(cmd *cobra.Command, args []string) error {
 	var parseErrors []error
 
 	switch traceType {
-	case TraceTypeClaude:
+	case traceTypeClaude:
 		parser := claude.NewParser(reader)
 		extractor := prompt.NewExtractor(parser)
 		prompts, err = extractor.Extract()
@@ -198,7 +198,7 @@ func runList(cmd *cobra.Command, args []string) error {
 	var err error
 
 	switch traceType {
-	case TraceTypeClaude:
+	case traceTypeClaude:
 		claudeDir, dirErr := claude.DefaultDir()
 		if dirErr != nil {
 			return fmt.Errorf("could not find Claude directory: %w", dirErr)
@@ -231,7 +231,7 @@ func runInfo(cmd *cobra.Command, args []string) error {
 		path = args[0]
 	} else {
 		switch traceType {
-		case TraceTypeClaude:
+		case traceTypeClaude:
 			claudeDir, dirErr := claude.DefaultDir()
 			if dirErr != nil {
 				return fmt.Errorf("could not find Claude directory: %w", dirErr)
@@ -248,7 +248,7 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	}
 
 	switch traceType {
-	case TraceTypeClaude:
+	case traceTypeClaude:
 		return showClaudeInfo(path)
 	}
 

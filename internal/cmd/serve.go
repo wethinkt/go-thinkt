@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"context"
@@ -102,7 +102,7 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 	tuilog.Log.Info("Starting HTTP server", "port", servePort, "host", serveHost)
 
 	// Create source registry
-	registry := createSourceRegistry()
+	registry := CreateSourceRegistry()
 	tuilog.Log.Info("Source registry created", "stores", len(registry.All()))
 
 	// Create context that cancels on interrupt
@@ -158,7 +158,7 @@ func runServeLite(cmd *cobra.Command, args []string) error {
 	tuilog.Log.Info("Starting Lite HTTP server", "port", serveLitePort, "host", serveHost)
 
 	// Create source registry
-	registry := createSourceRegistry()
+	registry := CreateSourceRegistry()
 	tuilog.Log.Info("Source registry created", "stores", len(registry.All()))
 
 	// Create context that cancels on interrupt
@@ -212,7 +212,7 @@ func runServeMCP(cmd *cobra.Command, args []string) error {
 	tuilog.Log.Info("Starting MCP server", "stdio", useStdio, "port", mcpPort)
 
 	// Create source registry
-	registry := createSourceRegistry()
+	registry := CreateSourceRegistry()
 	tuilog.Log.Info("Source registry created", "stores", len(registry.All()))
 
 	// Create context that cancels on interrupt

@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"context"
@@ -43,7 +43,7 @@ workspace ID, base path, and project count.`,
 
 // runSourcesList lists available sources.
 func runSourcesList(cmd *cobra.Command, args []string) error {
-	registry := createSourceRegistry()
+	registry := CreateSourceRegistry()
 
 	ctx := context.Background()
 	sources := registry.SourceStatus(ctx)
@@ -83,7 +83,7 @@ func runSourcesList(cmd *cobra.Command, args []string) error {
 
 // runSourcesStatus shows detailed source status.
 func runSourcesStatus(cmd *cobra.Command, args []string) error {
-	registry := createSourceRegistry()
+	registry := CreateSourceRegistry()
 
 	ctx := context.Background()
 	sources := registry.SourceStatus(ctx)

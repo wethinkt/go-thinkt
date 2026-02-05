@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"context"
@@ -111,9 +111,9 @@ func runProjects(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--long and --tree are mutually exclusive")
 	}
 
-	registry := createSourceRegistry()
+	registry := CreateSourceRegistry()
 
-	projects, err := getProjectsFromSources(registry, projectSources)
+	projects, err := GetProjectsFromSources(registry, projectSources)
 	if err != nil {
 		return err
 	}
@@ -146,9 +146,9 @@ func runProjects(cmd *cobra.Command, args []string) error {
 }
 
 func runProjectsSummary(cmd *cobra.Command, args []string) error {
-	registry := createSourceRegistry()
+	registry := CreateSourceRegistry()
 
-	projects, err := getProjectsFromSources(registry, projectSources)
+	projects, err := GetProjectsFromSources(registry, projectSources)
 	if err != nil {
 		return err
 	}
@@ -193,7 +193,7 @@ func runProjectsSummary(cmd *cobra.Command, args []string) error {
 
 func runProjectsDelete(cmd *cobra.Command, args []string) error {
 	// For multi-source delete, we need to find the project first
-	registry := createSourceRegistry()
+	registry := CreateSourceRegistry()
 
 	// TODO: Update ProjectDeleter to use registry for multi-source support
 	// For now, use Claude default for backward compatibility
@@ -211,7 +211,7 @@ func runProjectsDelete(cmd *cobra.Command, args []string) error {
 
 func runProjectsCopy(cmd *cobra.Command, args []string) error {
 	// For multi-source copy, we need to find the project first
-	registry := createSourceRegistry()
+	registry := CreateSourceRegistry()
 
 	// TODO: Update ProjectCopier to use registry for multi-source support
 	// For now, use Claude default for backward compatibility

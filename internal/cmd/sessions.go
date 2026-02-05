@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"context"
@@ -158,7 +158,7 @@ Examples:
 }
 
 func runSessionsList(cmd *cobra.Command, args []string) error {
-	registry := createSourceRegistry()
+	registry := CreateSourceRegistry()
 	ctx := context.Background()
 
 	// If no project specified and not forcing picker, try auto-detection from cwd
@@ -173,7 +173,7 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 
 	// If still no project (no match or forcing picker), show project picker
 	if sessionProject == "" {
-		projects, err := getProjectsFromSources(registry, sessionSources)
+		projects, err := GetProjectsFromSources(registry, sessionSources)
 		if err != nil {
 			return err
 		}
@@ -204,7 +204,7 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get sessions for the selected project
-	sessions, err := getSessionsForProject(registry, sessionProject, sessionSources)
+	sessions, err := GetSessionsForProject(registry, sessionProject, sessionSources)
 	if err != nil {
 		return err
 	}
@@ -219,7 +219,7 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 }
 
 func runSessionsSummary(cmd *cobra.Command, args []string) error {
-	registry := createSourceRegistry()
+	registry := CreateSourceRegistry()
 	ctx := context.Background()
 
 	// If no project specified and not forcing picker, try auto-detection from cwd
@@ -234,7 +234,7 @@ func runSessionsSummary(cmd *cobra.Command, args []string) error {
 
 	// If still no project, show project picker
 	if sessionProject == "" {
-		projects, err := getProjectsFromSources(registry, sessionSources)
+		projects, err := GetProjectsFromSources(registry, sessionSources)
 		if err != nil {
 			return err
 		}
@@ -265,7 +265,7 @@ func runSessionsSummary(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get sessions for the selected project
-	sessions, err := getSessionsForProject(registry, sessionProject, sessionSources)
+	sessions, err := GetSessionsForProject(registry, sessionProject, sessionSources)
 	if err != nil {
 		return err
 	}
@@ -287,7 +287,7 @@ func runSessionsSummary(cmd *cobra.Command, args []string) error {
 }
 
 func runSessionsDelete(cmd *cobra.Command, args []string) error {
-	registry := createSourceRegistry()
+	registry := CreateSourceRegistry()
 	ctx := context.Background()
 
 	// If no project specified and not an absolute path, try auto-detection from cwd
@@ -313,7 +313,7 @@ func runSessionsDelete(cmd *cobra.Command, args []string) error {
 }
 
 func runSessionsCopy(cmd *cobra.Command, args []string) error {
-	registry := createSourceRegistry()
+	registry := CreateSourceRegistry()
 	ctx := context.Background()
 
 	// If no project specified and not an absolute path, try auto-detection from cwd
@@ -338,7 +338,7 @@ func runSessionsCopy(cmd *cobra.Command, args []string) error {
 }
 
 func runSessionsView(cmd *cobra.Command, args []string) error {
-	registry := createSourceRegistry()
+	registry := CreateSourceRegistry()
 	ctx := context.Background()
 
 	// Handle absolute path first (doesn't need project)
@@ -361,7 +361,7 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 
 	// If still no project, show project picker
 	if sessionProject == "" {
-		projects, err := getProjectsFromSources(registry, sessionSources)
+		projects, err := GetProjectsFromSources(registry, sessionSources)
 		if err != nil {
 			return err
 		}
@@ -392,7 +392,7 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 	}
 
 	// Get all sessions in the project
-	sessions, err := getSessionsForProject(registry, sessionProject, sessionSources)
+	sessions, err := GetSessionsForProject(registry, sessionProject, sessionSources)
 	if err != nil {
 		return err
 	}

@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"context"
@@ -11,8 +11,8 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
-// createSourceRegistry creates a registry with all discovered sources.
-func createSourceRegistry() *thinkt.StoreRegistry {
+// CreateSourceRegistry creates a registry with all discovered sources.
+func CreateSourceRegistry() *thinkt.StoreRegistry {
 	// Create discovery with all source factories
 	discovery := thinkt.NewDiscovery(
 		kimi.Factory(),
@@ -31,9 +31,9 @@ func createSourceRegistry() *thinkt.StoreRegistry {
 	return registry
 }
 
-// getProjectsFromSources returns projects from the selected sources.
+// GetProjectsFromSources returns projects from the selected sources.
 // If no sources specified, returns projects from all available sources.
-func getProjectsFromSources(registry *thinkt.StoreRegistry, sources []string) ([]thinkt.Project, error) {
+func GetProjectsFromSources(registry *thinkt.StoreRegistry, sources []string) ([]thinkt.Project, error) {
 	ctx := context.Background()
 
 	// If no sources specified, use all available sources
@@ -60,9 +60,9 @@ func getProjectsFromSources(registry *thinkt.StoreRegistry, sources []string) ([
 	return allProjects, nil
 }
 
-// getSessionsForProject returns sessions for a project from the selected sources.
+// GetSessionsForProject returns sessions for a project from the selected sources.
 // If no sources specified, searches all available sources.
-func getSessionsForProject(registry *thinkt.StoreRegistry, projectID string, sources []string) ([]thinkt.SessionMeta, error) {
+func GetSessionsForProject(registry *thinkt.StoreRegistry, projectID string, sources []string) ([]thinkt.SessionMeta, error) {
 	ctx := context.Background()
 
 	// If no sources specified, search all available sources
