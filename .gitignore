@@ -6,6 +6,7 @@ bin/
 *.so
 *.dylib
 /thinkt
+/thinkt.zip
 
 # Logs
 *.log
