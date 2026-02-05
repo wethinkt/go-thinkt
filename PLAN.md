@@ -42,23 +42,9 @@ Tag push (v*) → GitHub Actions → goreleaser-cross container
 
 ## In Progress
 
-- [ ] **Homebrew tap setup** - Need to create `wethinkt/homebrew-tap` repo
-- [ ] **Test Docker images** - Verify bind mounts work correctly in practice
+ * TODO: update
 
 ## Security TODOs
-
-- [x] **MCP Server Authentication** - Implemented token-based auth
-  - `THINKT_MCP_TOKEN` environment variable support
-  - `--token` flag for HTTP transport
-  - `Authorization: Bearer <token>` header validation
-  - `thinkt serve token` command for secure token generation
-  - Constant-time comparison to prevent timing attacks
-
-- [x] **API Server Authentication** - Implemented token-based auth
-  - `THINKT_API_TOKEN` environment variable support
-  - `--token` flag for API server
-  - Same `Authorization: Bearer <token>` header validation
-  - Secures REST API endpoints from unauthorized access
 
 - [ ] **Tighten `getAllowedBaseDirectories()` in `internal/server/security.go`**
   - Current implementation allows opening any directory under user's home
@@ -79,21 +65,19 @@ Tag push (v*) → GitHub Actions → goreleaser-cross container
   - Sources respect enabled/disabled in config
   - Environment variables still override for Docker
 
-- [ ] **Windows arm64 support** - Currently excluded (dependency limitations)
-- [ ] **Shell completions** - Add to release archives
-- [ ] **Manpage improvements** - Verify man pages work in Docker
+- [X] **Windows arm64 support** - Currently excluded (dependency limitations)
+- [X] **Shell completions** - Add to release archives
+- [X] **Manpage improvements** - Verify man pages work in Docker
 
 ### Medium Term
 
-- [ ] **`thinkt serve` in Docker** - Document production deployment patterns
+- [X] **`thinkt serve` in Docker** - Document production deployment patterns
+- [X] **Authentication** - For exposed servers
 - [ ] **Health check endpoint** - For container orchestration
 - [ ] **Prometheus metrics** - For monitoring
 
 ### Long Term
 
-- [ ] **Helm chart** - Kubernetes deployment
-- [ ] **Multi-user support** - For shared deployments
-- [ ] **Authentication** - For exposed servers
 
 ## Architecture
 
@@ -144,11 +128,17 @@ Planned config structure for `thinkt setup`:
 
 ## Build Targets
 
-| Platform | Arch | CGO Compiler | Status |
-|----------|------|--------------|--------|
-| Linux | amd64 | x86_64-linux-gnu-gcc | ✅ |
-| Linux | arm64 | aarch64-linux-gnu-gcc | ✅ |
-| Darwin | amd64 | o64-clang | ✅ |
-| Darwin | arm64 | oa64-clang | ✅ |
-| Windows | amd64 | - | ❌ (pthread issues with mingw) |
-| Windows | arm64 | - | ❌ (dependency limitations) |
+We build without CGO so get broad support:
+
+| Platform | Arch | Status |
+|----------|------|--------|
+| Linux | amd64 |  ✅ |
+| Linux | arm64 |  ✅ |
+| FreeBSD | amd64 | ✅ |
+| FreeBSD | arm64 | ✅|
+| Darwin | amd64 | ✅ |
+| Darwin | arm64 | ✅|
+| Windows | amd64 | ✅ |
+| Windows | arm64  ✅ |
+
+

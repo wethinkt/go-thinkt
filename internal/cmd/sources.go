@@ -22,6 +22,7 @@ on this machine (e.g., Claude Code, Kimi Code).
 Examples:
   thinkt sources list      # List all available sources
   thinkt sources status    # Show detailed source status`,
+	RunE: runSourcesList,
 }
 
 var sourcesListCmd = &cobra.Command{
@@ -61,7 +62,7 @@ func runSourcesList(cmd *cobra.Command, args []string) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "SOURCE\tSTATUS\tPROJECTS\tWORKSPACE")
+	fmt.Fprintln(w, "SOURCE\tSTATUS\tPROJECTS\tBASE PATH\tWORKSPACE")
 
 	const workspaceColumnWidth = 40
 	for _, s := range sources {
@@ -74,7 +75,7 @@ func runSourcesList(cmd *cobra.Command, args []string) error {
 		if len(workspace) > workspaceColumnWidth {
 			workspace = workspace[:(workspaceColumnWidth-3)] + "..."
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", s.Name, status, projects, workspace)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", s.Name, status, projects, s.BasePath, workspace)
 	}
 	w.Flush()
 
