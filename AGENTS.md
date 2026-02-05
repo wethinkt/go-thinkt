@@ -82,7 +82,7 @@ thinkt
 
 | Flag | Description |
 |------|-------------|
-| `--port, -p` | Server port (default: 7433 for serve, 7434 for lite) |
+| `--port, -p` | Server port (default: 8784 for serve, 8785 for lite, 8786 for mcp) |
 | `--host` | Server host (default: localhost) |
 | `--no-open` | Don't auto-open browser |
 | `--quiet, -q` | Suppress HTTP request logging |
@@ -214,7 +214,7 @@ Both use `debian:bookworm-slim` runtime.
 
 ```bash
 # Bind-mount session directories (paths resolve automatically via $HOME=/data)
-docker run -p 7433:7433 \
+docker run -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
   ghcr.io/wethinkt/thinkt:latest serve --host 0.0.0.0

@@ -83,7 +83,7 @@ The container user's home directory is `/data`, so default paths like `~/.claude
 
 ```bash
 # Run the HTTP server
-docker run -p 7433:7433 \
+docker run -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
   ghcr.io/wethinkt/thinkt:latest serve --host 0.0.0.0
@@ -135,8 +135,8 @@ thinkt serve --no-open
 | `thinkt sessions view` | View session in terminal |
 
 | `thinkt prompts extract` | Extract prompts to markdown/JSON |
-| `thinkt serve` | Start HTTP server (port 7433) |
-| `thinkt serve lite` | Start lightweight webapp (port 7434) |
+| `thinkt serve` | Start HTTP server (port 8784) |
+| `thinkt serve lite` | Start lightweight webapp (port 8785) |
 | `thinkt serve mcp` | Start MCP server |
 | `thinkt serve token` | Generate secure authentication token |
 | `thinkt theme` | Display current theme |
@@ -153,6 +153,16 @@ thinkt serve --no-open            # Don't auto-open browser
 # These also work with serve lite
 thinkt serve lite --quiet --no-open
 ```
+
+## Default Ports
+
+| Command | Port | Description |
+|---------|------|-------------|
+| `thinkt serve` | 8784 | REST API and web interface |
+| `thinkt serve lite` | 8785 | Lightweight debug webapp |
+| `thinkt serve mcp --port` | 8786 | MCP server over HTTP |
+
+Use `-p` or `--port` to override the default port for any server.
 
 ## Authentication
 
@@ -176,7 +186,7 @@ thinkt serve
 thinkt serve --token thinkt_20260205_...
 
 # Client request
-curl -H "Authorization: Bearer thinkt_20260205_..." http://localhost:7433/api/v1/sources
+curl -H "Authorization: Bearer thinkt_20260205_..." http://localhost:8784/api/v1/sources
 ```
 
 ### MCP Server Authentication
@@ -193,10 +203,10 @@ For HTTP transport:
 ```bash
 # Using environment variable
 export THINKT_MCP_TOKEN=$(thinkt serve token)
-thinkt serve mcp --port 8081
+thinkt serve mcp --port 8786
 
 # Using command-line flag
-thinkt serve mcp --port 8081 --token thinkt_20260205_...
+thinkt serve mcp --port 8786 --token thinkt_20260205_...
 ```
 
 Clients must pass the token in the `Authorization` header:

@@ -8,6 +8,8 @@ import (
 	"slices"
 
 	"github.com/spf13/cobra"
+
+	"github.com/wethinkt/go-thinkt/internal/server"
 )
 
 // global flags
@@ -152,7 +154,7 @@ func init() {
 	themeCmd.Flags().BoolVar(&outputJSON, "json", false, "output theme as JSON")
 
 	// Serve command flags (persistent so they're inherited by subcommands like 'lite')
-	serveCmd.PersistentFlags().IntVarP(&servePort, "port", "p", 7433, "server port")
+	serveCmd.PersistentFlags().IntVarP(&servePort, "port", "p", server.DefaultPortServe, "server port")
 	serveCmd.PersistentFlags().StringVar(&serveHost, "host", "localhost", "server host")
 	serveCmd.PersistentFlags().BoolVar(&serveNoOpen, "no-open", false, "don't auto-open browser")
 	serveCmd.PersistentFlags().StringVar(&logPath, "log", "", "write debug log to file")
@@ -174,7 +176,7 @@ func init() {
 
 	// Serve Lite subcommand (has its own port default)
 	serveCmd.AddCommand(serveLiteCmd)
-	serveLiteCmd.Flags().IntVarP(&serveLitePort, "port", "p", 7434, "server port")
+	serveLiteCmd.Flags().IntVarP(&serveLitePort, "port", "p", server.DefaultPortLite, "server port")
 
 	// Sources subcommands
 	sourcesCmd.AddCommand(sourcesListCmd)

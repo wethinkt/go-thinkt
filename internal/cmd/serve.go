@@ -55,7 +55,7 @@ All data stays on your machine - nothing is uploaded to external servers.
 Use 'thinkt serve mcp' for MCP (Model Context Protocol) server.
 
 Examples:
-  thinkt serve                    # Start HTTP server on default port 7433
+  thinkt serve                    # Start HTTP server on default port 8784
   thinkt serve -p 8080            # Start on custom port
   thinkt serve --no-open          # Don't auto-open browser`,
 	RunE: runServeHTTP,
@@ -78,8 +78,8 @@ Authentication:
 Examples:
   thinkt serve mcp                          # MCP server on stdio (default)
   thinkt serve mcp --stdio                  # Explicitly use stdio transport
-  thinkt serve mcp --port 8081              # MCP server over HTTP (no auth)
-  thinkt serve mcp --port 8081 --token xyz  # MCP server with authentication`,
+  thinkt serve mcp --port 8786              # MCP server over HTTP (default port)
+  thinkt serve mcp --port 8786 --token xyz  # MCP server with authentication`,
 	RunE: runServeMCP,
 }
 
@@ -99,7 +99,7 @@ Examples:
   thinkt serve token                  # Generate and print a token
   thinkt serve token | pbcopy         # Generate and copy to clipboard (macOS)
   export THINKT_MCP_TOKEN=$(thinkt serve token)
-  thinkt serve mcp --port 8081        # Uses token from env`,
+  thinkt serve mcp --port 8786        # Uses token from env`,
 	RunE: runServeToken,
 }
 
@@ -117,7 +117,7 @@ This is useful for developers and debugging. For the full experience,
 use 'thinkt serve' (coming soon) or the TUI with 'thinkt'.
 
 Examples:
-  thinkt serve lite               # Start lite server on port 7434
+  thinkt serve lite               # Start lite server on port 8785
   thinkt serve lite -p 8080       # Start on custom port
   thinkt serve lite --no-open     # Don't auto-open browser`,
 	RunE: runServeLite,

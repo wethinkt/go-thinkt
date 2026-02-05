@@ -12,12 +12,12 @@ The `thinkt serve lite` command starts a lightweight web interface for exploring
 ## Quick Start
 
 ```bash
-thinkt serve lite                # Start on default port 7434
+thinkt serve lite                # Start on default port 8785
 thinkt serve lite -p 8080        # Custom port
 thinkt serve lite --no-open      # Don't auto-open browser
 ```
 
-The server automatically opens your browser to `http://localhost:7434`.
+The server automatically opens your browser to `http://localhost:8785`.
 
 ## Purpose
 
@@ -108,7 +108,7 @@ thinkt serve lite [flags]
 **Flags:**
 | Flag | Description |
 |------|-------------|
-| `-p, --port int` | Server port (default 7434) |
+| `-p, --port int` | Server port (default 8785) |
 | `-h, --help` | Help for lite |
 
 **Inherited flags:**
@@ -129,7 +129,7 @@ thinkt serve lite [flags]
 # Start lite server
 thinkt serve lite
 
-# Opens browser to http://localhost:7434
+# Opens browser to http://localhost:8785
 ```
 
 ### Custom Port
@@ -145,7 +145,7 @@ thinkt serve lite -p 3000
 # Start without opening browser (useful for remote access)
 thinkt serve lite --no-open --host 0.0.0.0
 
-# Access from another machine at http://your-ip:7434
+# Access from another machine at http://your-ip:8785
 ```
 
 ### With Logging
@@ -163,19 +163,19 @@ thinkt serve lite --log debug.log --verbose
 Run the lite server in Docker:
 
 ```bash
-docker run --rm -p 7434:7434 \
+docker run --rm -p 8785:8785 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
   ghcr.io/wethinkt/thinkt serve lite --host 0.0.0.0
 ```
 
-Access at `http://localhost:7434`.
+Access at `http://localhost:8785`.
 
 ## Comparison with Full Server
 
 | Feature | `serve lite` | `serve` |
 |---------|--------------|---------|
-| Port | 7434 | 7433 |
+| Port | 8785 | 8784 |
 | REST API | Yes | Yes |
 | Web UI | Simple overview | Full explorer |
 | Swagger docs | Yes | Yes |

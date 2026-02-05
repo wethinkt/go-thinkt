@@ -113,7 +113,7 @@ internal/
 
 ```bash
 # Run HTTP server with session data
-docker run -p 7433:7433 \
+docker run -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
   ghcr.io/wethinkt/thinkt:latest serve --host 0.0.0.0

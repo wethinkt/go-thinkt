@@ -35,7 +35,7 @@ import (
 // @in header
 // @name Authorization
 // @description Bearer token authentication. Format: "Bearer <token>"
-// @host localhost:7433
+// @host localhost:8784
 // @BasePath /api/v1
 
 // API response types

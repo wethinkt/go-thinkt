@@ -19,7 +19,7 @@ docker run --rm \
   ghcr.io/wethinkt/thinkt projects
 
 # Start the web server
-docker run --rm -p 7433:7433 \
+docker run --rm -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
   ghcr.io/wethinkt/thinkt serve --host 0.0.0.0
 ```
@@ -154,13 +154,13 @@ docker run --rm \
 Start the HTTP server with port mapping:
 
 ```bash
-docker run --rm -p 7433:7433 \
+docker run --rm -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
   ghcr.io/wethinkt/thinkt serve --host 0.0.0.0
 ```
 
-Access at `http://localhost:7433`
+Access at `http://localhost:8784`
 
 **Options:**
 ```bash
@@ -170,7 +170,7 @@ docker run --rm -p 8080:8080 \
   ghcr.io/wethinkt/thinkt serve --host 0.0.0.0 -p 8080
 
 # Quiet mode (less logging)
-docker run --rm -p 7433:7433 \
+docker run --rm -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
   ghcr.io/wethinkt/thinkt serve --host 0.0.0.0 --quiet
 ```
@@ -180,21 +180,21 @@ docker run --rm -p 7433:7433 \
 Start the lightweight debug server:
 
 ```bash
-docker run --rm -p 7434:7434 \
+docker run --rm -p 8785:8785 \
   -v ~/.claude:/data/.claude:ro \
   ghcr.io/wethinkt/thinkt serve lite --host 0.0.0.0
 ```
 
-Access at `http://localhost:7434`
+Access at `http://localhost:8785`
 
 ### MCP Server (HTTP Mode)
 
 Start the MCP server over HTTP for networked clients:
 
 ```bash
-docker run --rm -p 8081:8081 \
+docker run --rm -p 8786:8786 \
   -v ~/.claude:/data/.claude:ro \
-  ghcr.io/wethinkt/thinkt serve mcp --port 8081 --host 0.0.0.0
+  ghcr.io/wethinkt/thinkt serve mcp --port 8786 --host 0.0.0.0
 ```
 
 {{< hint warning >}}
@@ -240,7 +240,7 @@ alias thinkt-docker='docker run --rm \
 For the web server, create a separate alias:
 
 ```bash
-alias thinkt-serve='docker run --rm -p 7433:7433 \
+alias thinkt-serve='docker run --rm -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
   ghcr.io/wethinkt/thinkt serve --host 0.0.0.0'
@@ -259,7 +259,7 @@ services:
     image: ghcr.io/wethinkt/thinkt:latest
     command: serve --host 0.0.0.0
     ports:
-      - "7433:7433"
+      - "8784:8784"
     volumes:
       - ~/.claude:/data/.claude:ro
       - ~/.kimi:/data/.kimi:ro
@@ -365,8 +365,8 @@ docker run --rm \
 If the port is taken, use a different host port:
 
 ```bash
-# Map container port 7433 to host port 8080
-docker run --rm -p 8080:7433 \
+# Map container port 8784 to host port 8080
+docker run --rm -p 8080:8784 \
   -v ~/.claude:/data/.claude:ro \
   ghcr.io/wethinkt/thinkt serve --host 0.0.0.0
 ```

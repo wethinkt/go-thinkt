@@ -10,17 +10,17 @@ thinkt provides a REST API for programmatic access to AI coding session data. Th
 ## Quick Start
 
 ```bash
-# Start the full server (port 7433)
+# Start the full server (port 8784)
 thinkt serve
 
-# Start the lightweight debug server (port 7434)
+# Start the lightweight debug server (port 8785)
 thinkt serve lite
 
 # Custom port
 thinkt serve -p 8080
 ```
 
-Once running, access the API at `http://localhost:7433/api/v1/` (or your configured port).
+Once running, access the API at `http://localhost:8784/api/v1/` (or your configured port).
 
 ## Server Modes
 
@@ -29,7 +29,7 @@ Once running, access the API at `http://localhost:7433/api/v1/` (or your configu
 The main HTTP server with REST API and web interface:
 
 ```bash
-thinkt serve                    # Default port 7433
+thinkt serve                    # Default port 8784
 thinkt serve -p 8080            # Custom port
 thinkt serve --no-open          # Don't auto-open browser
 thinkt serve --quiet            # Suppress request logging
@@ -46,7 +46,7 @@ thinkt serve --http-log access.log  # Log requests to file
 A lightweight server for debugging and development:
 
 ```bash
-thinkt serve lite               # Default port 7434
+thinkt serve lite               # Default port 8785
 thinkt serve lite -p 8080       # Custom port
 thinkt serve lite --no-open     # Don't auto-open browser
 ```
@@ -68,11 +68,11 @@ thinkt serve lite --no-open     # Don't auto-open browser
 The API is documented using OpenAPI (Swagger) 2.0. Access the interactive documentation at:
 
 ```
-http://localhost:7433/swagger/
+http://localhost:8784/swagger/
 ```
 
 Download the specification:
-- **JSON:** `http://localhost:7433/swagger/doc.json`
+- **JSON:** `http://localhost:8784/swagger/doc.json`
 - **YAML:** Available in the source at `internal/server/docs/swagger.yaml`
 
 ---
@@ -121,7 +121,7 @@ GET /api/v1/sources
 
 **Example:**
 ```bash
-curl http://localhost:7433/api/v1/sources
+curl http://localhost:8784/api/v1/sources
 ```
 
 ---
@@ -163,13 +163,13 @@ GET /api/v1/projects?source=claude
 **Examples:**
 ```bash
 # All projects
-curl http://localhost:7433/api/v1/projects
+curl http://localhost:8784/api/v1/projects
 
 # Only Claude projects
-curl "http://localhost:7433/api/v1/projects?source=claude"
+curl "http://localhost:8784/api/v1/projects?source=claude"
 
 # Only Kimi projects
-curl "http://localhost:7433/api/v1/projects?source=kimi"
+curl "http://localhost:8784/api/v1/projects?source=kimi"
 ```
 
 ---
@@ -213,7 +213,7 @@ GET /api/v1/projects/{projectID}/sessions
 **Example:**
 ```bash
 # URL-encode the project path
-curl "http://localhost:7433/api/v1/projects/%2FUsers%2Fyou%2Fcode%2Fmy-project/sessions"
+curl "http://localhost:8784/api/v1/projects/%2FUsers%2Fyou%2Fcode%2Fmy-project/sessions"
 ```
 
 #### Get Session Content
@@ -290,13 +290,13 @@ GET /api/v1/sessions/{path}?limit=10&offset=0
 **Examples:**
 ```bash
 # Get all entries
-curl "http://localhost:7433/api/v1/sessions/%2Fpath%2Fto%2Fsession.jsonl"
+curl "http://localhost:8784/api/v1/sessions/%2Fpath%2Fto%2Fsession.jsonl"
 
 # Paginate: first 10 entries
-curl "http://localhost:7433/api/v1/sessions/%2Fpath%2Fto%2Fsession.jsonl?limit=10"
+curl "http://localhost:8784/api/v1/sessions/%2Fpath%2Fto%2Fsession.jsonl?limit=10"
 
 # Paginate: next 10 entries
-curl "http://localhost:7433/api/v1/sessions/%2Fpath%2Fto%2Fsession.jsonl?limit=10&offset=10"
+curl "http://localhost:8784/api/v1/sessions/%2Fpath%2Fto%2Fsession.jsonl?limit=10&offset=10"
 ```
 
 ---
@@ -395,7 +395,7 @@ POST /api/v1/open-in
 
 **Example:**
 ```bash
-curl -X POST http://localhost:7433/api/v1/open-in \
+curl -X POST http://localhost:8784/api/v1/open-in \
   -H "Content-Type: application/json" \
   -d '{"app": "vscode", "path": "/Users/you/code/my-project"}'
 ```
@@ -474,12 +474,12 @@ The API enables CORS for local development, allowing browser-based applications 
 
 ```bash
 # Get all projects
-projects=$(curl -s http://localhost:7433/api/v1/projects | jq -r '.projects[].id')
+projects=$(curl -s http://localhost:8784/api/v1/projects | jq -r '.projects[].id')
 
 # For each project, list sessions
 for proj in $projects; do
   encoded=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$proj', safe=''))")
-  curl -s "http://localhost:7433/api/v1/projects/$encoded/sessions"
+  curl -s "http://localhost:8784/api/v1/projects/$encoded/sessions"
 done
 ```
 
@@ -488,13 +488,13 @@ done
 ```bash
 session_path="/Users/you/.claude/projects/abc123/session.jsonl"
 encoded=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$session_path', safe=''))")
-curl -s "http://localhost:7433/api/v1/sessions/$encoded" | jq . > session_export.json
+curl -s "http://localhost:8784/api/v1/sessions/$encoded" | jq . > session_export.json
 ```
 
 ### Filter Sessions by Model
 
 ```bash
-curl -s "http://localhost:7433/api/v1/sessions/$encoded" | \
+curl -s "http://localhost:8784/api/v1/sessions/$encoded" | \
   jq '.entries[] | select(.model == "claude-3-opus")'
 ```
 

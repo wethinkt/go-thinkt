@@ -165,7 +165,7 @@ thinkt prompts templates              # Available output templates
 Start a local web server for visual exploration:
 
 ```bash
-thinkt serve                          # Default port 7433
+thinkt serve                          # Default port 8784
 thinkt serve -p 8080                  # Custom port
 thinkt serve --no-open                # Don't open browser
 thinkt serve --quiet                  # Suppress request logging
@@ -179,7 +179,7 @@ Start an MCP server for AI tool integration:
 
 ```bash
 thinkt serve mcp                      # stdio (for Claude Desktop)
-thinkt serve mcp --port 8081          # HTTP/SSE transport
+thinkt serve mcp --port 8786          # HTTP/SSE transport
 ```
 
 See the [MCP Server Guide](/mcp-server) for configuration details.

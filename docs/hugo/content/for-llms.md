@@ -75,7 +75,7 @@ thinkt sessions view                # View session content
 
 ### 3. REST API
 
-Base: `http://localhost:7433/api/v1`
+Base: `http://localhost:8784/api/v1`
 
 ```
 GET /sources

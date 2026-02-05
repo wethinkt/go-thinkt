@@ -12,7 +12,7 @@ The `thinkt serve mcp` command starts a [Model Context Protocol](https://modelco
 ```bash
 thinkt serve mcp                # MCP server on stdio (default)
 thinkt serve mcp --stdio        # Explicitly use stdio transport
-thinkt serve mcp --port 8081    # MCP server over HTTP (SSE)
+thinkt serve mcp --port 8786    # MCP server over HTTP (SSE)
 ```
 
 The MCP server supports two transport modes:
@@ -346,11 +346,11 @@ Edit `%USERPROFILE%\.config\github-copilot\mcp.json`:
 For networked deployments or web-based clients, run the MCP server over HTTP:
 
 ```bash
-thinkt serve mcp --port 8081
-thinkt serve mcp --port 8081 --host 0.0.0.0  # Listen on all interfaces
+thinkt serve mcp --port 8786
+thinkt serve mcp --port 8786 --host 0.0.0.0  # Listen on all interfaces
 ```
 
-The HTTP mode uses Server-Sent Events (SSE) for the MCP transport. Connect your client to `http://localhost:8081` (or your configured host/port).
+The HTTP mode uses Server-Sent Events (SSE) for the MCP transport. Connect your client to `http://localhost:8786` (or your configured host/port).
 
 ## Usage Examples
 

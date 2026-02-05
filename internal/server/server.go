@@ -37,6 +37,16 @@ const (
 	ModeCombined
 )
 
+// Default port constants for thinkt servers.
+const (
+	// DefaultPortServe is the default port for 'thinkt serve' (REST API).
+	DefaultPortServe = 8784
+	// DefaultPortLite is the default port for 'thinkt serve lite'.
+	DefaultPortLite = 8785
+	// DefaultPortMCP is the default port for 'thinkt serve mcp' over HTTP.
+	DefaultPortMCP = 8786
+)
+
 // Config holds server configuration.
 type Config struct {
 	Mode        Mode
@@ -51,7 +61,7 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		Mode: ModeCombined,
-		Port: 7433,
+		Port: DefaultPortServe,
 		Host: "localhost",
 	}
 }
@@ -373,7 +383,7 @@ func WithHost(host string) Option {
 func New(registry *thinkt.StoreRegistry, opts ...Option) *Server {
 	s := &Server{
 		registry: registry,
-		port:     7433,
+		port:     DefaultPortServe,
 		host:     "localhost",
 	}
 

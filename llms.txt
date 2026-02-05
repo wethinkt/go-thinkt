@@ -77,10 +77,10 @@ thinkt query "SELECT COUNT(*) FROM read_json_auto('~/.claude/projects/*/*.jsonl'
 ### Servers
 
 ```bash
-thinkt serve                        # HTTP server on port 7433
-thinkt serve lite                   # Lightweight debug UI on port 7434
+thinkt serve                        # HTTP server on port 8784
+thinkt serve lite                   # Lightweight debug UI on port 8785
 thinkt serve mcp                    # MCP server on stdio
-thinkt serve mcp --port 8081        # MCP server over HTTP
+thinkt serve mcp --port 8786        # MCP server over HTTP
 ```
 
 ---
@@ -138,7 +138,7 @@ Get session entry content with pagination and filtering.
 
 ## Using thinkt via REST API
 
-Base URL: `http://localhost:7433/api/v1`
+Base URL: `http://localhost:8784/api/v1`
 
 ### Endpoints
 
@@ -159,7 +159,7 @@ POST /open-in                           - Open path in app
 ```bash
 # URL-encode the session path
 path=$(python3 -c "import urllib.parse; print(urllib.parse.quote('/path/to/session.jsonl', safe=''))")
-curl "http://localhost:7433/api/v1/sessions/$path?limit=10"
+curl "http://localhost:8784/api/v1/sessions/$path?limit=10"
 ```
 
 ### Response Structure
@@ -271,7 +271,7 @@ const (
 Use the REST API with fetch:
 
 ```typescript
-const API_BASE = 'http://localhost:7433/api/v1';
+const API_BASE = 'http://localhost:8784/api/v1';
 
 // List projects
 const projects = await fetch(`${API_BASE}/projects`).then(r => r.json());
@@ -312,7 +312,7 @@ thinkt stats tokens -p /path/to/project
 thinkt sessions view <session-id> --json > session.json
 
 # Via API
-curl "http://localhost:7433/api/v1/sessions/$(urlencode /path/to/session.jsonl)" > session.json
+curl "http://localhost:8784/api/v1/sessions/$(urlencode /path/to/session.jsonl)" > session.json
 ```
 
 ### Find which tools were used most
