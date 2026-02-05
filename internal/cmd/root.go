@@ -16,6 +16,7 @@ var (
 	profileFile *os.File // held open for profiling
 	logPath     string
 	verbose     bool
+	outputJSON  bool
 )
 
 // rootCmd is the root command for the CLI.
@@ -38,8 +39,7 @@ Commands:
 Examples:
   thinkt                          # Launch TUI
   thinkt sources list             # List available sources (kimi, claude, gemini)
-  thinkt projects list            # List all projects from all sources
-  thinkt prompts extract          # Extract prompts from latest session`,
+  thinkt projects list            # List all projects from all sources`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Start CPU profiling if requested
 		if profilePath != "" {
@@ -121,20 +121,6 @@ func init() {
 	sessionsViewCmd.Flags().BoolVarP(&sessionViewAll, "all", "a", false, "view all sessions in time order")
 	sessionsViewCmd.Flags().BoolVar(&sessionViewRaw, "raw", false, "output raw text without decoration/rendering")
 
-	// Search command flags
-	searchCmd.Flags().StringVarP(&searchProject, "project", "p", "", "limit search to a project")
-	searchCmd.Flags().IntVarP(&searchLimit, "limit", "n", 50, "maximum results")
-	searchCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
-
-	// Stats command flags (common)
-	statsCmd.PersistentFlags().StringVarP(&statsProject, "project", "p", "", "limit stats to a project")
-	statsCmd.PersistentFlags().IntVarP(&statsLimit, "limit", "n", 20, "maximum results")
-	statsCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "output as JSON")
-	statsActivityCmd.Flags().IntVar(&statsDays, "days", 30, "number of days to show")
-
-	// Query command flags
-	queryCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
-
 	// Build command tree
 	projectsCmd.AddCommand(projectsSummaryCmd)
 	projectsCmd.AddCommand(projectsDeleteCmd)
@@ -144,12 +130,6 @@ func init() {
 	sessionsCmd.AddCommand(sessionsDeleteCmd)
 	sessionsCmd.AddCommand(sessionsCopyCmd)
 	sessionsCmd.AddCommand(sessionsViewCmd)
-	statsCmd.AddCommand(statsTokensCmd)
-	statsCmd.AddCommand(statsToolsCmd)
-	statsCmd.AddCommand(statsWordsCmd)
-	statsCmd.AddCommand(statsActivityCmd)
-	statsCmd.AddCommand(statsModelsCmd)
-	statsCmd.AddCommand(statsErrorsCmd)
 	promptsCmd.AddCommand(extractCmd)
 	promptsCmd.AddCommand(listCmd)
 	promptsCmd.AddCommand(infoCmd)
@@ -158,9 +138,6 @@ func init() {
 	rootCmd.AddCommand(tuiCmd)
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(promptsCmd)
-	rootCmd.AddCommand(searchCmd)
-	rootCmd.AddCommand(statsCmd)
-	rootCmd.AddCommand(queryCmd)
 	rootCmd.AddCommand(projectsCmd)
 	rootCmd.AddCommand(sessionsCmd)
 	rootCmd.AddCommand(sourcesCmd)
