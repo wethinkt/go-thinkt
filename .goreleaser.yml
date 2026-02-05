@@ -1,14 +1,22 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # .goreleaser.yml
 
 version: 2
 
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
+
 before:
   hooks:
     - go mod tidy
-    - go run ./cmd/thinkt docs man -o ./docs/man
-    - go run ./cmd/thinkt completion bash > ./docs/completion.bash
-    - go run ./cmd/thinkt completion fish > ./docs/completion.fish
-    - go run ./cmd/thinkt completion zsh > ./docs/completion.zsh
+    - rm -rf completions
+    - mkdir completions
+    - rm -rf manpages
+    - mkdir manpages
+    - sh -c 'go run ./cmd/thinkt completion bash > ./completions/thinkt.bash'
+    - sh -c 'go run ./cmd/thinkt completion fish > ./completions/thinkt.fish'
+    - sh -c 'go run ./cmd/thinkt completion zsh > ./completions/thinkt.zsh'
+    - sh -c 'go run ./cmd/thinkt docs man -o ./manpages/'
 
 builds:
   - id: linux-amd64
@@ -101,7 +109,7 @@ archives:
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
     files:
-      - src: ./docs/man/*
+      - src: ./manpages/*
         dst: man/man1/
         strip_parent: true
 
@@ -130,11 +138,11 @@ homebrew_casks:
     binaries:
       - thinkt
     manpages:
-      - "man/man1/*.1"
+      - manpages/*
     completions:
-      bash: docs/completions.bash
-      zsh: docs/completions.zsh
-      fish: docs/completions.fish
+      bash: completions/thinkt.bash
+      zsh: completions/thinkt.zsh
+      fish: completions/thinkt.fish
 
 dockers:
   - id: linux-amd64
