@@ -112,6 +112,9 @@ archives:
       - src: ./manpages/*
         dst: man/man1/
         strip_parent: true
+      - src: ./completions/*
+        dst: completions/
+        strip_parent: true
 
 checksum:
   name_template: checksums.txt
