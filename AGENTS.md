@@ -60,14 +60,6 @@ thinkt
 │   ├── view
 │   ├── delete
 │   └── copy
-
-│   ├── tokens
-│   ├── tools
-│   ├── words
-│   ├── activity
-│   ├── models
-│   └── errors
-├── query               # Raw SQL queries
 ├── prompts             # Prompt extraction
 │   ├── extract
 │   ├── list

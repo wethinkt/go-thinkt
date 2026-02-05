@@ -51,18 +51,62 @@ type sessionsIndex struct {
 // DecodeDirName converts a Claude Code hashed directory name to a human-readable
 // display name and decoded full path. The directory name format replaces "/" with "-",
 // e.g., "-Users-evan-brainstm-foo" decodes to "/Users/evan/brainstm/foo".
+//
+// Because "-" is ambiguous (it could be a path separator or a literal hyphen in a
+// directory name), we validate against the filesystem. If the naive decode doesn't
+// produce an existing path, we greedily reconstruct it by checking which segments
+// exist on disk.
 func DecodeDirName(dirName string) (displayName string, fullPath string) {
 	if dirName == "-" {
 		return "~", ""
 	}
 
 	// Leading "-" maps to "/"
+	var segments []string
 	if strings.HasPrefix(dirName, "-") {
-		fullPath = "/" + strings.ReplaceAll(dirName[1:], "-", "/")
+		segments = strings.Split(dirName[1:], "-")
 	} else {
-		fullPath = strings.ReplaceAll(dirName, "-", "/")
+		segments = strings.Split(dirName, "-")
 	}
 
+	// Fast path: naive decode (all "-" become "/")
+	if strings.HasPrefix(dirName, "-") {
+		fullPath = "/" + strings.Join(segments, "/")
+	} else {
+		fullPath = strings.Join(segments, "/")
+	}
+
+	if _, err := os.Stat(fullPath); err == nil {
+		displayName = filepath.Base(fullPath)
+		return displayName, fullPath
+	}
+
+	// Slow path: greedily build the path, joining segments with "-" when
+	// a "/" split doesn't match an existing directory on disk.
+	var prefix string
+	if strings.HasPrefix(dirName, "-") {
+		prefix = "/"
+	}
+
+	rebuilt := prefix + segments[0]
+	for i := 1; i < len(segments); i++ {
+		// Try extending the current component with "-"
+		withHyphen := rebuilt + "-" + segments[i]
+		// Try starting a new path component with "/"
+		withSlash := rebuilt + "/" + segments[i]
+
+		// Prefer "/" if that directory exists, otherwise use "-"
+		if _, err := os.Stat(withSlash); err == nil {
+			rebuilt = withSlash
+		} else if _, err := os.Stat(withHyphen); err == nil {
+			rebuilt = withHyphen
+		} else {
+			// Neither exists yet; assume "/" (the common case for intermediate dirs)
+			rebuilt = withSlash
+		}
+	}
+
+	fullPath = rebuilt
 	displayName = filepath.Base(fullPath)
 	return displayName, fullPath
 }
@@ -94,6 +138,9 @@ func ListProjects(baseDir string) ([]Project, error) {
 
 		dirPath := filepath.Join(projectsDir, entry.Name())
 		displayName, fullPath := DecodeDirName(entry.Name())
+		if fullPath == "" {
+			fullPath = homeDir // Fallback to home dir if decoding fails (e.g., for "-")
+		}
 
 		// Check for sessions-index.json to get the real path
 		indexPath := filepath.Join(dirPath, "sessions-index.json")

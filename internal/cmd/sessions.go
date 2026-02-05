@@ -157,6 +157,13 @@ Examples:
 	RunE: runSessionsView,
 }
 
+// logSelectedProject prints the resolved project to stderr when -v is set.
+func logSelectedProject() {
+	if verbose && sessionProject != "" {
+		fmt.Fprintf(os.Stderr, "project: %s\n", sessionProject)
+	}
+}
+
 func runSessionsList(cmd *cobra.Command, args []string) error {
 	registry := CreateSourceRegistry()
 	ctx := context.Background()
@@ -202,6 +209,8 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 		}
 		sessionProject = selected.ID
 	}
+
+	logSelectedProject()
 
 	// Get sessions for the selected project
 	sessions, err := GetSessionsForProject(registry, sessionProject, sessionSources)
@@ -264,6 +273,8 @@ func runSessionsSummary(cmd *cobra.Command, args []string) error {
 		sessionProject = selected.ID
 	}
 
+	logSelectedProject()
+
 	// Get sessions for the selected project
 	sessions, err := GetSessionsForProject(registry, sessionProject, sessionSources)
 	if err != nil {
@@ -305,6 +316,8 @@ func runSessionsDelete(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	logSelectedProject()
+
 	deleter := cli.NewSessionDeleter(registry, cli.SessionDeleteOptions{
 		Force:   sessionForceDelete,
 		Project: sessionProject,
@@ -330,6 +343,8 @@ func runSessionsCopy(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("--project/-p is required when not using an absolute path\n\n(Not in a known project directory)")
 		}
 	}
+
+	logSelectedProject()
 
 	copier := cli.NewSessionCopier(registry, cli.SessionCopyOptions{
 		Project: sessionProject,
@@ -390,6 +405,8 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 		}
 		sessionProject = selected.ID
 	}
+
+	logSelectedProject()
 
 	// Get all sessions in the project
 	sessions, err := GetSessionsForProject(registry, sessionProject, sessionSources)
