@@ -14,7 +14,6 @@ import (
 
 // global flags
 var (
-	profilePath string
 	profileFile *os.File // held open for profiling
 	logPath     string
 	verbose     bool
@@ -43,8 +42,8 @@ Examples:
   thinkt sources list             # List available sources (kimi, claude, gemini)
   thinkt projects list            # List all projects from all sources`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// Start CPU profiling if requested
-		if profilePath != "" {
+		// Start pprof profiling if THINKT_PROFILE is set
+		if profilePath := os.Getenv("THINKT_PROFILE"); profilePath != "" {
 			f, err := os.Create(profilePath)
 			if err != nil {
 				return fmt.Errorf("create profile file: %w", err)
@@ -79,7 +78,6 @@ func Execute() error {
 func init() {
 	// Global flags on root
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
-	rootCmd.PersistentFlags().StringVar(&profilePath, "profile", "", "write CPU profile to file")
 
 	// TUI-specific flags
 	tuiCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")

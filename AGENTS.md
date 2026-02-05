@@ -125,6 +125,7 @@ thinkt serve token  # Generates thinkt_YYYYMMDD_<random> format
 | `THINKT_COPILOT_HOME` | Copilot data directory | `~/.copilot` |
 | `THINKT_API_TOKEN` | Bearer token for API server authentication | (none) |
 | `THINKT_MCP_TOKEN` | Bearer token for MCP server authentication | (none) |
+| `THINKT_PROFILE` | Write CPU profiling to this file path | (disabled) |
 
 ## Lite Webapp
 
