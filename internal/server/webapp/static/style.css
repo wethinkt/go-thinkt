@@ -45,6 +45,35 @@ h1 {
     gap: 0.5rem;
 }
 
+.top-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* ===== Theme Toggle ===== */
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 217, 255, 0.2);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1rem;
+}
+
+.theme-toggle:hover {
+    border-color: #00d9ff;
+}
+
+.theme-icon {
+    line-height: 1;
+}
+
 /* ===== Connection Status ===== */
 .connection-status {
     display: flex;
@@ -471,12 +500,26 @@ h1 {
     align-items: center;
 }
 
+/* ===== Source Row ===== */
+.source-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.3rem;
+}
+
+.total-sessions {
+    font-size: 0.7rem;
+    color: #666;
+    white-space: nowrap;
+    margin-left: 0.25rem;
+}
+
 /* ===== Source Badges ===== */
 .source-badges {
     display: flex;
     flex-wrap: wrap;
     gap: 0.3rem;
-    margin-top: 0.3rem;
 }
 
 .source-badge {
@@ -772,4 +815,207 @@ h1 {
 
 .json-null {
     color: #666;
+}
+
+/* ===== Light Mode ===== */
+body.light-mode {
+    background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
+    color: #1a202c;
+}
+
+.light-mode .panel {
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid #e2e8f0;
+}
+
+.light-mode .panel h2 {
+    color: #2563eb;
+    border-bottom-color: rgba(37, 99, 235, 0.2);
+}
+
+.light-mode .nav a,
+.light-mode .nav button {
+    color: #2563eb;
+    border-color: #2563eb;
+}
+
+.light-mode .nav a:hover,
+.light-mode .nav button:hover {
+    background: #2563eb;
+    color: white;
+}
+
+.light-mode .nav .primary {
+    background: #2563eb;
+    color: white;
+}
+
+.light-mode .nav h3 {
+    color: #64748b;
+}
+
+.light-mode .connection-status {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(37, 99, 235, 0.2);
+    color: #64748b;
+}
+
+.light-mode .connection-status:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+}
+
+.light-mode .connection-status.connected {
+    border-color: rgba(34, 197, 94, 0.3);
+    color: #16a34a;
+}
+
+.light-mode .connection-status.disconnected {
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #dc2626;
+}
+
+.light-mode .theme-toggle,
+.light-mode .lang-toggle {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(37, 99, 235, 0.2);
+    color: #64748b;
+}
+
+.light-mode .theme-toggle:hover,
+.light-mode .lang-toggle:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+}
+
+.light-mode .lang-menu {
+    background: white;
+    border-color: rgba(37, 99, 235, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.light-mode .lang-menu-item {
+    color: #1a202c;
+}
+
+.light-mode .lang-menu-item:hover,
+.light-mode .lang-menu-item.active {
+    background: rgba(37, 99, 235, 0.1);
+    color: #2563eb;
+}
+
+.light-mode .source-item,
+.light-mode .app-item,
+.light-mode .theme-item,
+.light-mode .project-item {
+    background: rgba(37, 99, 235, 0.05);
+}
+
+.light-mode .source-name,
+.light-mode .app-name,
+.light-mode .theme-name {
+    color: #1a202c;
+}
+
+.light-mode .source-meta,
+.light-mode .app-meta,
+.light-mode .theme-meta,
+.light-mode .project-meta,
+.light-mode .total-sessions {
+    color: #64748b;
+}
+
+.light-mode .source-status.available,
+.light-mode .app-status.enabled {
+    background: rgba(34, 197, 94, 0.15);
+    color: #16a34a;
+}
+
+.light-mode .source-status.unavailable {
+    background: rgba(239, 68, 68, 0.15);
+    color: #dc2626;
+}
+
+.light-mode .project-path .path-dim {
+    color: #94a3b8;
+}
+
+.light-mode .project-path .path-highlight {
+    color: #1a202c;
+}
+
+.light-mode .badge {
+    background: rgba(37, 99, 235, 0.15);
+    color: #2563eb;
+}
+
+.light-mode .open-in-default,
+.light-mode .open-in-toggle {
+    background: rgba(37, 99, 235, 0.1);
+    border-color: #2563eb;
+    color: #2563eb;
+}
+
+.light-mode .open-in-menu {
+    background: white;
+    border-color: rgba(37, 99, 235, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.light-mode .open-in-menu-item {
+    color: #1a202c;
+}
+
+.light-mode .open-in-menu-item:hover {
+    background: rgba(37, 99, 235, 0.1);
+    color: #2563eb;
+}
+
+.light-mode .modal {
+    background: white;
+    border-color: rgba(37, 99, 235, 0.2);
+}
+
+.light-mode .modal-header {
+    border-bottom-color: rgba(37, 99, 235, 0.1);
+}
+
+.light-mode .modal-title {
+    color: #2563eb;
+}
+
+.light-mode .modal-actions button,
+.light-mode .modal-actions a {
+    border-color: #2563eb;
+    color: #2563eb;
+}
+
+.light-mode .modal-actions button:hover,
+.light-mode .modal-actions a:hover {
+    background: #2563eb;
+    color: white;
+}
+
+.light-mode .json-key {
+    color: #2563eb;
+}
+
+.light-mode .json-string {
+    color: #16a34a;
+}
+
+.light-mode .json-number {
+    color: #d97706;
+}
+
+.light-mode .json-boolean {
+    color: #db2777;
+}
+
+.light-mode .loading {
+    color: #64748b;
+}
+
+.light-mode .error {
+    color: #dc2626;
 }

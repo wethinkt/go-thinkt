@@ -15,12 +15,17 @@
             <span class="status-dot"></span>
             <span class="status-text">Connecting...</span>
         </div>
-        <div class="lang-selector" id="lang-selector">
-            <button class="lang-toggle" onclick="toggleLangMenu()">
-                <span class="lang-current">EN</span>
-                <span class="lang-caret">▼</span>
+        <div class="top-bar-row">
+            <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
+                <span class="theme-icon">🌙</span>
             </button>
-            <div class="lang-menu" id="lang-menu"></div>
+            <div class="lang-selector" id="lang-selector">
+                <button class="lang-toggle" onclick="toggleLangMenu()">
+                    <span class="lang-current">EN</span>
+                    <span class="lang-caret">▼</span>
+                </button>
+                <div class="lang-menu" id="lang-menu"></div>
+            </div>
         </div>
     </div>
 
@@ -420,13 +425,13 @@
                     <div class="project-item" title="${t('click-to-copy')}">
                         <div class="project-info" onclick="copyPath('${escapeHtml(p.path)}')">
                             <div class="project-path">${formatPathWithDim(p.path, homeDir)}</div>
-                            <div class="source-badges">
-                                ${renderSourceBadges(p.sources)}
+                            <div class="source-row">
+                                <div class="source-badges">
+                                    ${renderSourceBadges(p.sources)}
+                                </div>
+                                <span class="total-sessions">${p.totalSessions} ${p.totalSessions === 1 ? t('session') : t('sessions')}</span>
                             </div>
-                            <div class="project-meta">
-                                <span>${p.totalSessions} ${p.totalSessions === 1 ? t('session') : t('sessions')}</span>
-                                ${p.modified_at ? `<span>${formatDate(p.modified_at)}</span>` : ''}
-                            </div>
+                            ${p.modified_at ? `<div class="project-meta"><span>${formatDate(p.modified_at)}</span></div>` : ''}
                         </div>
                         ${renderOpenInDropdown(p.path)}
                     </div>
@@ -479,6 +484,30 @@
             }
             loadProjects();
         }
+
+        // ===== Theme Toggle =====
+        function getPreferredTheme() {
+            const stored = localStorage.getItem('theme');
+            if (stored) return stored;
+            return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+
+        function setTheme(theme) {
+            document.body.classList.toggle('light-mode', theme === 'light');
+            const icon = document.querySelector('.theme-icon');
+            if (icon) {
+                icon.textContent = theme === 'light' ? '☀️' : '🌙';
+            }
+            localStorage.setItem('theme', theme);
+        }
+
+        function toggleTheme() {
+            const isLight = document.body.classList.contains('light-mode');
+            setTheme(isLight ? 'dark' : 'light');
+        }
+
+        // Initialize theme
+        setTheme(getPreferredTheme());
 
         // ===== Connection Status =====
         let pingInterval;
