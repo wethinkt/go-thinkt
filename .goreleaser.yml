@@ -138,7 +138,7 @@ homebrew_casks:
     binaries:
       - thinkt
     manpages:
-      - manpages/*
+      - man/man1/thinkt.1
     completions:
       bash: completions/thinkt.bash
       zsh: completions/thinkt.zsh
