@@ -44,7 +44,8 @@ thinkt
 ├── tui                 # Interactive TUI browser (default)
 ├── serve               # HTTP/MCP servers
 │   ├── mcp             # MCP server (stdio or HTTP)
-│   └── lite            # Lightweight debug webapp
+│   ├── lite            # Lightweight debug webapp
+│   └── token           # Generate secure authentication token
 ├── sources             # Source management
 │   ├── list
 │   └── status
@@ -88,6 +89,32 @@ thinkt
 | `--quiet, -q` | Suppress HTTP request logging |
 | `--http-log <file>` | Write HTTP access log to file |
 | `--log` | Write debug log to file |
+| `--token` | Bearer token for authentication (API and MCP HTTP) |
+
+### Authentication
+
+Both the REST API server and MCP HTTP server support Bearer token authentication.
+
+**Token Generation:**
+```bash
+thinkt serve token  # Generates thinkt_YYYYMMDD_<random> format
+```
+
+**API Server:**
+- Environment: `THINKT_API_TOKEN`
+- Flag: `--token`
+- Header: `Authorization: Bearer <token>`
+
+**MCP Server:**
+- Stdio: Uses `THINKT_MCP_TOKEN` environment variable
+- HTTP: Uses `THINKT_MCP_TOKEN` env var or `--token` flag
+- Header: `Authorization: Bearer <token>`
+
+**Security Features:**
+- 256-bit random tokens (32 bytes hex-encoded)
+- Constant-time comparison to prevent timing attacks
+- `WWW-Authenticate` header on 401 responses
+- No authentication by default (local development)
 
 ### Environment Variables
 
@@ -97,6 +124,8 @@ thinkt
 | `THINKT_CLAUDE_HOME` | Claude Code data directory | `~/.claude` |
 | `THINKT_GEMINI_HOME` | Gemini CLI data directory | `~/.gemini` |
 | `THINKT_COPILOT_HOME` | Copilot data directory | `~/.copilot` |
+| `THINKT_API_TOKEN` | Bearer token for API server authentication | (none) |
+| `THINKT_MCP_TOKEN` | Bearer token for MCP server authentication | (none) |
 
 ## Lite Webapp
 

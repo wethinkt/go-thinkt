@@ -18,21 +18,28 @@ import (
 
 // MCPServer wraps an MCP server for thinkt.
 type MCPServer struct {
-	server   *mcp.Server
-	registry *thinkt.StoreRegistry
+	server        *mcp.Server
+	registry      *thinkt.StoreRegistry
+	authenticator *MCPAuthenticator
 }
 
 // NewMCPServer creates a new MCP server with thinkt tools.
 func NewMCPServer(registry *thinkt.StoreRegistry) *MCPServer {
-	tuilog.Log.Info("NewMCPServer: creating MCP server")
+	return NewMCPServerWithAuth(registry, DefaultMCPAuthConfig())
+}
+
+// NewMCPServerWithAuth creates a new MCP server with authentication.
+func NewMCPServerWithAuth(registry *thinkt.StoreRegistry, authConfig MCPAuthConfig) *MCPServer {
+	tuilog.Log.Info("NewMCPServer: creating MCP server", "auth_mode", authConfig.Mode)
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "thinkt",
 		Version: "1.0.0",
 	}, nil)
 
 	ms := &MCPServer{
-		server:   server,
-		registry: registry,
+		server:        server,
+		registry:      registry,
+		authenticator: NewMCPAuthenticator(authConfig),
 	}
 
 	// Register tools
@@ -645,7 +652,7 @@ func (ms *MCPServer) RunStdio(ctx context.Context) error {
 
 // RunHTTP runs the MCP server over HTTP using SSE transport.
 func (ms *MCPServer) RunHTTP(ctx context.Context, host string, port int) error {
-	tuilog.Log.Info("RunHTTP: starting", "host", host, "port", port)
+	tuilog.Log.Info("RunHTTP: starting", "host", host, "port", port, "auth_mode", ms.authenticator.config.Mode)
 
 	// Create SSE handler that returns our MCP server for each connection
 	sseHandler := mcp.NewSSEHandler(func(req *http.Request) *mcp.Server {
@@ -653,11 +660,20 @@ func (ms *MCPServer) RunHTTP(ctx context.Context, host string, port int) error {
 		return ms.server
 	}, nil)
 
+	// Wrap with authentication middleware
+	var handler http.Handler = sseHandler
+	if ms.authenticator.config.Mode != AuthModeNone {
+		handler = ms.authenticator.Middleware(sseHandler)
+		tuilog.Log.Info("RunHTTP: authentication enabled")
+	} else {
+		tuilog.Log.Warn("RunHTTP: running without authentication - use THINKT_MCP_TOKEN env var to secure")
+	}
+
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", host, port)
 	srv := &http.Server{
 		Addr:    addr,
-		Handler: sseHandler,
+		Handler: handler,
 	}
 
 	// Start listener

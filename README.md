@@ -153,6 +153,7 @@ thinkt serve --no-open
 | `thinkt serve` | Start HTTP server (port 7433) |
 | `thinkt serve lite` | Start lightweight webapp (port 7434) |
 | `thinkt serve mcp` | Start MCP server |
+| `thinkt serve token` | Generate secure authentication token |
 | `thinkt theme` | Display current theme |
 | `thinkt theme builder` | Interactive theme editor |
 
@@ -166,6 +167,56 @@ thinkt serve --no-open            # Don't auto-open browser
 
 # These also work with serve lite
 thinkt serve lite --quiet --no-open
+```
+
+## Authentication
+
+Both the REST API server (`thinkt serve`) and MCP server (`thinkt serve mcp`) support Bearer token authentication to protect access to your conversation data.
+
+### Generate a Token
+
+```bash
+thinkt serve token
+# Output: thinkt_20260205_cd3bf36d6e1fc71e9bf033a7131f77cb
+```
+
+### API Server Authentication
+
+```bash
+# Using environment variable
+export THINKT_API_TOKEN=$(thinkt serve token)
+thinkt serve
+
+# Using command-line flag
+thinkt serve --token thinkt_20260205_...
+
+# Client request
+curl -H "Authorization: Bearer thinkt_20260205_..." http://localhost:7433/api/v1/sources
+```
+
+### MCP Server Authentication
+
+For stdio transport (default), authentication uses environment variables:
+
+```bash
+# Claude Desktop configuration with authentication
+export THINKT_MCP_TOKEN=$(thinkt serve token)
+```
+
+For HTTP transport:
+
+```bash
+# Using environment variable
+export THINKT_MCP_TOKEN=$(thinkt serve token)
+thinkt serve mcp --port 8081
+
+# Using command-line flag
+thinkt serve mcp --port 8081 --token thinkt_20260205_...
+```
+
+Clients must pass the token in the `Authorization` header:
+```
+Authorization: Bearer thinkt_20260205_...
 ```
 
 ## Lite Webapp Features
@@ -187,10 +238,18 @@ Use `thinkt` as an MCP server for AI assistants like Claude Desktop:
   "mcpServers": {
     "thinkt": {
       "command": "thinkt",
-      "args": ["serve", "mcp"]
+      "args": ["serve", "mcp"],
+      "env": {
+        "THINKT_MCP_TOKEN": "your-secure-token-here"
+      }
     }
   }
 }
+```
+
+Generate a secure token with:
+```bash
+thinkt serve token
 ```
 
 Available MCP tools:
@@ -200,6 +259,8 @@ Available MCP tools:
 - `get_session_metadata` - Get session metadata
 - `get_session_entries` - Get session content with pagination
 
+See [Authentication](#authentication) for more details on securing the MCP server.
+
 ## Environment Variables
 
 | Variable | Description | Default |
@@ -208,6 +269,8 @@ Available MCP tools:
 | `THINKT_KIMI_HOME` | Kimi Code data directory | `~/.kimi` |
 | `THINKT_GEMINI_HOME` | Gemini CLI data directory | `~/.gemini` |
 | `THINKT_COPILOT_HOME` | Copilot data directory | `~/.copilot` |
+| `THINKT_API_TOKEN` | Bearer token for API server authentication | (none) |
+| `THINKT_MCP_TOKEN` | Bearer token for MCP server authentication | (none) |
 
 ## Related Projects
 

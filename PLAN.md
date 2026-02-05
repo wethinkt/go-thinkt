@@ -47,6 +47,19 @@ Tag push (v*) → GitHub Actions → goreleaser-cross container
 
 ## Security TODOs
 
+- [x] **MCP Server Authentication** - Implemented token-based auth
+  - `THINKT_MCP_TOKEN` environment variable support
+  - `--token` flag for HTTP transport
+  - `Authorization: Bearer <token>` header validation
+  - `thinkt serve token` command for secure token generation
+  - Constant-time comparison to prevent timing attacks
+
+- [x] **API Server Authentication** - Implemented token-based auth
+  - `THINKT_API_TOKEN` environment variable support
+  - `--token` flag for API server
+  - Same `Authorization: Bearer <token>` header validation
+  - Secures REST API endpoints from unauthorized access
+
 - [ ] **Tighten `getAllowedBaseDirectories()` in `internal/server/security.go`**
   - Current implementation allows opening any directory under user's home
   - Consider restricting to only known project directories from the registry

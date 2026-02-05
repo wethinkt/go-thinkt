@@ -33,6 +33,12 @@ var (
 	mcpStdio bool
 	mcpPort  int
 	mcpHost  string
+	mcpToken string // Bearer token for HTTP transport auth
+)
+
+// Serve API subcommand flags
+var (
+	apiToken string // Bearer token for API server authentication
 )
 
 var serveCmd = &cobra.Command{
@@ -63,11 +69,38 @@ var serveMcpCmd = &cobra.Command{
 By default, runs on stdio for use with Claude Desktop and other MCP clients.
 Use --port to run over HTTP instead.
 
+Authentication:
+  For stdio transport: Set THINKT_MCP_TOKEN environment variable
+  For HTTP transport: Use --token flag or THINKT_MCP_TOKEN environment variable
+  Clients must pass the token in the Authorization header: "Bearer <token>"
+  Generate a secure token with: thinkt serve token
+
 Examples:
-  thinkt serve mcp                # MCP server on stdio (default)
-  thinkt serve mcp --stdio        # Explicitly use stdio transport
-  thinkt serve mcp --port 8081    # MCP server over HTTP`,
+  thinkt serve mcp                          # MCP server on stdio (default)
+  thinkt serve mcp --stdio                  # Explicitly use stdio transport
+  thinkt serve mcp --port 8081              # MCP server over HTTP (no auth)
+  thinkt serve mcp --port 8081 --token xyz  # MCP server with authentication`,
 	RunE: runServeMCP,
+}
+
+var serveTokenCmd = &cobra.Command{
+	Use:   "token",
+	Short: "Generate a secure authentication token",
+	Long: `Generate a cryptographically secure random token for API/MCP authentication.
+
+The token can be used with:
+  - thinkt serve --token <token>      # Secure the REST API
+  - thinkt serve mcp --token <token>  # Secure the MCP server
+  - THINKT_MCP_TOKEN env var          # Same as above
+
+The token format is: thinkt_YYYYMMDD_<random>
+
+Examples:
+  thinkt serve token                  # Generate and print a token
+  thinkt serve token | pbcopy         # Generate and copy to clipboard (macOS)
+  export THINKT_MCP_TOKEN=$(thinkt serve token)
+  thinkt serve mcp --port 8081        # Uses token from env`,
+	RunE: runServeToken,
 }
 
 var serveLiteCmd = &cobra.Command{
@@ -105,6 +138,15 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 	registry := CreateSourceRegistry()
 	tuilog.Log.Info("Source registry created", "stores", len(registry.All()))
 
+	// Configure authentication
+	authConfig := server.DefaultAPIAuthConfig()
+	if apiToken != "" {
+		authConfig = server.APIAuthConfig{
+			Mode:  server.APIAuthModeToken,
+			Token: apiToken,
+		}
+	}
+
 	// Create context that cancels on interrupt
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -127,7 +169,7 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 		Quiet:   serveQuiet,
 		HTTPLog: serveHTTPLog,
 	}
-	srv := server.NewHTTPServer(registry, config)
+	srv := server.NewHTTPServerWithAuth(registry, config, authConfig)
 
 	// Print startup message
 	fmt.Println("🚀 Thinkt server starting...")
@@ -197,6 +239,15 @@ func runServeLite(cmd *cobra.Command, args []string) error {
 	return srv.ListenAndServe(ctx)
 }
 
+func runServeToken(cmd *cobra.Command, args []string) error {
+	token, err := server.GenerateSecureTokenWithPrefix()
+	if err != nil {
+		return fmt.Errorf("failed to generate token: %w", err)
+	}
+	fmt.Println(token)
+	return nil
+}
+
 func runServeMCP(cmd *cobra.Command, args []string) error {
 	// Initialize logger if requested
 	if logPath != "" {
@@ -229,9 +280,18 @@ func runServeMCP(cmd *cobra.Command, args []string) error {
 		cancel()
 	}()
 
-	// Create MCP server
+	// Configure authentication
+	authConfig := server.DefaultMCPAuthConfig()
+	if mcpToken != "" {
+		authConfig = server.MCPAuthConfig{
+			Mode:  server.AuthModeToken,
+			Token: mcpToken,
+		}
+	}
+
+	// Create MCP server with authentication
 	tuilog.Log.Info("Creating MCP server")
-	mcpServer := server.NewMCPServer(registry)
+	mcpServer := server.NewMCPServerWithAuth(registry, authConfig)
 
 	if useStdio {
 		// Stdio transport

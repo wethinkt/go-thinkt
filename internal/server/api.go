@@ -20,6 +20,21 @@ import (
 // @title Thinkt API
 // @version 1.0
 // @description API for exploring AI conversation traces from Claude Code, Kimi Code, and other sources.
+// @description
+// @description ## Authentication
+// @description
+// @description The API supports Bearer token authentication. When `THINKT_API_TOKEN` environment variable
+// @description is set or `--token` flag is provided, all requests must include the token in the
+// @description Authorization header:
+// @description
+// @description     Authorization: Bearer <token>
+// @description
+// @description Generate a secure token with: `thinkt serve token`
+// @description
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Bearer token authentication. Format: "Bearer <token>"
 // @host localhost:7433
 // @BasePath /api/v1
 
@@ -79,7 +94,9 @@ func writeError(w http.ResponseWriter, status int, err string, msg string) {
 // @Tags sources
 // @Produce json
 // @Success 200 {object} SourcesResponse
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
 // @Router /sources [get]
+// @Security BearerAuth
 func (s *HTTPServer) handleGetSources(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	status := s.registry.SourceStatus(ctx)
@@ -103,8 +120,10 @@ func (s *HTTPServer) handleGetSources(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param source query string false "Filter by source (e.g., 'claude', 'kimi')"
 // @Success 200 {object} ProjectsResponse
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
 // @Failure 500 {object} ErrorResponse
 // @Router /projects [get]
+// @Security BearerAuth
 func (s *HTTPServer) handleGetProjects(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	sourceFilter := r.URL.Query().Get("source")
@@ -136,9 +155,11 @@ func (s *HTTPServer) handleGetProjects(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param projectID path string true "Project ID (URL-encoded path)"
 // @Success 200 {object} SessionsResponse
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /projects/{projectID}/sessions [get]
+// @Security BearerAuth
 func (s *HTTPServer) handleGetProjectSessions(w http.ResponseWriter, r *http.Request) {
 	projectID := chi.URLParam(r, "projectID")
 	if projectID == "" {
@@ -191,9 +212,11 @@ func (s *HTTPServer) findSessionsForProject(ctx context.Context, projectID strin
 // @Param limit query int false "Maximum number of entries to return (0 for all)"
 // @Param offset query int false "Number of entries to skip"
 // @Success 200 {object} SessionResponse
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /sessions/{path} [get]
+// @Security BearerAuth
 func (s *HTTPServer) handleGetSession(w http.ResponseWriter, r *http.Request) {
 	// Get the path after /sessions/
 	path := chi.URLParam(r, "*")
@@ -312,10 +335,12 @@ type AllowedAppsResponse struct {
 // @Produce json
 // @Param request body OpenInRequest true "Open-in request"
 // @Success 200 {object} OpenInResponse
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
 // @Failure 400 {object} ErrorResponse
 // @Failure 403 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /open-in [post]
+// @Security BearerAuth
 func (s *HTTPServer) handleOpenIn(w http.ResponseWriter, r *http.Request) {
 	var req OpenInRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -383,7 +408,9 @@ func (s *HTTPServer) handleOpenIn(w http.ResponseWriter, r *http.Request) {
 // @Tags open-in
 // @Produce json
 // @Success 200 {object} AllowedAppsResponse
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
 // @Router /open-in/apps [get]
+// @Security BearerAuth
 func (s *HTTPServer) handleGetAllowedApps(w http.ResponseWriter, r *http.Request) {
 	cfg, err := config.Load()
 	if err != nil {
@@ -455,7 +482,9 @@ type ThemesResponse struct {
 // @Tags themes
 // @Produce json
 // @Success 200 {object} ThemesResponse
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
 // @Router /themes [get]
+// @Security BearerAuth
 func (s *HTTPServer) handleGetThemes(w http.ResponseWriter, r *http.Request) {
 	available, err := theme.ListAvailable()
 	if err != nil {

@@ -17,6 +17,11 @@ const docTemplate = `{
     "paths": {
         "/open-in": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Opens the specified path in an allowed application (e.g., Finder, VS Code)",
                 "consumes": [
                     "application/json"
@@ -52,6 +57,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/server.ErrorResponse"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
@@ -69,6 +80,11 @@ const docTemplate = `{
         },
         "/open-in/apps": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Returns the list of enabled applications that can be used with open-in",
                 "produces": [
                     "application/json"
@@ -83,12 +99,23 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/server.AllowedAppsResponse"
                         }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
                     }
                 }
             }
         },
         "/projects": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Returns all projects from all sources, optionally filtered by source",
                 "produces": [
                     "application/json"
@@ -112,6 +139,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/server.ProjectsResponse"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -123,6 +156,11 @@ const docTemplate = `{
         },
         "/projects/{projectID}/sessions": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Returns all sessions belonging to a specific project",
                 "produces": [
                     "application/json"
@@ -153,6 +191,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/server.ErrorResponse"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -164,6 +208,11 @@ const docTemplate = `{
         },
         "/sessions/{path}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Returns session metadata and entries with optional pagination",
                 "produces": [
                     "application/json"
@@ -206,6 +255,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/server.ErrorResponse"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -217,6 +272,11 @@ const docTemplate = `{
         },
         "/sources": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Returns all configured trace sources (e.g., Claude Code, Kimi Code)",
                 "produces": [
                     "application/json"
@@ -231,12 +291,23 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/server.SourcesResponse"
                         }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
                     }
                 }
             }
         },
         "/themes": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Returns all available themes (built-in and user themes) with their color definitions",
                 "produces": [
                     "application/json"
@@ -250,6 +321,12 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/server.ThemesResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
                         }
                     }
                 }
@@ -793,17 +870,25 @@ const docTemplate = `{
                 }
             }
         }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Bearer token authentication. Format: \"Bearer \u003ctoken\u003e\"",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "localhost:7433",
-	BasePath:         "/api/v1",
+	Host:             "",
+	BasePath:         "",
 	Schemes:          []string{},
 	Title:            "Thinkt API",
-	Description:      "API for exploring AI conversation traces from Claude Code, Kimi Code, and other sources.",
+	Description:      "API for exploring AI conversation traces from Claude Code, Kimi Code, and other sources.\n\n## Authentication\n\nThe API supports Bearer token authentication. When `THINKT_API_TOKEN` environment variable\nis set or `--token` flag is provided, all requests must include the token in the\nAuthorization header:\n\nAuthorization: Bearer <token>\n\nGenerate a secure token with: `thinkt serve token`\n",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

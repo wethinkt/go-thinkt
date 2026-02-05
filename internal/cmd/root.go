@@ -182,11 +182,18 @@ func init() {
 	serveCmd.PersistentFlags().BoolVarP(&serveQuiet, "quiet", "q", false, "suppress HTTP request logging (errors still go to stderr)")
 	serveCmd.PersistentFlags().StringVar(&serveHTTPLog, "http-log", "", "write HTTP access log to file (default: stdout, unless --quiet)")
 
+	// Serve token subcommand
+	serveCmd.AddCommand(serveTokenCmd)
+
 	// Serve MCP subcommand
 	serveCmd.AddCommand(serveMcpCmd)
 	serveMcpCmd.Flags().BoolVar(&mcpStdio, "stdio", false, "use stdio transport (default if no --port)")
 	serveMcpCmd.Flags().IntVarP(&mcpPort, "port", "p", 0, "run MCP over HTTP on this port")
 	serveMcpCmd.Flags().StringVar(&mcpHost, "host", "localhost", "host to bind MCP HTTP server")
+	serveMcpCmd.Flags().StringVar(&mcpToken, "token", "", "bearer token for HTTP authentication (default: use THINKT_MCP_TOKEN env var)")
+
+	// Serve API flags (also apply to main serve command)
+	serveCmd.PersistentFlags().StringVar(&apiToken, "token", "", "bearer token for API authentication (default: use THINKT_API_TOKEN env var)")
 
 	// Serve Lite subcommand (has its own port default)
 	serveCmd.AddCommand(serveLiteCmd)

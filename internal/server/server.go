@@ -17,6 +17,7 @@ import (
 
 	_ "github.com/wethinkt/go-thinkt/internal/server/docs" // swagger docs
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 // ErrInvalidConfiguration is returned when server options conflict.
@@ -103,18 +104,25 @@ func (c *Config) Close() {
 
 // HTTPServer serves the REST API.
 type HTTPServer struct {
-	registry     *thinkt.StoreRegistry
-	router       chi.Router
-	config       Config
+	registry      *thinkt.StoreRegistry
+	router        chi.Router
+	config        Config
 	pathValidator *PathValidator
+	authenticator *APIAuthenticator
 }
 
 // NewHTTPServer creates a new HTTP server for the REST API.
 func NewHTTPServer(registry *thinkt.StoreRegistry, config Config) *HTTPServer {
+	return NewHTTPServerWithAuth(registry, config, DefaultAPIAuthConfig())
+}
+
+// NewHTTPServerWithAuth creates a new HTTP server with authentication.
+func NewHTTPServerWithAuth(registry *thinkt.StoreRegistry, config Config, authConfig APIAuthConfig) *HTTPServer {
 	s := &HTTPServer{
 		registry:      registry,
 		config:        config,
 		pathValidator: NewPathValidator(registry),
+		authenticator: NewAPIAuthenticator(authConfig),
 	}
 	s.router = s.setupRouter()
 	return s
@@ -141,6 +149,14 @@ func (s *HTTPServer) setupRouter() chi.Router {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 	r.Use(corsMiddleware)
+
+	// Authentication middleware (if enabled)
+	if s.authenticator.IsEnabled() {
+		tuilog.Log.Info("API server authentication enabled")
+		r.Use(s.authenticator.Middleware)
+	} else {
+		tuilog.Log.Warn("API server running without authentication - use THINKT_API_TOKEN or --token to secure")
+	}
 
 	// API routes
 	r.Route("/api/v1", func(r chi.Router) {
