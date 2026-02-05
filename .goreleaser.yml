@@ -130,7 +130,7 @@ homebrew_casks:
     binaries:
       - thinkt
     manpages:
-      - "docs/man/*.1"
+      - "man/man1/*.1"
     completions:
       bash: docs/completions.bash
       zsh: docs/completions.zsh
