@@ -19,87 +19,24 @@ before:
     - sh -c 'go run ./cmd/thinkt docs man -o ./manpages/'
 
 builds:
-  - id: linux-amd64
+  - id: default
     main: ./cmd/thinkt
     binary: thinkt
+    env:
+      - CGO_ENABLED=0
     goos:
       - linux
+      - darwin
+      - freebsd
+      - windows
     goarch:
       - amd64
-    env:
-      - CGO_ENABLED=1
-      - CC=x86_64-linux-gnu-gcc
-      - CXX=x86_64-linux-gnu-g++
-    ldflags:
-      - -s -w
-
-  - id: linux-arm64
-    main: ./cmd/thinkt
-    binary: thinkt
-    goos:
-      - linux
-    goarch:
       - arm64
-    env:
-      - CGO_ENABLED=1
-      - CC=aarch64-linux-gnu-gcc
-      - CXX=aarch64-linux-gnu-g++
     ldflags:
       - -s -w
-
-  - id: darwin-amd64
-    main: ./cmd/thinkt
-    binary: thinkt
-    goos:
-      - darwin
-    goarch:
-      - amd64
-    env:
-      - MACOSX_DEPLOYMENT_TARGET=11.0
-      - CGO_ENABLED=1
-      - CC=o64-clang
-      - CXX=o64-clang++
-    ldflags:
-      - -s -w
-
-  - id: darwin-arm64
-    main: ./cmd/thinkt
-    binary: thinkt
-    goos:
-      - darwin
-    goarch:
-      - arm64
-    env:
-      - MACOSX_DEPLOYMENT_TARGET=11.0
-      - CGO_ENABLED=1
-      - CC=oa64-clang
-      - CXX=oa64-clang++
-    ldflags:
-      - -s -w
-
-  # - id: windows-amd64
-  #   main: ./cmd/thinkt
-  #   binary: thinkt
-  #   goos:
-  #     - windows
-  #   goarch:
-  #     - amd64
-  #   env:
-  #     - CGO_ENABLED=1
-  #     - CC=x86_64-w64-mingw32-gcc-posix
-  #     - CXX=x86_64-w64-mingw32-g++-posix
-  #   ldflags:
-  #     - -s -w
-  #     - -extldflags "-static -static-libgcc -static-libstdc++ -lpthread -lucrt"
 
 archives:
   - id: default
-    ids:
-      - linux-amd64
-      - linux-arm64
-      - darwin-amd64
-      - darwin-arm64
-      # - windows-amd64
     formats:
       - tar.gz
     format_overrides:
@@ -131,8 +68,7 @@ notarize:
   macos:
     - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
       ids:
-        - darwin-amd64
-        - darwin-arm64
+        - default
       sign:
         certificate: "{{.Env.MACOS_SIGN_P12}}"
         password: "{{.Env.MACOS_SIGN_PASSWORD}}"
@@ -175,8 +111,6 @@ homebrew_casks:
       - man/man1/thinkt-prompts-list.1
       - man/man1/thinkt-prompts-templates.1
       - man/man1/thinkt-prompts.1
-      - man/man1/thinkt-query.1
-      - man/man1/thinkt-search.1
       - man/man1/thinkt-serve-lite.1
       - man/man1/thinkt-serve-mcp.1
       - man/man1/thinkt-serve.1
@@ -189,13 +123,6 @@ homebrew_casks:
       - man/man1/thinkt-sources-list.1
       - man/man1/thinkt-sources-status.1
       - man/man1/thinkt-sources.1
-      - man/man1/thinkt-stats-activity.1
-      - man/man1/thinkt-stats-errors.1
-      - man/man1/thinkt-stats-models.1
-      - man/man1/thinkt-stats-tokens.1
-      - man/man1/thinkt-stats-tools.1
-      - man/man1/thinkt-stats-words.1
-      - man/man1/thinkt-stats.1
       - man/man1/thinkt-theme-builder.1
       - man/man1/thinkt-theme-list.1
       - man/man1/thinkt-theme-set.1
@@ -206,7 +133,7 @@ homebrew_casks:
 dockers:
   - id: linux-amd64
     ids:
-      - linux-amd64
+      - default
     dockerfile: etc/Dockerfile.goreleaser
     image_templates:
       - "ghcr.io/wethinkt/thinkt:{{ .Version }}-amd64"
@@ -224,7 +151,7 @@ dockers:
 
   - id: linux-arm64
     ids:
-      - linux-arm64
+      - default
     dockerfile: etc/Dockerfile.goreleaser
     image_templates:
       - "ghcr.io/wethinkt/thinkt:{{ .Version }}-arm64"

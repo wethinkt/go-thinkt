@@ -18,7 +18,7 @@ ARG TARGETARCH
 ADD . /src
 WORKDIR /src
 
-RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o bin/thinkt ./cmd/thinkt
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/thinkt ./cmd/thinkt
 
 ##############################################################################
 # Runtime
