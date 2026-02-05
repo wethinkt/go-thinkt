@@ -156,12 +156,52 @@ homebrew_casks:
     license: MIT
     binaries:
       - thinkt
-    manpages:
-      - man/man1/thinkt.1
     completions:
       bash: completions/thinkt.bash
       zsh: completions/thinkt.zsh
       fish: completions/thinkt.fish
+    manpages:
+      - man/man1/thinkt-completion-bash.1
+      - man/man1/thinkt-completion-fish.1
+      - man/man1/thinkt-completion-powershell.1
+      - man/man1/thinkt-completion-zsh.1
+      - man/man1/thinkt-completion.1
+      - man/man1/thinkt-projects-copy.1
+      - man/man1/thinkt-projects-delete.1
+      - man/man1/thinkt-projects-summary.1
+      - man/man1/thinkt-projects.1
+      - man/man1/thinkt-prompts-extract.1
+      - man/man1/thinkt-prompts-info.1
+      - man/man1/thinkt-prompts-list.1
+      - man/man1/thinkt-prompts-templates.1
+      - man/man1/thinkt-prompts.1
+      - man/man1/thinkt-query.1
+      - man/man1/thinkt-search.1
+      - man/man1/thinkt-serve-lite.1
+      - man/man1/thinkt-serve-mcp.1
+      - man/man1/thinkt-serve.1
+      - man/man1/thinkt-sessions-copy.1
+      - man/man1/thinkt-sessions-delete.1
+      - man/man1/thinkt-sessions-list.1
+      - man/man1/thinkt-sessions-summary.1
+      - man/man1/thinkt-sessions-view.1
+      - man/man1/thinkt-sessions.1
+      - man/man1/thinkt-sources-list.1
+      - man/man1/thinkt-sources-status.1
+      - man/man1/thinkt-sources.1
+      - man/man1/thinkt-stats-activity.1
+      - man/man1/thinkt-stats-errors.1
+      - man/man1/thinkt-stats-models.1
+      - man/man1/thinkt-stats-tokens.1
+      - man/man1/thinkt-stats-tools.1
+      - man/man1/thinkt-stats-words.1
+      - man/man1/thinkt-stats.1
+      - man/man1/thinkt-theme-builder.1
+      - man/man1/thinkt-theme-list.1
+      - man/man1/thinkt-theme-set.1
+      - man/man1/thinkt-theme.1
+      - man/man1/thinkt-tui.1
+      - man/man1/thinkt.1
 
 dockers:
   - id: linux-amd64

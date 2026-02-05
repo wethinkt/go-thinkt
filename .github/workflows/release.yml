@@ -40,6 +40,11 @@ jobs:
             --rm \
             -e GITHUB_TOKEN \
             -e TAP_GITHUB_TOKEN \
+            -e MACOS_SIGN_P12 \
+            -e MACOS_SIGN_PASSWORD \
+            -e MACOS_NOTARY_KEY \
+            -e MACOS_NOTARY_KEY_ID \
+            -e MACOS_NOTARY_ISSUER_ID \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v $HOME/.docker/config.json:/root/.docker/config.json \
             -v $(pwd):/go/src/github.com/${{ github.repository }} \
