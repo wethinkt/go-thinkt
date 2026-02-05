@@ -27,27 +27,22 @@ func (f *Discoverer) Source() thinkt.Source {
 
 // Create creates a store if the source is available.
 func (f *Discoverer) Create() (thinkt.Store, error) {
-	available, err := f.IsAvailable()
-	if err != nil {
-		return nil, err
-	}
-	if !available {
+	basePath := f.basePath()
+	if basePath == "" {
 		return nil, nil
 	}
-	return NewStore(""), nil // Use default path
+	return NewStore(basePath), nil
 }
 
 // IsAvailable checks if the source directory exists and has data.
 func (f *Discoverer) IsAvailable() (bool, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return false, err
+	basePath := f.basePath()
+	if basePath == "" {
+		return false, nil
 	}
-	
-	// Check if ~/.gemini/tmp exists and has content
-	baseDir := filepath.Join(home, ".gemini")
-	tmpDir := filepath.Join(baseDir, "tmp")
-	
+
+	// Check if tmp dir exists and has content
+	tmpDir := filepath.Join(basePath, "tmp")
 	entries, err := os.ReadDir(tmpDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -55,6 +50,20 @@ func (f *Discoverer) IsAvailable() (bool, error) {
 		}
 		return false, err
 	}
-	
+
 	return len(entries) > 0, nil
+}
+
+// basePath returns the Gemini base directory.
+// Uses THINKT_GEMINI_HOME environment variable if set, otherwise ~/.gemini.
+func (f *Discoverer) basePath() string {
+	if geminiHome := os.Getenv("THINKT_GEMINI_HOME"); geminiHome != "" {
+		return geminiHome
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".gemini")
 }
