@@ -90,7 +90,7 @@ docker run -p 8784:8784 \
 
 # Run any command
 docker run -v ~/.claude:/data/.claude:ro \
-  ghcr.io/wethinkt/thinkt:latest projects --long
+  ghcr.io/wethinkt/thinkt:latest projects
 
 # Show help
 docker run ghcr.io/wethinkt/thinkt:latest --help
@@ -107,8 +107,8 @@ thinkt sources list
 
 # Browse projects
 thinkt projects
-thinkt projects --long
-thinkt projects --tree
+thinkt projects --short
+thinkt projects tree
 
 # View sessions
 thinkt sessions list
@@ -127,9 +127,11 @@ thinkt serve --no-open
 |---------|-------------|
 | `thinkt` | Launch interactive TUI (default) |
 | `thinkt tui` | Launch interactive TUI |
-| `thinkt sources list` | List available sources (kimi, claude, gemini, copilot) |
+| `thinkt sources` | List available sources (kimi, claude, gemini, copilot) |
 | `thinkt sources status` | Show detailed source status |
-| `thinkt projects` | List all projects |
+| `thinkt projects` | List all projects (detailed columns) |
+| `thinkt projects --short` | List project paths only |
+| `thinkt projects tree` | Tree view grouped by parent directory |
 | `thinkt projects summary` | Detailed project info |
 | `thinkt sessions list` | List sessions in a project |
 | `thinkt sessions view` | View session in terminal |

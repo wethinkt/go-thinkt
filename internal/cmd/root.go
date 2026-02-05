@@ -96,8 +96,7 @@ func init() {
 
 	// Projects command flags
 	projectsCmd.PersistentFlags().StringArrayVarP(&projectSources, "source", "s", nil, "source to include (kimi|claude, can be specified multiple times, default: all)")
-	projectsCmd.Flags().BoolVarP(&treeFormat, "tree", "t", false, "show tree view grouped by parent directory")
-	projectsCmd.Flags().BoolVarP(&longFormat, "long", "l", false, "show detailed columns (path, source, sessions, modified)")
+	projectsCmd.Flags().BoolVar(&shortFormat, "short", false, "show project paths only")
 	projectsSummaryCmd.Flags().StringVar(&summaryTemplate, "template", "", "custom Go text/template for output")
 	projectsSummaryCmd.Flags().StringVar(&sortBy, "sort", "time", "sort by: name, time")
 	projectsSummaryCmd.Flags().BoolVar(&sortDesc, "desc", false, "sort descending (default for time)")
@@ -123,6 +122,7 @@ func init() {
 
 	// Build command tree
 	projectsCmd.AddCommand(projectsSummaryCmd)
+	projectsCmd.AddCommand(projectsTreeCmd)
 	projectsCmd.AddCommand(projectsDeleteCmd)
 	projectsCmd.AddCommand(projectsCopyCmd)
 	sessionsCmd.AddCommand(sessionsListCmd)

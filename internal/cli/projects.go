@@ -14,7 +14,8 @@ import (
 )
 
 // DefaultSummaryTemplate is the default template for project summaries.
-const DefaultSummaryTemplate = `{{range .}}{{.Path}} [{{.Source}}]
+const DefaultSummaryTemplate = `{{range .}}{{.Path}}
+  Source: {{.Source}}
   Sessions: {{.SessionCount}}
 {{- if .Modified}}
   Modified: {{.Modified}}
@@ -70,11 +71,11 @@ type ProjectSummary struct {
 
 // SessionSummary holds template-friendly session data.
 type SessionSummary struct {
-	ID          string
-	Name        string // First prompt or ID
-	EntryCount  int
-	Modified    string
-	GitBranch   string
+	ID         string
+	Name       string // First prompt or ID
+	EntryCount int
+	Modified   string
+	GitBranch  string
 }
 
 // ProjectsFormatter formats project listings for CLI output.
@@ -88,7 +89,7 @@ func NewProjectsFormatter(w io.Writer) *ProjectsFormatter {
 }
 
 // FormatLong writes project paths, one per line.
-func (f *ProjectsFormatter) FormatLong(projects []thinkt.Project) error {
+func (f *ProjectsFormatter) FormatShort(projects []thinkt.Project) error {
 	for _, p := range projects {
 		path := p.Path
 		if path == "" {
@@ -102,19 +103,19 @@ func (f *ProjectsFormatter) FormatLong(projects []thinkt.Project) error {
 // FormatVerbose writes project paths with source and metadata in aligned columns.
 func (f *ProjectsFormatter) FormatVerbose(projects []thinkt.Project) error {
 	w := tabwriter.NewWriter(f.w, 0, 0, 2, ' ', 0)
-	
+
 	for _, p := range projects {
 		path := p.Path
 		if path == "" {
 			path = "~"
 		}
-		
+
 		// Format source with color-friendly indicators
 		source := string(p.Source)
-		
+
 		// Format session count
 		sessions := fmt.Sprintf("%d sessions", p.SessionCount)
-		
+
 		// Format last modified time
 		var modified string
 		if !p.LastModified.IsZero() {
@@ -122,10 +123,10 @@ func (f *ProjectsFormatter) FormatVerbose(projects []thinkt.Project) error {
 		} else {
 			modified = "-"
 		}
-		
+
 		fmt.Fprintf(w, "%s\t[%s]\t%s\t%s\n", path, source, sessions, modified)
 	}
-	
+
 	return w.Flush()
 }
 

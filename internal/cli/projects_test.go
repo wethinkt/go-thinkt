@@ -25,7 +25,7 @@ func TestFormatLong(t *testing.T) {
 
 	var buf bytes.Buffer
 	f := NewProjectsFormatter(&buf)
-	err := f.FormatLong(projects)
+	err := f.FormatShort(projects)
 	if err != nil {
 		t.Fatalf("FormatLong error: %v", err)
 	}
@@ -62,9 +62,9 @@ func TestFormatLong_EmptyPath(t *testing.T) {
 
 	var buf bytes.Buffer
 	f := NewProjectsFormatter(&buf)
-	err := f.FormatLong(projects)
+	err := f.FormatShort(projects)
 	if err != nil {
-		t.Fatalf("FormatLong error: %v", err)
+		t.Fatalf("FormatShort error: %v", err)
 	}
 
 	output := strings.TrimSpace(buf.String())
@@ -472,8 +472,8 @@ func TestFormatSummary_EmptyPath(t *testing.T) {
 	}
 
 	output := buf.String()
-	if !strings.HasPrefix(output, "~ [claude]") {
-		t.Errorf("expected output to start with '~ [claude]', got:\n%s", output)
+	if !strings.HasPrefix(output, "~") {
+		t.Errorf("expected output to start with '~', got:\n%s", output)
 	}
 }
 

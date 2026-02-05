@@ -53,8 +53,8 @@ thinkt tui --log debug.log  # With debug logging
 View which AI assistants have session data on your machine:
 
 ```bash
-thinkt sources list     # List available sources
-thinkt sources status   # Detailed status with paths
+thinkt sources list         # List available sources
+thinkt sources status       # Detailed status with paths
 ```
 
 Supported sources: `claude`, `kimi`, `gemini`, `copilot`
@@ -68,9 +68,9 @@ Projects correspond to directories where you've used AI coding assistants.
 ### List Projects
 
 ```bash
-thinkt projects                        # Simple list (paths only)
-thinkt projects --long                 # Detailed: source, sessions, modified time
-thinkt projects --tree                 # Tree view grouped by parent directory
+thinkt projects                        # Detailed: source, sessions, modified time
+thinkt projects --short                # Simple list (paths only)
+thinkt projects tree                   # Tree view grouped by parent directory
 thinkt projects --source claude        # Only Claude Code projects
 thinkt projects --source kimi --source claude  # Multiple sources
 ```
@@ -239,7 +239,6 @@ These options work with all commands:
 |------|-------------|
 | `-v, --verbose` | Verbose output |
 | `--log <file>` | Write debug log to file |
-| `--profile <file>` | Write CPU profile to file |
 | `-h, --help` | Help for any command |
 
 ---

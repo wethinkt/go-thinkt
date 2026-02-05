@@ -50,6 +50,7 @@ thinkt
 │   ├── list
 │   └── status
 ├── projects            # Project management
+│   ├── tree
 │   ├── summary
 │   ├── delete
 │   └── copy

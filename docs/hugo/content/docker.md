@@ -116,10 +116,10 @@ docker run --rm \
   -v ~/.claude:/data/.claude:ro \
   ghcr.io/wethinkt/thinkt projects
 
-# With details
+# Paths only
 docker run --rm \
   -v ~/.claude:/data/.claude:ro \
-  ghcr.io/wethinkt/thinkt projects --long
+  ghcr.io/wethinkt/thinkt projects --short
 ```
 
 ### List Sessions

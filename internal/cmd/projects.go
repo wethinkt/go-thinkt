@@ -15,14 +15,13 @@ import (
 
 // Projects command flags
 var (
-	treeFormat      bool
 	summaryTemplate string
 	sortBy          string
 	sortDesc        bool
 	forceDelete     bool
 	projectSources  []string // --source flag (can be specified multiple times)
 	withSessions    bool     // --with-sessions flag for summary
-	longFormat      bool     // --long flag for columnar output
+	shortFormat     bool     // --short flag for path-only output
 )
 
 var projectsCmd = &cobra.Command{
@@ -30,18 +29,17 @@ var projectsCmd = &cobra.Command{
 	Short: "List projects from all sources",
 	Long: `List all projects from available sources (Kimi, Claude, etc.).
 
-By default, outputs project paths one per line from ALL sources.
+By default, shows detailed columns (path, source, sessions, modified time).
+Use --short for a compact list of project paths only.
 Use --source to limit to specific sources (can be specified multiple times).
-Use --long for detailed columns (source, sessions, modified time).
-Use --tree for a grouped tree view.
 
 Examples:
-  thinkt projects                      # All sources, paths one per line
-  thinkt projects --long               # Detailed columns
+  thinkt projects                      # Detailed columns (default)
+  thinkt projects --short              # Paths only, one per line
   thinkt projects --source kimi        # Only Kimi projects
   thinkt projects --source claude      # Only Claude projects
   thinkt projects --source kimi --source claude  # Both sources
-  thinkt projects --tree               # Tree view grouped by source/parent
+  thinkt projects tree                 # Tree view grouped by parent directory
   thinkt projects summary              # Detailed summary with session names`,
 	RunE: runProjects,
 }
@@ -64,6 +62,13 @@ Output can be customized with a Go text/template via --template.
 
 ` + cli.SummaryTemplateHelp,
 	RunE: runProjectsSummary,
+}
+
+var projectsTreeCmd = &cobra.Command{
+	Use:   "tree",
+	Short: "Show projects in a tree view",
+	Long:  `Show projects grouped by parent directory in a tree layout.`,
+	RunE:  runProjectsTree,
 }
 
 var projectsDeleteCmd = &cobra.Command{
@@ -106,11 +111,6 @@ Examples:
 }
 
 func runProjects(cmd *cobra.Command, args []string) error {
-	// --long and --tree are mutually exclusive
-	if treeFormat && longFormat {
-		return fmt.Errorf("--long and --tree are mutually exclusive")
-	}
-
 	registry := CreateSourceRegistry()
 
 	projects, err := GetProjectsFromSources(registry, projectSources)
@@ -134,15 +134,36 @@ func runProjects(cmd *cobra.Command, args []string) error {
 
 	formatter := cli.NewProjectsFormatter(os.Stdout)
 
-	if treeFormat {
-		return formatter.FormatTree(projects)
+	if shortFormat {
+		return formatter.FormatShort(projects)
 	}
 
-	if longFormat {
-		return formatter.FormatVerbose(projects)
+	return formatter.FormatVerbose(projects)
+}
+
+func runProjectsTree(cmd *cobra.Command, args []string) error {
+	registry := CreateSourceRegistry()
+
+	projects, err := GetProjectsFromSources(registry, projectSources)
+	if err != nil {
+		return err
 	}
 
-	return formatter.FormatLong(projects)
+	if len(projects) == 0 {
+		if len(projectSources) > 0 {
+			fmt.Printf("No projects found from sources: %v\n", projectSources)
+		} else {
+			fmt.Println("No projects found")
+		}
+		return nil
+	}
+
+	sort.Slice(projects, func(i, j int) bool {
+		return projects[i].Path < projects[j].Path
+	})
+
+	formatter := cli.NewProjectsFormatter(os.Stdout)
+	return formatter.FormatTree(projects)
 }
 
 func runProjectsSummary(cmd *cobra.Command, args []string) error {
