@@ -103,16 +103,18 @@ func (c *Config) Close() {
 
 // HTTPServer serves the REST API.
 type HTTPServer struct {
-	registry *thinkt.StoreRegistry
-	router   chi.Router
-	config   Config
+	registry     *thinkt.StoreRegistry
+	router       chi.Router
+	config       Config
+	pathValidator *PathValidator
 }
 
 // NewHTTPServer creates a new HTTP server for the REST API.
 func NewHTTPServer(registry *thinkt.StoreRegistry, config Config) *HTTPServer {
 	s := &HTTPServer{
-		registry: registry,
-		config:   config,
+		registry:      registry,
+		config:        config,
+		pathValidator: NewPathValidator(registry),
 	}
 	s.router = s.setupRouter()
 	return s

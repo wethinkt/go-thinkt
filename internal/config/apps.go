@@ -32,6 +32,15 @@ func (a AppConfig) Info() AppInfo {
 
 // BuildCommand returns the command and args with {} replaced by path.
 // If no {} placeholder exists, path is appended as the last argument.
+//
+// SECURITY NOTE: The path parameter must be validated before calling this function.
+// It should be an absolute path that has been checked for:
+//   - Shell metacharacters (rejected)
+//   - Path traversal attempts (rejected)
+//   - Symlink resolution (verified)
+//   - Location within allowed directories (verified)
+// The path is passed directly to exec.Command, not through a shell, but
+// proper validation is essential to prevent command injection.
 func (a AppConfig) BuildCommand(path string) (string, []string) {
 	if len(a.Exec) == 0 {
 		return "", nil

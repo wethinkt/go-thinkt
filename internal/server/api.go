@@ -347,8 +347,15 @@ func (s *HTTPServer) handleOpenIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build the command using the app's Exec template
-	cmdName, args := app.BuildCommand(req.Path)
+	// Validate the path for security
+	validatedPath, err := s.pathValidator.ValidateOpenInPath(req.Path)
+	if err != nil {
+		writeError(w, http.StatusForbidden, "invalid_path", err.Error())
+		return
+	}
+
+	// Build the command using the app's Exec template with the validated path
+	cmdName, args := app.BuildCommand(validatedPath)
 	if cmdName == "" {
 		writeError(w, http.StatusInternalServerError, "invalid_config", "App has no exec command")
 		return

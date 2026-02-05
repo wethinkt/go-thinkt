@@ -1,189 +1,141 @@
-# PLAN: thinkt-claude-prompts
+# PLAN: thinkt
 
-Implementation plan for the `thinkt-claude-prompts` CLI tool.
+Current implementation status and roadmap for `thinkt`.
 
-## Goal
+## Current State
 
-Extract user prompts from Claude Code trace files (JSONL) and generate a `PROMPTS.md` file with ISO 8601 timestamps.
+The core CLI is functional with multi-source support, TUI, analytics, HTTP/MCP servers, and lite webapp.
 
-## Context
+### Recently Completed
 
-- **Existing**: Hook-based real-time logging (`.claude/hooks/prompt-history.sh`)
-- **New Tool**: Batch extraction from existing trace files
-- **Use Case**: Reconstruct prompt history from past sessions or when hooks weren't enabled
+- [x] **GoReleaser Pro with goreleaser-cross** - CGO cross-compilation for DuckDB
+  - Builds: `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`, `windows/amd64`
+  - Uses `ghcr.io/goreleaser/goreleaser-cross` Docker image
+  - Explicit CC/CXX per target for cross-compilation
+
+- [x] **Multi-platform Docker Images**
+  - Published to `ghcr.io/wethinkt/thinkt`
+  - Platforms: `linux/amd64`, `linux/arm64`
+  - User home at `/data` for easy bind mounts (`~/.claude` → `/data/.claude`)
+  - Two Dockerfiles:
+    - `Dockerfile` - Multi-stage build for CI/local
+    - `etc/Dockerfile.goreleaser` - Simple runtime for releases
+
+- [x] **CI Improvements**
+  - Docker build verification in CI workflow
+  - Tests run before Docker build (`needs: test`)
+
+- [x] **Homebrew Formula** - `brews` section in goreleaser (standard, not Pro `homebrew_casks`)
+
+- [x] **Documentation** - README and AGENTS.md updated with Docker usage
+
+### Release Workflow
+
+```
+Tag push (v*) → GitHub Actions → goreleaser-cross container
+  ├── Build binaries (5 platforms via CGO cross-compilation)
+  ├── Build Docker images (linux/amd64, linux/arm64)
+  ├── Push to GHCR
+  ├── Create GitHub Release with archives
+  └── Update Homebrew tap
+```
+
+## In Progress
+
+- [ ] **Homebrew tap setup** - Need to create `wethinkt/homebrew-tap` repo
+- [ ] **Test Docker images** - Verify bind mounts work correctly in practice
+
+## Security TODOs
+
+- [ ] **Tighten `getAllowedBaseDirectories()` in `internal/server/security.go`**
+  - Current implementation allows opening any directory under user's home
+  - Consider restricting to only known project directories from the registry
+  - Add explicit allowlist configuration option in `~/.thinkt/config.json`
+  - Review symlink handling for edge cases (symlinks to other symlinks)
+
+## Upcoming
+
+### Short Term
+
+- [ ] **`thinkt setup` command** - Interactive first-run configuration
+  - Create `~/.thinkt/` directory
+  - Step through each source, check existence and permissions
+  - Prompt user to enable/disable each source
+  - Generate `~/.thinkt/config.json` with preferences
+  - `--reconfigure` flag to re-run setup
+  - Sources respect enabled/disabled in config
+  - Environment variables still override for Docker
+
+- [ ] **Windows arm64 support** - Currently excluded (DuckDB limitation)
+- [ ] **Shell completions** - Add to release archives
+- [ ] **Manpage improvements** - Verify man pages work in Docker
+
+### Medium Term
+
+- [ ] **`thinkt serve` in Docker** - Document production deployment patterns
+- [ ] **Health check endpoint** - For container orchestration
+- [ ] **Prometheus metrics** - For monitoring
+
+### Long Term
+
+- [ ] **Helm chart** - Kubernetes deployment
+- [ ] **Multi-user support** - For shared deployments
+- [ ] **Authentication** - For exposed servers
 
 ## Architecture
 
 ```
-cmd/
-  thinkt-claude-prompts/
-    main.go              # Cobra CLI, commands, flags
+cmd/thinkt/           CLI entry point (Cobra)
 internal/
-  trace/
-    parser.go            # JSONL parsing
-    types.go             # Message/trace types
-  prompt/
-    extractor.go         # Prompt extraction logic
-    formatter.go         # Markdown output formatting
-tests/
-  fixtures/              # Sample JSONL traces
-  integration_test.go    # End-to-end tests
+  thinkt/             Core types, Store interface
+  sources/            Source implementations (claude, kimi, gemini, copilot)
+  tui/                BubbleTea terminal UI
+  server/             HTTP REST API, MCP server, lite webapp
+  analytics/          DuckDB-powered search and stats
+  prompt/             Prompt extraction
+  config/             Configuration management
 ```
 
-## CLI Design (Cobra)
+## Docker Usage
 
-```go
-var (
-    inputFile   string
-    outputFile  string
-    appendMode  bool
-    formatType  string
-)
+```bash
+# Run HTTP server with session data
+docker run -p 7433:7433 \
+  -v ~/.claude:/data/.claude:ro \
+  -v ~/.kimi:/data/.kimi:ro \
+  ghcr.io/wethinkt/thinkt:latest serve --host 0.0.0.0
 
-var rootCmd = &cobra.Command{
-    Use:   "thinkt-claude-prompts",
-    Short: "Extract prompts from Claude Code traces",
-    Long:  `Extracts user prompts from Claude Code JSONL trace files
-and generates a PROMPTS.md file with ISO 8601 timestamps.`,
-}
+# Run any command
+docker run -v ~/.claude:/data/.claude:ro \
+  ghcr.io/wethinkt/thinkt:latest projects --long
+```
 
-var extractCmd = &cobra.Command{
-    Use:   "extract [flags]",
-    Short: "Extract prompts from a trace file",
-    Run:   runExtract,
-}
+## Configuration (`~/.thinkt/config.json`)
 
-func main() {
-    rootCmd.AddCommand(extractCmd)
+Planned config structure for `thinkt setup`:
 
-    extractCmd.Flags().StringVarP(&inputFile, "input", "i", "", "input JSONL file")
-    extractCmd.Flags().StringVarP(&outputFile, "output", "o", "PROMPTS.md", "output file")
-    extractCmd.Flags().BoolVarP(&appendMode, "append", "a", false, "append to existing file")
-    extractCmd.Flags().StringVarP(&formatType, "format", "f", "markdown", "output format (markdown|json|plain)")
-
-    extractCmd.MarkFlagRequired("input")
-
-    rootCmd.Execute()
+```json
+{
+  "sources": {
+    "claude": { "enabled": true, "path": "~/.claude" },
+    "kimi": { "enabled": true, "path": "~/.kimi" },
+    "gemini": { "enabled": false },
+    "copilot": { "enabled": true, "path": "~/.copilot" }
+  }
 }
 ```
 
-## Implementation Phases
+- **enabled**: Whether source is active (respects user consent)
+- **path**: Custom path override (optional, defaults to standard location)
+- Environment variables (`THINKT_*_HOME`) override config for Docker/CI use cases
 
-### Phase 1: Project Scaffolding
+## Build Targets
 
-- [x] Initialize Go module (`go mod init github.com/wethinkt/go-thinkt`)
-- [x] Create `Taskfile.yml`
-- [x] Add `.gitignore` for Go
-- [x] Create directory structure
-- [x] Add cobra dependency
-
-### Phase 2: Trace Parsing
-
-- [x] Define types in `internal/trace/types.go`
-- [x] Implement JSONL scanner in `internal/trace/parser.go`
-- [x] Stream-based parsing for large files (10MB buffer)
-
-### Phase 3: Prompt Extraction
-
-- [x] Filter entries where `type == "user"`
-- [x] Extract text from `content` (string or blocks)
-- [x] Skip tool_result content blocks
-- [x] Preserve timestamps
-
-### Phase 4: Markdown Generation
-
-- [x] Match existing PROMPTS.md format from hook
-- [x] Support append vs overwrite (`-a` flag)
-- [x] Handle empty/missing prompts gracefully
-- [x] Support JSON and plain text formats
-
-### Phase 5: CLI Polish
-
-- [x] Auto-detect latest trace: scan `~/.claude/projects/*/`
-- [x] Support `-` for stdin/stdout
-- [x] Verbose mode with `-v`
-- [x] Error handling: continue on parse errors, report to stderr
-- [x] `list` subcommand to show available traces
-
-### Phase 6: Testing
-
-- [ ] Add sample trace fixtures in `tests/fixtures/`
-- [x] Unit tests for parser, extractor, formatter
-- [x] Integration test with real trace
-
-## Taskfile.yml
-
-```yaml
-version: '3'
-
-vars:
-  BIN_DIR: ./bin
-  BINARY: thinkt-claude-prompts
-  CMD_DIR: ./cmd/thinkt-claude-prompts
-
-tasks:
-  default:
-    deps: [test, build]
-
-  build:
-    desc: Build the CLI binary
-    deps: [go-tidy]
-    sources:
-      - ./cmd/**/*.go
-      - ./internal/**/*.go
-      - go.mod
-      - go.sum
-    generates:
-      - "{{.BIN_DIR}}/{{.BINARY}}"
-    cmds:
-      - go build -o {{.BIN_DIR}}/{{.BINARY}} {{.CMD_DIR}}
-
-  test:
-    desc: Run tests
-    cmds:
-      - go test ./...
-
-  go-tidy:
-    desc: Tidy Go modules
-    cmds:
-      - go mod tidy
-
-  install:
-    desc: Install to GOPATH/bin
-    deps: [go-tidy]
-    cmds:
-      - go install {{.CMD_DIR}}
-
-  clean:
-    desc: Remove build artifacts
-    cmds:
-      - rm -rf {{.BIN_DIR}}
-
-  lint:
-    desc: Run golangci-lint
-    cmds:
-      - golangci-lint run
-```
-
-## Claude Code JSONL Format
-
-```jsonl
-{"type":"message","role":"user","content":[{"type":"text","text":"..."}],"timestamp":"..."}
-{"type":"message","role":"assistant","content":[{"type":"thinking","thinking":"..."},{"type":"text","text":"..."}]}
-```
-
-## Success Criteria
-
-1. `thinkt-claude-prompts extract -i trace.jsonl` produces valid `PROMPTS.md`
-2. Output matches format generated by existing hook
-3. Handles traces with 1000+ turns without memory issues
-4. Continues processing on malformed lines, reports errors to stderr
-
-## Future Commands
-
-```
-thinkt-claude-prompts extract   # Current focus
-thinkt-claude-prompts stats     # Token counts, turn counts
-thinkt-claude-prompts search    # Grep through prompts
-thinkt-claude-prompts list      # List available traces
-```
+| Platform | Arch | CGO Compiler | Status |
+|----------|------|--------------|--------|
+| Linux | amd64 | x86_64-linux-gnu-gcc | ✅ |
+| Linux | arm64 | aarch64-linux-gnu-gcc | ✅ |
+| Darwin | amd64 | o64-clang | ✅ |
+| Darwin | arm64 | oa64-clang | ✅ |
+| Windows | amd64 | - | ❌ (DuckDB pthread issues with mingw) |
+| Windows | arm64 | - | ❌ (DuckDB) |
