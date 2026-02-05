@@ -128,9 +128,9 @@ homebrew_casks:
     description: Tools for exploring LLM conversation traces
     license: MIT
     binaries:
-      - thinkt
+      - ./cmd/thinkt
     manpages:
-      - docs/man
+      - "docs/man/*.1"
     completions:
       bash: docs/completions.bash
       zsh: docs/completions.zsh
