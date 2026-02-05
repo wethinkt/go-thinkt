@@ -92,7 +92,7 @@ tasks:
       - rm -f docs.go swagger.json swagger.yaml
 
   ###############################################################################
-  # Documentation
+  # Docker
   ###############################################################################
 
   docker:release:
@@ -138,6 +138,24 @@ tasks:
     cmds:
       - rm -rf public
       - hugo --minify
+
+  ###############################################################################
+  # Release
+  ###############################################################################
+
+  release:notarize:
+    desc: Notarize the build
+    deps: [build]
+    cmds:
+      - |
+        if [ -z "$MACOS_CODESIGN_ID" ]; then
+          echo "Error: MACOS_CODESIGN_ID env var not set"
+          exit 1
+        fi
+      - codesign --force --options runtime -s "$MACOS_CODESIGN_ID" {{.BIN_DIR}}/thinkt
+      - codesign -dv --verbose=4 {{.BIN_DIR}}/thinkt
+      - ditto -c -k ./bin/thinkt thinkt.zip
+      - xcrun notarytool submit thinkt.zip --key "$MACOS_NOTARY_KEY" --key-id "$MACOS_NOTARY_KEY_ID" --issuer "$MACOS_NOTARY_ISSUER_ID" --wait
 
   release:test:
     desc: Test release build with goreleaser (requires PRO key)
