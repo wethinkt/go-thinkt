@@ -151,13 +151,14 @@ func init() {
 	// Theme command flags
 	themeCmd.Flags().BoolVar(&outputJSON, "json", false, "output theme as JSON")
 
-	// Serve command flags (persistent so they're inherited by subcommands like 'lite')
-	serveCmd.PersistentFlags().IntVarP(&servePort, "port", "p", server.DefaultPortServe, "server port")
-	serveCmd.PersistentFlags().StringVar(&serveHost, "host", "localhost", "server host")
-	serveCmd.PersistentFlags().BoolVar(&serveNoOpen, "no-open", false, "don't auto-open browser")
-	serveCmd.PersistentFlags().StringVar(&logPath, "log", "", "write debug log to file")
-	serveCmd.PersistentFlags().BoolVarP(&serveQuiet, "quiet", "q", false, "suppress HTTP request logging (errors still go to stderr)")
-	serveCmd.PersistentFlags().StringVar(&serveHTTPLog, "http-log", "", "write HTTP access log to file (default: stdout, unless --quiet)")
+	// Serve command flags (non-persistent; only apply to 'serve' itself)
+	// Subcommands that need these define their own (mcp, lite)
+	serveCmd.Flags().IntVarP(&servePort, "port", "p", server.DefaultPortServe, "server port")
+	serveCmd.Flags().StringVar(&serveHost, "host", "localhost", "server host")
+	serveCmd.Flags().BoolVar(&serveNoOpen, "no-open", false, "don't auto-open browser")
+	serveCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
+	serveCmd.Flags().BoolVarP(&serveQuiet, "quiet", "q", false, "suppress HTTP request logging (errors still go to stderr)")
+	serveCmd.Flags().StringVar(&serveHTTPLog, "http-log", "", "write HTTP access log to file (default: stdout, unless --quiet)")
 
 	// Serve token subcommand
 	serveCmd.AddCommand(serveTokenCmd)
@@ -168,13 +169,17 @@ func init() {
 	serveMcpCmd.Flags().IntVarP(&mcpPort, "port", "p", 0, "run MCP over HTTP on this port")
 	serveMcpCmd.Flags().StringVar(&mcpHost, "host", "localhost", "host to bind MCP HTTP server")
 	serveMcpCmd.Flags().StringVar(&mcpToken, "token", "", "bearer token for HTTP authentication (default: use THINKT_MCP_TOKEN env var)")
+	serveMcpCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
 
-	// Serve API flags (also apply to main serve command)
-	serveCmd.PersistentFlags().StringVar(&apiToken, "token", "", "bearer token for API authentication (default: use THINKT_API_TOKEN env var)")
+	// Serve API flags (only apply to main serve command)
+	serveCmd.Flags().StringVar(&apiToken, "token", "", "bearer token for API authentication (default: use THINKT_API_TOKEN env var)")
 
 	// Serve Lite subcommand (has its own port default)
 	serveCmd.AddCommand(serveLiteCmd)
 	serveLiteCmd.Flags().IntVarP(&serveLitePort, "port", "p", server.DefaultPortLite, "server port")
+	serveLiteCmd.Flags().StringVar(&serveHost, "host", "localhost", "server host")
+	serveLiteCmd.Flags().BoolVar(&serveNoOpen, "no-open", false, "don't auto-open browser")
+	serveLiteCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
 
 	// Sources subcommands
 	sourcesCmd.AddCommand(sourcesListCmd)

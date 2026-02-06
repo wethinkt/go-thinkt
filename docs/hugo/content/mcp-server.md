@@ -203,7 +203,7 @@ Get session entry content with pagination and filtering.
 
 ### Claude Desktop
 
-Add thinkt to your Claude Desktop configuration file:
+Add `thinkt` to your Claude Desktop configuration file:
 
 {{< tabs "claude-desktop" >}}
 {{< tab "macOS" >}}
@@ -231,67 +231,37 @@ Restart Claude Desktop to load the new MCP server.
 
 ### Claude Code
 
-Add thinkt to your Claude Code MCP settings:
+Add `thinkt` to your Claude Code MCP settings via CLI:
 
 ```bash
-claude mcp add thinkt -- thinkt serve mcp
-```
-
-Or manually edit your Claude Code settings file:
-
-{{< tabs "claude-code" >}}
-{{< tab "macOS/Linux" >}}
-Edit `~/.claude/settings.json`:
-{{< /tab >}}
-{{< tab "Windows" >}}
-Edit `%USERPROFILE%\.claude\settings.json`:
-{{< /tab >}}
-{{< /tabs >}}
-
-```json
-{
-  "mcpServers": {
-    "thinkt": {
-      "command": "thinkt",
-      "args": ["serve", "mcp"]
-    }
-  }
-}
+claude mcp add --transport stdio thinkt -- thinkt serve mcp
+claude mcp list
 ```
 
 ---
 
 ### Kimi Code
 
-Add thinkt to your Kimi Code MCP configuration:
+Add `thinkt` to your Claude Code MCP settings via CLI:
 
-{{< tabs "kimi-code" >}}
-{{< tab "macOS/Linux" >}}
-Edit `~/.kimi/mcp_servers.json`:
-{{< /tab >}}
-{{< tab "Windows" >}}
-Edit `%USERPROFILE%\.kimi\mcp_servers.json`:
-{{< /tab >}}
-{{< /tabs >}}
-
-```json
-{
-  "mcpServers": {
-    "thinkt": {
-      "command": "thinkt",
-      "args": ["serve", "mcp"]
-    }
-  }
-}
+```bash
+kimi mcp add --transport stdio thinkt -- thinkt serve mcp
+kimi mcp list
 ```
-
-Restart Kimi Code to load the configuration.
 
 ---
 
 ### Gemini CLI
 
-Add thinkt to your Gemini CLI MCP settings:
+Add `thinkt` to your Gemini MCP settings via CLI:
+
+```bash
+gemini mcp add --transport stdio thinkt -- thinkt serve mcp
+gemini mcp list
+```
+
+
+Add `thinkt` to your Gemini CLI MCP settings:
 
 {{< tabs "gemini-cli" >}}
 {{< tab "macOS/Linux" >}}
@@ -306,6 +276,7 @@ Edit `%USERPROFILE%\.gemini\settings.json`:
 {
   "mcpServers": {
     "thinkt": {
+      "transport": "stdio",
       "command": "thinkt",
       "args": ["serve", "mcp"]
     }
@@ -317,7 +288,7 @@ Edit `%USERPROFILE%\.gemini\settings.json`:
 
 ### GitHub Copilot CLI
 
-Add thinkt to your GitHub Copilot CLI configuration:
+Add `thinkt` to your GitHub Copilot CLI configuration:
 
 {{< tabs "copilot-cli" >}}
 {{< tab "macOS/Linux" >}}
@@ -332,6 +303,33 @@ Edit `%USERPROFILE%\.config\github-copilot\mcp.json`:
 {
   "mcpServers": {
     "thinkt": {
+      "command": "thinkt",
+      "args": ["serve", "mcp"]
+    }
+  }
+}
+```
+
+### Charm Crush
+
+Add `thinkt` to your [Charm Crush](https://github.com/charmbracelet/crush) CLI configuration:
+
+{{< tabs "crush-cli" >}}
+{{< tab "macOS/Linux" >}}
+Edit `~/.crush.json`:
+{{< /tab >}}
+{{< tab "Windows" >}}
+Edit `%USERPROFILE%\.config\crush\crush.json`:
+{{< /tab >}}
+{{< /tabs >}}
+
+```json
+{
+  "mcp": {
+    "thinkt": {
+      "type": "stdio",
+      "disabled": false,
+      "timeout": 120,
       "command": "thinkt",
       "args": ["serve", "mcp"]
     }
