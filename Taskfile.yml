@@ -12,9 +12,16 @@ tasks:
     cmds:
       - go install "github.com/swaggo/swag/cmd/swag@v1.16.6"
 
+  submodules:
+    desc: "Ensure git submodules are checked out"
+    cmds:
+      - git submodule update --init --recursive
+    status:
+      - test -f internal/server/web-lite/index.html
+
   build:
     desc: Build the thinkt CLI
-    deps: [go-tidy]
+    deps: [go-tidy, submodules]
     sources:
       - ./cmd/thinkt/**/*.go
       - ./internal/**/*.go

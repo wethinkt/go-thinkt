@@ -13,6 +13,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      GORELEASER_CROSS_VERSION: v1.25.6
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,11 +40,37 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run GoReleaser
+      - name: Run GoReleaser (Main)
         uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
           args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+          MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+
+      - name: Run GoReleaser (Indexer)
+        run: |
+          docker run \
+            --rm \
+            -e GITHUB_TOKEN \
+            -e TAP_GITHUB_TOKEN \
+            -e MACOS_SIGN_P12 \
+            -e MACOS_SIGN_PASSWORD \
+            -e MACOS_NOTARY_KEY \
+            -e MACOS_NOTARY_KEY_ID \
+            -e MACOS_NOTARY_ISSUER_ID \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $HOME/.docker/config.json:/root/.docker/config.json \
+            -v $(pwd):/go/src/github.com/${{ github.repository }} \
+            -w /go/src/github.com/${{ github.repository }} \
+            ghcr.io/goreleaser/goreleaser-cross:${{ env.GORELEASER_CROSS_VERSION }} \
+            release --clean -f .goreleaser-indexer.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
