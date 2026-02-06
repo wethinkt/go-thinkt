@@ -8,6 +8,7 @@ import (
 var (
 	dbPath  string
 	verbose bool
+	quiet   bool
 )
 
 var rootCmd = &cobra.Command{
@@ -25,8 +26,7 @@ func init() {
 	defaultDBPath, _ := db.DefaultPath()
 	rootCmd.PersistentFlags().StringVar(&dbPath, "db", defaultDBPath, "path to DuckDB database file")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
-
-	rootCmd.AddCommand(syncCmd)
+	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress progress output")
 }
 
 func getDB() (*db.DB, error) {

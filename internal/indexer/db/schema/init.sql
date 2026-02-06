@@ -11,17 +11,18 @@ CREATE TABLE IF NOT EXISTS sync_state (
 
 -- Projects mapping
 CREATE TABLE IF NOT EXISTS projects (
-    id            VARCHAR PRIMARY KEY, -- Hash of path
-    path          VARCHAR UNIQUE,
+    id            VARCHAR PRIMARY KEY,
+    path          VARCHAR,
     name          VARCHAR,
-    source        VARCHAR, -- 'claude', 'kimi', etc.
-    workspace_id  VARCHAR
+    source        VARCHAR,
+    workspace_id  VARCHAR,
+    UNIQUE(path, source)
 );
 
 -- Session metadata
 CREATE TABLE IF NOT EXISTS sessions (
-    id            VARCHAR PRIMARY KEY, -- UUID
-    project_id    VARCHAR REFERENCES projects(id),
+    id            VARCHAR PRIMARY KEY,
+    project_id    VARCHAR, -- Linked to projects.id
     path          VARCHAR,
     model         VARCHAR,
     first_prompt  TEXT,
@@ -32,7 +33,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 -- Conversation entries
 CREATE TABLE IF NOT EXISTS entries (
     uuid          VARCHAR PRIMARY KEY,
-    session_id    VARCHAR REFERENCES sessions(id),
+    session_id    VARCHAR, -- Linked to sessions.id
     timestamp     TIMESTAMP,
     role          VARCHAR,
     body          JSON 

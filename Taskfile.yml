@@ -52,6 +52,7 @@ tasks:
     deps: [go-tidy]
     sources:
       - ./cmd/thinkt-indexer/**/*.go
+      - ./cmd/thinkt-indexer/**/*.sql
       - ./internal/**/*.go
       - go.mod
       - go.sum

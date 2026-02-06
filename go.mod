@@ -8,6 +8,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.0-beta.3.0.20251106193318-19329a3e8410
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/duckdb/duckdb-go/v2 v2.5.5
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-chi/chi/v5 v5.2.4
 	github.com/modelcontextprotocol/go-sdk v1.2.0
 	github.com/spf13/cobra v1.10.2

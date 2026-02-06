@@ -77,6 +77,8 @@ github.com/duckdb/duckdb-go-bindings/lib/windows-amd64 v0.3.3 h1:SK2sunA/MPb2T31
 github.com/duckdb/duckdb-go-bindings/lib/windows-amd64 v0.3.3/go.mod h1:K25pJL26ARblGDeuAkrdblFvUen92+CwksLtPEHRqqQ=
 github.com/duckdb/duckdb-go/v2 v2.5.5 h1:TlK8ipnzoKW2aNrjGqRkFWLCDpJDxR/VwH8ezEcvVhw=
 github.com/duckdb/duckdb-go/v2 v2.5.5/go.mod h1:6uIbC3gz36NCEygECzboygOo/Z9TeVwox/puG+ohWV0=
+github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=
+github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
 github.com/go-chi/chi/v5 v5.2.4 h1:WtFKPHwlywe8Srng8j2BhOD9312j9cGUxG1SP4V2cR4=
 github.com/go-chi/chi/v5 v5.2.4/go.mod h1:X7Gx4mteadT3eDOMTsXzmI4/rwUpOwBHLpAfupzFJP0=
 github.com/go-openapi/jsonpointer v0.19.3/go.mod h1:Pl9vOtqEWErmShwVjC8pYs9cog34VGT37dQOVbmoatg=

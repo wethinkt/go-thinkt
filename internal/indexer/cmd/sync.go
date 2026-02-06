@@ -23,6 +23,14 @@ var syncCmd = &cobra.Command{
 		registry := cmd.CreateSourceRegistry()
 		ingester := indexer.NewIngester(database, registry)
 
+		if !quiet {
+			ingester.OnProgress = func(pIdx, pTotal, sIdx, sTotal int, message string) {
+				// \r moves cursor to start of line
+				// \x1b[K clears from cursor to end of line
+				fmt.Printf("\r\x1b[KProjects [%d/%d] | Sessions [%d/%d] %s", pIdx, pTotal, sIdx, sTotal, message)
+			}
+		}
+
 		ctx := context.Background()
 		projects, err := registry.ListAllProjects(ctx)
 		if err != nil {
@@ -30,20 +38,29 @@ var syncCmd = &cobra.Command{
 		}
 
 		if len(projects) == 0 {
-			fmt.Println("No projects found to index.")
+			if !quiet {
+				fmt.Println("No projects found to index.")
+			}
 			return nil
 		}
 
-		for _, p := range projects {
+		totalProjects := len(projects)
+		for idx, p := range projects {
 			if verbose {
-				fmt.Printf("Indexing project: %s (%s)\n", p.Name, p.Path)
+				fmt.Printf("\nIndexing project: %s (%s)\n", p.Name, p.Path)
 			}
-			if err := ingester.IngestProject(ctx, p); err != nil {
-				fmt.Fprintf(os.Stderr, "Error indexing project %s: %v\n", p.Name, err)
+			if err := ingester.IngestProject(ctx, p, idx+1, totalProjects); err != nil {
+				fmt.Fprintf(os.Stderr, "\nError indexing project %s: %v\n", p.Name, err)
 			}
 		}
 
-		fmt.Println("Indexing complete.")
+		if !quiet {
+			fmt.Println("\nIndexing complete.")
+		}
 		return nil
 	},
+}
+
+func init() {
+	rootCmd.AddCommand(syncCmd)
 }
