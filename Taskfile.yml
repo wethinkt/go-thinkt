@@ -4,6 +4,10 @@ vars:
   BIN_DIR: ./bin
 
 tasks:
+  ###############################################################################
+  # Housekeeping
+  ###############################################################################
+
   default:
     deps: [test, build]
 
@@ -19,7 +23,17 @@ tasks:
     status:
       - test -f internal/server/web-lite/index.html
 
+  ###############################################################################
+  # Golang
+  ###############################################################################
+
   build:
+    desc: Build all
+    deps:
+      - build:thinkt
+      - build:indexer
+
+  build:thinkt:
     desc: Build the thinkt CLI
     deps: [go-tidy, submodules]
     sources:
@@ -32,6 +46,19 @@ tasks:
       - "{{.BIN_DIR}}/thinkt"
     cmds:
       - go build -o {{.BIN_DIR}}/thinkt ./cmd/thinkt
+
+  build:indexer:
+    desc: Build the thinkt-indexer CLI
+    deps: [go-tidy]
+    sources:
+      - ./cmd/thinkt-indexer/**/*.go
+      - ./internal/**/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.BIN_DIR}}/thinkt-indexer"
+    cmds:
+      - CGO_ENABLED=1 go build -o {{.BIN_DIR}}/thinkt-indexer ./cmd/thinkt-indexer
 
   test:
     desc: Run tests

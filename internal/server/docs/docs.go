@@ -1117,6 +1117,9 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "status": {
+                    "$ref": "#/definitions/thinkt.TeamStatus"
+                },
                 "workspace_id": {
                     "type": "string"
                 }
@@ -1178,6 +1181,17 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "thinkt.TeamStatus": {
+            "type": "string",
+            "enum": [
+                "active",
+                "inactive"
+            ],
+            "x-enum-varnames": [
+                "TeamStatusActive",
+                "TeamStatusInactive"
+            ]
         },
         "thinkt.TeamTask": {
             "type": "object",

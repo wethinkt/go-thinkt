@@ -47,8 +47,7 @@ func (i *Ingester) IngestProject(ctx context.Context, project thinkt.Project) er
 	for _, s := range sessions {
 		if err := i.IngestSession(ctx, s); err != nil {
 			// Log error but continue with other sessions
-			fmt.Fprintf(os.Stderr, "Error ingesting session %s: %v
-", s.ID, err)
+			fmt.Fprintf(os.Stderr, "Error ingesting session %s: %v\n", s.ID, err)
 		}
 	}
 
@@ -58,7 +57,7 @@ func (i *Ingester) IngestProject(ctx context.Context, project thinkt.Project) er
 // IngestSession indexes a single session if it has changed since the last sync.
 func (i *Ingester) IngestSession(ctx context.Context, meta thinkt.SessionMeta) error {
 	// 1. Check sync state
-	shouldSync, lastMod, err := i.shouldSyncSession(meta)
+	shouldSync, _, err := i.shouldSyncSession(meta)
 	if err != nil {
 		return err
 	}
@@ -159,7 +158,7 @@ func (i *Ingester) updateSyncState(meta thinkt.SessionMeta, lines int) error {
 	return err
 }
 
-// Helper to handle sql.ErrNoRows without direct import if needed, 
+// Helper to handle sql.ErrNoRows without direct import if needed,
 // though we already imported database/sql in db/db.go.
 func sqlErrNoRows() error {
 	return db.ErrNoRows

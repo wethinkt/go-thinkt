@@ -400,6 +400,8 @@ definitions:
         allOf:
         - $ref: '#/definitions/thinkt.Source'
         description: Source provenance
+      status:
+        $ref: '#/definitions/thinkt.TeamStatus'
       workspace_id:
         type: string
     type: object
@@ -447,6 +449,14 @@ definitions:
       timestamp:
         type: string
     type: object
+  thinkt.TeamStatus:
+    enum:
+    - active
+    - inactive
+    type: string
+    x-enum-varnames:
+    - TeamStatusActive
+    - TeamStatusInactive
   thinkt.TeamTask:
     properties:
       active_form:

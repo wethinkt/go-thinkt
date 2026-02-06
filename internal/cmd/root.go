@@ -143,6 +143,7 @@ func init() {
 	rootCmd.AddCommand(sessionsCmd)
 	rootCmd.AddCommand(sourcesCmd)
 	rootCmd.AddCommand(themeCmd)
+	rootCmd.AddCommand(indexerCmd)
 	rootCmd.AddCommand(teamsCmd)
 	teamsCmd.AddCommand(teamsListCmd)
 	teamsCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "output as JSON")
