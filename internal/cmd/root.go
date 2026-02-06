@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime/pprof"
 	"slices"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -189,6 +190,7 @@ func init() {
 	serveLiteCmd.Flags().StringVar(&serveHost, "host", "localhost", "server host")
 	serveLiteCmd.Flags().BoolVar(&serveNoOpen, "no-open", false, "don't auto-open browser")
 	serveLiteCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
+	serveLiteCmd.Flags().DurationVar(&serveLiteTTL, "ttl", 60*time.Second, "cache TTL for refreshing source data (0 to cache forever)")
 
 	// Sources subcommands
 	sourcesCmd.AddCommand(sourcesListCmd)

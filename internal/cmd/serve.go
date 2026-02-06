@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -41,6 +42,11 @@ var (
 // Serve API subcommand flags
 var (
 	apiToken string // Bearer token for API server authentication
+)
+
+// Serve Lite subcommand flags
+var (
+	serveLiteTTL time.Duration // Cache TTL for long-running lite server
 )
 
 // Serve fingerprint subcommand flags
@@ -142,6 +148,9 @@ The lite webapp provides:
   - List of all projects with session counts
   - Quick links to API endpoints and documentation
 
+The --ttl flag controls how long cached data (projects, sessions, teams)
+is considered fresh before being re-read from disk. Default is 60s.
+
 This is useful for developers and debugging. For the full experience,
 use 'thinkt serve' (coming soon) or the TUI with 'thinkt'.
 
@@ -149,7 +158,9 @@ Examples:
   thinkt serve lite                   # Start lite server on port 8785
   thinkt serve lite -p 8080           # Start on custom port
   thinkt serve lite --host 0.0.0.0    # Bind to all interfaces
-  thinkt serve lite --no-open         # Don't auto-open browser`,
+  thinkt serve lite --no-open         # Don't auto-open browser
+  thinkt serve lite --ttl 30s         # Refresh cache every 30 seconds
+  thinkt serve lite --ttl 0           # Cache forever (no refresh)`,
 	RunE: runServeLite,
 }
 
@@ -235,6 +246,16 @@ func runServeLite(cmd *cobra.Command, args []string) error {
 	// Create source registry
 	registry := CreateSourceRegistry()
 	tuilog.Log.Info("Source registry created", "stores", len(registry.All()))
+
+	// Apply cache TTL for long-running server
+	if serveLiteTTL > 0 {
+		registry.SetCacheTTL(serveLiteTTL)
+		fmt.Fprintf(os.Stderr, "Cache TTL: %s (stores=%d, team_stores=%d)\n",
+			serveLiteTTL, len(registry.All()), len(registry.TeamStores()))
+		tuilog.Log.Info("Cache TTL set", "ttl", serveLiteTTL)
+	} else {
+		fmt.Fprintln(os.Stderr, "Cache TTL: disabled (caching forever)")
+	}
 
 	// Create context that cancels on interrupt
 	ctx, cancel := context.WithCancel(context.Background())

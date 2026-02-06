@@ -76,9 +76,11 @@ type subagentInfo struct {
 
 // TeamStore implements thinkt.TeamStore for Claude Code teams.
 type TeamStore struct {
-	baseDir         string // ~/.claude
-	historicalCache []thinkt.Team
-	historicalDone  bool
+	baseDir            string // ~/.claude
+	historicalCache    []thinkt.Team
+	historicalDone     bool
+	historicalCachedAt time.Time
+	cacheTTL           time.Duration
 }
 
 // NewTeamStore creates a new Claude team store.
@@ -89,6 +91,9 @@ func NewTeamStore(baseDir string) *TeamStore {
 	}
 	return &TeamStore{baseDir: baseDir}
 }
+
+// SetCacheTTL sets the cache time-to-live for this team store.
+func (ts *TeamStore) SetCacheTTL(d time.Duration) { ts.cacheTTL = d }
 
 // Source returns the source type for this team store.
 func (ts *TeamStore) Source() thinkt.Source {
@@ -448,6 +453,13 @@ func (ts *TeamStore) scanSubagentFile(path string) *subagentInfo {
 // have active config (deleted teams). Results are cached after first call.
 // If activeNames is non-nil, teams whose names appear in it are skipped.
 func (ts *TeamStore) discoverHistoricalTeams(activeNames map[string]bool) []thinkt.Team {
+	// Check if cache is still valid (not expired by TTL)
+	stale := ts.historicalDone && ts.cacheTTL > 0 && time.Since(ts.historicalCachedAt) > ts.cacheTTL
+	if stale {
+		ts.historicalDone = false
+		ts.historicalCache = nil
+	}
+
 	if ts.historicalDone {
 		if len(activeNames) == 0 {
 			return ts.historicalCache
@@ -461,6 +473,7 @@ func (ts *TeamStore) discoverHistoricalTeams(activeNames map[string]bool) []thin
 		return filtered
 	}
 	ts.historicalDone = true
+	ts.historicalCachedAt = time.Now()
 
 	projectsDir := filepath.Join(ts.baseDir, "projects")
 	projectEntries, err := os.ReadDir(projectsDir)

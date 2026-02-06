@@ -465,6 +465,29 @@ func (r *StoreRegistry) SourceStatus(ctx context.Context) []SourceInfo {
 	return infos
 }
 
+// CacheTTLSetter is optionally implemented by Store and TeamStore to support
+// TTL-based cache invalidation in long-running server processes.
+type CacheTTLSetter interface {
+	SetCacheTTL(d time.Duration)
+}
+
+// SetCacheTTL propagates a cache TTL to all registered stores and team stores
+// that implement CacheTTLSetter.
+func (r *StoreRegistry) SetCacheTTL(d time.Duration) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, s := range r.stores {
+		if setter, ok := s.(CacheTTLSetter); ok {
+			setter.SetCacheTTL(d)
+		}
+	}
+	for _, ts := range r.teamStores {
+		if setter, ok := ts.(CacheTTLSetter); ok {
+			setter.SetCacheTTL(d)
+		}
+	}
+}
+
 // EntryWriter writes entries to an output format (for export/conversion).
 type EntryWriter interface {
 	WriteEntry(entry Entry) error

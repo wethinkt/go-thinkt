@@ -29,6 +29,12 @@ func NewStore(baseDir string) *Store {
 	return &Store{baseDir: baseDir}
 }
 
+// SetCacheTTL sets the cache time-to-live for this store.
+func (s *Store) SetCacheTTL(d time.Duration) {
+	s.cache.SetName("gemini")
+	s.cache.SetTTL(d)
+}
+
 // Source returns the store type.
 func (s *Store) Source() thinkt.Source {
 	return thinkt.SourceGemini
