@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# .goreleaser-indexer.yml
+# Specialized build configuration for thinkt-indexer (CGO enabled for DuckDB)
+
+version: 2
+
+project_name: thinkt-indexer
+
+builds:
+  - id: linux-amd64
+    main: ./cmd/thinkt-indexer
+    binary: thinkt-indexer
+    goos:
+      - linux
+    goarch:
+      - amd64
+    env:
+      - CGO_ENABLED=1
+      - CC=x86_64-linux-gnu-gcc
+      - CXX=x86_64-linux-gnu-g++
+    ldflags:
+      - -s -w
+
+  - id: linux-arm64
+    main: ./cmd/thinkt-indexer
+    binary: thinkt-indexer
+    goos:
+      - linux
+    goarch:
+      - arm64
+    env:
+      - CGO_ENABLED=1
+      - CC=aarch64-linux-gnu-gcc
+      - CXX=aarch64-linux-gnu-g++
+    ldflags:
+      - -s -w
+
+  - id: darwin-amd64
+    main: ./cmd/thinkt-indexer
+    binary: thinkt-indexer
+    goos:
+      - darwin
+    goarch:
+      - amd64
+    env:
+      - MACOSX_DEPLOYMENT_TARGET=11.0
+      - CGO_ENABLED=1
+      - CC=o64-clang
+      - CXX=o64-clang++
+    ldflags:
+      - -s -w
+
+  - id: darwin-arm64
+    main: ./cmd/thinkt-indexer
+    binary: thinkt-indexer
+    goos:
+      - darwin
+    goarch:
+      - arm64
+    env:
+      - MACOSX_DEPLOYMENT_TARGET=11.0
+      - CGO_ENABLED=1
+      - CC=oa64-clang
+      - CXX=oa64-clang++
+    ldflags:
+      - -s -w
+
+archives:
+  - id: default
+    ids:
+      - linux-amd64
+      - linux-arm64
+      - darwin-amd64
+      - darwin-arm64
+    formats:
+      - tar.gz
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: checksums-indexer.txt
+
+changelog:
+  disable: true # Changelog is handled by the main release
+
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+      ids:
+        - darwin-amd64
+        - darwin-arm64
+      sign:
+        certificate: "{{.Env.MACOS_SIGN_P12}}"
+        password: "{{.Env.MACOS_SIGN_PASSWORD}}"
+      notarize:
+        issuer_id: "{{.Env.MACOS_NOTARY_ISSUER_ID}}"
+        key_id: "{{.Env.MACOS_NOTARY_KEY_ID}}"
+        key: "{{.Env.MACOS_NOTARY_KEY}}"
+        wait: true
+        timeout: 20m
