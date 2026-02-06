@@ -24,8 +24,8 @@ jobs:
       - name: Test
         run: go test ./...
 
-      - name: Build
-        run: go build ./...
+      - name: Build Main Tool
+        run: CGO_ENABLED=0 go build ./cmd/thinkt
 
   docker:
     runs-on: ubuntu-latest

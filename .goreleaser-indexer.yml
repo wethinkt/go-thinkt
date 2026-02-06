@@ -98,3 +98,52 @@ notarize:
         key: "{{.Env.MACOS_NOTARY_KEY}}"
         wait: true
         timeout: 20m
+
+dockers:
+  - id: linux-amd64
+    ids:
+      - linux-amd64
+    dockerfile: etc/Dockerfile.indexer
+    image_templates:
+      - "ghcr.io/wethinkt/thinkt-indexer:{{ .Version }}-amd64"
+      - "ghcr.io/wethinkt/thinkt-indexer:latest-amd64"
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title=thinkt-indexer"
+      - "--label=org.opencontainers.image.description=thinkt indexer"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.source={{ .GitURL }}"
+    use: buildx
+
+  - id: linux-arm64
+    ids:
+      - linux-arm64
+    dockerfile: etc/Dockerfile.indexer
+    image_templates:
+      - "ghcr.io/wethinkt/thinkt-indexer:{{ .Version }}-arm64"
+      - "ghcr.io/wethinkt/thinkt-indexer:latest-arm64"
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title=thinkt-indexer"
+      - "--label=org.opencontainers.image.description=thinkt indexer"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.source={{ .GitURL }}"
+    use: buildx
+    goarch: arm64
+
+docker_manifests:
+  - name_template: "ghcr.io/wethinkt/thinkt-indexer:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/wethinkt/thinkt-indexer:{{ .Version }}-amd64"
+      - "ghcr.io/wethinkt/thinkt-indexer:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/wethinkt/thinkt-indexer:latest"
+    image_templates:
+      - "ghcr.io/wethinkt/thinkt-indexer:latest-amd64"
+      - "ghcr.io/wethinkt/thinkt-indexer:latest-arm64"

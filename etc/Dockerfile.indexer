@@ -1,0 +1,19 @@
+# thinkt-indexer Dockerfile for GoReleaser
+# Uses pre-built CGO binary from goreleaser-cross
+
+FROM debian:bookworm-slim
+
+# Install ca-certificates and create non-root user
+RUN DEBIAN_FRONTEND=noninteractive apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -d /data -u 5454 indexer
+
+# Copy pre-built binary from goreleaser
+COPY thinkt-indexer /usr/local/bin/thinkt-indexer
+
+USER indexer
+WORKDIR /data
+
+ENTRYPOINT ["/usr/local/bin/thinkt-indexer"]

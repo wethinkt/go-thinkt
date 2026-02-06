@@ -102,6 +102,14 @@ tasks:
   # Docker
   ###############################################################################
 
+  docker:build-thinkt:
+    cmds:
+      - docker build .
+
+  docker:build-indexer:
+    cmds:
+      - docker build -f etc/Dockerfile.indexer .
+
   docker:release:
     cmds:
       - |
