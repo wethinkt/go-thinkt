@@ -22,6 +22,7 @@ import (
 // Store implements thinkt.Store for Kimi Code sessions.
 type Store struct {
 	baseDir string
+	cache   thinkt.StoreCache
 }
 
 // NewStore creates a new Kimi store.
@@ -65,15 +66,22 @@ func workDirHash(path string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// ListProjects returns all Kimi projects.
+// ListProjects returns all Kimi projects. Results are cached after the
+// first call. Use ResetCache to force a rescan.
 func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
+	if cached, err, ok := s.cache.GetProjects(); ok {
+		return cached, err
+	}
+
 	sessionsDir := filepath.Join(s.baseDir, "sessions")
 
 	// Read kimi.json for work directory mapping
 	workDirs, err := s.loadWorkDirs()
 	if err != nil {
 		// Fallback: scan sessions directory
-		return s.scanProjects(sessionsDir)
+		result, scanErr := s.scanProjects(sessionsDir)
+		s.cache.SetProjects(result, scanErr)
+		return result, scanErr
 	}
 
 	ws := s.Workspace()
@@ -101,8 +109,12 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 		})
 	}
 
+	s.cache.SetProjects(projects, nil)
 	return projects, nil
 }
+
+// ResetCache clears all cached data, forcing the next calls to rescan.
+func (s *Store) ResetCache() { s.cache.Reset() }
 
 // GetProject returns a specific project.
 func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, error) {
@@ -132,8 +144,13 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 
 // ListSessions returns sessions for a project.
 func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
+	if cached, err, ok := s.cache.GetSessions(projectID); ok {
+		return cached, err
+	}
 	hash := workDirHash(projectID)
-	return s.listSessionsForHash(hash)
+	result, err := s.listSessionsForHash(hash)
+	s.cache.SetSessions(projectID, result, err)
+	return result, err
 }
 
 func (s *Store) listSessionsForHash(hash string) ([]thinkt.SessionMeta, error) {

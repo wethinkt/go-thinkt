@@ -17,6 +17,7 @@ import (
 // Store implements thinkt.Store for Gemini CLI sessions.
 type Store struct {
 	baseDir string
+	cache   thinkt.StoreCache
 }
 
 // NewStore creates a new Gemini store.
@@ -53,14 +54,21 @@ func (s *Store) Workspace() thinkt.Workspace {
 	}
 }
 
-// ListProjects returns all Gemini projects.
+// ListProjects returns all Gemini projects. Results are cached after the
+// first call. Use ResetCache to force a rescan.
 func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
+	if cached, err, ok := s.cache.GetProjects(); ok {
+		return cached, err
+	}
+
 	tmpDir := filepath.Join(s.baseDir, "tmp")
 	entries, err := os.ReadDir(tmpDir)
 	if err != nil {
 		if os.IsNotExist(err) {
+			s.cache.SetProjects(nil, nil)
 			return nil, nil
 		}
+		s.cache.SetProjects(nil, err)
 		return nil, err
 	}
 
@@ -71,11 +79,11 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 		if !entry.IsDir() {
 			continue
 		}
-		
+
 		projectHash := entry.Name()
 		projectPath := filepath.Join(tmpDir, projectHash)
 		chatsDir := filepath.Join(projectPath, "chats")
-		
+
 		// Check if chats directory exists
 		if _, err := os.Stat(chatsDir); os.IsNotExist(err) {
 			continue
@@ -112,8 +120,12 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 		}
 	}
 
+	s.cache.SetProjects(projects, nil)
 	return projects, nil
 }
+
+// ResetCache clears all cached data, forcing the next calls to rescan.
+func (s *Store) ResetCache() { s.cache.Reset() }
 
 // GetProject returns a specific project.
 func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, error) {
@@ -132,10 +144,15 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 
 // ListSessions returns sessions for a project.
 func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
+	if cached, err, ok := s.cache.GetSessions(projectID); ok {
+		return cached, err
+	}
+
 	// projectID corresponds to the hash folder name
 	chatsDir := filepath.Join(s.baseDir, "tmp", projectID, "chats")
 	entries, err := os.ReadDir(chatsDir)
 	if err != nil {
+		s.cache.SetSessions(projectID, nil, err)
 		return nil, err
 	}
 
@@ -205,6 +222,7 @@ func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.Se
 		return sessions[i].ModifiedAt.After(sessions[j].ModifiedAt)
 	})
 
+	s.cache.SetSessions(projectID, sessions, nil)
 	return sessions, nil
 }
 

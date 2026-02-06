@@ -15,6 +15,7 @@ import (
 // Store implements thinkt.Store for Claude Code sessions.
 type Store struct {
 	baseDir string
+	cache   thinkt.StoreCache
 }
 
 // NewStore creates a new Claude store.
@@ -53,10 +54,16 @@ func (s *Store) Workspace() thinkt.Workspace {
 	}
 }
 
-// ListProjects returns all Claude projects.
+// ListProjects returns all Claude projects. Results are cached after the
+// first call. Use ResetCache to force a rescan.
 func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
+	if cached, err, ok := s.cache.GetProjects(); ok {
+		return cached, err
+	}
+
 	projects, err := ListProjects(s.baseDir)
 	if err != nil {
+		s.cache.SetProjects(nil, err)
 		return nil, err
 	}
 
@@ -74,8 +81,12 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 			WorkspaceID:  ws.ID,
 		}
 	}
+	s.cache.SetProjects(result, nil)
 	return result, nil
 }
+
+// ResetCache clears all cached data, forcing the next calls to rescan.
+func (s *Store) ResetCache() { s.cache.Reset() }
 
 // GetProject returns a specific project.
 func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, error) {
@@ -93,10 +104,16 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 	return nil, nil
 }
 
-// ListSessions returns sessions for a project.
+// ListSessions returns sessions for a project. Results are cached per
+// project after the first call.
 func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
+	if cached, err, ok := s.cache.GetSessions(projectID); ok {
+		return cached, err
+	}
+
 	sessions, err := ListProjectSessions(projectID)
 	if err != nil {
+		s.cache.SetSessions(projectID, nil, err)
 		return nil, err
 	}
 
@@ -119,6 +136,7 @@ func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.Se
 			ChunkCount:  1, // Claude sessions are not chunked
 		}
 	}
+	s.cache.SetSessions(projectID, result, nil)
 	return result, nil
 }
 

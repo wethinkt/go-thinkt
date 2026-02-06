@@ -16,6 +16,7 @@ import (
 // Store implements thinkt.Store for Copilot CLI sessions.
 type Store struct {
 	baseDir string
+	cache   thinkt.StoreCache
 }
 
 // NewStore creates a new Copilot store.
@@ -44,14 +45,16 @@ func (s *Store) Workspace() thinkt.Workspace {
 	}
 }
 
-// ListProjects returns all Copilot projects (derived from sessions).
+// ListProjects returns all Copilot projects (derived from sessions). Results
+// are cached after the first call. Use ResetCache to force a rescan.
 func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
-	// Copilot CLI doesn't strictly group by project on disk, 
-	// so we have to scan sessions and group them dynamically.
-	// For efficiency in a real impl, we might want to cache this.
-	
+	if cached, err, ok := s.cache.GetProjects(); ok {
+		return cached, err
+	}
+
 	sessions, err := s.scanSessions()
 	if err != nil {
+		s.cache.SetProjects(nil, err)
 		return nil, err
 	}
 
@@ -87,14 +90,18 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 	for _, p := range projectsMap {
 		projects = append(projects, *p)
 	}
-	
+
 	// Sort by last modified desc
 	sort.Slice(projects, func(i, j int) bool {
 		return projects[i].LastModified.After(projects[j].LastModified)
 	})
 
+	s.cache.SetProjects(projects, nil)
 	return projects, nil
 }
+
+// ResetCache clears all cached data, forcing the next calls to rescan.
+func (s *Store) ResetCache() { s.cache.Reset() }
 
 // GetProject returns a specific project.
 func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, error) {
@@ -112,8 +119,13 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 
 // ListSessions returns sessions for a project.
 func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
+	if cached, err, ok := s.cache.GetSessions(projectID); ok {
+		return cached, err
+	}
+
 	allSessions, err := s.scanSessions()
 	if err != nil {
+		s.cache.SetSessions(projectID, nil, err)
 		return nil, err
 	}
 
@@ -124,12 +136,13 @@ func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.Se
 			sessions = append(sessions, sess)
 		}
 	}
-	
+
 	// Sort by created desc
 	sort.Slice(sessions, func(i, j int) bool {
 		return sessions[i].CreatedAt.After(sessions[j].CreatedAt)
 	})
 
+	s.cache.SetSessions(projectID, sessions, nil)
 	return sessions, nil
 }
 
