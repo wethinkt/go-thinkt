@@ -81,6 +81,27 @@ definitions:
           $ref: '#/definitions/server.APISourceInfo'
         type: array
     type: object
+  server.TeamMessagesResponse:
+    properties:
+      messages:
+        items:
+          $ref: '#/definitions/thinkt.TeamMessage'
+        type: array
+    type: object
+  server.TeamTasksResponse:
+    properties:
+      tasks:
+        items:
+          $ref: '#/definitions/thinkt.TeamTask'
+        type: array
+    type: object
+  server.TeamsResponse:
+    properties:
+      teams:
+        items:
+          $ref: '#/definitions/thinkt.Team'
+        type: array
+    type: object
   server.ThemeColors:
     properties:
       accent:
@@ -196,6 +217,9 @@ definitions:
     type: object
   thinkt.Entry:
     properties:
+      agent_id:
+        description: Resolved agent name (e.g., "researcher")
+        type: string
       content_blocks:
         description: Content (one of these will be set)
         items:
@@ -226,6 +250,9 @@ definitions:
         allOf:
         - $ref: '#/definitions/thinkt.Source'
         description: Provenance - where this entry came from
+      source_agent_id:
+        description: Raw source identifier (e.g., "ab17e07")
+        type: string
       text:
         description: Simple text shortcut
         type: string
@@ -348,6 +375,104 @@ definitions:
     - SourceCopilot
     - SourceGemini
     - SourceKimi
+  thinkt.Team:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      lead_agent_id:
+        description: LeadAgentID is the config-format agent ID (e.g., "team-lead@myteam").
+        type: string
+      lead_session_id:
+        description: |-
+          LeadSessionID is the UUID of the team lead's session.
+          Subagent sessions live under projects/{projectDir}/{LeadSessionID}/subagents/
+        type: string
+      members:
+        items:
+          $ref: '#/definitions/thinkt.TeamMember'
+        type: array
+      name:
+        description: Name is the team identifier (directory name under ~/.claude/teams/).
+        type: string
+      source:
+        allOf:
+        - $ref: '#/definitions/thinkt.Source'
+        description: Source provenance
+      workspace_id:
+        type: string
+    type: object
+  thinkt.TeamMember:
+    properties:
+      agent_id:
+        description: AgentID is the config-format ID (e.g., "researcher@myteam").
+        type: string
+      agent_type:
+        description: AgentType classifies the member (e.g., "team-lead", "general-purpose").
+        type: string
+      color:
+        type: string
+      cwd:
+        type: string
+      joined_at:
+        type: string
+      model:
+        type: string
+      name:
+        description: Name is the short display name (e.g., "researcher").
+        type: string
+      session_path:
+        description: |-
+          SessionPath is the path to this member's subagent JSONL file.
+          Populated during discovery. Empty for unresolved members.
+        type: string
+      source_agent_id:
+        description: |-
+          SourceAgentID is the short hash used in session JSONL entries
+          (e.g., "ab17e07"). Populated when correlating team config with
+          session data. May be empty if not yet resolved.
+        type: string
+    type: object
+  thinkt.TeamMessage:
+    properties:
+      color:
+        type: string
+      from:
+        type: string
+      read:
+        type: boolean
+      text:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  thinkt.TeamTask:
+    properties:
+      active_form:
+        type: string
+      blocked_by:
+        items:
+          type: string
+        type: array
+      blocks:
+        items:
+          type: string
+        type: array
+      description:
+        type: string
+      id:
+        type: string
+      is_internal:
+        type: boolean
+      owner:
+        type: string
+      status:
+        description: '"pending", "in_progress", "completed", "deleted"'
+        type: string
+      subject:
+        type: string
+    type: object
   thinkt.TokenUsage:
     properties:
       cache_creation_input_tokens:
@@ -558,6 +683,125 @@ paths:
       summary: List available trace sources
       tags:
       - sources
+  /teams:
+    get:
+      description: Returns all Claude Code teams discovered on this machine
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.TeamsResponse'
+        "401":
+          description: Unauthorized - invalid or missing token
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List all teams
+      tags:
+      - teams
+  /teams/{teamName}:
+    get:
+      description: Returns team details including resolved member-to-session mappings
+      parameters:
+      - description: Team name
+        in: path
+        name: teamName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/thinkt.Team'
+        "401":
+          description: Unauthorized - invalid or missing token
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get team details
+      tags:
+      - teams
+  /teams/{teamName}/members/{memberName}/messages:
+    get:
+      description: Returns inbox messages for a specific team member
+      parameters:
+      - description: Team name
+        in: path
+        name: teamName
+        required: true
+        type: string
+      - description: Member name
+        in: path
+        name: memberName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.TeamMessagesResponse'
+        "401":
+          description: Unauthorized - invalid or missing token
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List team member messages
+      tags:
+      - teams
+  /teams/{teamName}/tasks:
+    get:
+      description: Returns the shared task board for a team
+      parameters:
+      - description: Team name
+        in: path
+        name: teamName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.TeamTasksResponse'
+        "401":
+          description: Unauthorized - invalid or missing token
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List team tasks
+      tags:
+      - teams
   /themes:
     get:
       description: Returns all available themes (built-in and user themes) with their

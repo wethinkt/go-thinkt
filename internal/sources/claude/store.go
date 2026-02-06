@@ -405,6 +405,11 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 		}
 	}
 
+	// Copy agent ID for team/subagent correlation
+	if e.AgentID != "" {
+		entry.SourceAgentID = e.AgentID
+	}
+
 	// Store extra metadata
 	if e.SessionID != "" {
 		entry.Metadata["session_id"] = e.SessionID

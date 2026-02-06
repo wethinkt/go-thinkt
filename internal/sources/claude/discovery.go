@@ -70,8 +70,18 @@ func (d *Discoverer) basePath() string {
 	return claudeDir
 }
 
+// CreateTeamStore creates a TeamStore for Claude Code teams.
+// This implements thinkt.TeamStoreFactory.
+func (d *Discoverer) CreateTeamStore() (thinkt.TeamStore, error) {
+	basePath := d.basePath()
+	if basePath == "" {
+		return nil, nil
+	}
+	return NewTeamStore(basePath), nil
+}
+
 // Factory returns a thinkt.StoreFactory for Claude.
-// This can be used with thinkt.Discovery.
+// The returned factory also implements thinkt.TeamStoreFactory.
 func Factory() thinkt.StoreFactory {
 	return NewDiscoverer()
 }

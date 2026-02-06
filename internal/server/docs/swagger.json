@@ -293,6 +293,194 @@
                 }
             }
         },
+        "/teams": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns all Claude Code teams discovered on this machine",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "teams"
+                ],
+                "summary": "List all teams",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.TeamsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/teams/{teamName}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns team details including resolved member-to-session mappings",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "teams"
+                ],
+                "summary": "Get team details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team name",
+                        "name": "teamName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/thinkt.Team"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/teams/{teamName}/members/{memberName}/messages": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns inbox messages for a specific team member",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "teams"
+                ],
+                "summary": "List team member messages",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team name",
+                        "name": "teamName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Member name",
+                        "name": "memberName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.TeamMessagesResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/teams/{teamName}/tasks": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the shared task board for a team",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "teams"
+                ],
+                "summary": "List team tasks",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Team name",
+                        "name": "teamName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.TeamTasksResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/themes": {
             "get": {
                 "security": [
@@ -449,6 +637,39 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/server.APISourceInfo"
+                    }
+                }
+            }
+        },
+        "server.TeamMessagesResponse": {
+            "type": "object",
+            "properties": {
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/thinkt.TeamMessage"
+                    }
+                }
+            }
+        },
+        "server.TeamTasksResponse": {
+            "type": "object",
+            "properties": {
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/thinkt.TeamTask"
+                    }
+                }
+            }
+        },
+        "server.TeamsResponse": {
+            "type": "object",
+            "properties": {
+                "teams": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/thinkt.Team"
                     }
                 }
             }
@@ -632,6 +853,10 @@
         "thinkt.Entry": {
             "type": "object",
             "properties": {
+                "agent_id": {
+                    "description": "Resolved agent name (e.g., \"researcher\")",
+                    "type": "string"
+                },
                 "content_blocks": {
                     "description": "Content (one of these will be set)",
                     "type": "array",
@@ -675,6 +900,10 @@
                             "$ref": "#/definitions/thinkt.Source"
                         }
                     ]
+                },
+                "source_agent_id": {
+                    "description": "Raw source identifier (e.g., \"ab17e07\")",
+                    "type": "string"
                 },
                 "text": {
                     "description": "Simple text shortcut",
@@ -844,6 +1073,142 @@
                 "SourceGemini",
                 "SourceKimi"
             ]
+        },
+        "thinkt.Team": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "lead_agent_id": {
+                    "description": "LeadAgentID is the config-format agent ID (e.g., \"team-lead@myteam\").",
+                    "type": "string"
+                },
+                "lead_session_id": {
+                    "description": "LeadSessionID is the UUID of the team lead's session.\nSubagent sessions live under projects/{projectDir}/{LeadSessionID}/subagents/",
+                    "type": "string"
+                },
+                "members": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/thinkt.TeamMember"
+                    }
+                },
+                "name": {
+                    "description": "Name is the team identifier (directory name under ~/.claude/teams/).",
+                    "type": "string"
+                },
+                "source": {
+                    "description": "Source provenance",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/thinkt.Source"
+                        }
+                    ]
+                },
+                "workspace_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "thinkt.TeamMember": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "description": "AgentID is the config-format ID (e.g., \"researcher@myteam\").",
+                    "type": "string"
+                },
+                "agent_type": {
+                    "description": "AgentType classifies the member (e.g., \"team-lead\", \"general-purpose\").",
+                    "type": "string"
+                },
+                "color": {
+                    "type": "string"
+                },
+                "cwd": {
+                    "type": "string"
+                },
+                "joined_at": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the short display name (e.g., \"researcher\").",
+                    "type": "string"
+                },
+                "session_path": {
+                    "description": "SessionPath is the path to this member's subagent JSONL file.\nPopulated during discovery. Empty for unresolved members.",
+                    "type": "string"
+                },
+                "source_agent_id": {
+                    "description": "SourceAgentID is the short hash used in session JSONL entries\n(e.g., \"ab17e07\"). Populated when correlating team config with\nsession data. May be empty if not yet resolved.",
+                    "type": "string"
+                }
+            }
+        },
+        "thinkt.TeamMessage": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "read": {
+                    "type": "boolean"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "thinkt.TeamTask": {
+            "type": "object",
+            "properties": {
+                "active_form": {
+                    "type": "string"
+                },
+                "blocked_by": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "blocks": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_internal": {
+                    "type": "boolean"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "\"pending\", \"in_progress\", \"completed\", \"deleted\"",
+                    "type": "string"
+                },
+                "subject": {
+                    "type": "string"
+                }
+            }
         },
         "thinkt.TokenUsage": {
             "type": "object",

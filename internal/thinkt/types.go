@@ -132,8 +132,10 @@ type Entry struct {
 	Timestamp  time.Time `json:"timestamp"`
 
 	// Provenance - where this entry came from
-	Source      Source `json:"source,omitempty"`       // Which tool created this entry
-	WorkspaceID string `json:"workspace_id,omitempty"` // Which machine/host
+	Source        Source `json:"source,omitempty"`          // Which tool created this entry
+	WorkspaceID   string `json:"workspace_id,omitempty"`   // Which machine/host
+	AgentID       string `json:"agent_id,omitempty"`       // Resolved agent name (e.g., "researcher")
+	SourceAgentID string `json:"source_agent_id,omitempty"` // Raw source identifier (e.g., "ab17e07")
 
 	// Content (one of these will be set)
 	ContentBlocks []ContentBlock `json:"content_blocks,omitempty"`
@@ -287,16 +289,19 @@ type SessionFilter struct {
 	Limit       int
 }
 
-// StoreRegistry manages multiple stores (Kimi, Claude, etc.).
+// StoreRegistry manages multiple stores (Kimi, Claude, etc.)
+// and their optional team stores.
 type StoreRegistry struct {
-	stores map[Source]Store
-	mu     sync.RWMutex
+	stores     map[Source]Store
+	teamStores map[Source]TeamStore
+	mu         sync.RWMutex
 }
 
 // NewRegistry creates a new store registry.
 func NewRegistry() *StoreRegistry {
 	return &StoreRegistry{
-		stores: make(map[Source]Store),
+		stores:     make(map[Source]Store),
+		teamStores: make(map[Source]TeamStore),
 	}
 }
 
@@ -307,12 +312,38 @@ func (r *StoreRegistry) Register(store Store) {
 	r.stores[store.Source()] = store
 }
 
+// RegisterTeamStore adds a team store to the registry.
+func (r *StoreRegistry) RegisterTeamStore(ts TeamStore) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.teamStores[ts.Source()] = ts
+}
+
 // Get returns a store by source type.
 func (r *StoreRegistry) Get(source Source) (Store, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	s, ok := r.stores[source]
 	return s, ok
+}
+
+// GetTeamStore returns a team store by source type.
+func (r *StoreRegistry) GetTeamStore(source Source) (TeamStore, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	ts, ok := r.teamStores[source]
+	return ts, ok
+}
+
+// TeamStores returns all registered team stores.
+func (r *StoreRegistry) TeamStores() []TeamStore {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]TeamStore, 0, len(r.teamStores))
+	for _, ts := range r.teamStores {
+		result = append(result, ts)
+	}
+	return result
 }
 
 // All returns all registered stores.
@@ -448,4 +479,82 @@ type EntryReader interface {
 // Converter converts between storage formats.
 type Converter interface {
 	Convert(src EntryReader, dst EntryWriter) error
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Team types — for multi-agent coordination (Claude Code teams/swarms)
+//////////////////////////////////////////////////////////////////////////////
+
+// TeamStatus indicates whether a team is currently active or historically discovered.
+type TeamStatus string
+
+const (
+	TeamStatusActive   TeamStatus = "active"
+	TeamStatusInactive TeamStatus = "inactive"
+)
+
+// Team represents a Claude Code team (agent swarm).
+// Teams are an overlay concept — they reference agents whose sessions
+// already exist in the source (Claude) storage.
+type Team struct {
+	// Name is the team identifier (directory name under ~/.claude/teams/).
+	Name        string       `json:"name"`
+	Description string       `json:"description,omitempty"`
+	CreatedAt   time.Time    `json:"created_at"`
+
+	// LeadAgentID is the config-format agent ID (e.g., "team-lead@myteam").
+	LeadAgentID string `json:"lead_agent_id"`
+	// LeadSessionID is the UUID of the team lead's session.
+	// Subagent sessions live under projects/{projectDir}/{LeadSessionID}/subagents/
+	LeadSessionID string `json:"lead_session_id"`
+
+	Members []TeamMember `json:"members"`
+
+	// Source provenance
+	Source      Source     `json:"source"`
+	WorkspaceID string     `json:"workspace_id,omitempty"`
+	Status      TeamStatus `json:"status,omitempty"`
+}
+
+// TeamMember represents a member of a team.
+type TeamMember struct {
+	// Name is the short display name (e.g., "researcher").
+	Name string `json:"name"`
+	// AgentID is the config-format ID (e.g., "researcher@myteam").
+	AgentID string `json:"agent_id"`
+	// SourceAgentID is the short hash used in session JSONL entries
+	// (e.g., "ab17e07"). Populated when correlating team config with
+	// session data. May be empty if not yet resolved.
+	SourceAgentID string `json:"source_agent_id,omitempty"`
+	// AgentType classifies the member (e.g., "team-lead", "general-purpose").
+	AgentType string `json:"agent_type"`
+	Model     string `json:"model,omitempty"`
+	JoinedAt  time.Time `json:"joined_at"`
+	CWD       string `json:"cwd,omitempty"`
+	Color     string `json:"color,omitempty"`
+	// SessionPath is the path to this member's subagent JSONL file.
+	// Populated during discovery. Empty for unresolved members.
+	SessionPath string `json:"session_path,omitempty"`
+}
+
+// TeamTask represents a task in the team's shared task board.
+type TeamTask struct {
+	ID          string   `json:"id"`
+	Subject     string   `json:"subject"`
+	Description string   `json:"description"`
+	ActiveForm  string   `json:"active_form,omitempty"`
+	Status      string   `json:"status"` // "pending", "in_progress", "completed", "deleted"
+	Owner       string   `json:"owner,omitempty"`
+	Blocks      []string `json:"blocks,omitempty"`
+	BlockedBy   []string `json:"blocked_by,omitempty"`
+	IsInternal  bool     `json:"is_internal,omitempty"`
+}
+
+// TeamMessage represents a message in a team member's inbox.
+type TeamMessage struct {
+	From      string    `json:"from"`
+	Text      string    `json:"text"`
+	Timestamp time.Time `json:"timestamp"`
+	Color     string    `json:"color,omitempty"`
+	Read      bool      `json:"read"`
 }

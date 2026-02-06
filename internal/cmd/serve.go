@@ -200,6 +200,9 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 		HTTPLog: serveHTTPLog,
 	}
 	srv := server.NewHTTPServerWithAuth(registry, config, authConfig)
+	for _, ts := range registry.TeamStores() {
+		srv.SetTeamStore(ts)
+	}
 
 	// Print startup message
 	fmt.Println("🚀 Thinkt server starting...")
@@ -256,6 +259,9 @@ func runServeLite(cmd *cobra.Command, args []string) error {
 		HTTPLog: serveHTTPLog,
 	}
 	srv := server.NewHTTPServer(registry, config)
+	for _, ts := range registry.TeamStores() {
+		srv.SetTeamStore(ts)
+	}
 
 	// Auto-open browser if requested
 	if !serveNoOpen {

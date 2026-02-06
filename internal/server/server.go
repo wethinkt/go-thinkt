@@ -115,6 +115,7 @@ func (c *Config) Close() {
 // HTTPServer serves the REST API.
 type HTTPServer struct {
 	registry      *thinkt.StoreRegistry
+	teamStore     thinkt.TeamStore
 	router        chi.Router
 	config        Config
 	pathValidator *PathValidator
@@ -136,6 +137,11 @@ func NewHTTPServerWithAuth(registry *thinkt.StoreRegistry, config Config, authCo
 	}
 	s.router = s.setupRouter()
 	return s
+}
+
+// SetTeamStore sets the team store for team API endpoints.
+func (s *HTTPServer) SetTeamStore(ts thinkt.TeamStore) {
+	s.teamStore = ts
 }
 
 // setupRouter configures all routes.
@@ -181,6 +187,12 @@ func (s *HTTPServer) setupRouter() chi.Router {
 
 		// Themes endpoint
 		r.Get("/themes", s.handleGetThemes)
+
+		// Team endpoints
+		r.Get("/teams", s.handleGetTeams)
+		r.Get("/teams/{teamName}", s.handleGetTeam)
+		r.Get("/teams/{teamName}/tasks", s.handleGetTeamTasks)
+		r.Get("/teams/{teamName}/members/{memberName}/messages", s.handleGetTeamMemberMessages)
 	})
 
 	// Swagger documentation
@@ -294,6 +306,12 @@ func NewCombinedServer(registry *thinkt.StoreRegistry, config Config) *CombinedS
 
 		// Themes endpoint
 		r.Get("/themes", httpServer.handleGetThemes)
+
+		// Team endpoints
+		r.Get("/teams", httpServer.handleGetTeams)
+		r.Get("/teams/{teamName}", httpServer.handleGetTeam)
+		r.Get("/teams/{teamName}/tasks", httpServer.handleGetTeamTasks)
+		r.Get("/teams/{teamName}/members/{memberName}/messages", httpServer.handleGetTeamMemberMessages)
 	})
 
 	// MCP endpoint placeholder (for SSE transport in future)

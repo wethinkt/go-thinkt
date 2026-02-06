@@ -325,11 +325,13 @@ func (e *Entry) GetToolCalls() []ContentBlock {
 // ToThinktEntry converts a Claude Entry to a thinkt.Entry.
 func (e *Entry) ToThinktEntry() thinkt.Entry {
 	entry := thinkt.Entry{
-		UUID:      e.UUID,
-		Role:      convertEntryTypeToRole(e.Type),
-		Text:      e.GetPromptText(),
-		GitBranch: e.GitBranch,
-		CWD:       e.CWD,
+		UUID:          e.UUID,
+		Role:          convertEntryTypeToRole(e.Type),
+		Text:          e.GetPromptText(),
+		GitBranch:     e.GitBranch,
+		CWD:           e.CWD,
+		SourceAgentID: e.AgentID,
+		IsSidechain:   e.IsSidechain,
 	}
 
 	// Parse timestamp

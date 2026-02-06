@@ -39,6 +39,8 @@ func (d *Discovery) Register(factory StoreFactory) {
 }
 
 // Discover finds all available sources and returns a populated registry.
+// Factories that also implement TeamStoreFactory will have their team
+// stores created and registered automatically.
 func (d *Discovery) Discover(ctx context.Context) (*StoreRegistry, error) {
 	registry := NewRegistry()
 
@@ -53,6 +55,14 @@ func (d *Discovery) Discover(ctx context.Context) (*StoreRegistry, error) {
 			projects, err := store.ListProjects(ctx)
 			if err == nil && len(projects) > 0 {
 				registry.Register(store)
+			}
+		}
+
+		// Check if this factory also supports teams
+		if tsf, ok := factory.(TeamStoreFactory); ok {
+			ts, err := tsf.CreateTeamStore()
+			if err == nil && ts != nil {
+				registry.RegisterTeamStore(ts)
 			}
 		}
 	}

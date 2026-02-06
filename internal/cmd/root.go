@@ -142,6 +142,11 @@ func init() {
 	rootCmd.AddCommand(sessionsCmd)
 	rootCmd.AddCommand(sourcesCmd)
 	rootCmd.AddCommand(themeCmd)
+	rootCmd.AddCommand(teamsCmd)
+	teamsCmd.AddCommand(teamsListCmd)
+	teamsCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "output as JSON")
+	teamsCmd.PersistentFlags().BoolVar(&teamsFilterActive, "active", false, "show only active teams")
+	teamsCmd.PersistentFlags().BoolVar(&teamsFilterInactive, "inactive", false, "show only inactive (historical) teams")
 
 	// Theme subcommands
 	themeCmd.AddCommand(themeListCmd)
