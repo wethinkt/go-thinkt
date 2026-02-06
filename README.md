@@ -141,6 +141,7 @@ thinkt serve --no-open
 | `thinkt serve lite` | Start lightweight webapp (port 8785) |
 | `thinkt serve mcp` | Start MCP server |
 | `thinkt serve token` | Generate secure authentication token |
+| `thinkt serve fingerprint` | Display machine fingerprint for workspace correlation |
 | `thinkt theme` | Display current theme |
 | `thinkt theme builder` | Interactive theme editor |
 
@@ -216,6 +217,20 @@ Clients must pass the token in the `Authorization` header:
 ```
 Authorization: Bearer thinkt_20260205_...
 ```
+
+## Machine Fingerprint
+
+Use `thinkt serve fingerprint` to display a unique machine identifier. This fingerprint is derived from system identifiers (e.g., hardware UUID on macOS, `/etc/machine-id` on Linux) and can be used to correlate sessions across different AI coding assistant sources on the same machine.
+
+```bash
+# Display fingerprint
+thinkt serve fingerprint
+
+# JSON output
+thinkt serve fingerprint --json
+```
+
+The fingerprint is normalized to a consistent UUID format across all platforms.
 
 ## Lite Webapp Features
 

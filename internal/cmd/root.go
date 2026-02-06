@@ -163,6 +163,10 @@ func init() {
 	// Serve token subcommand
 	serveCmd.AddCommand(serveTokenCmd)
 
+	// Serve fingerprint subcommand
+	serveCmd.AddCommand(serveFingerprintCmd)
+	serveFingerprintCmd.Flags().BoolVar(&fingerprintJSON, "json", false, "output as JSON")
+
 	// Serve MCP subcommand
 	serveCmd.AddCommand(serveMcpCmd)
 	serveMcpCmd.Flags().BoolVar(&mcpStdio, "stdio", false, "use stdio transport (default if no --port)")

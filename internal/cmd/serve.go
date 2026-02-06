@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/wethinkt/go-thinkt/internal/fingerprint"
 	"github.com/wethinkt/go-thinkt/internal/server"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
@@ -39,6 +41,11 @@ var (
 // Serve API subcommand flags
 var (
 	apiToken string // Bearer token for API server authentication
+)
+
+// Serve fingerprint subcommand flags
+var (
+	fingerprintJSON bool // Output as JSON
 )
 
 var serveCmd = &cobra.Command{
@@ -103,6 +110,28 @@ Examples:
 	RunE: runServeToken,
 }
 
+var serveFingerprintCmd = &cobra.Command{
+	Use:   "fingerprint",
+	Short: "Display the machine fingerprint",
+	Long: `Display the unique machine fingerprint used to identify this workspace.
+
+The fingerprint is derived from system identifiers when available:
+  - macOS: IOPlatformUUID from ioreg
+  - Linux: /etc/machine-id or /var/lib/dbus/machine-id
+  - Windows: MachineGuid from registry
+
+If no system identifier is available, a fingerprint is generated and cached
+in ~/.thinkt/machine_id for consistency across restarts.
+
+This fingerprint can be used to correlate sessions across different AI coding
+assistant sources (Kimi, Claude, Gemini, Copilot) on the same machine.
+
+Examples:
+  thinkt serve fingerprint            # Display fingerprint
+  thinkt serve fingerprint --json     # Output as JSON`,
+	RunE: runServeFingerprint,
+}
+
 var serveLiteCmd = &cobra.Command{
 	Use:   "lite",
 	Short: "Start lightweight webapp for debugging and development",
@@ -117,9 +146,10 @@ This is useful for developers and debugging. For the full experience,
 use 'thinkt serve' (coming soon) or the TUI with 'thinkt'.
 
 Examples:
-  thinkt serve lite               # Start lite server on port 8785
-  thinkt serve lite -p 8080       # Start on custom port
-  thinkt serve lite --no-open     # Don't auto-open browser`,
+  thinkt serve lite                   # Start lite server on port 8785
+  thinkt serve lite -p 8080           # Start on custom port
+  thinkt serve lite --host 0.0.0.0    # Bind to all interfaces
+  thinkt serve lite --no-open         # Don't auto-open browser`,
 	RunE: runServeLite,
 }
 
@@ -245,6 +275,27 @@ func runServeToken(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to generate token: %w", err)
 	}
 	fmt.Println(token)
+	return nil
+}
+
+func runServeFingerprint(cmd *cobra.Command, args []string) error {
+	info, err := fingerprint.Get()
+	if err != nil {
+		return fmt.Errorf("failed to get fingerprint: %w", err)
+	}
+
+	if fingerprintJSON {
+		// JSON output
+		data, err := json.MarshalIndent(info, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		fmt.Println(string(data))
+	} else {
+		// Human-readable output
+		fmt.Println(info.String())
+	}
+
 	return nil
 }
 

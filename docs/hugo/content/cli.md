@@ -186,6 +186,22 @@ See the [MCP Server Guide](/mcp-server) for configuration details.
 
 **Reference:** [thinkt serve](/command/thinkt_serve)
 
+### Machine Fingerprint
+
+Display the unique machine identifier for workspace correlation:
+
+```bash
+thinkt serve fingerprint              # Human-readable output
+thinkt serve fingerprint --json       # JSON output
+```
+
+The fingerprint is derived from system identifiers:
+- **macOS**: IOPlatformUUID from `ioreg`
+- **Linux**: `/etc/machine-id` or `/var/lib/dbus/machine-id`
+- **Windows**: MachineGuid from registry
+
+If no system identifier is available, a fingerprint is generated and cached in `~/.thinkt/machine_id`.
+
 ---
 
 ## Theming

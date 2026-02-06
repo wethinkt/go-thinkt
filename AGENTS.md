@@ -45,7 +45,8 @@ thinkt
 ├── serve               # HTTP/MCP servers
 │   ├── mcp             # MCP server (stdio or HTTP)
 │   ├── lite            # Lightweight debug webapp
-│   └── token           # Generate secure authentication token
+│   ├── token           # Generate secure authentication token
+│   └── fingerprint     # Display machine fingerprint
 ├── sources             # Source management
 │   ├── list
 │   └── status
@@ -91,6 +92,26 @@ Both the REST API server and MCP HTTP server support Bearer token authentication
 ```bash
 thinkt serve token  # Generates thinkt_YYYYMMDD_<random> format
 ```
+
+### Machine Fingerprint
+
+Display the unique machine identifier:
+```bash
+thinkt serve fingerprint              # Human-readable output
+thinkt serve fingerprint --json       # JSON output with source details
+```
+
+**Fingerprint Sources (in order of preference):**
+| Platform | Source | Location |
+|----------|--------|----------|
+| macOS | IOPlatformUUID | `ioreg -rd1 -c IOPlatformExpertDevice` |
+| macOS | Hardware UUID | `system_profiler SPHardwareDataType` |
+| Linux | machine-id | `/etc/machine-id` |
+| Linux | dbus-machine-id | `/var/lib/dbus/machine-id` |
+| Windows | MachineGuid | Registry: `HKLM\SOFTWARE\Microsoft\Cryptography` |
+| Fallback | Generated | `~/.thinkt/machine_id` |
+
+The fingerprint is normalized to a consistent UUID format (lowercase, 8-4-4-4-12) for cross-platform correlation.
 
 **API Server:**
 - Environment: `THINKT_API_TOKEN`
