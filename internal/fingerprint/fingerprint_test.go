@@ -41,8 +41,6 @@ func TestNormalizeFingerprint(t *testing.T) {
 	}
 }
 
-
-
 func TestFormatAsUUID(t *testing.T) {
 	tests := []struct {
 		input    string

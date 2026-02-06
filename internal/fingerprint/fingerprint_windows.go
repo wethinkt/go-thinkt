@@ -4,7 +4,6 @@ package fingerprint
 
 import (
 	"golang.org/x/sys/windows/registry"
-	"strings"
 )
 
 // getSystemFingerprint tries to get the machine fingerprint on Windows.
