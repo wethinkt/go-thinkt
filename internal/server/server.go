@@ -119,7 +119,7 @@ type HTTPServer struct {
 	teamStore     thinkt.TeamStore
 	router        chi.Router
 	config        Config
-	pathValidator *PathValidator
+	pathValidator *thinkt.PathValidator
 	authenticator *APIAuthenticator
 }
 
@@ -133,7 +133,7 @@ func NewHTTPServerWithAuth(registry *thinkt.StoreRegistry, config Config, authCo
 	s := &HTTPServer{
 		registry:      registry,
 		config:        config,
-		pathValidator: NewPathValidator(registry),
+		pathValidator: thinkt.NewPathValidator(registry),
 		authenticator: NewAPIAuthenticator(authConfig),
 	}
 	s.router = s.setupRouter()

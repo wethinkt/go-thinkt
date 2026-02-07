@@ -146,7 +146,7 @@ func TestPathValidator_ValidateOpenInPath(t *testing.T) {
 	// Create a registry with a project in our temp dir
 	registry := thinkt.NewRegistry()
 
-	validator := NewPathValidator(registry)
+	validator := thinkt.NewPathValidator(registry)
 	
 	// Manually add the temp directory to allowed bases for testing
 	// This is needed because t.TempDir() is typically outside home on macOS (/var/folders/...)
@@ -195,7 +195,7 @@ func TestPathValidator_ValidateOpenInPath(t *testing.T) {
 
 func TestPathValidator_GetAllowedBaseDirectories(t *testing.T) {
 	registry := thinkt.NewRegistry()
-	validator := NewPathValidator(registry)
+	validator := thinkt.NewPathValidator(registry)
 
 	bases, err := validator.GetAllowedBaseDirectories()
 	if err != nil {
