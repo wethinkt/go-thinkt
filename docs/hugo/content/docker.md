@@ -138,13 +138,6 @@ docker run --rm \
   ghcr.io/wethinkt/thinkt sessions view
 ```
 
-```bash
-docker run --rm \
-  -v ~/.claude:/data/.claude:ro \
-  ghcr.io/wethinkt/thinkt query \
-  "SELECT COUNT(*) FROM read_json_auto('/data/.claude/projects/*/*.jsonl')"
-```
-
 ---
 
 ## Running Servers
@@ -284,8 +277,8 @@ docker compose down
 Build the image yourself from source:
 
 ```bash
-git clone https://github.com/wethinkt/thinking-tracer-tools.git
-cd thinking-tracer-tools
+git clone --recurse-submodules https://github.com/wethinkt/go-thinkt.git
+cd go-thinkt
 
 # Build
 docker build -t thinkt:local .

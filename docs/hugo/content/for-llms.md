@@ -5,7 +5,7 @@ weight: 25
 
 # Guide for AI Assistants
 
-This page is designed for AI assistants and LLMs to understand how to use thinkt tools effectively. For the plain-text version optimized for LLM context windows, see [`/llms.txt`](https://github.com/wethinkt/thinking-tracer-tools/blob/main/llms.txt).
+This page is designed for AI assistants and LLMs to understand how to use thinkt tools effectively. For the plain-text version optimized for LLM context windows, see [`/llms.txt`](https://github.com/wethinkt/go-thinkt/blob/main/llms.txt).
 
 ## What is thinkt?
 
@@ -100,10 +100,14 @@ projects, _ := registry.ListAllProjects(ctx)
 
 ```
 Source (claude|kimi|gemini|copilot)
-  └── Project (directory path)
-        └── Session (JSONL file)
-              └── Entry (message)
-                    └── ContentBlock (text|thinking|tool_use|tool_result)
+  ├── Project (directory path)
+  │     └── Session (JSONL file)
+  │           └── Entry (message)
+  │                 └── ContentBlock (text|thinking|tool_use|tool_result)
+  └── Team (multi-agent coordination, Claude Code only)
+        ├── Member (agent name + session reference)
+        ├── Task (shared task board)
+        └── Message (inter-agent inbox)
 ```
 
 ### Entry Roles

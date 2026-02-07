@@ -35,9 +35,12 @@ thinkt sessions view
 
 ## Features
 
-- **Interactive TUI** - Browse and explore sessions with a terminal UI
-- **Project Management** - Organize and manage projects across sources
-- **Session Viewer** - View session entries with thinking blocks and tool usage
+- **Interactive TUI** - Navigate projects, sessions, and conversations with a keyboard-driven terminal UI
+- **Tree View** - Browse projects in a collapsible tree grouped by directory
+- **Multi-Source Support** - Auto-discovers Claude Code, Kimi Code, Gemini CLI, and Copilot sessions
+- **Agent Teams** - Inspect multi-agent teams (Claude Code), including members, tasks, and messages
+- **Prompt Extraction** - Extract user prompts in markdown, JSON, or plain text
+- **Themes** - Customizable color themes with interactive theme builder
 
 - [**REST API**](/rest-api) - Programmatic access with OpenAPI/Swagger documentation
 - [**Lite Server**](/serve-lite) - Lightweight web interface for quick exploration
@@ -48,7 +51,7 @@ thinkt sessions view
 
 ```bash
 # Using Go
-go install github.com/wethinkt/thinking-tracer-tools/cmd/thinkt@latest
+go install github.com/wethinkt/go-thinkt/cmd/thinkt@latest
 
 # Using Docker (sandboxed, read-only access)
 docker pull ghcr.io/wethinkt/thinkt:latest
@@ -64,4 +67,4 @@ See the [Docker Guide](/docker) for sandboxed usage with volume mounts.
 - Configure the [MCP Server](/mcp-server) for AI assistant integration
 - Browse the [Command Reference](/command/) for detailed usage of all commands
 - See the [LLM Guide](/for-llms) for AI assistant integration tips
-- View the project on [GitHub](https://github.com/wethinkt/thinking-tracer-tools)
+- View the project on [GitHub](https://github.com/wethinkt/go-thinkt)

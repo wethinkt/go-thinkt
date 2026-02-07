@@ -23,7 +23,7 @@ thinkt sessions view
 
 ## Interactive TUI
 
-Running `thinkt` without arguments launches a three-column terminal interface:
+Running `thinkt` without arguments launches an interactive terminal UI with a navigation stack:
 
 ```bash
 thinkt
@@ -31,19 +31,45 @@ thinkt tui          # Explicit command
 thinkt tui --log debug.log  # With debug logging
 ```
 
-**Navigation:**
-- **Column 1**: Project directories
-- **Column 2**: Sessions with timestamps
-- **Column 3**: Conversation content with colored blocks
+The TUI navigates through three screens: **Project Picker** → **Session Picker** → **Session Viewer**. Press `esc` to go back, `q` or `ctrl+c` to quit.
 
-**Keyboard shortcuts:**
-- Arrow keys / `j`/`k`: Navigate
-- `Enter`: Select / expand
-- `T`: Open thinking-tracer for selected session
-- `q`: Quit
+**Project Picker:**
+
+| Key | Action |
+|-----|--------|
+| `enter` | Select project / toggle directory |
+| `/` | Search/filter |
+| `t` | Toggle tree view / flat list |
+| `space` | Toggle directory expand/collapse |
+| `left` / `right` | Collapse / expand directory |
+| `d` | Sort by date |
+| `n` | Sort by name |
+| `s` | Filter by source |
+| `esc` | Back |
+| `q` / `ctrl+c` | Quit |
+
+**Session Picker:**
+
+| Key | Action |
+|-----|--------|
+| `enter` | Select session |
+| `/` | Search/filter |
+| `s` | Filter by source |
+| `esc` | Back to project picker |
+| `q` / `ctrl+c` | Quit |
+
+**Session Viewer:**
+
+| Key | Action |
+|-----|--------|
+| `up` / `down` / `j` / `k` | Scroll |
+| `pgup` / `pgdn` | Page up/down |
+| `g` / `G` | Go to top / bottom |
+| `esc` | Back to session picker |
+| `q` / `ctrl+c` | Quit |
 
 {{< hint info >}}
-**Tip:** The TUI auto-detects sessions from Claude Code, Kimi Code, Gemini CLI, and Copilot CLI.
+**Tip:** The TUI auto-detects sessions from Claude Code, Kimi Code, Gemini CLI, and Copilot CLI. If launched from a project directory, it skips straight to the session picker.
 {{< /hint >}}
 
 ---
@@ -127,23 +153,6 @@ thinkt sessions delete <session-id>          # Delete session
 
 ## Prompt Extraction
 
-For advanced analysis, run raw SQL queries against session data:
-
-```bash
-thinkt query "SELECT COUNT(*) FROM read_json_auto('~/.claude/projects/*/*.jsonl')"
-
-thinkt query "SELECT DISTINCT json_extract_string(entry, '$.model')
-              FROM read_json_auto('~/.claude/projects/*/*.jsonl')"
-```
-
-Raw SQL queries can be executed against session data.
-
-**Reference:** [thinkt query](/command/thinkt_query)
-
----
-
-## Prompt Extraction
-
 Extract user prompts from sessions for analysis or reuse:
 
 ```bash
@@ -185,6 +194,20 @@ thinkt serve mcp --port 8786          # HTTP/SSE transport
 See the [MCP Server Guide](/mcp-server) for configuration details.
 
 **Reference:** [thinkt serve](/command/thinkt_serve)
+
+### Agent Teams
+
+Inspect multi-agent teams from Claude Code:
+
+```bash
+thinkt teams                      # List all teams
+thinkt teams list                 # Same as above
+thinkt teams list --json          # JSON output
+thinkt teams list --active        # Only active teams
+thinkt teams list --inactive      # Only inactive teams
+```
+
+**Reference:** [thinkt teams](/command/thinkt_teams)
 
 ### Machine Fingerprint
 

@@ -38,9 +38,10 @@ Right now much of the implementation is in package `internal`, but we will event
 
 ## Features
 
-- **Interactive TUI**: Three-column terminal interface for browsing projects, sessions, and conversation content
-- **Multi-Source Support**: Works with Claude Code (`~/.claude`), Kimi Code (`~/.kimi`), Gemini CLI, and Copilot
-
+- **Interactive TUI**: Navigate projects, sessions, and conversation content with a keyboard-driven terminal interface
+- **Multi-Source Support**: Works with Claude Code (`~/.claude`), Kimi Code (`~/.kimi`), Gemini CLI, and Copilot — sessions from all sources are shown together
+- **Tree View**: Browse projects in a collapsible tree grouped by directory, or switch to a flat list
+- **Agent Teams**: Inspect multi-agent teams (Claude Code), including members, tasks, and messages
 - **Analytics**: Token usage, tool frequency, word analysis, activity timelines
 - **Prompt Extraction**: Generate timestamped logs of user prompts in markdown, JSON, or plain text
 - **MCP Server**: Model Context Protocol integration for use with AI assistants
@@ -114,11 +115,17 @@ thinkt projects tree
 thinkt sessions list
 thinkt sessions view
 
+# List agent teams
+thinkt teams
+
 # Start the lite webapp
 thinkt serve lite
 
 # Start HTTP server without opening browser
 thinkt serve --no-open
+
+# Debug logging
+thinkt tui --log /tmp/thinkt-debug.log
 ```
 
 ## Commands
@@ -135,7 +142,8 @@ thinkt serve --no-open
 | `thinkt projects summary` | Detailed project info |
 | `thinkt sessions list` | List sessions in a project |
 | `thinkt sessions view` | View session in terminal |
-
+| `thinkt teams` | List agent teams (Claude Code) |
+| `thinkt teams list` | Same as above |
 | `thinkt prompts extract` | Extract prompts to markdown/JSON |
 | `thinkt serve` | Start HTTP server (port 8784) |
 | `thinkt serve lite` | Start lightweight webapp (port 8785) |
@@ -144,6 +152,45 @@ thinkt serve --no-open
 | `thinkt serve fingerprint` | Display machine fingerprint for workspace correlation |
 | `thinkt theme` | Display current theme |
 | `thinkt theme builder` | Interactive theme editor |
+
+## TUI Keyboard Shortcuts
+
+The interactive TUI uses a navigation stack. ESC goes back to the previous screen; q or ctrl+c exits the app.
+
+**Project Picker:**
+
+| Key | Action |
+|-----|--------|
+| `enter` | Select project / toggle directory |
+| `/` | Search/filter |
+| `t` | Toggle tree view / flat list |
+| `space` | Toggle directory expand/collapse |
+| `left` / `right` | Collapse / expand directory |
+| `d` | Sort by date |
+| `n` | Sort by name |
+| `s` | Filter by source |
+| `esc` | Back |
+| `q` / `ctrl+c` | Quit |
+
+**Session Picker:**
+
+| Key | Action |
+|-----|--------|
+| `enter` | Select session |
+| `/` | Search/filter |
+| `s` | Filter by source |
+| `esc` | Back to project picker |
+| `q` / `ctrl+c` | Quit |
+
+**Session Viewer:**
+
+| Key | Action |
+|-----|--------|
+| `up` / `down` / `j` / `k` | Scroll |
+| `pgup` / `pgdn` | Page up/down |
+| `g` / `G` | Go to top / bottom |
+| `esc` | Back to session picker |
+| `q` / `ctrl+c` | Quit |
 
 ## Serve Options
 

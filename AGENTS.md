@@ -25,17 +25,18 @@ Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot` flags to 
 | Package | Purpose |
 |---------|---------|
 | `cmd/thinkt` | CLI entry point (Cobra commands) |
-| `internal/thinkt` | Core types, Store interface, registry |
-| `internal/sources/claude` | Claude Code storage implementation |
+| `internal/thinkt` | Core types, Store/TeamStore interfaces, registry, cache |
+| `internal/sources/claude` | Claude Code storage + teams implementation |
 | `internal/sources/kimi` | Kimi Code storage implementation |
 | `internal/sources/gemini` | Gemini CLI storage implementation |
 | `internal/sources/copilot` | Copilot storage implementation |
-| `internal/tui` | BubbleTea terminal UI |
-| `internal/server` | HTTP REST API and MCP server |
+| `internal/tui` | BubbleTea terminal UI (shell, pickers, viewer, theme builder) |
+| `internal/server` | HTTP REST API, teams API, and MCP server |
 | `internal/server/web-lite` | Lite webapp submodule ([thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite)) |
 | `internal/analytics` | Analytics |
 | `internal/prompt` | Prompt extraction and formatting |
 | `internal/config` | Configuration management |
+| `internal/fingerprint` | Machine fingerprint generation |
 
 ### Command Structure
 
@@ -61,6 +62,8 @@ thinkt
 │   ├── view
 │   ├── delete
 │   └── copy
+├── teams               # Agent team management
+│   └── list
 ├── prompts             # Prompt extraction
 │   ├── extract
 │   ├── list
@@ -70,6 +73,37 @@ thinkt
     ├── list
     ├── set
     └── builder
+```
+
+### TUI Architecture
+
+The TUI uses a `Shell` with a `NavStack` that manages page navigation:
+
+- **Shell** (`shell.go`) — Top-level model, manages source discovery and page stack
+- **ProjectPickerModel** (`project_picker.go`) — Tree or flat project list with source filtering and sorting
+- **SessionPickerModel** (`session_picker.go`) — Session list with source filtering, color-coded source badges
+- **MultiViewerModel** (`multi_viewer.go`) — Lazy-loading session viewer with viewport scrolling
+- **SourcePickerModel** (`source_picker.go`) — Overlay for filtering by source (used within pickers)
+- **ThemeBuilderModel** (`theme_builder.go`) — Standalone theme editor with color picker
+
+**Navigation pattern:**
+- Each page sends a result message (e.g., `ProjectPickerResult`, `SessionPickerResult`) back to Shell
+- Shell pushes/pops pages on the `NavStack` based on the result
+- ESC sends a cancelled result (Shell pops back to previous page)
+- q/ctrl+c sends `tea.Quit` (exits the app entirely)
+- After popping, Shell sends `WindowSizeMsg` to the revealed page for re-rendering
+
+**Key conventions:**
+- Pickers set `quitting = true` only when standalone (not when embedded in Shell), so they remain renderable when popped back to
+- Tree view uses `treeItem` as the `list.Item` type (wraps `treeNode`), rendered by `treeProjectDelegate` or `flatProjectDelegate`
+- Source colors are defined in `styles.go` via `SourceColorHex()`
+
+### Debug Logging
+
+Use `--log <file>` to write debug logs (available on `thinkt`, `thinkt tui`, and all `serve` subcommands):
+
+```bash
+thinkt tui --log /tmp/thinkt-debug.log
 ```
 
 ### Serve Command Flags
@@ -140,6 +174,24 @@ The fingerprint is normalized to a consistent UUID format (lowercase, 8-4-4-4-12
 | `THINKT_API_TOKEN` | Bearer token for API server authentication | (none) |
 | `THINKT_MCP_TOKEN` | Bearer token for MCP server authentication | (none) |
 | `THINKT_PROFILE` | Write CPU profiling to this file path | (disabled) |
+
+### Teams
+
+Teams represent multi-agent coordination (e.g., Claude Code swarms). The `TeamStore` interface is separate from `Store` because teams are an overlay concept — they reference agents whose sessions exist in an underlying Store.
+
+- **TeamStore** (`internal/thinkt/teams.go`) — Interface: `ListTeams`, `GetTeam`, `GetTeamTasks`, `GetTeamMessages`
+- **ClaudeTeamStore** (`internal/sources/claude/teams.go`) — Implementation reading from `~/.claude/teams/` and `~/.claude/tasks/`
+- **Teams CLI** (`internal/cmd/teams.go`) — `thinkt teams [list]` with `--json`, `--active`, `--inactive` flags
+- **Teams API** (`internal/server/teams_api.go`) — REST endpoints: `/api/v1/teams`, `/api/v1/teams/{name}`, etc.
+
+**Claude Code team file layout:**
+- Config: `~/.claude/teams/{name}/config.json`
+- Inboxes: `~/.claude/teams/{name}/inboxes/{member}.json`
+- Tasks: `~/.claude/tasks/{name}/{id}.json`
+
+### StoreCache
+
+`StoreCache` (`internal/thinkt/cache.go`) provides project and session caching for Store implementations. Stores embed this struct to avoid repeated filesystem scans. Supports optional TTL for cache expiry (default: no expiry).
 
 ## Lite Webapp
 
@@ -247,7 +299,9 @@ task install    # Install to GOPATH/bin
 ### Adding a New Source
 
 1. Create package in `internal/sources/<name>/`
-2. Implement `thinkt.Store` interface
+2. Implement `thinkt.Store` interface (embed `StoreCache` for caching)
 3. Add `Factory()` function returning `thinkt.StoreFactory`
-4. Register in `cmd/thinkt/main.go` `createSourceRegistry()`
-5. Add environment variable support if needed
+4. Register in `internal/cmd/registry.go` `CreateSourceRegistry()` and `internal/tui/shell.go` `loadSourcesCmd()`
+5. Add `SourceColorHex()` entry in `internal/tui/styles.go`
+6. Add environment variable support if needed
+7. Optionally implement `TeamStoreFactory` for team support

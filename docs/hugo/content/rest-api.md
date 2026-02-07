@@ -301,6 +301,100 @@ curl "http://localhost:8784/api/v1/sessions/%2Fpath%2Fto%2Fsession.jsonl?limit=1
 
 ---
 
+### Teams
+
+#### List Teams
+
+List all discovered agent teams (Claude Code).
+
+```
+GET /api/v1/teams
+```
+
+**Response:**
+```json
+{
+  "teams": [
+    {
+      "name": "my-project",
+      "members": [...],
+      "created_at": "2024-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+
+**Example:**
+```bash
+curl http://localhost:8784/api/v1/teams
+```
+
+#### Get Team Details
+
+Get a specific team with resolved member-to-session mappings.
+
+```
+GET /api/v1/teams/{teamName}
+```
+
+**Path Parameters:**
+| Name | Type | Description |
+|------|------|-------------|
+| `teamName` | string | Team name |
+
+**Example:**
+```bash
+curl http://localhost:8784/api/v1/teams/my-project
+```
+
+#### List Team Tasks
+
+Get the shared task board for a team.
+
+```
+GET /api/v1/teams/{teamName}/tasks
+```
+
+**Response:**
+```json
+{
+  "tasks": [
+    {
+      "id": "1",
+      "subject": "Implement feature X",
+      "status": "completed",
+      "owner": "researcher"
+    }
+  ]
+}
+```
+
+**Example:**
+```bash
+curl http://localhost:8784/api/v1/teams/my-project/tasks
+```
+
+#### List Team Member Messages
+
+Get inbox messages for a specific team member.
+
+```
+GET /api/v1/teams/{teamName}/members/{memberName}/messages
+```
+
+**Path Parameters:**
+| Name | Type | Description |
+|------|------|-------------|
+| `teamName` | string | Team name |
+| `memberName` | string | Member name |
+
+**Example:**
+```bash
+curl http://localhost:8784/api/v1/teams/my-project/members/researcher/messages
+```
+
+---
+
 ### Themes
 
 #### List Themes
@@ -440,6 +534,35 @@ curl -X POST http://localhost:8784/api/v1/open-in \
 
 ---
 
+## Authentication
+
+Both the REST API server and MCP server support Bearer token authentication.
+
+### Generate a Token
+
+```bash
+thinkt serve token
+# Output: thinkt_20260205_cd3bf36d6e1fc71e9bf033a7131f77cb
+```
+
+### Using Authentication
+
+```bash
+# Environment variable
+export THINKT_API_TOKEN=$(thinkt serve token)
+thinkt serve
+
+# Command-line flag
+thinkt serve --token thinkt_20260205_...
+
+# Client request
+curl -H "Authorization: Bearer thinkt_20260205_..." http://localhost:8784/api/v1/sources
+```
+
+When authentication is enabled, all API endpoints require a valid Bearer token. Unauthenticated requests receive a `401 Unauthorized` response with a `WWW-Authenticate` header.
+
+---
+
 ## Error Handling
 
 All endpoints return errors in a consistent format:
@@ -456,6 +579,7 @@ All endpoints return errors in a consistent format:
 |------|-------------|
 | `200` | Success |
 | `400` | Bad Request - Invalid parameters |
+| `401` | Unauthorized - Invalid or missing token |
 | `403` | Forbidden - Action not allowed |
 | `404` | Not Found - Resource doesn't exist |
 | `500` | Internal Server Error |
