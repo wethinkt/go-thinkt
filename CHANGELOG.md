@@ -1,6 +1,6 @@
 # `go-thinkt` CHANGELOG
 
- ## v0.3.0 (2026-02-07)
+ ## v0.3.2 (2026-02-07)
 
   * Add `thinkt-indexer`
   * Lots of polish 💎

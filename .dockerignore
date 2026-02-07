@@ -1,0 +1,5 @@
+# .dockerignore
+
+# ignore these for the build process to roll smoothly
+completions
+manpages
