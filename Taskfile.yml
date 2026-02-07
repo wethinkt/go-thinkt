@@ -121,6 +121,8 @@ tasks:
       - ./bin/thinkt docs man -o docs/man -v
     sources:
       - ./cmd/thinkt/**/*.go
+    generates:
+      - docs/man/thinkt.1
 
   docs:man:clean:
     desc: Cleans manpages
@@ -134,6 +136,8 @@ tasks:
       - ./bin/thinkt docs markdown --hugo -o docs/hugo/content/command -v
     sources:
       - ./cmd/thinkt/**/*.go
+    generates:
+      - docs/hugo/content/command/thinkt.md
 
   docs:md:clean:
     desc: Cleans markdown

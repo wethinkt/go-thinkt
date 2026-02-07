@@ -4,30 +4,48 @@ Current implementation status and roadmap for `thinkt`.
 
 ## Current State
 
-The core CLI is functional with multi-source support, TUI, analytics, HTTP/MCP servers, and lite webapp.
+The core CLI is functional with multi-source support, TUI with tree view navigation, agent teams, analytics, HTTP/MCP servers, and lite webapp.
 
 ### Recently Completed
 
+- [x] **TUI Tree View** - Collapsible project tree grouped by directory
+  - Compacted single-child directory chains (e.g., `~/dev/company/team`)
+  - Tree prefix rendering (`├──`, `└──`, `│`)
+  - Toggle between tree view and flat list with `t`
+  - Sort by date or name within directories
+  - Left/Right arrows for collapse/expand
+
+- [x] **TUI Navigation Polish**
+  - ESC goes back (pop nav stack), q/ctrl+c quits throughout all screens
+  - Fixed back-navigation rendering (only set `quitting` when standalone)
+  - Shell sends `WindowSizeMsg` after popping to re-render revealed page
+  - Source filter pass-through from project picker to session picker
+
+- [x] **Agent Teams** - Multi-agent team inspection (Claude Code)
+  - `TeamStore` interface: `ListTeams`, `GetTeam`, `GetTeamTasks`, `GetTeamMessages`
+  - `ClaudeTeamStore` reads from `~/.claude/teams/` and `~/.claude/tasks/`
+  - CLI: `thinkt teams [list]` with `--json`, `--active`, `--inactive` flags
+  - REST API: `/api/v1/teams`, `/api/v1/teams/{name}`, tasks, messages endpoints
+
+- [x] **StoreCache** - Project and session caching with optional TTL
+
+- [x] **Authentication** - Bearer token auth for REST API and MCP HTTP servers
+  - `thinkt serve token` generates secure tokens
+  - Constant-time comparison, `WWW-Authenticate` header on 401
+
+- [x] **Machine Fingerprint** - `thinkt serve fingerprint` for workspace correlation
+
+- [x] **Documentation Updates** - AGENTS.md, README.md, and Hugo docs updated
+
 - [x] **GoReleaser Pro with goreleaser-cross** - CGO cross-compilation
   - Builds: `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`, `windows/amd64`
-  - Uses `ghcr.io/goreleaser/goreleaser-cross` Docker image
-  - Explicit CC/CXX per target for cross-compilation
 
 - [x] **Multi-platform Docker Images**
   - Published to `ghcr.io/wethinkt/thinkt`
   - Platforms: `linux/amd64`, `linux/arm64`
-  - User home at `/data` for easy bind mounts (`~/.claude` → `/data/.claude`)
-  - Two Dockerfiles:
-    - `Dockerfile` - Multi-stage build for CI/local
-    - `etc/Dockerfile.goreleaser` - Simple runtime for releases
+  - Two Dockerfiles: `Dockerfile` (CI/local), `Dockerfile.goreleaser` (releases)
 
-- [x] **CI Improvements**
-  - Docker build verification in CI workflow
-  - Tests run before Docker build (`needs: test`)
-
-- [x] **Homebrew Formula** - `brews` section in goreleaser (standard, not Pro `homebrew_casks`)
-
-- [x] **Documentation** - README and AGENTS.md updated with Docker usage
+- [x] **Homebrew Formula** - `brews` section in goreleaser
 
 ### Release Workflow
 
@@ -39,10 +57,6 @@ Tag push (v*) → GitHub Actions → goreleaser-cross container
   ├── Create GitHub Release with archives
   └── Update Homebrew tap
 ```
-
-## In Progress
-
- * TODO: update
 
 ## Security TODOs
 
@@ -65,32 +79,30 @@ Tag push (v*) → GitHub Actions → goreleaser-cross container
   - Sources respect enabled/disabled in config
   - Environment variables still override for Docker
 
-- [X] **Windows arm64 support** - Currently excluded (dependency limitations)
-- [X] **Shell completions** - Add to release archives
-- [X] **Manpage improvements** - Verify man pages work in Docker
+- [ ] **Health check endpoint** - For container orchestration
 
 ### Medium Term
 
-- [X] **`thinkt serve` in Docker** - Document production deployment patterns
-- [X] **Authentication** - For exposed servers
-- [ ] **Health check endpoint** - For container orchestration
 - [ ] **Prometheus metrics** - For monitoring
+- [ ] **Hugo docs site deployment** - Publish to GitHub Pages
 
 ### Long Term
 
+- [ ] **Public Go package** - Stabilize and export `thinkt` types and interfaces
 
 ## Architecture
 
 ```
 cmd/thinkt/           CLI entry point (Cobra)
 internal/
-  thinkt/             Core types, Store interface
+  thinkt/             Core types, Store/TeamStore interfaces, cache
   sources/            Source implementations (claude, kimi, gemini, copilot)
-  tui/                BubbleTea terminal UI
-  server/             HTTP REST API, MCP server, lite webapp
+  tui/                BubbleTea terminal UI (shell, pickers, viewer, tree)
+  server/             HTTP REST API, teams API, MCP server, lite webapp
   analytics/          Analytics
   prompt/             Prompt extraction
   config/             Configuration management
+  fingerprint/        Machine fingerprint generation
 ```
 
 ## Docker Usage
@@ -104,7 +116,7 @@ docker run -p 8784:8784 \
 
 # Run any command
 docker run -v ~/.claude:/data/.claude:ro \
-  ghcr.io/wethinkt/thinkt:latest projects --long
+  ghcr.io/wethinkt/thinkt:latest projects
 ```
 
 ## Configuration (`~/.thinkt/config.json`)
@@ -132,13 +144,11 @@ We build without CGO so get broad support:
 
 | Platform | Arch | Status |
 |----------|------|--------|
-| Linux | amd64 |  ✅ |
-| Linux | arm64 |  ✅ |
+| Linux | amd64 | ✅ |
+| Linux | arm64 | ✅ |
 | FreeBSD | amd64 | ✅ |
-| FreeBSD | arm64 | ✅|
+| FreeBSD | arm64 | ✅ |
 | Darwin | amd64 | ✅ |
-| Darwin | arm64 | ✅|
+| Darwin | arm64 | ✅ |
 | Windows | amd64 | ✅ |
-| Windows | arm64  ✅ |
-
-
+| Windows | arm64 | ✅ |
