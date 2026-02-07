@@ -5,6 +5,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
@@ -166,6 +167,23 @@ func buildStyles(t theme.Theme) Styles {
 
 		ConfirmUnselected: applyStyle(lipgloss.NewStyle(), t.ConfirmUnselected).
 			Padding(0, 2),
+	}
+}
+
+// SourceColorHex returns the hex color string for a given source.
+// These are identity/brand colors, consistent across themes.
+func SourceColorHex(s thinkt.Source) string {
+	switch s {
+	case thinkt.SourceClaude:
+		return "#d68946"
+	case thinkt.SourceKimi:
+		return "#a67fff"
+	case thinkt.SourceGemini:
+		return "#6ba3ff"
+	case thinkt.SourceCopilot:
+		return "#7fcc5a"
+	default:
+		return "#888888"
 	}
 }
 

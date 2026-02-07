@@ -392,8 +392,16 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch {
+		case key.Matches(msg, m.keys.Back):
+			// Close all sessions and go back to previous page
+			for _, s := range m.sessions {
+				if s != nil {
+					s.Close()
+				}
+			}
+			return m, func() tea.Msg { return PopPageMsg{} }
 		case key.Matches(msg, m.keys.Quit):
-			// Close all sessions
+			// Close all sessions and exit
 			for _, s := range m.sessions {
 				if s != nil {
 					s.Close()
@@ -476,9 +484,9 @@ func (m MultiViewerModel) View() tea.View {
 	// Footer
 	scrollPercent := m.viewport.ScrollPercent() * 100
 	position := viewerInfoStyle.Render(fmt.Sprintf("%3.0f%%", scrollPercent))
-	helpText := "↑/↓: scroll • pgup/pgdn: page • g/G: top/bottom • q: quit"
+	helpText := "↑/↓: scroll • pgup/pgdn: page • g/G: top/bottom • esc: back • q: quit"
 	if m.hasMoreData {
-		helpText = "↑/↓: scroll • G: load all • q: quit"
+		helpText = "↑/↓: scroll • G: load all • esc: back • q: quit"
 	}
 	help := viewerHelpStyle.Render(helpText)
 	footerWidth := m.width - lipgloss.Width(position) - 4

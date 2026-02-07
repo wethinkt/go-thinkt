@@ -2,8 +2,9 @@ package tui
 
 import (
 	"fmt"
-	"path/filepath"
+	"io"
 	"sort"
+	"strings"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
@@ -11,19 +12,34 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
-// pickerSessionItem wraps a thinkt.SessionMeta for the picker list.
+// pickerSessionItem wraps a thinkt.SessionMeta for the list.
 type pickerSessionItem struct {
 	meta thinkt.SessionMeta
 }
 
 func (i pickerSessionItem) Title() string {
+	return i.sessionTitle(80)
+}
+
+func (i pickerSessionItem) Description() string { return "" }
+
+func (i pickerSessionItem) FilterValue() string {
+	return i.meta.FirstPrompt + " " + i.meta.ID + " " + string(i.meta.Source)
+}
+
+// sessionTitle returns the first prompt truncated to maxLen, or the session ID.
+func (i pickerSessionItem) sessionTitle(maxLen int) string {
+	if maxLen <= 0 {
+		maxLen = 80
+	}
 	if i.meta.FirstPrompt != "" {
 		text := i.meta.FirstPrompt
-		if len(text) > 70 {
-			text = text[:70] + "..."
+		if len(text) > maxLen {
+			text = text[:maxLen] + "..."
 		}
 		return text
 	}
@@ -33,54 +49,6 @@ func (i pickerSessionItem) Title() string {
 	return i.meta.ID
 }
 
-func (i pickerSessionItem) Description() string {
-	var parts []string
-
-	// File name
-	if i.meta.FullPath != "" {
-		filename := filepath.Base(i.meta.FullPath)
-		// Trim .jsonl extension for cleaner display
-		if len(filename) > 6 && filename[len(filename)-6:] == ".jsonl" {
-			filename = filename[:len(filename)-6]
-		}
-		// Truncate long filenames (GUIDs are 36 chars, so allow 37)
-		if len(filename) > 37 {
-			filename = filename[:34] + "..."
-		}
-		parts = append(parts, filename)
-	}
-
-	// Modified/created time
-	if !i.meta.ModifiedAt.IsZero() {
-		parts = append(parts, i.meta.ModifiedAt.Local().Format("Jan 02, 3:04 PM"))
-	} else if !i.meta.CreatedAt.IsZero() {
-		parts = append(parts, i.meta.CreatedAt.Local().Format("Jan 02, 3:04 PM"))
-	}
-
-	// File size
-	if i.meta.FileSize > 0 {
-		parts = append(parts, formatFileSize(i.meta.FileSize))
-	}
-
-	// Source indicator
-	if i.meta.Source != "" {
-		parts = append(parts, string(i.meta.Source))
-	}
-
-	result := ""
-	for idx, p := range parts {
-		if idx > 0 {
-			result += "  •  "
-		}
-		result += p
-	}
-	return result
-}
-
-func (i pickerSessionItem) FilterValue() string {
-	return i.meta.FirstPrompt + " " + i.meta.ID + " " + string(i.meta.Source)
-}
-
 func formatFileSize(size int64) string {
 	const (
 		KB = 1024
@@ -88,11 +56,127 @@ func formatFileSize(size int64) string {
 	)
 	switch {
 	case size >= MB:
-		return fmt.Sprintf("%.1f MB", float64(size)/float64(MB))
+		return fmt.Sprintf("%.1fMB", float64(size)/float64(MB))
 	case size >= KB:
-		return fmt.Sprintf("%.1f KB", float64(size)/float64(KB))
+		return fmt.Sprintf("%.0fKB", float64(size)/float64(KB))
 	default:
-		return fmt.Sprintf("%d B", size)
+		return fmt.Sprintf("%dB", size)
+	}
+}
+
+// sessionDelegate renders each session as two lines plus a separator.
+// Line 1: first prompt (as much as fits)
+// Line 2: size, time ago, source, model, ID
+// Line 3: separator
+type sessionDelegate struct {
+	normalStyle   lipgloss.Style
+	selectedStyle lipgloss.Style
+	dimmedStyle   lipgloss.Style
+	mutedStyle    lipgloss.Style
+	cursorStyle   lipgloss.Style
+	sepStyle      lipgloss.Style
+}
+
+func newSessionDelegate() sessionDelegate {
+	t := theme.Current()
+	return sessionDelegate{
+		normalStyle:   lipgloss.NewStyle().PaddingLeft(4),
+		selectedStyle: lipgloss.NewStyle().PaddingLeft(1).Bold(true).Foreground(lipgloss.Color(t.TextPrimary.Fg)),
+		dimmedStyle:   lipgloss.NewStyle().PaddingLeft(4).Foreground(lipgloss.Color(t.TextMuted.Fg)),
+		mutedStyle:    lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)),
+		cursorStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
+		sepStyle:      lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetBorderInactive())),
+	}
+}
+
+func (d sessionDelegate) Height() int                             { return 3 }
+func (d sessionDelegate) Spacing() int                            { return 0 }
+func (d sessionDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+
+// ShortHelp returns key bindings for the help bar.
+func (d sessionDelegate) ShortHelp() []key.Binding {
+	return []key.Binding{
+		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "sources")),
+	}
+}
+
+// FullHelp returns key bindings for the full help view.
+func (d sessionDelegate) FullHelp() [][]key.Binding {
+	return [][]key.Binding{d.ShortHelp()}
+}
+
+func (d sessionDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
+	si, ok := item.(pickerSessionItem)
+	if !ok {
+		return
+	}
+	if m.Width() <= 0 {
+		return
+	}
+
+	isSelected := index == m.Index()
+	emptyFilter := m.FilterState() == list.Filtering && m.FilterValue() == ""
+	meta := si.meta
+
+	// Available width for text (account for padding/cursor)
+	textWidth := m.Width() - 6
+	if textWidth < 20 {
+		textWidth = 20
+	}
+
+	title := si.sessionTitle(textWidth)
+
+	// Build detail parts for line 2
+	var detailParts []string
+	if meta.FileSize > 0 {
+		detailParts = append(detailParts, formatFileSize(meta.FileSize))
+	}
+	ts := meta.ModifiedAt
+	if ts.IsZero() {
+		ts = meta.CreatedAt
+	}
+	if !ts.IsZero() {
+		detailParts = append(detailParts, relativeDate(ts))
+	}
+	if meta.Source != "" {
+		sourceStr := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(SourceColorHex(meta.Source))).
+			Render(string(meta.Source))
+		detailParts = append(detailParts, sourceStr)
+	}
+	if meta.Model != "" {
+		detailParts = append(detailParts, meta.Model)
+	}
+	if meta.ID != "" {
+		id := meta.ID
+		if len(id) > 8 {
+			id = id[:8]
+		}
+		detailParts = append(detailParts, id)
+	}
+	detailStr := strings.Join(detailParts, "  ")
+
+	// Separator line
+	sepWidth := m.Width() - 6
+	if sepWidth < 1 {
+		sepWidth = 1
+	}
+	sep := d.sepStyle.Render(strings.Repeat("─", sepWidth))
+
+	// Render based on state
+	if emptyFilter {
+		line1 := d.dimmedStyle.Render(title)
+		line2 := d.dimmedStyle.Render(detailStr)
+		fmt.Fprintf(w, "%s\n%s\n%s", line1, line2, "    "+sep) //nolint: errcheck
+	} else if isSelected {
+		marker := d.cursorStyle.Render(">  ")
+		line1 := marker + d.selectedStyle.Render(title)
+		line2 := "    " + d.mutedStyle.Render(detailStr)
+		fmt.Fprintf(w, "%s\n%s\n%s", line1, line2, "    "+sep) //nolint: errcheck
+	} else {
+		line1 := d.normalStyle.Render(title)
+		line2 := d.normalStyle.Render(d.mutedStyle.Render(detailStr))
+		fmt.Fprintf(w, "%s\n%s\n%s", line1, line2, "    "+sep) //nolint: errcheck
 	}
 }
 
@@ -104,19 +188,25 @@ type SessionPickerResult struct {
 
 // SessionPickerModel is a standalone session picker TUI.
 type SessionPickerModel struct {
-	list       list.Model
-	sessions   []thinkt.SessionMeta
-	result     SessionPickerResult
-	quitting   bool
-	width      int
-	height     int
-	ready      bool
-	standalone bool // true when run via PickSession(), false when embedded in Shell
+	list         list.Model
+	allSessions  []thinkt.SessionMeta // unfiltered sessions
+	sessions     []thinkt.SessionMeta // currently displayed (after filter)
+	result       SessionPickerResult
+	quitting     bool
+	width        int
+	height       int
+	ready        bool
+	standalone   bool // true when run via PickSession(), false when embedded in Shell
+	sourceFilter []thinkt.Source
+	showSources  bool
+	sourcePicker SourcePickerModel
 }
 
 type pickerKeyMap struct {
-	Enter key.Binding
-	Quit  key.Binding
+	Enter   key.Binding
+	Back    key.Binding
+	Quit    key.Binding
+	Sources key.Binding
 }
 
 func defaultPickerKeyMap() pickerKeyMap {
@@ -125,47 +215,103 @@ func defaultPickerKeyMap() pickerKeyMap {
 			key.WithKeys("enter"),
 			key.WithHelp("enter", "select"),
 		),
+		Back: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "back"),
+		),
 		Quit: key.NewBinding(
-			key.WithKeys("q", "esc", "ctrl+c"),
-			key.WithHelp("esc", "cancel"),
+			key.WithKeys("q", "ctrl+c"),
+			key.WithHelp("q", "quit"),
+		),
+		Sources: key.NewBinding(
+			key.WithKeys("s"),
+			key.WithHelp("s", "sources"),
 		),
 	}
 }
 
 // NewSessionPickerModel creates a new session picker with sessions sorted by newest first.
-func NewSessionPickerModel(sessions []thinkt.SessionMeta) SessionPickerModel {
-	// Sort by modified time descending (newest first)
-	sorted := make([]thinkt.SessionMeta, len(sessions))
-	copy(sorted, sessions)
-	sort.Slice(sorted, func(i, j int) bool {
-		ti := sorted[i].ModifiedAt
-		if ti.IsZero() {
-			ti = sorted[i].CreatedAt
-		}
-		tj := sorted[j].ModifiedAt
-		if tj.IsZero() {
-			tj = sorted[j].CreatedAt
-		}
-		return ti.After(tj)
-	})
+// sourceFilter may be nil (show all sources).
+func NewSessionPickerModel(sessions []thinkt.SessionMeta, sourceFilter []thinkt.Source) SessionPickerModel {
+	filtered := filterSessionsBySource(sessions, sourceFilter)
+	sortSessionsByDate(filtered)
 
-	// Create list items
-	items := make([]list.Item, len(sorted))
-	for i, s := range sorted {
+	items := make([]list.Item, len(filtered))
+	for i, s := range filtered {
 		items[i] = pickerSessionItem{meta: s}
 	}
 
-	delegate := list.NewDefaultDelegate()
+	delegate := newSessionDelegate()
 	l := list.New(items, delegate, 0, 0)
-	l.Title = "Select a Session"
-	l.SetShowStatusBar(true)
+	l.Title = sessionPickerTitle(len(filtered), sourceFilter)
+	l.SetShowStatusBar(false)
 	l.SetShowHelp(true)
 	l.SetFilteringEnabled(true)
 
 	return SessionPickerModel{
-		list:     l,
-		sessions: sorted,
+		list:         l,
+		allSessions:  sessions,
+		sessions:     filtered,
+		sourceFilter: sourceFilter,
 	}
+}
+
+func sessionPickerTitle(count int, sourceFilter []thinkt.Source) string {
+	title := fmt.Sprintf("Select a Session (%d)", count)
+	if len(sourceFilter) > 0 {
+		names := make([]string, len(sourceFilter))
+		for i, s := range sourceFilter {
+			names[i] = string(s)
+		}
+		title += " · " + strings.Join(names, ",")
+	}
+	return title
+}
+
+func filterSessionsBySource(sessions []thinkt.SessionMeta, filter []thinkt.Source) []thinkt.SessionMeta {
+	if len(filter) == 0 {
+		result := make([]thinkt.SessionMeta, len(sessions))
+		copy(result, sessions)
+		return result
+	}
+	allowed := make(map[thinkt.Source]bool, len(filter))
+	for _, s := range filter {
+		allowed[s] = true
+	}
+	var result []thinkt.SessionMeta
+	for _, s := range sessions {
+		if allowed[s.Source] {
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
+func sortSessionsByDate(sessions []thinkt.SessionMeta) {
+	sort.Slice(sessions, func(i, j int) bool {
+		ti := sessions[i].ModifiedAt
+		if ti.IsZero() {
+			ti = sessions[i].CreatedAt
+		}
+		tj := sessions[j].ModifiedAt
+		if tj.IsZero() {
+			tj = sessions[j].CreatedAt
+		}
+		return ti.After(tj)
+	})
+}
+
+// rebuildAndRefresh re-filters from allSessions and updates the list.
+func (m *SessionPickerModel) rebuildAndRefresh() tea.Cmd {
+	m.sessions = filterSessionsBySource(m.allSessions, m.sourceFilter)
+	sortSessionsByDate(m.sessions)
+
+	items := make([]list.Item, len(m.sessions))
+	for i, s := range m.sessions {
+		items[i] = pickerSessionItem{meta: s}
+	}
+	m.list.Title = sessionPickerTitle(len(m.sessions), m.sourceFilter)
+	return m.list.SetItems(items)
 }
 
 func (m SessionPickerModel) Init() tea.Cmd {
@@ -174,6 +320,35 @@ func (m SessionPickerModel) Init() tea.Cmd {
 }
 
 func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Source picker overlay
+	if m.showSources {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			updated, cmd := m.sourcePicker.Update(msg)
+			m.sourcePicker = updated.(SourcePickerModel)
+
+			if m.sourcePicker.quitting {
+				m.showSources = false
+				result := m.sourcePicker.Result()
+				if !result.Cancelled {
+					m.sourceFilter = result.Sources
+					rebuildCmd := m.rebuildAndRefresh()
+					return m, tea.Batch(cmd, rebuildCmd)
+				}
+			}
+			return m, cmd
+
+		case tea.WindowSizeMsg:
+			m.width = msg.Width
+			m.height = msg.Height
+			m.list.SetSize(msg.Width, msg.Height-2)
+			updated, cmd := m.sourcePicker.Update(msg)
+			m.sourcePicker = updated.(SourcePickerModel)
+			return m, cmd
+		}
+		return m, nil
+	}
+
 	keys := defaultPickerKeyMap()
 
 	switch msg := msg.(type) {
@@ -192,15 +367,59 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch {
-		case key.Matches(msg, keys.Quit):
-			tuilog.Log.Info("SessionPicker.Update: Quit key pressed")
+		case key.Matches(msg, keys.Back):
+			tuilog.Log.Info("SessionPicker.Update: Back key pressed")
 			m.result.Cancelled = true
 			m.quitting = true
-			// In standalone mode, quit the program; in Shell mode, return result for navigation
 			if m.standalone {
 				return m, tea.Quit
 			}
 			return m, func() tea.Msg { return m.result }
+
+		case key.Matches(msg, keys.Quit):
+			tuilog.Log.Info("SessionPicker.Update: Quit key pressed")
+			m.result.Cancelled = true
+			m.quitting = true
+			return m, tea.Quit
+
+		case key.Matches(msg, keys.Sources):
+			// Build source options from allSessions
+			seen := make(map[thinkt.Source]bool)
+			for _, s := range m.allSessions {
+				if s.Source != "" {
+					seen[s.Source] = true
+				}
+			}
+			selectedSet := make(map[thinkt.Source]bool)
+			for _, s := range m.sourceFilter {
+				selectedSet[s] = true
+			}
+			if len(m.sourceFilter) == 0 {
+				for s := range seen {
+					selectedSet[s] = true
+				}
+			}
+
+			allSources := []thinkt.Source{
+				thinkt.SourceClaude,
+				thinkt.SourceKimi,
+				thinkt.SourceGemini,
+				thinkt.SourceCopilot,
+			}
+			var options []SourceOption
+			for _, s := range allSources {
+				options = append(options, SourceOption{
+					Source:   s,
+					Enabled:  seen[s],
+					Selected: selectedSet[s],
+				})
+			}
+
+			m.sourcePicker = NewSourcePickerModel(options, true)
+			m.sourcePicker.width = m.width
+			m.sourcePicker.height = m.height
+			m.showSources = true
+			return m, nil
 
 		case key.Matches(msg, keys.Enter):
 			tuilog.Log.Info("SessionPicker.Update: Enter key pressed")
@@ -214,10 +433,9 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				tuilog.Log.Warn("SessionPicker.Update: no item selected")
 			}
-			m.quitting = true
 			tuilog.Log.Info("SessionPicker.Update: returning result")
-			// In standalone mode, quit the program; in Shell mode, return result for navigation
 			if m.standalone {
+				m.quitting = true
 				return m, tea.Quit
 			}
 			return m, func() tea.Msg { return m.result }
@@ -243,6 +461,11 @@ func (m SessionPickerModel) View() tea.View {
 		return v
 	}
 
+	// Source picker overlay
+	if m.showSources {
+		return m.sourcePicker.View()
+	}
+
 	content := pickerStyle.Render(m.list.View())
 	v := tea.NewView(content)
 	v.AltScreen = true
@@ -260,7 +483,7 @@ func PickSession(sessions []thinkt.SessionMeta) (*thinkt.SessionMeta, error) {
 		return nil, fmt.Errorf("no sessions available")
 	}
 
-	model := NewSessionPickerModel(sessions)
+	model := NewSessionPickerModel(sessions, nil)
 	model.standalone = true // Mark as standalone so it returns tea.Quit
 	p := tea.NewProgram(model)
 	finalModel, err := p.Run()

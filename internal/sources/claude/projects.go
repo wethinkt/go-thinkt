@@ -234,9 +234,16 @@ func parseIndexEntries(entries []sessionMetaJSON, projectDir string) []SessionMe
 			meta.Modified = time.UnixMilli(e.FileMtime)
 		}
 
-		// Construct full path if not set (don't stat - defer to load time)
+		// Construct full path if not set
 		if meta.FullPath == "" && meta.SessionID != "" {
 			meta.FullPath = filepath.Join(projectDir, meta.SessionID+".jsonl")
+		}
+
+		// Stat file for size (not in index JSON)
+		if meta.FullPath != "" && meta.FileSize == 0 {
+			if info, err := os.Stat(meta.FullPath); err == nil {
+				meta.FileSize = info.Size()
+			}
 		}
 
 		sessions = append(sessions, meta)

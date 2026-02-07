@@ -7,6 +7,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/wethinkt/go-thinkt/internal/sources/claude"
+	"github.com/wethinkt/go-thinkt/internal/sources/copilot"
+	"github.com/wethinkt/go-thinkt/internal/sources/gemini"
 	"github.com/wethinkt/go-thinkt/internal/sources/kimi"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
@@ -118,20 +120,31 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if err == nil {
 			if project := s.registry.FindProjectForPath(ctx, cwd); project != nil {
 				tuilog.Log.Info("Shell.Update: auto-detected project from cwd", "project", project.Name, "path", project.Path)
-				// Skip project picker, go directly to session picker
-				store, ok := s.registry.Get(project.Source)
-				if ok {
-					sessions, err := store.ListSessions(ctx, project.ID)
-					if err == nil && len(sessions) > 0 {
-						tuilog.Log.Info("Shell.Update: pushing session picker for auto-detected project", "sessionCount", len(sessions))
-						picker := NewSessionPickerModel(sessions)
-						cmd := s.stack.Push(NavItem{
-							Title: project.Name,
-							Model: picker,
-						}, s.width, s.height)
-						cmds = append(cmds, cmd)
-						return s, tea.Batch(cmds...)
+				// Collect sessions from all sources that have this project path
+				var allSessions []thinkt.SessionMeta
+				for _, store := range s.registry.All() {
+					projects, err := store.ListProjects(ctx)
+					if err != nil {
+						continue
 					}
+					for _, p := range projects {
+						if p.Path == project.Path {
+							sessions, err := store.ListSessions(ctx, p.ID)
+							if err == nil {
+								allSessions = append(allSessions, sessions...)
+							}
+						}
+					}
+				}
+				if len(allSessions) > 0 {
+					tuilog.Log.Info("Shell.Update: pushing session picker for auto-detected project", "sessionCount", len(allSessions))
+					picker := NewSessionPickerModel(allSessions, nil)
+					cmd := s.stack.Push(NavItem{
+						Title: project.Name,
+						Model: picker,
+					}, s.width, s.height)
+					cmds = append(cmds, cmd)
+					return s, tea.Batch(cmds...)
 				}
 			}
 		}
@@ -158,23 +171,38 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if s.stack.IsEmpty() {
 				return s, tea.Quit
 			}
-			return s, nil
+			// Send WindowSizeMsg to the revealed page so it re-renders
+			if s.width > 0 && s.height > 0 {
+				cmds = append(cmds, func() tea.Msg {
+					return tea.WindowSizeMsg{Width: s.width, Height: s.height}
+				})
+			}
+			return s, tea.Batch(cmds...)
 		}
 		if msg.Selected != nil {
-			tuilog.Log.Info("Shell.Update: project selected", "project", msg.Selected.Name, "source", msg.Selected.Source)
+			tuilog.Log.Info("Shell.Update: project selected", "project", msg.Selected.Name, "allProjects", len(msg.AllProjects))
 			ctx := context.Background()
-			store, ok := s.registry.Get(msg.Selected.Source)
-			if !ok {
-				tuilog.Log.Error("Shell.Update: store not found for source", "source", msg.Selected.Source)
-				return s, nil
+
+			// List sessions from all source variants of the selected project
+			var allSessions []thinkt.SessionMeta
+			for _, proj := range msg.AllProjects {
+				tuilog.Log.Info("Shell.Update: listing sessions", "source", proj.Source, "id", proj.ID)
+				store, ok := s.registry.Get(proj.Source)
+				if !ok {
+					tuilog.Log.Warn("Shell.Update: store not found for source", "source", proj.Source)
+					continue
+				}
+				sessions, err := store.ListSessions(ctx, proj.ID)
+				if err != nil {
+					tuilog.Log.Error("Shell.Update: failed to list sessions", "source", proj.Source, "error", err)
+					continue
+				}
+				tuilog.Log.Info("Shell.Update: got sessions", "source", proj.Source, "count", len(sessions))
+				allSessions = append(allSessions, sessions...)
 			}
-			sessions, err := store.ListSessions(ctx, msg.Selected.ID)
-			if err != nil {
-				tuilog.Log.Error("Shell.Update: failed to list sessions", "error", err)
-				return s, nil
-			}
-			tuilog.Log.Info("Shell.Update: pushing session picker", "sessionCount", len(sessions))
-			picker := NewSessionPickerModel(sessions)
+
+			tuilog.Log.Info("Shell.Update: pushing session picker", "sessionCount", len(allSessions))
+			picker := NewSessionPickerModel(allSessions, msg.SourceFilter)
 			cmd := s.stack.Push(NavItem{
 				Title: msg.Selected.Name,
 				Model: picker,
@@ -190,7 +218,13 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if s.stack.IsEmpty() {
 				return s, tea.Quit
 			}
-			return s, nil
+			// Send WindowSizeMsg to the revealed page so it re-renders
+			if s.width > 0 && s.height > 0 {
+				cmds = append(cmds, func() tea.Msg {
+					return tea.WindowSizeMsg{Width: s.width, Height: s.height}
+				})
+			}
+			return s, tea.Batch(cmds...)
 		}
 		if msg.Selected != nil {
 			tuilog.Log.Info("Shell.Update: session selected", "sessionID", msg.Selected.ID, "path", msg.Selected.FullPath)
@@ -209,6 +243,12 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if s.stack.IsEmpty() {
 			tuilog.Log.Info("Shell.Update: stack empty, quitting")
 			return s, tea.Quit
+		}
+		// Send WindowSizeMsg to the revealed page so it re-renders
+		if s.width > 0 && s.height > 0 {
+			cmds = append(cmds, func() tea.Msg {
+				return tea.WindowSizeMsg{Width: s.width, Height: s.height}
+			})
 		}
 	}
 
@@ -250,25 +290,27 @@ type sourcesLoadedMsg struct {
 func loadSourcesCmd(registry *thinkt.StoreRegistry) tea.Cmd {
 	return func() tea.Msg {
 		tuilog.Log.Info("Shell: loading sources")
-		// Try Kimi
-		kimiDir, err := kimi.DefaultDir()
-		tuilog.Log.Info("Shell: kimi DefaultDir", "dir", kimiDir, "error", err)
-		if err == nil && kimiDir != "" {
-			store := kimi.NewStore(kimiDir)
-			registry.Register(store)
-			tuilog.Log.Info("Shell: registered kimi store")
+
+		discovery := thinkt.NewDiscovery(
+			kimi.Factory(),
+			claude.Factory(),
+			gemini.Factory(),
+			copilot.Factory(),
+		)
+
+		ctx := context.Background()
+		discovered, err := discovery.Discover(ctx)
+		if err != nil {
+			tuilog.Log.Error("Shell: discovery failed", "error", err)
+			return sourcesLoadedMsg{err: err}
 		}
 
-		// Try Claude
-		claudeDir, err := claude.DefaultDir()
-		tuilog.Log.Info("Shell: claude DefaultDir", "dir", claudeDir, "error", err)
-		if err == nil && claudeDir != "" {
-			store := claude.NewStore(claudeDir)
+		for _, store := range discovered.All() {
 			registry.Register(store)
-			tuilog.Log.Info("Shell: registered claude store")
+			tuilog.Log.Info("Shell: registered store", "source", store.Source())
 		}
 
-		tuilog.Log.Info("Shell: sources loading complete")
+		tuilog.Log.Info("Shell: sources loading complete", "count", len(registry.All()))
 		return sourcesLoadedMsg{}
 	}
 }

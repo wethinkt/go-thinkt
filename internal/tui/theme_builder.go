@@ -545,7 +545,7 @@ func (m ThemeBuilderModel) View() tea.View {
 			helpText = lines[len(lines)-1]
 		}
 	} else {
-		helpText = "↑/↓: select • e/E: edit fg/bg • b/i/u: bold/italic/underline • tab: pane • ctrl+s: save • q: quit"
+		helpText = "↑/↓: select • e/E: edit fg/bg • b/i/u: bold/italic/underline • tab: pane • ctrl+s: save • esc/q: quit"
 	}
 	footer := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.TextMuted.Fg)).Render(helpText)
 

@@ -11,6 +11,7 @@ type viewerKeyMap struct {
 	Home   key.Binding
 	End    key.Binding
 	Quit   key.Binding
+	Back   key.Binding
 }
 
 // defaultViewerKeyMap returns the default key bindings for the viewer
@@ -41,8 +42,12 @@ func defaultViewerKeyMap() viewerKeyMap {
 			key.WithHelp("G", "go to bottom"),
 		),
 		Quit: key.NewBinding(
-			key.WithKeys("q", "esc", "ctrl+c"),
+			key.WithKeys("q", "ctrl+c"),
 			key.WithHelp("q", "quit"),
+		),
+		Back: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "back"),
 		),
 	}
 }
