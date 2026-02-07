@@ -34,10 +34,11 @@ func RenderThinktSession(session *thinkt.Session, width int) string {
 }
 
 // RenderThinktEntry renders a single entry into a styled string.
-func RenderThinktEntry(entry *thinkt.Entry, width int) string {
+// If filters is non-nil, entries and blocks are filtered accordingly.
+func RenderThinktEntry(entry *thinkt.Entry, width int, filters *RoleFilterSet) string {
 	contentWidth := max(20, width-4)
 	renderer := getRenderer(contentWidth)
-	return renderThinktEntry(entry, contentWidth, renderer, renderer != nil)
+	return renderThinktEntry(entry, contentWidth, renderer, renderer != nil, filters)
 }
 
 // RenderThinktEntries renders a slice of entries into a styled string.
@@ -53,7 +54,7 @@ func RenderThinktEntries(entries []thinkt.Entry, width int) string {
 	var b strings.Builder
 	for i, entry := range entries {
 		tuilog.Log.Debug("RenderThinktEntries: rendering entry", "index", i, "role", entry.Role)
-		s := renderThinktEntry(&entry, contentWidth, renderer, renderer != nil)
+		s := renderThinktEntry(&entry, contentWidth, renderer, renderer != nil, nil)
 		if s != "" {
 			b.WriteString(s)
 			b.WriteString("\n")
@@ -64,12 +65,18 @@ func RenderThinktEntries(entries []thinkt.Entry, width int) string {
 	return result
 }
 
-func renderThinktEntry(entry *thinkt.Entry, width int, renderer *glamour.TermRenderer, useGlamour bool) string {
+func renderThinktEntry(entry *thinkt.Entry, width int, renderer *glamour.TermRenderer, useGlamour bool, filters *RoleFilterSet) string {
+	if filters != nil && !filters.EntryVisible(entry) {
+		return ""
+	}
+
 	switch entry.Role {
 	case thinkt.RoleUser:
 		return renderThinktUserEntry(entry, width)
 	case thinkt.RoleAssistant:
-		return renderThinktAssistantEntry(entry, width, renderer, useGlamour)
+		return renderThinktAssistantEntry(entry, width, renderer, useGlamour, filters)
+	case thinkt.RoleSystem, thinkt.RoleSummary, thinkt.RoleProgress, thinkt.RoleCheckpoint, thinkt.RoleTool:
+		return renderThinktOtherEntry(entry, width)
 	default:
 		return ""
 	}
@@ -95,13 +102,16 @@ func renderThinktUserEntry(entry *thinkt.Entry, width int) string {
 	return label + "\n" + content
 }
 
-func renderThinktAssistantEntry(entry *thinkt.Entry, width int, renderer *glamour.TermRenderer, useGlamour bool) string {
+func renderThinktAssistantEntry(entry *thinkt.Entry, width int, renderer *glamour.TermRenderer, useGlamour bool, filters *RoleFilterSet) string {
 	// Process content blocks
 	var parts []string
 
 	// First try content blocks
 	if len(entry.ContentBlocks) > 0 {
 		for _, block := range entry.ContentBlocks {
+			if filters != nil && !filters.BlockVisible(block.Type) {
+				continue
+			}
 			s := renderThinktContentBlock(&block, width, renderer, useGlamour)
 			if s != "" {
 				parts = append(parts, s)
@@ -109,8 +119,8 @@ func renderThinktAssistantEntry(entry *thinkt.Entry, width int, renderer *glamou
 		}
 	}
 
-	// Fall back to text field
-	if len(parts) == 0 && entry.Text != "" {
+	// Fall back to text field (treated as output)
+	if len(parts) == 0 && entry.Text != "" && (filters == nil || filters.Output) {
 		label := assistantLabel.Render("Assistant")
 		text := entry.Text
 		if useGlamour && renderer != nil {
@@ -175,4 +185,27 @@ func renderThinktContentBlock(block *thinkt.ContentBlock, width int, renderer *g
 	default:
 		return ""
 	}
+}
+
+func renderThinktOtherEntry(entry *thinkt.Entry, width int) string {
+	text := entry.Text
+	if text == "" {
+		for _, cb := range entry.ContentBlocks {
+			if cb.Type == "text" && cb.Text != "" {
+				text = cb.Text
+				break
+			}
+		}
+	}
+	if text == "" {
+		return ""
+	}
+
+	label := string(entry.Role)
+	if label != "" {
+		label = strings.ToUpper(label[:1]) + label[1:]
+	}
+	styledLabel := thinkingLabel.Render(label)
+	content := thinkingBlockStyle.Width(width).Render(text)
+	return styledLabel + "\n" + content
 }

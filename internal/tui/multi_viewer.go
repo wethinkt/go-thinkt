@@ -38,6 +38,9 @@ type MultiViewerModel struct {
 	displayedEntries []int      // Number of entries included in viewport per session (by origIdx)
 	totalLines       int        // Total lines currently in rendered output
 	renderBuffer     int        // Extra lines to render beyond viewport (buffer for smooth scroll)
+
+	// Entry type filters
+	filters RoleFilterSet
 }
 
 // multiSessionLoadedMsg is sent when a session has been loaded (initial open).
@@ -63,6 +66,7 @@ func NewMultiViewerModel(sessionPaths []string) MultiViewerModel {
 		entryCache:       make([][]string, len(sessionPaths)),
 		displayedEntries: make([]int, len(sessionPaths)),
 		renderBuffer:     50, // Render 50 extra lines beyond viewport
+		filters:          NewRoleFilterSet(),
 	}
 }
 
@@ -173,7 +177,7 @@ func (m *MultiViewerModel) renderUntilLines(targetLines int) {
 			// Render this entry if not cached
 			if displayed >= len(m.entryCache[origIdx]) {
 				entry := entries[displayed]
-				rendered := RenderThinktEntry(&entry, m.width-4)
+				rendered := RenderThinktEntry(&entry, m.width-4, &m.filters)
 				m.entryCache[origIdx] = append(m.entryCache[origIdx], rendered)
 			}
 
@@ -307,6 +311,16 @@ func (m *MultiViewerModel) rebuildRenderedOutput() {
 	m.totalLines = strings.Count(m.rendered, "\n") + 1
 }
 
+// invalidateCache clears the rendered entry cache and re-renders the viewport.
+func (m *MultiViewerModel) invalidateCache() {
+	m.entryCache = make([][]string, len(m.sessionPaths))
+	m.displayedEntries = make([]int, len(m.sessionPaths))
+	m.totalLines = 0
+	if m.ready {
+		m.renderForViewport()
+	}
+}
+
 func (m *MultiViewerModel) updateHasMoreData() {
 	m.hasMoreData = false
 	for _, s := range m.sessions {
@@ -417,6 +431,21 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, m.loadMoreContent())
 			}
 			m.viewport.GotoBottom()
+		case key.Matches(msg, m.keys.ToggleInput):
+			m.filters.Input = !m.filters.Input
+			m.invalidateCache()
+		case key.Matches(msg, m.keys.ToggleOutput):
+			m.filters.Output = !m.filters.Output
+			m.invalidateCache()
+		case key.Matches(msg, m.keys.ToggleTools):
+			m.filters.Tools = !m.filters.Tools
+			m.invalidateCache()
+		case key.Matches(msg, m.keys.ToggleThinking):
+			m.filters.Thinking = !m.filters.Thinking
+			m.invalidateCache()
+		case key.Matches(msg, m.keys.ToggleOther):
+			m.filters.Other = !m.filters.Other
+			m.invalidateCache()
 		}
 	}
 
@@ -441,6 +470,36 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(cmds...)
+}
+
+// renderFilterStatus returns a styled string showing which filters are active.
+func (m MultiViewerModel) renderFilterStatus() string {
+	type filterItem struct {
+		key   string
+		label string
+		on    bool
+	}
+	items := []filterItem{
+		{"1", "Input", m.filters.Input},
+		{"2", "Output", m.filters.Output},
+		{"3", "Tools", m.filters.Tools},
+		{"4", "Thinking", m.filters.Thinking},
+		{"5", "Other", m.filters.Other},
+	}
+
+	active := lipgloss.NewStyle().Bold(true)
+	dim := lipgloss.NewStyle().Faint(true)
+
+	var parts []string
+	for _, it := range items {
+		label := fmt.Sprintf("%s:%s", it.key, it.label)
+		if it.on {
+			parts = append(parts, active.Render(label))
+		} else {
+			parts = append(parts, dim.Render(label))
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 func (m MultiViewerModel) View() tea.View {
@@ -479,14 +538,14 @@ func (m MultiViewerModel) View() tea.View {
 	} else {
 		loadInfo = viewerInfoStyle.Render(fmt.Sprintf("  %d sessions", m.loadedCount))
 	}
-	header := title + loadInfo
+	header := title + loadInfo + "  " + m.renderFilterStatus()
 
 	// Footer
 	scrollPercent := m.viewport.ScrollPercent() * 100
 	position := viewerInfoStyle.Render(fmt.Sprintf("%3.0f%%", scrollPercent))
-	helpText := "↑/↓: scroll • pgup/pgdn: page • g/G: top/bottom • esc: back • q: quit"
+	helpText := "↑/↓: scroll • 1-5: filters • g/G: top/bottom • esc: back • q: quit"
 	if m.hasMoreData {
-		helpText = "↑/↓: scroll • G: load all • esc: back • q: quit"
+		helpText = "↑/↓: scroll • 1-5: filters • G: load all • esc: back • q: quit"
 	}
 	help := viewerHelpStyle.Render(helpText)
 	footerWidth := m.width - lipgloss.Width(position) - 4
