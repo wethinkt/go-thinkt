@@ -652,25 +652,52 @@ func parseKimiEntry(data []byte, lineNum int, source thinkt.Source, wsID string)
 			entry.ContentBlocks = convertKimiContentBlocks(content)
 			entry.Text = extractTextFromBlocks(entry.ContentBlocks)
 		}
-		// Extract tool calls
+		// Extract tool calls (OpenAI function-calling format)
 		if toolCalls, ok := raw["tool_calls"].([]any); ok {
 			for _, tc := range toolCalls {
 				if toolCall, ok := tc.(map[string]any); ok {
 					cb := thinkt.ContentBlock{
-						Type:       "tool_use",
-						ToolUseID:  getString(toolCall, "id"),
-						ToolName:   getString(toolCall, "name"),
-						ToolInput:  toolCall["input"],
+						Type:      "tool_use",
+						ToolUseID: getString(toolCall, "id"),
+					}
+					// Kimi uses OpenAI format: {function: {name, arguments}}
+					if fn, ok := toolCall["function"].(map[string]any); ok {
+						cb.ToolName = getString(fn, "name")
+						if args, ok := fn["arguments"].(string); ok && args != "" {
+							var parsed any
+							if err := json.Unmarshal([]byte(args), &parsed); err == nil {
+								cb.ToolInput = parsed
+							} else {
+								cb.ToolInput = args // fallback to raw string
+							}
+						}
+					} else {
+						// Fallback: flat format {name, input}
+						cb.ToolName = getString(toolCall, "name")
+						cb.ToolInput = toolCall["input"]
 					}
 					entry.ContentBlocks = append(entry.ContentBlocks, cb)
 				}
 			}
 		}
 	case "tool":
+		toolResult := getString(raw, "content")
+		// Content can also be an array of text blocks
+		if toolResult == "" {
+			if contentArr, ok := raw["content"].([]any); ok {
+				for _, c := range contentArr {
+					if textMap, ok := c.(map[string]any); ok {
+						if text, ok := textMap["text"].(string); ok {
+							toolResult += text
+						}
+					}
+				}
+			}
+		}
 		entry.ContentBlocks = []thinkt.ContentBlock{{
 			Type:       "tool_result",
 			ToolUseID:  getString(raw, "tool_call_id"),
-			ToolResult: getString(raw, "content"),
+			ToolResult: toolResult,
 		}}
 	}
 
@@ -715,8 +742,13 @@ func convertKimiContentBlocks(arr []any) []thinkt.ContentBlock {
 		switch cb.Type {
 		case "text":
 			cb.Text = getString(block, "text")
-		case "thinking":
+		case "thinking", "think":
+			cb.Type = "thinking" // normalize
+			// Kimi uses "think" field, Claude uses "thinking"
 			cb.Thinking = getString(block, "thinking")
+			if cb.Thinking == "" {
+				cb.Thinking = getString(block, "think")
+			}
 			cb.Signature = getString(block, "signature")
 		case "tool_result":
 			cb.ToolUseID = getString(block, "tool_use_id")
