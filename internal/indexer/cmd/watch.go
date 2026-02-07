@@ -39,7 +39,10 @@ var watchCmd = &cobra.Command{
 			return fmt.Errorf("failed to start watcher: %w", err)
 		}
 
-		if !quiet {
+		// Initialize progress reporter for TTY-aware output
+		progress := NewProgressReporter()
+
+		if progress.ShouldShowProgress(quiet, verbose) {
 			fmt.Println("Watching for changes... Press Ctrl+C to stop.")
 		}
 
@@ -48,7 +51,7 @@ var watchCmd = &cobra.Command{
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 		<-sigChan
 
-		if !quiet {
+		if progress.ShouldShowProgress(quiet, verbose) {
 			fmt.Println("\nStopping watcher...")
 		}
 		return nil

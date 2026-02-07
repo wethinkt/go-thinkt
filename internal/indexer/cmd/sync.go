@@ -23,11 +23,13 @@ var syncCmd = &cobra.Command{
 		registry := cmd.CreateSourceRegistry()
 		ingester := indexer.NewIngester(database, registry)
 
-		if !quiet {
+		// Initialize progress reporter with TTY detection
+		progress := NewProgressReporter()
+
+		if progress.ShouldShowProgress(quiet, verbose) {
 			ingester.OnProgress = func(pIdx, pTotal, sIdx, sTotal int, message string) {
-				// \r moves cursor to start of line
-				// \x1b[K clears from cursor to end of line
-				fmt.Printf("\r\x1b[KProjects [%d/%d] | Sessions [%d/%d] %s", pIdx, pTotal, sIdx, sTotal, message)
+				statusMsg := fmt.Sprintf("Projects [%d/%d] | Sessions [%d/%d] %s", pIdx, pTotal, sIdx, sTotal, message)
+				progress.Print(statusMsg)
 			}
 		}
 
@@ -46,16 +48,24 @@ var syncCmd = &cobra.Command{
 
 		totalProjects := len(projects)
 		for idx, p := range projects {
-			if verbose {
-				fmt.Printf("\nIndexing project: %s (%s)\n", p.Name, p.Path)
+			if verbose && !progress.IsTTY() {
+				// Only print per-project info in non-TTY mode when verbose
+				fmt.Printf("Indexing project: %s (%s)\n", p.Name, p.Path)
 			}
 			if err := ingester.IngestProject(ctx, p, idx+1, totalProjects); err != nil {
-				fmt.Fprintf(os.Stderr, "\nError indexing project %s: %v\n", p.Name, err)
+				if progress.IsTTY() {
+					// Clear progress line before printing error
+					progress.Finish()
+				}
+				fmt.Fprintf(os.Stderr, "Error indexing project %s: %v\n", p.Name, err)
 			}
 		}
 
+		if progress.ShouldShowProgress(quiet, verbose) {
+			progress.Finish()
+		}
 		if !quiet {
-			fmt.Println("\nIndexing complete.")
+			fmt.Println("Indexing complete.")
 		}
 		return nil
 	},
