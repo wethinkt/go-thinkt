@@ -4,6 +4,10 @@ vars:
   BIN_DIR: ./bin
 
 tasks:
+  ###############################################################################
+  # Housekeeping
+  ###############################################################################
+
   default:
     deps: [test, build]
 
@@ -12,9 +16,26 @@ tasks:
     cmds:
       - go install "github.com/swaggo/swag/cmd/swag@v1.16.6"
 
+  submodules:
+    desc: "Ensure git submodules are checked out"
+    cmds:
+      - git submodule update --init --recursive
+    status:
+      - test -f internal/server/web-lite/index.html
+
+  ###############################################################################
+  # Golang
+  ###############################################################################
+
   build:
+    desc: Build all
+    deps:
+      - build:thinkt
+      - build:indexer
+
+  build:thinkt:
     desc: Build the thinkt CLI
-    deps: [go-tidy]
+    deps: [go-tidy, submodules]
     sources:
       - ./cmd/thinkt/**/*.go
       - ./internal/**/*.go
@@ -25,6 +46,20 @@ tasks:
       - "{{.BIN_DIR}}/thinkt"
     cmds:
       - go build -o {{.BIN_DIR}}/thinkt ./cmd/thinkt
+
+  build:indexer:
+    desc: Build the thinkt-indexer CLI
+    deps: [go-tidy]
+    sources:
+      - ./cmd/thinkt-indexer/**/*.go
+      - ./cmd/thinkt-indexer/**/*.sql
+      - ./internal/**/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.BIN_DIR}}/thinkt-indexer"
+    cmds:
+      - CGO_ENABLED=1 go build -o {{.BIN_DIR}}/thinkt-indexer ./cmd/thinkt-indexer
 
   test:
     desc: Run tests
@@ -94,6 +129,14 @@ tasks:
   ###############################################################################
   # Docker
   ###############################################################################
+
+  docker:build-thinkt:
+    cmds:
+      - docker build .
+
+  docker:build-indexer:
+    cmds:
+      - docker build -f etc/Dockerfile.indexer .
 
   docker:release:
     cmds:

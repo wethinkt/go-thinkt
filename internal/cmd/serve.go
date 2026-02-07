@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -31,12 +32,15 @@ var (
 	serveHTTPLog  string
 )
 
-// Serve MCP subcommand flags
+// Serve mcp flags
 var (
-	mcpStdio bool
-	mcpPort  int
-	mcpHost  string
-	mcpToken string // Bearer token for HTTP transport auth
+	mcpStdio      bool
+	mcpPort       int
+	mcpHost       string
+	mcpToken      string
+	mcpNoIndexer  bool
+	mcpAllowTools []string
+	mcpDenyTools  []string
 )
 
 // Serve API subcommand flags
@@ -335,6 +339,41 @@ func runServeMCP(cmd *cobra.Command, args []string) error {
 		defer tuilog.Log.Close()
 	}
 
+	// Start indexer sidecar if not disabled
+	if !mcpNoIndexer {
+		if indexerPath := findIndexerBinary(); indexerPath != "" {
+			tuilog.Log.Info("Starting indexer sidecar", "path", indexerPath)
+
+			// Build arguments for indexer
+			indexerArgs := []string{"watch", "--quiet"}
+			if logPath != "" {
+				// Derive indexer log path from main log path
+				// e.g. thinkt.log -> thinkt.indexer.log
+				ext := filepath.Ext(logPath)
+				base := strings.TrimSuffix(logPath, ext)
+				indexerLog := base + ".indexer" + ext
+				indexerArgs = append(indexerArgs, "--log", indexerLog)
+				tuilog.Log.Info("Indexer sidecar logging enabled", "path", indexerLog)
+			}
+
+			// Run watch in background
+			indexerCmd := exec.Command(indexerPath, indexerArgs...)
+			// Ensure it doesn't interfere with stdio if we are in stdio mode
+			indexerCmd.Stdout = os.Stderr
+			indexerCmd.Stderr = os.Stderr
+
+			if err := indexerCmd.Start(); err != nil {
+				tuilog.Log.Error("failed to start indexer sidecar", "error", err)
+			} else {
+				// Kill indexer when we exit
+				defer func() {
+					tuilog.Log.Info("Stopping indexer sidecar")
+					indexerCmd.Process.Kill()
+				}()
+			}
+		}
+	}
+
 	// Determine transport mode: stdio (default) or HTTP
 	useStdio := mcpStdio || mcpPort == 0
 
@@ -367,9 +406,20 @@ func runServeMCP(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Create MCP server with authentication
+	// Configure tool filtering
+	allowTools := mcpAllowTools
+	if envAllow := os.Getenv("THINKT_MCP_ALLOW_TOOLS"); envAllow != "" && len(allowTools) == 0 {
+		allowTools = strings.Split(envAllow, ",")
+	}
+	denyTools := mcpDenyTools
+	if envDeny := os.Getenv("THINKT_MCP_DENY_TOOLS"); envDeny != "" && len(denyTools) == 0 {
+		denyTools = strings.Split(envDeny, ",")
+	}
+
+	// Create MCP server with authentication and filtering
 	tuilog.Log.Info("Creating MCP server")
 	mcpServer := server.NewMCPServerWithAuth(registry, authConfig)
+	mcpServer.SetToolFilters(allowTools, denyTools)
 
 	if useStdio {
 		// Stdio transport

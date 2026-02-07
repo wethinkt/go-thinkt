@@ -145,6 +145,8 @@ func init() {
 	rootCmd.AddCommand(sessionsCmd)
 	rootCmd.AddCommand(sourcesCmd)
 	rootCmd.AddCommand(themeCmd)
+	rootCmd.AddCommand(indexerCmd)
+	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(teamsCmd)
 	teamsCmd.AddCommand(teamsListCmd)
 	teamsCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "output as JSON")
@@ -181,6 +183,9 @@ func init() {
 	serveMcpCmd.Flags().IntVarP(&mcpPort, "port", "p", 0, "run MCP over HTTP on this port")
 	serveMcpCmd.Flags().StringVar(&mcpHost, "host", "localhost", "host to bind MCP HTTP server")
 	serveMcpCmd.Flags().StringVar(&mcpToken, "token", "", "bearer token for HTTP authentication (default: use THINKT_MCP_TOKEN env var)")
+	serveMcpCmd.Flags().BoolVar(&mcpNoIndexer, "no-indexer", false, "don't auto-start the background indexer")
+	serveMcpCmd.Flags().StringSliceVar(&mcpAllowTools, "allow-tools", nil, "explicitly allow only these tools (comma-separated, default: all)")
+	serveMcpCmd.Flags().StringSliceVar(&mcpDenyTools, "deny-tools", nil, "explicitly deny these tools (comma-separated)")
 	serveMcpCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
 
 	// Serve API flags (only apply to main serve command)
