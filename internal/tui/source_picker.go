@@ -108,13 +108,18 @@ func NewSourcePickerModel(options []SourceOption, multiSelect bool) SourcePicker
 
 func (m SourcePickerModel) Init() tea.Cmd { return nil }
 
+// SetSize updates the model's dimensions.
+func (m *SourcePickerModel) SetSize(width, height int) {
+	m.width = width
+	m.height = height
+}
+
 func (m SourcePickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	keys := defaultSourcePickerKeyMap(m.multiSelect)
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
+		m.SetSize(msg.Width, msg.Height)
 		return m, nil
 
 	case tea.KeyMsg:

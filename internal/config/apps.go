@@ -66,6 +66,25 @@ func (a AppConfig) BuildCommand(path string) (string, []string) {
 	return cmd, args
 }
 
+// Launch executes the application with the specified validated path.
+// It returns an error if the command fails to start.
+// The command is started in the background; caller does not wait for it to exit.
+func (a AppConfig) Launch(validatedPath string) error {
+	cmdName, args := a.BuildCommand(validatedPath)
+	if cmdName == "" {
+		return os.ErrInvalid
+	}
+
+	cmd := exec.Command(cmdName, args...)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	// Don't wait for the command to finish - it's opening an external app
+	go cmd.Wait()
+	return nil
+}
+
 // DefaultApps returns the default app configurations.
 // On macOS, it checks which apps are available.
 func DefaultApps() []AppConfig {

@@ -57,12 +57,12 @@ func TestValidateNoShellMetacharacters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateNoShellMetacharacters(tt.path)
+			err := thinkt.ValidateNoShellMetacharacters(tt.path)
 			if tt.wantErr && err == nil {
-				t.Errorf("validateNoShellMetacharacters(%q) expected error, got nil", tt.path)
+				t.Errorf("ValidateNoShellMetacharacters(%q) expected error, got nil", tt.path)
 			}
 			if !tt.wantErr && err != nil {
-				t.Errorf("validateNoShellMetacharacters(%q) unexpected error: %v", tt.path, err)
+				t.Errorf("ValidateNoShellMetacharacters(%q) unexpected error: %v", tt.path, err)
 			}
 		})
 	}
@@ -109,9 +109,9 @@ func TestIsPathWithinAny(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isPathWithinAny(tt.path, bases)
+			result := thinkt.IsPathWithinAny(tt.path, bases)
 			if result != tt.expected {
-				t.Errorf("isPathWithinAny(%q) = %v, want %v", tt.path, result, tt.expected)
+				t.Errorf("IsPathWithinAny(%q) = %v, want %v", tt.path, result, tt.expected)
 			}
 		})
 	}
@@ -150,7 +150,7 @@ func TestPathValidator_ValidateOpenInPath(t *testing.T) {
 	
 	// Manually add the temp directory to allowed bases for testing
 	// This is needed because t.TempDir() is typically outside home on macOS (/var/folders/...)
-	validator.additionalBases = []string{tmpDir}
+	validator.AdditionalBases = []string{tmpDir}
 
 	tests := []struct {
 		name    string
@@ -193,13 +193,13 @@ func TestPathValidator_ValidateOpenInPath(t *testing.T) {
 	}
 }
 
-func TestPathValidator_getAllowedBaseDirectories(t *testing.T) {
+func TestPathValidator_GetAllowedBaseDirectories(t *testing.T) {
 	registry := thinkt.NewRegistry()
 	validator := NewPathValidator(registry)
 
-	bases, err := validator.getAllowedBaseDirectories()
+	bases, err := validator.GetAllowedBaseDirectories()
 	if err != nil {
-		t.Fatalf("getAllowedBaseDirectories() unexpected error: %v", err)
+		t.Fatalf("GetAllowedBaseDirectories() unexpected error: %v", err)
 	}
 
 	// Should always include home directory
@@ -217,7 +217,7 @@ func TestPathValidator_getAllowedBaseDirectories(t *testing.T) {
 	}
 
 	if !foundHome {
-		t.Errorf("getAllowedBaseDirectories() should include home directory %q, got %v", homeDir, bases)
+		t.Errorf("GetAllowedBaseDirectories() should include home directory %q, got %v", homeDir, bases)
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
@@ -369,6 +370,8 @@ type ProjectPickerModel struct {
 	sourceFilter []thinkt.Source // empty = all sources
 	showSources  bool            // true when source picker overlay is active
 	sourcePicker SourcePickerModel
+	showApps     bool // true when app picker overlay is active
+	appPicker    AppPickerModel
 }
 
 type projectPickerKeyMap struct {
@@ -378,6 +381,7 @@ type projectPickerKeyMap struct {
 	SortDate key.Binding
 	SortName key.Binding
 	Sources    key.Binding
+	OpenIn     key.Binding
 	Left       key.Binding
 	Right      key.Binding
 	Toggle     key.Binding
@@ -409,6 +413,10 @@ func defaultProjectPickerKeyMap() projectPickerKeyMap {
 		Sources: key.NewBinding(
 			key.WithKeys("s"),
 			key.WithHelp("s", "sources"),
+		),
+		OpenIn: key.NewBinding(
+			key.WithKeys("o"),
+			key.WithHelp("o", "open in"),
 		),
 		Left: key.NewBinding(
 			key.WithKeys("left"),
@@ -630,6 +638,47 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// If app picker overlay is active, delegate to it
+	if m.showApps {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			updated, cmd := m.appPicker.Update(msg)
+			m.appPicker = updated.(AppPickerModel)
+
+			if m.appPicker.quitting {
+				m.showApps = false
+				result := m.appPicker.Result()
+				if !result.Cancelled && result.App != nil {
+					// We need the selected project path
+					var path string
+					if item := m.list.SelectedItem(); item != nil {
+						if ti, ok := item.(treeItem); ok && ti.node.project != nil {
+							path = ti.node.project.Path
+						}
+					}
+
+					if path != "" {
+						// Launch the app!
+						err := result.App.Launch(path)
+						if err != nil {
+							tuilog.Log.Error("ProjectPicker: failed to launch app", "app", result.App.Name, "error", err)
+						}
+					}
+				}
+			}
+			return m, cmd
+
+		case tea.WindowSizeMsg:
+			m.width = msg.Width
+			m.height = msg.Height
+			m.list.SetSize(msg.Width, msg.Height-2)
+			updated, cmd := m.appPicker.Update(msg)
+			m.appPicker = updated.(AppPickerModel)
+			return m, cmd
+		}
+		return m, nil
+	}
+
 	keys := defaultProjectPickerKeyMap()
 
 	switch msg := msg.(type) {
@@ -725,9 +774,24 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			m.sourcePicker = NewSourcePickerModel(options, true)
-			m.sourcePicker.width = m.width
-			m.sourcePicker.height = m.height
+			m.sourcePicker.SetSize(m.width, m.height)
 			m.showSources = true
+			return m, nil
+
+		case key.Matches(msg, keys.OpenIn):
+			// Only if a project is selected
+			if item := m.list.SelectedItem(); item != nil {
+				if ti, ok := item.(treeItem); ok && ti.node.project != nil {
+					projectPath := ti.node.project.Path
+					cfg, err := config.Load()
+					if err == nil {
+						m.appPicker = NewAppPickerModel(cfg.AllowedApps, projectPath)
+						m.appPicker.SetSize(m.width, m.height)
+						m.showApps = true
+						return m, nil
+					}
+				}
+			}
 			return m, nil
 
 		case key.Matches(msg, keys.TreeToggle):
@@ -840,6 +904,11 @@ func (m ProjectPickerModel) View() tea.View {
 	// Source picker overlay
 	if m.showSources {
 		return m.sourcePicker.View()
+	}
+
+	// App picker overlay
+	if m.showApps {
+		return m.appPicker.View()
 	}
 
 	content := projectPickerStyle.Render(m.list.View())

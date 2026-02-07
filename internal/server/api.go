@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
-	"os/exec"
 	"strconv"
 	"strings"
 
@@ -379,22 +378,11 @@ func (s *HTTPServer) handleOpenIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build the command using the app's Exec template with the validated path
-	cmdName, args := app.BuildCommand(validatedPath)
-	if cmdName == "" {
-		writeError(w, http.StatusInternalServerError, "invalid_config", "App has no exec command")
-		return
-	}
-	cmd := exec.Command(cmdName, args...)
-
-	// Execute the command
-	if err := cmd.Start(); err != nil {
+	// Launch the application
+	if err := app.Launch(validatedPath); err != nil {
 		writeError(w, http.StatusInternalServerError, "exec_error", err.Error())
 		return
 	}
-
-	// Don't wait for the command to finish - it's opening an external app
-	go cmd.Wait()
 
 	writeJSON(w, http.StatusOK, OpenInResponse{
 		Success: true,
