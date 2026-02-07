@@ -8,7 +8,7 @@ Delete a project and all its sessions
 
 ### Synopsis
 
-Delete a Claude Code project directory and all session data within it.
+Delete a project directory and all session data within it.
 
 The project-path can be:
   - Full project path (e.g., /Users/evan/myproject)
@@ -36,11 +36,11 @@ thinkt projects delete <project-path> [flags]
 ### Options inherited from parent commands
 
 ```
-  -s, --source stringArray   source to include (kimi|claude, can be specified multiple times, default: all)
+  -s, --source stringArray   source to include (kimi|claude|gemini, can be specified multiple times, default: all)
   -v, --verbose              verbose output
 ```
 
 ### SEE ALSO
 
-* [thinkt projects](thinkt_projects.md)	 - List projects from all sources
+* [thinkt projects](thinkt_projects.md)	 - Manage and view projects
 

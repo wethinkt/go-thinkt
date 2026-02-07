@@ -11,9 +11,6 @@ Show detailed project summary
 Show detailed information about each project including
 session count and last modified time.
 
-By default, shows projects from ALL sources.
-Use --source to limit to specific sources.
-
 Sorting:
   --sort name|time    Sort by project name or modified time (default: time)
   --desc              Sort descending (default for time)
@@ -62,11 +59,11 @@ thinkt projects summary [flags]
 ### Options inherited from parent commands
 
 ```
-  -s, --source stringArray   source to include (kimi|claude, can be specified multiple times, default: all)
+  -s, --source stringArray   source to include (kimi|claude|gemini, can be specified multiple times, default: all)
   -v, --verbose              verbose output
 ```
 
 ### SEE ALSO
 
-* [thinkt projects](thinkt_projects.md)	 - List projects from all sources
+* [thinkt projects](thinkt_projects.md)	 - Manage and view projects
 

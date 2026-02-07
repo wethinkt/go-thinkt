@@ -1,23 +1,24 @@
 ---
-title: "thinkt projects tree"
+title: "thinkt projects view"
 ---
 
-## thinkt projects tree
+## thinkt projects view
 
-Show projects in a tree view
+Interactive project browser
 
 ### Synopsis
 
-Show projects grouped by parent directory in a tree layout.
+Launch the interactive TUI project browser.
+This allows you to navigate projects and select sessions to view.
 
 ```
-thinkt projects tree [flags]
+thinkt projects view [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for tree
+  -h, --help   help for view
 ```
 
 ### Options inherited from parent commands
