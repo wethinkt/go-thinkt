@@ -146,6 +146,7 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 		LastModified: info.ModTime(),
 		Source:       thinkt.SourceKimi,
 		WorkspaceID:  ws.ID,
+		SourceBasePath: ws.BasePath,
 	}, nil
 }
 

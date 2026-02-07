@@ -95,15 +95,7 @@ func init() {
 	extractCmd.Flags().StringVarP(&formatType, "format", "f", "markdown", "output format (markdown|json|plain)")
 	extractCmd.Flags().StringVar(&templateFile, "template", "", "custom template file (for markdown format)")
 
-	// Projects command flags
-	projectsCmd.PersistentFlags().StringArrayVarP(&projectSources, "source", "s", nil, "source to include (kimi|claude, can be specified multiple times, default: all)")
-	projectsCmd.Flags().BoolVar(&shortFormat, "short", false, "show project paths only")
-	projectsSummaryCmd.Flags().StringVar(&summaryTemplate, "template", "", "custom Go text/template for output")
-	projectsSummaryCmd.Flags().StringVar(&sortBy, "sort", "time", "sort by: name, time")
-	projectsSummaryCmd.Flags().BoolVar(&sortDesc, "desc", false, "sort descending (default for time)")
-	projectsSummaryCmd.Flags().Bool("asc", false, "sort ascending (default for name)")
-	projectsSummaryCmd.Flags().BoolVar(&withSessions, "with-sessions", false, "include session names in output")
-	projectsDeleteCmd.Flags().BoolVarP(&forceDelete, "force", "f", false, "skip confirmation prompt")
+	// Projects command flags are now handled in projects.go init()
 
 	// Sessions command flags
 	// Project selection:
@@ -124,10 +116,6 @@ func init() {
 	sessionsViewCmd.Flags().BoolVar(&sessionViewRaw, "raw", false, "output raw text without decoration/rendering")
 
 	// Build command tree
-	projectsCmd.AddCommand(projectsSummaryCmd)
-	projectsCmd.AddCommand(projectsTreeCmd)
-	projectsCmd.AddCommand(projectsDeleteCmd)
-	projectsCmd.AddCommand(projectsCopyCmd)
 	sessionsCmd.AddCommand(sessionsListCmd)
 	sessionsCmd.AddCommand(sessionsSummaryCmd)
 	sessionsCmd.AddCommand(sessionsDeleteCmd)

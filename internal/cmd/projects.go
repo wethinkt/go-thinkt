@@ -6,11 +6,15 @@ import (
 	"os"
 	"sort"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/wethinkt/go-thinkt/internal/cli"
 	"github.com/wethinkt/go-thinkt/internal/sources/claude"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tui"
+	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 // Projects command flags
@@ -26,22 +30,43 @@ var (
 
 var projectsCmd = &cobra.Command{
 	Use:   "projects",
+	Short: "Manage and view projects",
+	Long: `Manage and view projects from available sources (Kimi, Claude, Gemini, etc.).
+
+By default, this command launches the interactive project browser (TUI).
+Use subcommands to list, summarize, or manage projects via CLI.
+
+Examples:
+  thinkt projects                      # Launch interactive browser (default)
+  thinkt projects list                 # List detailed columns
+  thinkt projects list --short         # List paths only
+  thinkt projects summary              # Detailed summary with session names
+  thinkt projects tree                 # Tree view
+  thinkt projects delete ./myproj      # Delete a project`,
+	RunE: runProjectsView, // Default to interactive view
+}
+
+var projectsViewCmd = &cobra.Command{
+	Use:   "view",
+	Short: "Interactive project browser",
+	Long: `Launch the interactive TUI project browser.
+This allows you to navigate projects and select sessions to view.`,
+	RunE: runProjectsView,
+}
+
+var projectsListCmd = &cobra.Command{
+	Use:   "list",
 	Short: "List projects from all sources",
-	Long: `List all projects from available sources (Kimi, Claude, etc.).
+	Long: `List all projects from available sources (Kimi, Claude, Gemini, etc.).
 
 By default, shows detailed columns (path, source, sessions, modified time).
 Use --short for a compact list of project paths only.
-Use --source to limit to specific sources (can be specified multiple times).
 
 Examples:
-  thinkt projects                      # Detailed columns (default)
-  thinkt projects --short              # Paths only, one per line
-  thinkt projects --source kimi        # Only Kimi projects
-  thinkt projects --source claude      # Only Claude projects
-  thinkt projects --source kimi --source claude  # Both sources
-  thinkt projects tree                 # Tree view grouped by parent directory
-  thinkt projects summary              # Detailed summary with session names`,
-	RunE: runProjects,
+  thinkt projects list                 # Detailed columns
+  thinkt projects list --short         # Paths only, one per line
+  thinkt projects list --source kimi   # Only Kimi projects`,
+	RunE: runProjectsList,
 }
 
 var projectsSummaryCmd = &cobra.Command{
@@ -49,9 +74,6 @@ var projectsSummaryCmd = &cobra.Command{
 	Short: "Show detailed project summary",
 	Long: `Show detailed information about each project including
 session count and last modified time.
-
-By default, shows projects from ALL sources.
-Use --source to limit to specific sources.
 
 Sorting:
   --sort name|time    Sort by project name or modified time (default: time)
@@ -74,7 +96,7 @@ var projectsTreeCmd = &cobra.Command{
 var projectsDeleteCmd = &cobra.Command{
 	Use:   "delete <project-path>",
 	Short: "Delete a project and all its sessions",
-	Long: `Delete a Claude Code project directory and all session data within it.
+	Long: `Delete a project directory and all session data within it.
 
 The project-path can be:
   - Full project path (e.g., /Users/evan/myproject)
@@ -94,14 +116,14 @@ Examples:
 var projectsCopyCmd = &cobra.Command{
 	Use:   "copy <project-path> <target-dir>",
 	Short: "Copy project sessions to a target directory",
-	Long: `Copy all session files from a Claude Code project to a target directory.
+	Long: `Copy all session files from a project to a target directory.
 
 The project-path can be:
   - Full project path (e.g., /Users/evan/myproject)
   - Path relative to current directory
 
 The target directory will be created if it doesn't exist.
-Session files (.jsonl) and index files are copied.
+Session files and index files are copied.
 
 Examples:
   thinkt projects copy /Users/evan/myproject ./backup
@@ -110,7 +132,65 @@ Examples:
 	RunE: runProjectsCopy,
 }
 
-func runProjects(cmd *cobra.Command, args []string) error {
+func init() {
+	// Root flags (persistent across all subcommands)
+	projectsCmd.PersistentFlags().StringArrayVarP(&projectSources, "source", "s", nil, "source to include (kimi|claude|gemini, can be specified multiple times, default: all)")
+
+	// List command flags
+	projectsListCmd.Flags().BoolVar(&shortFormat, "short", false, "show project paths only")
+
+	// Summary command flags
+	projectsSummaryCmd.Flags().StringVar(&summaryTemplate, "template", "", "custom Go text/template for output")
+	projectsSummaryCmd.Flags().StringVar(&sortBy, "sort", "time", "sort by: name, time")
+	projectsSummaryCmd.Flags().BoolVar(&sortDesc, "desc", false, "sort descending (default for time)")
+	projectsSummaryCmd.Flags().Bool("asc", false, "sort ascending (default for name)")
+	projectsSummaryCmd.Flags().BoolVar(&withSessions, "with-sessions", false, "include session names in output")
+
+	// Delete command flags
+	projectsDeleteCmd.Flags().BoolVarP(&forceDelete, "force", "f", false, "skip confirmation prompt")
+
+	// Register subcommands
+	projectsCmd.AddCommand(projectsListCmd)
+	projectsCmd.AddCommand(projectsViewCmd)
+	projectsCmd.AddCommand(projectsSummaryCmd)
+	projectsCmd.AddCommand(projectsTreeCmd)
+	projectsCmd.AddCommand(projectsDeleteCmd)
+	projectsCmd.AddCommand(projectsCopyCmd)
+}
+
+func runProjectsView(cmd *cobra.Command, args []string) error {
+	// Initialize logger if requested
+	if logPath != "" {
+		if err := tuilog.Init(logPath); err != nil {
+			return err
+		}
+		defer tuilog.Log.Close()
+	}
+
+	tuilog.Log.Info("Starting Projects View TUI")
+
+	// Get initial terminal size
+	var opts []tea.ProgramOption
+	for _, fd := range []int{int(os.Stdout.Fd()), int(os.Stdin.Fd()), int(os.Stderr.Fd())} {
+		if term.IsTerminal(fd) {
+			w, h, err := term.GetSize(fd)
+			if err == nil && w > 0 && h > 0 {
+				opts = append(opts, tea.WithWindowSize(w, h))
+				break
+			}
+		}
+	}
+
+	// Force projects picker
+	shell := tui.NewShell(tui.InitialPageProjects)
+	p := tea.NewProgram(shell, opts...)
+	_, err := p.Run()
+
+	tuilog.Log.Info("Projects View TUI exited", "error", err)
+	return err
+}
+
+func runProjectsList(cmd *cobra.Command, args []string) error {
 	registry := CreateSourceRegistry()
 
 	projects, err := GetProjectsFromSources(registry, projectSources)

@@ -74,21 +74,31 @@ type PushPageMsg struct {
 
 type PopPageMsg struct{}
 
+// InitialPage defines which page to start on
+type InitialPage int
+
+const (
+	InitialPageAuto InitialPage = iota // Auto-detect project from CWD
+	InitialPageProjects                // Always start at projects list
+)
+
 // Shell is the main TUI container with navigation
 type Shell struct {
-	width    int
-	height   int
-	stack    *NavStack
-	registry *thinkt.StoreRegistry
-	loading  bool
+	width       int
+	height      int
+	stack       *NavStack
+	registry    *thinkt.StoreRegistry
+	loading     bool
+	initialPage InitialPage
 }
 
 // NewShell creates the main TUI shell
-func NewShell() *Shell {
+func NewShell(initial InitialPage) *Shell {
 	return &Shell{
-		stack:    NewNavStack(),
-		registry: thinkt.NewRegistry(),
-		loading:  true,
+		stack:       NewNavStack(),
+		registry:    thinkt.NewRegistry(),
+		loading:     true,
+		initialPage: initial,
 	}
 }
 
@@ -116,35 +126,37 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		ctx := context.Background()
 
 		// Check if we're in a known project directory
-		cwd, err := os.Getwd()
-		if err == nil {
-			if project := s.registry.FindProjectForPath(ctx, cwd); project != nil {
-				tuilog.Log.Info("Shell.Update: auto-detected project from cwd", "project", project.Name, "path", project.Path)
-				// Collect sessions from all sources that have this project path
-				var allSessions []thinkt.SessionMeta
-				for _, store := range s.registry.All() {
-					projects, err := store.ListProjects(ctx)
-					if err != nil {
-						continue
-					}
-					for _, p := range projects {
-						if p.Path == project.Path {
-							sessions, err := store.ListSessions(ctx, p.ID)
-							if err == nil {
-								allSessions = append(allSessions, sessions...)
+		if s.initialPage == InitialPageAuto {
+			cwd, err := os.Getwd()
+			if err == nil {
+				if project := s.registry.FindProjectForPath(ctx, cwd); project != nil {
+					tuilog.Log.Info("Shell.Update: auto-detected project from cwd", "project", project.Name, "path", project.Path)
+					// Collect sessions from all sources that have this project path
+					var allSessions []thinkt.SessionMeta
+					for _, store := range s.registry.All() {
+						projects, err := store.ListProjects(ctx)
+						if err != nil {
+							continue
+						}
+						for _, p := range projects {
+							if p.Path == project.Path {
+								sessions, err := store.ListSessions(ctx, p.ID)
+								if err == nil {
+									allSessions = append(allSessions, sessions...)
+								}
 							}
 						}
 					}
-				}
-				if len(allSessions) > 0 {
-					tuilog.Log.Info("Shell.Update: pushing session picker for auto-detected project", "sessionCount", len(allSessions))
-					picker := NewSessionPickerModel(allSessions, nil)
-					cmd := s.stack.Push(NavItem{
-						Title: project.Name,
-						Model: picker,
-					}, s.width, s.height)
-					cmds = append(cmds, cmd)
-					return s, tea.Batch(cmds...)
+					if len(allSessions) > 0 {
+						tuilog.Log.Info("Shell.Update: pushing session picker for auto-detected project", "sessionCount", len(allSessions))
+						picker := NewSessionPickerModel(allSessions, nil)
+						cmd := s.stack.Push(NavItem{
+							Title: project.Name,
+							Model: picker,
+						}, s.width, s.height)
+						cmds = append(cmds, cmd)
+						return s, tea.Batch(cmds...)
+					}
 				}
 			}
 		}

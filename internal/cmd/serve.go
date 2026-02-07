@@ -32,7 +32,7 @@ var (
 	serveHTTPLog  string
 )
 
-// Serve mcp flags
+// Serve mcp subcommand flags
 var (
 	mcpStdio      bool
 	mcpPort       int
@@ -43,12 +43,12 @@ var (
 	mcpDenyTools  []string
 )
 
-// Serve API subcommand flags
+// Serve subcommand flags
 var (
 	apiToken string // Bearer token for API server authentication
 )
 
-// Serve Lite subcommand flags
+// Serve lite subcommand flags
 var (
 	serveLiteTTL time.Duration // Cache TTL for long-running lite server
 )
