@@ -54,6 +54,9 @@ jobs:
           MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
           MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
 
+      - name: Cleanup generated files
+        run: rm -rf manpages completions
+
       - name: Run GoReleaser (Indexer)
         run: |
           docker run \

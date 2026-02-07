@@ -108,8 +108,10 @@ homebrew_casks:
       - man/man1/thinkt-indexer.1
       - man/man1/thinkt-projects-copy.1
       - man/man1/thinkt-projects-delete.1
+      - man/man1/thinkt-projects-list.1
       - man/man1/thinkt-projects-summary.1
       - man/man1/thinkt-projects-tree.1
+      - man/man1/thinkt-projects-view.1
       - man/man1/thinkt-projects.1
       - man/man1/thinkt-prompts-extract.1
       - man/man1/thinkt-prompts-info.1
