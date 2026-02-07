@@ -86,15 +86,8 @@ func (i *Ingester) IngestSession(ctx context.Context, projectID string, meta thi
 	}
 
 	// Delete existing entries for this session before re-ingesting
-	// This ensures we have a clean state and avoids FK constraint issues
-	// during the metadata update if the DB implementation is restrictive.
 	if _, err := i.db.ExecContext(ctx, "DELETE FROM entries WHERE session_id = ?", meta.ID); err != nil {
 		return fmt.Errorf("failed to clear old entries for session %s: %w", meta.ID, err)
-	}
-
-	// Upsert session metadata
-	if err := i.syncSessionMeta(ctx, projectID, meta); err != nil {
-		return err
 	}
 
 	reader, err := store.OpenSession(ctx, meta.ID)
@@ -104,8 +97,6 @@ func (i *Ingester) IngestSession(ctx context.Context, projectID string, meta thi
 	defer reader.Close()
 
 	// 3. Ingest entries
-	// Note: For now, we do a full re-ingest if the file changed.
-	// Future optimization: use lines_read to only append new entries.
 	count := 0
 	for {
 		entry, err := reader.ReadNext()
@@ -122,7 +113,12 @@ func (i *Ingester) IngestSession(ctx context.Context, projectID string, meta thi
 		}
 	}
 
-	// 4. Update sync state
+	// 4. Upsert session metadata with final count
+	if err := i.syncSessionMeta(ctx, projectID, meta, count); err != nil {
+		return err
+	}
+
+	// 5. Update sync state
 	return i.updateSyncState(meta, count)
 }
 
@@ -139,18 +135,19 @@ func (i *Ingester) syncProject(ctx context.Context, p thinkt.Project) error {
 	return err
 }
 
-func (i *Ingester) syncSessionMeta(ctx context.Context, projectID string, m thinkt.SessionMeta) error {
+func (i *Ingester) syncSessionMeta(ctx context.Context, projectID string, m thinkt.SessionMeta, count int) error {
 	query := `
-		INSERT INTO sessions (id, project_id, path, model, first_prompt, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO sessions (id, project_id, path, model, first_prompt, entry_count, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (id) DO UPDATE SET
 			project_id = excluded.project_id,
 			path = excluded.path,
 			model = excluded.model,
 			first_prompt = excluded.first_prompt,
+			entry_count = excluded.entry_count,
 			created_at = excluded.created_at,
 			updated_at = excluded.updated_at`
-	_, err := i.db.ExecContext(ctx, query, m.ID, projectID, m.FullPath, m.Model, m.FirstPrompt, m.CreatedAt, m.ModifiedAt)
+	_, err := i.db.ExecContext(ctx, query, m.ID, projectID, m.FullPath, m.Model, m.FirstPrompt, count, m.CreatedAt, m.ModifiedAt)
 	return err
 }
 

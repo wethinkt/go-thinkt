@@ -213,9 +213,3 @@ func init() {
 		docsCmd.Hidden = false
 	}
 }
-
-var (
-	mcpNoIndexer  bool
-	mcpAllowTools []string
-	mcpDenyTools  []string
-)

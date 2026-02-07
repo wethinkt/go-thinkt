@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -93,7 +94,7 @@ func (ms *MCPServer) registerTools() {
 	if ms.isToolAllowed("list_projects") {
 		mcp.AddTool(ms.server, &mcp.Tool{
 			Name:        "list_projects",
-			Description: "List all projects across all sources, optionally filtered by source",
+			Description: "List all projects across all sources. Supports pagination (limit/offset) and source filtering. Returns projects sorted by last modified time (newest first) by default.",
 		}, ms.handleListProjects)
 	}
 
@@ -101,7 +102,7 @@ func (ms *MCPServer) registerTools() {
 	if ms.isToolAllowed("list_sessions") {
 		mcp.AddTool(ms.server, &mcp.Tool{
 			Name:        "list_sessions",
-			Description: "List sessions for a specific project",
+			Description: "List sessions for a specific project. Supports pagination (limit/offset) and sorting (newest first).",
 		}, ms.handleListSessions)
 	}
 
@@ -109,7 +110,7 @@ func (ms *MCPServer) registerTools() {
 	if ms.isToolAllowed("get_session_metadata") {
 		mcp.AddTool(ms.server, &mcp.Tool{
 			Name:        "get_session_metadata",
-			Description: "Get session metadata and entry summaries without loading full content.",
+			Description: "Get session metadata and entry summaries without loading full content. Default limits to 50 entries and excludes checkpoints. Use offset/limit for pagination, or summary_only for just metadata.",
 		}, ms.handleGetSessionMetadata)
 	}
 
@@ -117,7 +118,7 @@ func (ms *MCPServer) registerTools() {
 	if ms.isToolAllowed("get_session_entries") {
 		mcp.AddTool(ms.server, &mcp.Tool{
 			Name:        "get_session_entries",
-			Description: "Get session entry content with pagination and filtering.",
+			Description: "Get session entry content with pagination and filtering. Defaults: limit=5, max_content_length=500, include_thinking=false. Use entry_indices to fetch specific entries by index, or roles to filter by role type.",
 		}, ms.handleGetSessionEntries)
 	}
 
@@ -174,27 +175,36 @@ type listSourcesOutput struct {
 
 type listProjectsInput struct {
 	Source string `json:"source,omitempty"` // Filter by source
+	Limit  int    `json:"limit,omitempty"`  // Max projects to return (default: 20)
+	Offset int    `json:"offset,omitempty"` // Number of projects to skip
 }
 
 type listProjectsOutput struct {
 	Projects []projectInfo `json:"projects"`
+	Total    int           `json:"total"`
+	Returned int           `json:"returned"`
 }
 
 type projectInfo struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	Path         string `json:"path"`
-	SessionCount int    `json:"session_count"`
-	Source       string `json:"source"`
-	PathExists   bool   `json:"path_exists"`
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Path         string    `json:"path"`
+	SessionCount int       `json:"session_count"`
+	Source       string    `json:"source"`
+	LastModified time.Time `json:"last_modified"`
+	PathExists   bool      `json:"path_exists"`
 }
 
 type listSessionsInput struct {
 	ProjectID string `json:"project_id"`
+	Limit     int    `json:"limit,omitempty"`  // Max sessions to return (default: 20)
+	Offset    int    `json:"offset,omitempty"` // Number of sessions to skip
 }
 
 type listSessionsOutput struct {
 	Sessions []sessionInfo `json:"sessions"`
+	Total    int           `json:"total"`
+	Returned int           `json:"returned"`
 }
 
 type sessionInfo struct {
@@ -205,19 +215,26 @@ type sessionInfo struct {
 	EntryCount int    `json:"entry_count"`
 	FileSize   int64  `json:"file_size"`
 	Source     string `json:"source"`
+	Model      string `json:"model,omitempty"`
 }
 
 type getSessionMetadataInput struct {
-	Path string `json:"path"`
+	Path         string   `json:"path"`                    // Full path to the session file (required)
+	Limit        int      `json:"limit,omitempty"`         // Max summaries to return (default: 50)
+	Offset       int      `json:"offset,omitempty"`        // Number of summaries to skip (default: 0)
+	ExcludeRoles []string `json:"exclude_roles,omitempty"` // Filter out specific roles (default: ["checkpoint"])
+	SummaryOnly  bool     `json:"summary_only,omitempty"`  // If true, don't return the entry_summary list
+	SortBy       string   `json:"sort_by,omitempty"`       // "index" (default) or "length" (largest first)
 }
 
 type getSessionMetadataOutput struct {
-	Meta         sessionMetaInfo  `json:"meta"`
-	Description  string           `json:"description,omitempty"`
-	RoleCounts   map[string]int   `json:"role_counts"`
-	EntrySummary []entrySummary   `json:"entry_summary"`
-	TotalEntries int              `json:"total_entries"`
-	TotalBytes   int              `json:"total_content_bytes"`
+	Meta         sessionMetaInfo `json:"meta"`
+	Description  string          `json:"description,omitempty"`
+	RoleCounts   map[string]int  `json:"role_counts"`
+	EntrySummary []entrySummary  `json:"entry_summary"`
+	TotalEntries int             `json:"total_entries"`
+	TotalBytes   int             `json:"total_content_bytes"`
+	Returned     int             `json:"returned_summaries"`
 }
 
 type sessionMetaInfo struct {
@@ -242,13 +259,13 @@ type entrySummary struct {
 }
 
 type getSessionEntriesInput struct {
-	Path             string   `json:"path"`
-	Limit            int      `json:"limit,omitempty"`
-	Offset           int      `json:"offset,omitempty"`
-	EntryIndices     []int    `json:"entry_indices,omitempty"`
-	Roles            []string `json:"roles,omitempty"`
-	MaxContentLength int      `json:"max_content_length,omitempty"`
-	IncludeThinking  bool     `json:"include_thinking,omitempty"`
+	Path             string   `json:"path"`                         // Full path to the session file (required)
+	Limit            int      `json:"limit,omitempty"`              // Max entries to return (default: 5)
+	Offset           int      `json:"offset,omitempty"`             // Number of entries to skip (default: 0)
+	EntryIndices     []int    `json:"entry_indices,omitempty"`      // Specific entry indices to fetch
+	Roles            []string `json:"roles,omitempty"`              // Filter to specific roles
+	MaxContentLength int      `json:"max_content_length,omitempty"` // Truncate text content (default: 500)
+	IncludeThinking  bool     `json:"include_thinking,omitempty"`   // Include thinking blocks
 }
 
 type getSessionEntriesOutput struct {
@@ -259,16 +276,16 @@ type getSessionEntriesOutput struct {
 }
 
 type entryContent struct {
-	Index         int                  `json:"index"`
-	UUID          string               `json:"uuid"`
-	Role          string               `json:"role"`
-	Timestamp     string               `json:"timestamp,omitempty"`
-	Text          string               `json:"text,omitempty"`
-	TextTruncated bool                 `json:"text_truncated,omitempty"`
-	Thinking      string               `json:"thinking,omitempty"`
-	ToolUses      []toolUseInfo        `json:"tool_uses,omitempty"`
-	ToolResults   []toolResultInfo     `json:"tool_results,omitempty"`
-	Model         string               `json:"model,omitempty"`
+	Index         int              `json:"index"`
+	UUID          string           `json:"uuid"`
+	Role          string           `json:"role"`
+	Timestamp     string           `json:"timestamp,omitempty"`
+	Text          string           `json:"text,omitempty"`
+	TextTruncated bool             `json:"text_truncated,omitempty"`
+	Thinking      string           `json:"thinking,omitempty"`
+	ToolUses      []toolUseInfo    `json:"tool_uses,omitempty"`
+	ToolResults   []toolResultInfo `json:"tool_results,omitempty"`
+	Model         string           `json:"model,omitempty"`
 }
 
 type toolUseInfo struct {
@@ -316,26 +333,75 @@ func (ms *MCPServer) handleListProjects(ctx context.Context, req *mcp.CallToolRe
 	if err != nil {
 		return nil, listProjectsOutput{}, err
 	}
+	limit := input.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	var filtered []thinkt.Project
 	if input.Source != "" {
-		filtered := make([]thinkt.Project, 0)
 		for _, p := range projects {
 			if string(p.Source) == input.Source {
 				filtered = append(filtered, p)
 			}
 		}
-		projects = filtered
+	} else {
+		filtered = projects
 	}
-	infos := make([]projectInfo, len(projects))
-	for i, p := range projects {
-		infos[i] = projectInfo{ID: p.ID, Name: p.Name, Path: p.Path, SessionCount: p.SessionCount, Source: string(p.Source), PathExists: p.PathExists}
+	sort.Slice(filtered, func(i, j int) bool { return filtered[i].LastModified.After(filtered[j].LastModified) })
+	total := len(filtered)
+	pInfos := []projectInfo{}
+	start := input.Offset
+	if start < 0 {
+		start = 0
 	}
-	output := listProjectsOutput{Projects: infos}
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}},
-	}, output, nil
+	if start < total {
+		end := start + limit
+		if end > total {
+			end = total
+		}
+		for _, p := range filtered[start:end] {
+			pInfos = append(pInfos, projectInfo{ID: p.ID, Name: p.Name, Path: p.Path, SessionCount: p.SessionCount, Source: string(p.Source), LastModified: p.LastModified, PathExists: p.PathExists})
+		}
+	}
+	output := listProjectsOutput{Projects: pInfos, Total: total, Returned: len(pInfos)}
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
 }
 
 func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRequest, input listSessionsInput) (*mcp.CallToolResult, listSessionsOutput, error) {
+	limit := input.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	start := input.Offset
+	if start < 0 {
+		start = 0
+	}
+
+	var sInfos []sessionInfo
+	var total int
+
+	// 1. Try indexer first for accurate data
+	if path := findIndexerBinary(); path != "" {
+		cmd := exec.Command(path, "sessions", "--json", input.ProjectID)
+		if output, err := cmd.Output(); err == nil {
+			var indexed []sessionInfo
+			if err := json.Unmarshal(output, &indexed); err == nil {
+				total = len(indexed)
+				if start < total {
+					end := start + limit
+					if end > total {
+						end = total
+					}
+					sInfos = indexed[start:end]
+				}
+
+				output := listSessionsOutput{Sessions: sInfos, Total: total, Returned: len(sInfos)}
+				return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
+			}
+		}
+	}
+
+	// 2. Fallback to direct source reading
 	var allSessions []thinkt.SessionMeta
 	for _, store := range ms.registry.All() {
 		sessions, err := store.ListSessions(ctx, input.ProjectID)
@@ -343,83 +409,214 @@ func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRe
 			allSessions = append(allSessions, sessions...)
 		}
 	}
-	infos := make([]sessionInfo, len(allSessions))
-	for i, s := range allSessions {
-		infos[i] = sessionInfo{ID: s.ID, Path: s.FullPath, EntryCount: s.EntryCount, FileSize: s.FileSize, Source: string(s.Source)}
-		if !s.CreatedAt.IsZero() { infos[i].CreatedAt = s.CreatedAt.Format(time.RFC3339) }
-		if !s.ModifiedAt.IsZero() { infos[i].ModifiedAt = s.ModifiedAt.Format(time.RFC3339) }
+	sort.Slice(allSessions, func(i, j int) bool { return allSessions[i].ModifiedAt.After(allSessions[j].ModifiedAt) })
+
+	total = len(allSessions)
+	sInfos = []sessionInfo{}
+	if start < total {
+		end := start + limit
+		if end > total {
+			end = total
+		}
+		for _, s := range allSessions[start:end] {
+			si := sessionInfo{ID: s.ID, Path: s.FullPath, EntryCount: s.EntryCount, FileSize: s.FileSize, Source: string(s.Source), Model: s.Model}
+			if !s.CreatedAt.IsZero() {
+				si.CreatedAt = s.CreatedAt.Format(time.RFC3339)
+			}
+			if !s.ModifiedAt.IsZero() {
+				si.ModifiedAt = s.ModifiedAt.Format(time.RFC3339)
+			}
+			sInfos = append(sInfos, si)
+		}
 	}
-	output := listSessionsOutput{Sessions: infos}
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}},
-	}, output, nil
+	output := listSessionsOutput{Sessions: sInfos, Total: total, Returned: len(sInfos)}
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
 }
 
 func (ms *MCPServer) handleGetSessionMetadata(ctx context.Context, req *mcp.CallToolRequest, input getSessionMetadataInput) (*mcp.CallToolResult, getSessionMetadataOutput, error) {
 	ls, err := tui.OpenLazySession(input.Path)
-	if err != nil { return nil, getSessionMetadataOutput{}, err }
+	if err != nil {
+		return nil, getSessionMetadataOutput{}, err
+	}
 	defer ls.Close()
 	ls.LoadAll()
 	entries := ls.Entries()
 	meta := ls.Metadata()
+	excludeSet := make(map[string]bool)
+	if len(input.ExcludeRoles) > 0 {
+		for _, r := range input.ExcludeRoles {
+			excludeSet[r] = true
+		}
+	} else {
+		excludeSet["checkpoint"] = true
+	}
 	roleCounts := make(map[string]int)
-	summaries := make([]entrySummary, len(entries))
-	totalBytes := 0
+	allSummaries := []entrySummary{}
+	totalBytes, description := 0, ""
 	for i, entry := range entries {
 		roleCounts[string(entry.Role)]++
 		contentLen := len(entry.Text)
 		hasThinking, hasToolUse, hasToolResult := false, false, false
-		preview := truncateString(entry.Text, 100)
 		for _, block := range entry.ContentBlocks {
 			switch block.Type {
-			case "thinking": hasThinking = true; contentLen += len(block.Thinking)
-			case "tool_use": hasToolUse = true
-			case "tool_result": hasToolResult = true; contentLen += len(block.ToolResult)
+			case "thinking":
+				hasThinking = true
+				contentLen += len(block.Thinking)
+			case "tool_use":
+				hasToolUse = true
+			case "tool_result":
+				hasToolResult = true
+				contentLen += len(block.ToolResult)
 			}
 		}
 		totalBytes += contentLen
-		summaries[i] = entrySummary{Index: i, Role: string(entry.Role), ContentLength: contentLen, HasThinking: hasThinking, HasToolUse: hasToolUse, HasToolResult: hasToolResult, Preview: preview}
+		if description == "" && entry.Role == thinkt.RoleUser {
+			description = truncateString(entry.Text, 200)
+		}
+		if excludeSet[string(entry.Role)] {
+			continue
+		}
+		allSummaries = append(allSummaries, entrySummary{Index: i, Role: string(entry.Role), ContentLength: contentLen, HasThinking: hasThinking, HasToolUse: hasToolUse, HasToolResult: hasToolResult, Preview: truncateString(entry.Text, 100)})
 	}
 	output := getSessionMetadataOutput{
-		Meta: sessionMetaInfo{ID: meta.ID, Path: meta.FullPath, Model: meta.Model, GitBranch: meta.GitBranch, Source: string(meta.Source)},
-		RoleCounts: roleCounts, EntrySummary: summaries, TotalEntries: len(entries), TotalBytes: totalBytes,
+		Meta:       sessionMetaInfo{ID: meta.ID, Path: meta.FullPath, Model: meta.Model, GitBranch: meta.GitBranch, Source: string(meta.Source)},
+		RoleCounts: roleCounts, TotalEntries: len(entries), TotalBytes: totalBytes, Description: description,
+		EntrySummary: []entrySummary{},
 	}
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}},
-	}, output, nil
+	if !input.SummaryOnly {
+		if input.SortBy == "length" {
+			sort.Slice(allSummaries, func(i, j int) bool { return allSummaries[i].ContentLength > allSummaries[j].ContentLength })
+		}
+		limit := input.Limit
+		if limit == 0 {
+			limit = 50
+		}
+		start := input.Offset
+		if start < 0 {
+			start = 0
+		}
+		if start < len(allSummaries) {
+			end := start + limit
+			if end > len(allSummaries) {
+				end = len(allSummaries)
+			}
+			output.EntrySummary = allSummaries[start:end]
+			output.Returned = len(output.EntrySummary)
+		}
+	}
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
 }
 
 func (ms *MCPServer) handleGetSessionEntries(ctx context.Context, req *mcp.CallToolRequest, input getSessionEntriesInput) (*mcp.CallToolResult, getSessionEntriesOutput, error) {
+	if input.Path == "" {
+		return nil, getSessionEntriesOutput{}, fmt.Errorf("path is required")
+	}
 	ls, err := tui.OpenLazySession(input.Path)
-	if err != nil { return nil, getSessionEntriesOutput{}, err }
+	if err != nil {
+		return nil, getSessionEntriesOutput{}, err
+	}
 	defer ls.Close()
 	ls.LoadAll()
 	allEntries := ls.Entries()
-	limit := input.Limit
-	if limit == 0 { limit = 5 }
-	maxLen := input.MaxContentLength
-	if maxLen == 0 { maxLen = 500 }
-	var resultEntries []entryContent
-	for i, entry := range allEntries {
-		if len(resultEntries) >= limit { break }
-		ec := entryContent{Index: i, UUID: entry.UUID, Role: string(entry.Role), Model: entry.Model, Text: truncateString(entry.Text, maxLen)}
-		resultEntries = append(resultEntries, ec)
+
+	roleFilter := make(map[string]bool)
+	for _, r := range input.Roles {
+		roleFilter[r] = true
 	}
-	output := getSessionEntriesOutput{Entries: resultEntries, Total: len(allEntries), Returned: len(resultEntries)}
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}},
-	}, output, nil
+	indexFilter := make(map[int]bool)
+	for _, idx := range input.EntryIndices {
+		indexFilter[idx] = true
+	}
+
+	limit := input.Limit
+	if limit == 0 {
+		limit = 5
+	}
+	maxLen := input.MaxContentLength
+	if maxLen == 0 {
+		maxLen = 500
+	}
+
+	filtered := []entryContent{}
+	for i, entry := range allEntries {
+		if len(roleFilter) > 0 && !roleFilter[string(entry.Role)] {
+			continue
+		}
+		if len(indexFilter) > 0 && !indexFilter[i] {
+			continue
+		}
+
+		ec := entryContent{Index: i, UUID: entry.UUID, Role: string(entry.Role), Model: entry.Model, ToolUses: []toolUseInfo{}, ToolResults: []toolResultInfo{}}
+		if !entry.Timestamp.IsZero() {
+			ec.Timestamp = entry.Timestamp.Format(time.RFC3339)
+		}
+		ec.Text = truncateString(entry.Text, maxLen)
+		if len(entry.Text) > maxLen {
+			ec.TextTruncated = true
+		}
+
+		for _, b := range entry.ContentBlocks {
+			switch b.Type {
+			case "thinking":
+				if input.IncludeThinking {
+					ec.Thinking = truncateString(b.Thinking, maxLen)
+				}
+			case "tool_use":
+				ec.ToolUses = append(ec.ToolUses, toolUseInfo{ID: b.ToolUseID, Name: b.ToolName, Input: truncateString(fmt.Sprintf("%v", b.ToolInput), maxLen)})
+			case "tool_result":
+				ec.ToolResults = append(ec.ToolResults, toolResultInfo{ToolUseID: b.ToolUseID, IsError: b.IsError, Result: truncateString(b.ToolResult, maxLen)})
+			}
+		}
+		filtered = append(filtered, ec)
+	}
+
+	totalFiltered := len(filtered)
+	start := input.Offset
+	if start < 0 {
+		start = 0
+	}
+
+	result := []entryContent{}
+	hasMore := false
+
+	if len(indexFilter) > 0 {
+		result = filtered
+	} else if start < totalFiltered {
+		end := start + limit
+		if end < totalFiltered {
+			hasMore = true
+		} else {
+			end = totalFiltered
+		}
+		result = filtered[start:end]
+	}
+
+	output := getSessionEntriesOutput{
+		Entries: result, Total: len(allEntries), Returned: len(result), HasMore: hasMore,
+	}
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
 }
 
 func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallToolRequest, input searchSessionsInput) (*mcp.CallToolResult, any, error) {
 	path := findIndexerBinary()
+	if path == "" {
+		return nil, nil, fmt.Errorf("indexer not found")
+	}
 	args := []string{"search", "--json", input.Query}
-	if input.Project != "" { args = append(args, "--project", input.Project) }
-	if input.Limit > 0 { args = append(args, "--limit", fmt.Sprintf("%d", input.Limit)) }
-	if input.LimitPerSession > 0 { args = append(args, "--limit-per-session", fmt.Sprintf("%d", input.LimitPerSession)) }
+	if input.Project != "" {
+		args = append(args, "--project", input.Project)
+	}
+	if input.Limit > 0 {
+		args = append(args, "--limit", fmt.Sprintf("%d", input.Limit))
+	}
+	if input.LimitPerSession > 0 {
+		args = append(args, "--limit-per-session", fmt.Sprintf("%d", input.LimitPerSession))
+	}
 	cmd := exec.Command(path, args...)
 	out, err := cmd.Output()
-	if err != nil { return nil, nil, err }
+	if err != nil {
+		return nil, nil, err
+	}
 	var res any
 	json.Unmarshal(out, &res)
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(out)}}}, res, nil
@@ -427,16 +624,23 @@ func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallTool
 
 func (ms *MCPServer) handleGetUsageStats(ctx context.Context, req *mcp.CallToolRequest, _ getUsageStatsInput) (*mcp.CallToolResult, any, error) {
 	path := findIndexerBinary()
+	if path == "" {
+		return nil, nil, fmt.Errorf("indexer not found")
+	}
 	cmd := exec.Command(path, "stats", "--json")
 	out, err := cmd.Output()
-	if err != nil { return nil, nil, err }
+	if err != nil {
+		return nil, nil, err
+	}
 	var res any
 	json.Unmarshal(out, &res)
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(out)}}}, res, nil
 }
 
 func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen { return s }
+	if maxLen <= 0 || len(s) <= maxLen {
+		return s
+	}
 	return s[:maxLen-3] + "..."
 }
 
@@ -447,7 +651,9 @@ func (ms *MCPServer) RunStdio(ctx context.Context) error {
 func (ms *MCPServer) RunHTTP(ctx context.Context, host string, port int) error {
 	sseHandler := mcp.NewSSEHandler(func(req *http.Request) *mcp.Server { return ms.server }, nil)
 	var handler http.Handler = sseHandler
-	if ms.authenticator.config.Mode != AuthModeNone { handler = ms.authenticator.Middleware(sseHandler) }
+	if ms.authenticator.config.Mode != AuthModeNone {
+		handler = ms.authenticator.Middleware(sseHandler)
+	}
 	addr := fmt.Sprintf("%s:%d", host, port)
 	srv := &http.Server{Addr: addr, Handler: handler}
 	ln, _ := net.Listen("tcp", addr)

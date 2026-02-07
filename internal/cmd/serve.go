@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -31,12 +32,15 @@ var (
 	serveHTTPLog  string
 )
 
-// Serve MCP subcommand flags
+// Serve mcp flags
 var (
-	mcpStdio bool
-	mcpPort  int
-	mcpHost  string
-	mcpToken string // Bearer token for HTTP transport auth
+	mcpStdio      bool
+	mcpPort       int
+	mcpHost       string
+	mcpToken      string
+	mcpNoIndexer  bool
+	mcpAllowTools []string
+	mcpDenyTools  []string
 )
 
 // Serve API subcommand flags
@@ -339,13 +343,25 @@ func runServeMCP(cmd *cobra.Command, args []string) error {
 	if !mcpNoIndexer {
 		if indexerPath := findIndexerBinary(); indexerPath != "" {
 			tuilog.Log.Info("Starting indexer sidecar", "path", indexerPath)
-			fmt.Fprintln(os.Stderr, "Starting indexer sidecar...")
+
+			// Build arguments for indexer
+			indexerArgs := []string{"watch", "--quiet"}
+			if logPath != "" {
+				// Derive indexer log path from main log path
+				// e.g. thinkt.log -> thinkt.indexer.log
+				ext := filepath.Ext(logPath)
+				base := strings.TrimSuffix(logPath, ext)
+				indexerLog := base + ".indexer" + ext
+				indexerArgs = append(indexerArgs, "--log", indexerLog)
+				tuilog.Log.Info("Indexer sidecar logging enabled", "path", indexerLog)
+			}
+
 			// Run watch in background
-			indexerCmd := exec.Command(indexerPath, "watch", "--quiet")
+			indexerCmd := exec.Command(indexerPath, indexerArgs...)
 			// Ensure it doesn't interfere with stdio if we are in stdio mode
 			indexerCmd.Stdout = os.Stderr
 			indexerCmd.Stderr = os.Stderr
-			
+
 			if err := indexerCmd.Start(); err != nil {
 				tuilog.Log.Error("failed to start indexer sidecar", "error", err)
 			} else {
