@@ -335,6 +335,29 @@ func runServeMCP(cmd *cobra.Command, args []string) error {
 		defer tuilog.Log.Close()
 	}
 
+	// Start indexer sidecar if not disabled
+	if !mcpNoIndexer {
+		if indexerPath := findIndexerBinary(); indexerPath != "" {
+			tuilog.Log.Info("Starting indexer sidecar", "path", indexerPath)
+			fmt.Fprintln(os.Stderr, "Starting indexer sidecar...")
+			// Run watch in background
+			indexerCmd := exec.Command(indexerPath, "watch", "--quiet")
+			// Ensure it doesn't interfere with stdio if we are in stdio mode
+			indexerCmd.Stdout = os.Stderr
+			indexerCmd.Stderr = os.Stderr
+			
+			if err := indexerCmd.Start(); err != nil {
+				tuilog.Log.Error("failed to start indexer sidecar", "error", err)
+			} else {
+				// Kill indexer when we exit
+				defer func() {
+					tuilog.Log.Info("Stopping indexer sidecar")
+					indexerCmd.Process.Kill()
+				}()
+			}
+		}
+	}
+
 	// Determine transport mode: stdio (default) or HTTP
 	useStdio := mcpStdio || mcpPort == 0
 
@@ -367,9 +390,20 @@ func runServeMCP(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Create MCP server with authentication
+	// Configure tool filtering
+	allowTools := mcpAllowTools
+	if envAllow := os.Getenv("THINKT_MCP_ALLOW_TOOLS"); envAllow != "" && len(allowTools) == 0 {
+		allowTools = strings.Split(envAllow, ",")
+	}
+	denyTools := mcpDenyTools
+	if envDeny := os.Getenv("THINKT_MCP_DENY_TOOLS"); envDeny != "" && len(denyTools) == 0 {
+		denyTools = strings.Split(envDeny, ",")
+	}
+
+	// Create MCP server with authentication and filtering
 	tuilog.Log.Info("Creating MCP server")
 	mcpServer := server.NewMCPServerWithAuth(registry, authConfig)
+	mcpServer.SetToolFilters(allowTools, denyTools)
 
 	if useStdio {
 		// Stdio transport
