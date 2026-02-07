@@ -54,6 +54,7 @@ type Config struct {
 	Host        string
 	Quiet       bool     // suppress HTTP request logging
 	HTTPLog     string   // path to HTTP access log file (empty = stdout, "-" = discard unless Quiet)
+	CORSOrigin  string   // Access-Control-Allow-Origin value (default "*")
 	httpLogFile *os.File // internal: opened log file handle
 }
 
@@ -164,7 +165,7 @@ func (s *HTTPServer) setupRouter() chi.Router {
 	// Middleware
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
-	r.Use(corsMiddleware)
+	r.Use(corsMiddleware(s.config.CORSOrigin))
 
 	// Authentication middleware (if enabled)
 	if s.authenticator.IsEnabled() {
@@ -245,20 +246,25 @@ func (s *HTTPServer) ListenAndServe(ctx context.Context) error {
 	return srv.Serve(ln)
 }
 
-// corsMiddleware adds CORS headers for local development.
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+// corsMiddleware returns middleware that adds CORS headers.
+func corsMiddleware(origin string) func(http.Handler) http.Handler {
+	if origin == "" {
+		origin = "*"
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
 
-		next.ServeHTTP(w, r)
-	})
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // CombinedServer serves both REST API and MCP on the same port.
@@ -291,7 +297,7 @@ func NewCombinedServer(registry *thinkt.StoreRegistry, config Config) *CombinedS
 
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
-	r.Use(corsMiddleware)
+	r.Use(corsMiddleware(config.CORSOrigin))
 
 	// Mount HTTP API routes
 	r.Route("/api/v1", func(r chi.Router) {

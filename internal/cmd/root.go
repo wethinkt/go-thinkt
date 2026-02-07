@@ -149,6 +149,9 @@ func init() {
 	// Theme command flags
 	themeCmd.Flags().BoolVar(&outputJSON, "json", false, "output theme as JSON")
 
+	// Serve command flags shared across subcommands
+	serveCmd.PersistentFlags().StringVar(&serveCORSOrigin, "cors-origin", "", "CORS Access-Control-Allow-Origin (default \"*\", env: THINKT_CORS_ORIGIN)")
+
 	// Serve command flags (non-persistent; only apply to 'serve' itself)
 	// Subcommands that need these define their own (mcp, lite)
 	serveCmd.Flags().IntVarP(&servePort, "port", "p", server.DefaultPortServe, "server port")

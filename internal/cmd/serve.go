@@ -24,12 +24,13 @@ import (
 
 // Serve command flags
 var (
-	servePort     int
-	serveLitePort int
-	serveHost     string
-	serveNoOpen   bool
-	serveQuiet    bool
-	serveHTTPLog  string
+	servePort       int
+	serveLitePort   int
+	serveHost       string
+	serveNoOpen     bool
+	serveQuiet      bool
+	serveHTTPLog    string
+	serveCORSOrigin string
 )
 
 // Serve mcp subcommand flags
@@ -208,11 +209,12 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 
 	// HTTP mode: start HTTP server
 	config := server.Config{
-		Mode:    server.ModeHTTPOnly,
-		Port:    servePort,
-		Host:    serveHost,
-		Quiet:   serveQuiet,
-		HTTPLog: serveHTTPLog,
+		Mode:       server.ModeHTTPOnly,
+		Port:       servePort,
+		Host:       serveHost,
+		Quiet:      serveQuiet,
+		HTTPLog:    serveHTTPLog,
+		CORSOrigin: resolveCORSOrigin(),
 	}
 	srv := server.NewHTTPServerWithAuth(registry, config, authConfig)
 	for _, ts := range registry.TeamStores() {
@@ -277,11 +279,12 @@ func runServeLite(cmd *cobra.Command, args []string) error {
 
 	// HTTP mode: start HTTP server
 	config := server.Config{
-		Mode:    server.ModeHTTPOnly,
-		Port:    serveLitePort,
-		Host:    serveHost,
-		Quiet:   serveQuiet,
-		HTTPLog: serveHTTPLog,
+		Mode:       server.ModeHTTPOnly,
+		Port:       serveLitePort,
+		Host:       serveHost,
+		Quiet:      serveQuiet,
+		HTTPLog:    serveHTTPLog,
+		CORSOrigin: resolveCORSOrigin(),
 	}
 	srv := server.NewHTTPServer(registry, config)
 	for _, ts := range registry.TeamStores() {
@@ -441,6 +444,17 @@ func runServeMCP(cmd *cobra.Command, args []string) error {
 	// HTTP transport (SSE)
 	tuilog.Log.Info("Running MCP server on HTTP", "host", mcpHost, "port", mcpPort)
 	return mcpServer.RunHTTP(ctx, mcpHost, mcpPort)
+}
+
+// resolveCORSOrigin returns the CORS origin from the CLI flag or env var, defaulting to "*".
+func resolveCORSOrigin() string {
+	if serveCORSOrigin != "" {
+		return serveCORSOrigin
+	}
+	if v := os.Getenv("THINKT_CORS_ORIGIN"); v != "" {
+		return v
+	}
+	return "*"
 }
 
 // openBrowser opens a URL in the default browser.
