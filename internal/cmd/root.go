@@ -118,6 +118,8 @@ func init() {
 	sessionsSummaryCmd.Flags().BoolVar(&sessionSortDesc, "desc", false, "sort descending (default for time)")
 	sessionsSummaryCmd.Flags().Bool("asc", false, "sort ascending (default for name)")
 	sessionsDeleteCmd.Flags().BoolVarP(&sessionForceDelete, "force", "f", false, "skip confirmation prompt")
+	sessionsCmd.Flags().BoolVarP(&sessionViewAll, "all", "a", false, "view all sessions in time order")
+	sessionsCmd.Flags().BoolVar(&sessionViewRaw, "raw", false, "output raw text without decoration/rendering")
 	sessionsViewCmd.Flags().BoolVarP(&sessionViewAll, "all", "a", false, "view all sessions in time order")
 	sessionsViewCmd.Flags().BoolVar(&sessionViewRaw, "raw", false, "output raw text without decoration/rendering")
 

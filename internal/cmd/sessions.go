@@ -28,8 +28,10 @@ var (
 
 var sessionsCmd = &cobra.Command{
 	Use:   "sessions",
-	Short: "List and manage sessions across all sources",
-	Long: `List and manage sessions from Kimi, Claude, and other sources.
+	Short: "View and manage sessions across all sources",
+	Long: `View and manage sessions from Kimi, Claude, and other sources.
+
+Running without a subcommand launches the interactive session viewer.
 
 Project selection:
   - In a project directory: automatically uses that project
@@ -40,14 +42,15 @@ Project selection:
 Use --source to filter by source (kimi, claude).
 
 Examples:
+  thinkt sessions                   # Interactive viewer (same as view)
+  thinkt sessions view              # Interactive picker
   thinkt sessions list              # Auto-detect or picker
   thinkt sessions list --pick       # Force project picker
   thinkt sessions list -p ./myproject
   thinkt sessions summary -p ./myproject --source kimi
-  thinkt sessions view              # Interactive picker
   thinkt sessions delete -p ./myproject <session-id>
   thinkt sessions copy -p ./myproject <session-id> ./backup`,
-	RunE: runSessionsList,
+	RunE: runSessionsView,
 }
 
 var sessionsListCmd = &cobra.Command{
