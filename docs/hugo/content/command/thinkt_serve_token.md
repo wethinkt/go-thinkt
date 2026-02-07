@@ -36,7 +36,8 @@ thinkt serve token [flags]
 ### Options inherited from parent commands
 
 ```
-  -v, --verbose   verbose output
+      --cors-origin string   CORS Access-Control-Allow-Origin (default "*", env: THINKT_CORS_ORIGIN)
+  -v, --verbose              verbose output
 ```
 
 ### SEE ALSO

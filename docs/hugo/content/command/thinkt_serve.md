@@ -30,14 +30,15 @@ thinkt serve [flags]
 ### Options
 
 ```
-  -h, --help              help for serve
-      --host string       server host (default "localhost")
-      --http-log string   write HTTP access log to file (default: stdout, unless --quiet)
-      --log string        write debug log to file
-      --no-open           don't auto-open browser
-  -p, --port int          server port (default 8784)
-  -q, --quiet             suppress HTTP request logging (errors still go to stderr)
-      --token string      bearer token for API authentication (default: use THINKT_API_TOKEN env var)
+      --cors-origin string   CORS Access-Control-Allow-Origin (default "*", env: THINKT_CORS_ORIGIN)
+  -h, --help                 help for serve
+      --host string          server host (default "localhost")
+      --http-log string      write HTTP access log to file (default: stdout, unless --quiet)
+      --log string           write debug log to file
+      --no-open              don't auto-open browser
+  -p, --port int             server port (default 8784)
+  -q, --quiet                suppress HTTP request logging (errors still go to stderr)
+      --token string         bearer token for API authentication (default: use THINKT_API_TOKEN env var)
 ```
 
 ### Options inherited from parent commands
