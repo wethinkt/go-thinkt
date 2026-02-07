@@ -71,9 +71,19 @@ func (w *Watcher) watchProject(p thinkt.Project) error {
 
 	// Track which directories we are watching to avoid duplicates
 	watchedDirs := make(map[string]bool)
-
 	for _, s := range sessions {
-		dir := filepath.Dir(s.FullPath)
+		// Resolve symlinks to get the "real" physical path
+		realPath, err := filepath.EvalSymlinks(s.FullPath)
+		if err != nil {
+			realPath = s.FullPath // Fallback to original if resolution fails
+		}
+
+		dir := filepath.Dir(realPath)
+
+		// Exclude internal/hidden directories to avoid recursive loops
+		if strings.Contains(dir, ".thinkt") || strings.Contains(dir, ".git") {
+			continue
+		}
 		if !watchedDirs[dir] {
 			if err := w.watcher.Add(dir); err != nil {
 				log.Printf("Failed to watch directory %s: %v", dir, err)
@@ -129,7 +139,13 @@ func (w *Watcher) watchLoop(ctx context.Context) {
 }
 
 func (w *Watcher) handleFileChange(path string) {
-	log.Printf("File changed, re-indexing: %s", path)
+	// Normalize incoming path
+	realPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		realPath = path
+	}
+
+	log.Printf("File changed, re-indexing: %s", realPath)
 
 	ctx := context.Background()
 	projects, _ := w.registry.ListAllProjects(ctx)
@@ -139,7 +155,13 @@ func (w *Watcher) handleFileChange(path string) {
 		sessions, _ := store.ListSessions(ctx, p.ID)
 
 		for _, s := range sessions {
-			if s.FullPath == path {
+			// Compare normalized paths
+			sRealPath, _ := filepath.EvalSymlinks(s.FullPath)
+			if sRealPath == "" {
+				sRealPath = s.FullPath
+			}
+
+			if sRealPath == realPath {
 				if err := w.ingester.IngestSession(ctx, p.ID, s); err != nil {
 					log.Printf("Failed to re-index session %s: %v", s.ID, err)
 				}
