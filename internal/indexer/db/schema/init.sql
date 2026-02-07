@@ -1,4 +1,4 @@
--- Schema for thinkt DuckDB indexer
+-- Schema for thinkt DuckDB indexer (Privacy-first Light Index)
 
 -- Tracks which files we've indexed and how far we've read
 CREATE TABLE IF NOT EXISTS sync_state (
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS projects (
 -- Session metadata
 CREATE TABLE IF NOT EXISTS sessions (
     id            VARCHAR PRIMARY KEY,
-    project_id    VARCHAR, -- Linked to projects.id
+    project_id    VARCHAR,
     path          VARCHAR,
     model         VARCHAR,
     first_prompt  TEXT,
@@ -30,13 +30,23 @@ CREATE TABLE IF NOT EXISTS sessions (
     updated_at    TIMESTAMP
 );
 
--- Conversation entries
+-- Conversation entries (Metadata only, no private content)
 CREATE TABLE IF NOT EXISTS entries (
     uuid          VARCHAR PRIMARY KEY,
-    session_id    VARCHAR, -- Linked to sessions.id
+    session_id    VARCHAR,
     timestamp     TIMESTAMP,
     role          VARCHAR,
-    body          JSON 
+    
+    -- Extracted Metrics
+    input_tokens  INTEGER,
+    output_tokens INTEGER,
+    tool_name     VARCHAR,
+    is_error      BOOLEAN,
+    word_count    INTEGER,
+    thinking_len  INTEGER,
+    
+    -- Reference to source
+    line_number   INTEGER
 );
 
 -- Performance Indexes

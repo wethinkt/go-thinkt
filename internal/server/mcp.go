@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -81,6 +83,45 @@ func (ms *MCPServer) registerTools() {
 		Name:        "get_session_entries",
 		Description: "Get session entry content with pagination and filtering. Defaults: limit=5, max_content_length=500, include_thinking=false. Use entry_indices to fetch specific entries by index, or roles to filter by role type.",
 	}, ms.handleGetSessionEntries)
+
+	// Register indexer tools if binary is available
+	if indexerPath := findIndexerBinary(); indexerPath != "" {
+		tuilog.Log.Info("NewMCPServer: thinkt-indexer found, registering search and stats tools", "path", indexerPath)
+
+		// search_sessions
+		mcp.AddTool(ms.server, &mcp.Tool{
+			Name:        "search_sessions",
+			Description: "Search for text across all indexed sessions using the DuckDB indexer. Results are limited to 50 total and 2 per session by default to reduce noise. Use limit and limit_per_session to adjust.",
+		}, ms.handleSearchSessions)
+
+		// get_usage_stats
+		mcp.AddTool(ms.server, &mcp.Tool{
+			Name:        "get_usage_stats",
+			Description: "Get aggregate usage statistics including total tokens, session counts, and most used tools across all projects.",
+		}, ms.handleGetUsageStats)
+	} else {
+		tuilog.Log.Info("NewMCPServer: thinkt-indexer not found, search tools will be unavailable")
+	}
+}
+
+// findIndexerBinary attempts to locate the thinkt-indexer binary.
+// It checks the current executable's directory first, then falls back to PATH.
+func findIndexerBinary() string {
+	// 1. Check same directory as current executable
+	if execPath, err := os.Executable(); err == nil {
+		binDir := filepath.Dir(execPath)
+		indexerPath := filepath.Join(binDir, "thinkt-indexer")
+		if _, err := os.Stat(indexerPath); err == nil {
+			return indexerPath
+		}
+	}
+
+	// 2. Check system PATH
+	if path, err := exec.LookPath("thinkt-indexer"); err == nil {
+		return path
+	}
+
+	return ""
 }
 
 // Tool input/output types
@@ -211,6 +252,16 @@ type toolResultInfo struct {
 	Result    string `json:"result,omitempty"` // Result text (possibly truncated)
 	IsError   bool   `json:"is_error,omitempty"`
 }
+
+type searchSessionsInput struct {
+	Query           string `json:"query"`                       // Text to search for (required)
+	Project         string `json:"project,omitempty"`           // Optional project name filter
+	Source          string `json:"source,omitempty"`            // Optional source filter (kimi, claude)
+	Limit           int    `json:"limit,omitempty"`             // Max total results (default 50)
+	LimitPerSession int    `json:"limit_per_session,omitempty"` // Max results per session (default 2)
+}
+
+type getUsageStatsInput struct{}
 
 // Tool handlers
 
@@ -719,4 +770,75 @@ func formatJSON(v any) string {
 		return fmt.Sprintf("%v", v)
 	}
 	return string(b)
+}
+
+func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallToolRequest, input searchSessionsInput) (*mcp.CallToolResult, any, error) {
+	tuilog.Log.Info("handleSearchSessions: called", "query", input.Query)
+	if input.Query == "" {
+		return nil, nil, fmt.Errorf("query is required")
+	}
+
+	indexerPath := findIndexerBinary()
+	if indexerPath == "" {
+		return nil, nil, fmt.Errorf("thinkt-indexer binary not found")
+	}
+
+	args := []string{"search", "--json", input.Query}
+	if input.Project != "" {
+		args = append(args, "--project", input.Project)
+	}
+	if input.Source != "" {
+		args = append(args, "--source", input.Source)
+	}
+	if input.Limit > 0 {
+		args = append(args, "--limit", fmt.Sprintf("%d", input.Limit))
+	}
+	if input.LimitPerSession > 0 {
+		args = append(args, "--limit-per-session", fmt.Sprintf("%d", input.LimitPerSession))
+	}
+
+	cmd := exec.Command(indexerPath, args...)
+	output, err := cmd.Output()
+	if err != nil {
+		tuilog.Log.Error("handleSearchSessions: indexer failed", "error", err)
+		return nil, nil, fmt.Errorf("indexer failed: %w", err)
+	}
+
+	var results any
+	if err := json.Unmarshal(output, &results); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse indexer output: %w", err)
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: string(output)},
+		},
+	}, results, nil
+}
+
+func (ms *MCPServer) handleGetUsageStats(ctx context.Context, req *mcp.CallToolRequest, _ getUsageStatsInput) (*mcp.CallToolResult, any, error) {
+	tuilog.Log.Info("handleGetUsageStats: called")
+
+	indexerPath := findIndexerBinary()
+	if indexerPath == "" {
+		return nil, nil, fmt.Errorf("thinkt-indexer binary not found")
+	}
+
+	cmd := exec.Command(indexerPath, "stats", "--json")
+	output, err := cmd.Output()
+	if err != nil {
+		tuilog.Log.Error("handleGetUsageStats: indexer failed", "error", err)
+		return nil, nil, fmt.Errorf("indexer failed: %w", err)
+	}
+
+	var results any
+	if err := json.Unmarshal(output, &results); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse indexer output: %w", err)
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: string(output)},
+		},
+	}, results, nil
 }

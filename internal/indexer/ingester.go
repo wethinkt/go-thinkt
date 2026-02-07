@@ -2,10 +2,10 @@ package indexer
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/indexer/db"
@@ -116,10 +116,10 @@ func (i *Ingester) IngestSession(ctx context.Context, projectID string, meta thi
 			return fmt.Errorf("error reading entry: %w", err)
 		}
 
-		if err := i.upsertEntry(ctx, meta.ID, *entry); err != nil {
+		count++ // Increment before upsert to use as 1-based line number
+		if err := i.upsertEntry(ctx, meta.ID, *entry, count); err != nil {
 			return err
 		}
-		count++
 	}
 
 	// 4. Update sync state
@@ -154,21 +154,53 @@ func (i *Ingester) syncSessionMeta(ctx context.Context, projectID string, m thin
 	return err
 }
 
-func (i *Ingester) upsertEntry(ctx context.Context, sessionID string, entry thinkt.Entry) error {
-	body, err := json.Marshal(entry)
-	if err != nil {
-		return err
+func (i *Ingester) upsertEntry(ctx context.Context, sessionID string, entry thinkt.Entry, lineNum int) error {
+	// Extract metrics
+	var inputTokens, outputTokens int
+	if entry.Usage != nil {
+		inputTokens = entry.Usage.InputTokens
+		outputTokens = entry.Usage.OutputTokens
 	}
 
+	var toolName string
+	var isError bool
+	var thinkingLen int
+	for _, b := range entry.ContentBlocks {
+		switch b.Type {
+		case "tool_use":
+			toolName = b.ToolName
+		case "tool_result":
+			isError = b.IsError
+		case "thinking":
+			thinkingLen += len(b.Thinking)
+		}
+	}
+
+	wordCount := len(strings.Fields(entry.Text))
+
 	query := `
-		INSERT INTO entries (uuid, session_id, timestamp, role, body)
-		VALUES (?, ?, ?, ?, ?)
+		INSERT INTO entries (
+			uuid, session_id, timestamp, role, 
+			input_tokens, output_tokens, tool_name, is_error, word_count, thinking_len,
+			line_number
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (uuid) DO UPDATE SET
 			session_id = excluded.session_id,
 			timestamp = excluded.timestamp,
 			role = excluded.role,
-			body = excluded.body`
-	_, err = i.db.ExecContext(ctx, query, entry.UUID, sessionID, entry.Timestamp, string(entry.Role), body)
+			input_tokens = excluded.input_tokens,
+			output_tokens = excluded.output_tokens,
+			tool_name = excluded.tool_name,
+			is_error = excluded.is_error,
+			word_count = excluded.word_count,
+			thinking_len = excluded.thinking_len,
+			line_number = excluded.line_number`
+	_, err := i.db.ExecContext(ctx, query,
+		entry.UUID, sessionID, entry.Timestamp, string(entry.Role),
+		inputTokens, outputTokens, toolName, isError, wordCount, thinkingLen,
+		lineNum,
+	)
 	return err
 }
 
