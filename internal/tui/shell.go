@@ -102,8 +102,31 @@ func NewShell(initial InitialPage) *Shell {
 	}
 }
 
+// NewShellWithSessions creates a Shell that starts with a pre-loaded session picker.
+// Back navigation from the viewer returns to the picker via PopPageMsg.
+// Cancelling the picker exits the program.
+func NewShellWithSessions(sessions []thinkt.SessionMeta) *Shell {
+	s := &Shell{
+		stack:   NewNavStack(),
+		loading: false,
+	}
+	picker := NewSessionPickerModel(sessions, nil)
+	s.stack.items = append(s.stack.items, NavItem{
+		Title: "Sessions",
+		Model: picker,
+	})
+	return s
+}
+
 func (s *Shell) Init() tea.Cmd {
 	tuilog.Log.Info("Shell.Init: starting")
+	if s.registry == nil {
+		// Pre-loaded shell (e.g. NewShellWithSessions), init the current page
+		if current, ok := s.stack.Peek(); ok {
+			return current.Model.Init()
+		}
+		return nil
+	}
 	return loadSourcesCmd(s.registry)
 }
 

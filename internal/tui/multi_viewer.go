@@ -41,10 +41,6 @@ type MultiViewerModel struct {
 
 	// Entry type filters
 	filters RoleFilterSet
-
-	// When true, Back/ESC quits the program instead of emitting PopPageMsg.
-	// Used when the viewer runs as a standalone Bubble Tea program (not in the Shell).
-	standalone bool
 }
 
 // multiSessionLoadedMsg is sent when a session has been loaded (initial open).
@@ -411,14 +407,11 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Back):
-			// Close all sessions and go back
+			// Close all sessions and go back to previous page
 			for _, s := range m.sessions {
 				if s != nil {
 					s.Close()
 				}
-			}
-			if m.standalone {
-				return m, tea.Quit
 			}
 			return m, func() tea.Msg { return PopPageMsg{} }
 		case key.Matches(msg, m.keys.Quit):
