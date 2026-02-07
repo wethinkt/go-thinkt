@@ -102,9 +102,18 @@ homebrew_casks:
       - man/man1/thinkt-completion-powershell.1
       - man/man1/thinkt-completion-zsh.1
       - man/man1/thinkt-completion.1
+      - man/man1/thinkt-docs-man.1
+      - man/man1/thinkt-docs-markdown.1
+      - man/man1/thinkt-docs.1
+      - man/man1/thinkt-indexer-help.1
+      - man/man1/thinkt-indexer-search.1
+      - man/man1/thinkt-indexer-sessions.1
+      - man/man1/thinkt-indexer-stats.1
+      - man/man1/thinkt-indexer-sync.1
+      - man/man1/thinkt-indexer-version.1
+      - man/man1/thinkt-indexer-watch.1
       - man/man1/thinkt-indexer.1
       - man/man1/thinkt-projects-copy.1
-      - man/man1/thinkt-projects-delete.1
       - man/man1/thinkt-projects-list.1
       - man/man1/thinkt-projects-summary.1
       - man/man1/thinkt-projects-tree.1

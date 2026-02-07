@@ -19,7 +19,6 @@ Examples:
   thinkt projects list --short         # List paths only
   thinkt projects summary              # Detailed summary with session names
   thinkt projects tree                 # Tree view
-  thinkt projects delete ./myproj      # Delete a project
 
 ```
 thinkt projects [flags]
@@ -42,7 +41,6 @@ thinkt projects [flags]
 
 * [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
 * [thinkt projects copy](thinkt_projects_copy.md)	 - Copy project sessions to a target directory
-* [thinkt projects delete](thinkt_projects_delete.md)	 - Delete a project and all its sessions
 * [thinkt projects list](thinkt_projects_list.md)	 - List projects from all sources
 * [thinkt projects summary](thinkt_projects_summary.md)	 - Show detailed project summary
 * [thinkt projects tree](thinkt_projects_tree.md)	 - Show projects in a tree view

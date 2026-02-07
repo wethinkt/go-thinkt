@@ -151,6 +151,12 @@ tasks:
   # Documentation
   ###############################################################################
 
+  docs:build:
+    desc: Build documentation pages
+    deps:
+      - docs:man:build
+      - docs:md:build
+
   docs:clean:
     desc: Cleans documentation pages
     deps:

@@ -112,7 +112,6 @@ thinkt projects summary ./myproject   # Specific project
 
 ```bash
 thinkt projects copy ./myproject ./backup    # Copy all sessions
-thinkt projects delete ./myproject           # Delete project (with confirmation)
 ```
 
 **Reference:** [thinkt projects](/command/thinkt_projects)

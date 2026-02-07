@@ -22,7 +22,6 @@ var (
 	summaryTemplate string
 	sortBy          string
 	sortDesc        bool
-	forceDelete     bool
 	projectSources  []string // --source flag (can be specified multiple times)
 	withSessions    bool     // --with-sessions flag for summary
 	shortFormat     bool     // --short flag for path-only output
@@ -41,8 +40,7 @@ Examples:
   thinkt projects list                 # List detailed columns
   thinkt projects list --short         # List paths only
   thinkt projects summary              # Detailed summary with session names
-  thinkt projects tree                 # Tree view
-  thinkt projects delete ./myproj      # Delete a project`,
+  thinkt projects tree                 # Tree view`,
 	RunE: runProjectsView, // Default to interactive view
 }
 
@@ -93,26 +91,6 @@ var projectsTreeCmd = &cobra.Command{
 	RunE:  runProjectsTree,
 }
 
-var projectsDeleteCmd = &cobra.Command{
-	Use:   "delete <project-path>",
-	Short: "Delete a project and all its sessions",
-	Long: `Delete a project directory and all session data within it.
-
-The project-path can be:
-  - Full project path (e.g., /Users/evan/myproject)
-  - Path relative to current directory
-
-Before deletion, shows the number of sessions and last modified time,
-then prompts for confirmation. Use --force to skip the confirmation.
-
-Examples:
-  thinkt projects delete /Users/evan/myproject
-  thinkt projects delete ./myproject
-  thinkt projects delete --force /Users/evan/myproject`,
-	Args: cobra.ExactArgs(1),
-	RunE: runProjectsDelete,
-}
-
 var projectsCopyCmd = &cobra.Command{
 	Use:   "copy <project-path> <target-dir>",
 	Short: "Copy project sessions to a target directory",
@@ -146,15 +124,11 @@ func init() {
 	projectsSummaryCmd.Flags().Bool("asc", false, "sort ascending (default for name)")
 	projectsSummaryCmd.Flags().BoolVar(&withSessions, "with-sessions", false, "include session names in output")
 
-	// Delete command flags
-	projectsDeleteCmd.Flags().BoolVarP(&forceDelete, "force", "f", false, "skip confirmation prompt")
-
 	// Register subcommands
 	projectsCmd.AddCommand(projectsListCmd)
 	projectsCmd.AddCommand(projectsViewCmd)
 	projectsCmd.AddCommand(projectsSummaryCmd)
 	projectsCmd.AddCommand(projectsTreeCmd)
-	projectsCmd.AddCommand(projectsDeleteCmd)
 	projectsCmd.AddCommand(projectsCopyCmd)
 }
 
@@ -290,24 +264,6 @@ func runProjectsSummary(cmd *cobra.Command, args []string) error {
 		SortBy:     sortBy,
 		Descending: descending,
 	})
-}
-
-func runProjectsDelete(cmd *cobra.Command, args []string) error {
-	// For multi-source delete, we need to find the project first
-	registry := CreateSourceRegistry()
-
-	// TODO: Update ProjectDeleter to use registry for multi-source support
-	// For now, use Claude default for backward compatibility
-	claudeDir, err := claude.DefaultDir()
-	if err != nil {
-		return fmt.Errorf("could not find Claude directory: %w", err)
-	}
-	_ = registry // Use registry when ProjectDeleter is updated
-
-	deleter := cli.NewProjectDeleter(claudeDir, cli.DeleteOptions{
-		Force: forceDelete,
-	})
-	return deleter.Delete(args[0])
 }
 
 func runProjectsCopy(cmd *cobra.Command, args []string) error {
