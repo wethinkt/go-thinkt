@@ -134,9 +134,9 @@ func TestFormatVerbose_EmptyPath(t *testing.T) {
 
 func TestFormatTree(t *testing.T) {
 	projects := []thinkt.Project{
-		{Name: "foo", Path: "/Users/test/projects/foo", SessionCount: 3, Source: thinkt.SourceClaude},
-		{Name: "bar", Path: "/Users/test/projects/bar", SessionCount: 1, Source: thinkt.SourceClaude},
-		{Name: "baz", Path: "/Users/test/work/baz", SessionCount: 5, Source: thinkt.SourceClaude},
+		{Name: "foo", Path: "/Users/test/projects/foo", SessionCount: 3, Source: thinkt.SourceClaude, SourceBasePath: "~/.claude"},
+		{Name: "bar", Path: "/Users/test/projects/bar", SessionCount: 1, Source: thinkt.SourceClaude, SourceBasePath: "~/.claude"},
+		{Name: "baz", Path: "/Users/test/work/baz", SessionCount: 5, Source: thinkt.SourceClaude, SourceBasePath: "~/.claude"},
 	}
 
 	var buf bytes.Buffer
@@ -186,8 +186,8 @@ func TestFormatTree(t *testing.T) {
 
 func TestFormatTree_ProperIndentation(t *testing.T) {
 	projects := []thinkt.Project{
-		{Name: "alpha", Path: "/parent/alpha", SessionCount: 1, Source: thinkt.SourceClaude},
-		{Name: "beta", Path: "/parent/beta", SessionCount: 2, Source: thinkt.SourceClaude},
+		{Name: "alpha", Path: "/parent/alpha", SessionCount: 1, Source: thinkt.SourceClaude, SourceBasePath: "~/.claude"},
+		{Name: "beta", Path: "/parent/beta", SessionCount: 2, Source: thinkt.SourceClaude, SourceBasePath: "~/.claude"},
 	}
 
 	var buf bytes.Buffer
@@ -221,8 +221,8 @@ func TestFormatTree_ProperIndentation(t *testing.T) {
 
 func TestFormatTree_MultipleParents(t *testing.T) {
 	projects := []thinkt.Project{
-		{Name: "a", Path: "/first/a", SessionCount: 1, Source: thinkt.SourceClaude},
-		{Name: "b", Path: "/second/b", SessionCount: 1, Source: thinkt.SourceClaude},
+		{Name: "a", Path: "/first/a", SessionCount: 1, Source: thinkt.SourceClaude, SourceBasePath: "~/.claude"},
+		{Name: "b", Path: "/second/b", SessionCount: 1, Source: thinkt.SourceClaude, SourceBasePath: "~/.claude"},
 	}
 
 	var buf bytes.Buffer
@@ -262,7 +262,7 @@ func TestFormatTree_MultipleParents(t *testing.T) {
 
 func TestFormatTree_EmptyPath(t *testing.T) {
 	projects := []thinkt.Project{
-		{Name: "~", Path: "", SessionCount: 1, Source: thinkt.SourceClaude},
+		{Name: "~", Path: "", SessionCount: 1, Source: thinkt.SourceClaude, SourceBasePath: "~/.claude"},
 	}
 
 	var buf bytes.Buffer

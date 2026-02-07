@@ -81,6 +81,7 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 				DisplayPath:  path,
 				Source:       thinkt.SourceCopilot,
 				WorkspaceID:  ws.ID,
+				SourceBasePath: ws.BasePath,
 				LastModified: sess.ModifiedAt,
 			}
 		}

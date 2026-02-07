@@ -112,6 +112,7 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 			LastModified: info.ModTime(),
 			Source:       thinkt.SourceKimi,
 			WorkspaceID:  ws.ID,
+			SourceBasePath: ws.BasePath,
 		})
 	}
 

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 // Store implements thinkt.Store for Gemini CLI sessions.
@@ -60,8 +61,7 @@ func (s *Store) Workspace() thinkt.Workspace {
 	}
 }
 
-// ListProjects returns all Gemini projects. Results are cached after the
-// first call. Use ResetCache to force a rescan.
+// ListProjects returns all Gemini projects.
 func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 	if cached, err, ok := s.cache.GetProjects(); ok {
 		return cached, err
@@ -95,7 +95,29 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 			continue
 		}
 
-		// Count sessions
+		// Try to find a human-readable name from logs.json
+		projectName := projectHash
+		logsPath := filepath.Join(projectPath, "logs.json")
+		if data, err := os.ReadFile(logsPath); err == nil {
+			var logs []struct {
+				Message string `json:"message"`
+				Type    string `json:"type"`
+			}
+			if err := json.Unmarshal(data, &logs); err == nil {
+				// Find first user message to use as a name hint
+				for _, l := range logs {
+					if l.Type == "user" && l.Message != "" {
+						projectName = l.Message
+						if len(projectName) > 40 {
+							projectName = projectName[:37] + "..."
+						}
+						break
+					}
+				}
+			}
+		}
+
+		// Count sessions and get last modified
 		sessions, _ := os.ReadDir(chatsDir)
 		sessionCount := 0
 		var lastMod time.Time
@@ -103,8 +125,7 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 		for _, sess := range sessions {
 			if strings.HasSuffix(sess.Name(), ".json") {
 				sessionCount++
-				info, err := sess.Info()
-				if err == nil {
+				if info, err := sess.Info(); err == nil {
 					if info.ModTime().After(lastMod) {
 						lastMod = info.ModTime()
 					}
@@ -115,13 +136,15 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 		if sessionCount > 0 {
 			projects = append(projects, thinkt.Project{
 				ID:           projectHash,
-				Name:         projectHash, // We don't have the real name yet
+				Name:         projectName,
 				Path:         projectPath,
-				DisplayPath:  projectHash,
+				DisplayPath:  "gemini://" + projectHash[:8],
 				SessionCount: sessionCount,
 				LastModified: lastMod,
 				Source:       thinkt.SourceGemini,
 				WorkspaceID:  ws.ID,
+				SourceBasePath: ws.BasePath,
+				PathExists:   true,
 			})
 		}
 	}
@@ -130,7 +153,7 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 	return projects, nil
 }
 
-// ResetCache clears all cached data, forcing the next calls to rescan.
+// ResetCache clears all cached data.
 func (s *Store) ResetCache() { s.cache.Reset() }
 
 // GetProject returns a specific project.
@@ -154,11 +177,9 @@ func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.Se
 		return cached, err
 	}
 
-	// projectID corresponds to the hash folder name
 	chatsDir := filepath.Join(s.baseDir, "tmp", projectID, "chats")
 	entries, err := os.ReadDir(chatsDir)
 	if err != nil {
-		s.cache.SetSessions(projectID, nil, err)
 		return nil, err
 	}
 
@@ -168,62 +189,21 @@ func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.Se
 	for _, entry := range entries {
 		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".json") {
 			fullPath := filepath.Join(chatsDir, entry.Name())
-			
-			// We need to read at least part of the file to get metadata
-			// Or we can rely on file info for basic stats
 			info, err := entry.Info()
 			if err != nil {
 				continue
 			}
 
-			// Read file to get ID and other meta
-			// Optimization: could just read header, but for now read full
-			f, err := os.Open(fullPath)
+			// Partial read to get metadata efficiently
+			meta, err := s.readSessionMeta(fullPath, projectID, info.Size(), info.ModTime(), ws.ID)
 			if err != nil {
+				tuilog.Log.Error("failed to read gemini session meta", "path", fullPath, "error", err)
 				continue
 			}
-			
-			var sess Session
-			if err := json.NewDecoder(f).Decode(&sess); err != nil {
-				f.Close()
-				continue
-			}
-			f.Close()
-
-			meta := thinkt.SessionMeta{
-				ID:          sess.SessionID,
-				ProjectPath: projectID,
-				FullPath:    fullPath,
-				EntryCount:  len(sess.Messages), // Approx
-				FileSize:    info.Size(),
-				CreatedAt:   sess.StartTime,
-				ModifiedAt:  sess.LastUpdated,
-				Source:      thinkt.SourceGemini,
-				WorkspaceID: ws.ID,
-				ChunkCount:  1,
-			}
-			
-			// Try to set model from last assistant message
-			for i := len(sess.Messages) - 1; i >= 0; i-- {
-				if sess.Messages[i].Type == "gemini" && sess.Messages[i].Model != "" {
-					meta.Model = sess.Messages[i].Model
-					break
-				}
-			}
-
-			// Try to set first prompt
-			for _, msg := range sess.Messages {
-				if msg.Type == "user" {
-					meta.FirstPrompt = msg.Content
-					break
-				}
-			}
-
-			sessions = append(sessions, meta)
+			sessions = append(sessions, *meta)
 		}
 	}
 
-	// Sort by modified time desc
 	sort.Slice(sessions, func(i, j int) bool {
 		return sessions[i].ModifiedAt.After(sessions[j].ModifiedAt)
 	})
@@ -232,30 +212,60 @@ func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.Se
 	return sessions, nil
 }
 
+func (s *Store) readSessionMeta(path, projectID string, size int64, modTime time.Time, wsID string) (*thinkt.SessionMeta, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	// We need to parse enough to get the ID and first prompt
+	var sess Session
+	if err := json.NewDecoder(f).Decode(&sess); err != nil {
+		return nil, err
+	}
+
+	meta := &thinkt.SessionMeta{
+		ID:          sess.SessionID,
+		ProjectPath: projectID,
+		FullPath:    path,
+		EntryCount:  len(sess.Messages),
+		FileSize:    size,
+		CreatedAt:   sess.StartTime,
+		ModifiedAt:  sess.LastUpdated,
+		Source:      thinkt.SourceGemini,
+		WorkspaceID: wsID,
+		ChunkCount:  1,
+	}
+
+	// Fallback for missing updated time
+	if meta.ModifiedAt.IsZero() {
+		meta.ModifiedAt = modTime
+	}
+
+	// Extract model and first prompt
+	for _, msg := range sess.Messages {
+		if msg.Type == "user" && meta.FirstPrompt == "" {
+			meta.FirstPrompt = msg.Content
+		}
+		if msg.Type == "gemini" && msg.Model != "" {
+			meta.Model = msg.Model
+		}
+	}
+
+	return meta, nil
+}
+
 // GetSessionMeta returns session metadata.
 func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.SessionMeta, error) {
-	// Scan all projects to find session ID? Expensive.
-	// Or assume caller knows the project.
-	// The interface doesn't take projectID here.
-	
 	// Fast path: if sessionID is a path
 	if filepath.IsAbs(sessionID) {
-		f, err := os.Open(sessionID)
+		info, err := os.Stat(sessionID)
 		if err != nil {
 			return nil, err
 		}
-		defer f.Close()
-
-		var sess Session
-		if err := json.NewDecoder(f).Decode(&sess); err != nil {
-			return nil, err
-		}
-
-		info, _ := f.Stat()
-		ws := s.Workspace()
 		
 		// Extract project hash from path
-		// .../tmp/<hash>/chats/session.json
 		parts := strings.Split(sessionID, string(os.PathSeparator))
 		projectID := ""
 		for i, part := range parts {
@@ -264,21 +274,12 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 				break
 			}
 		}
-
-		return &thinkt.SessionMeta{
-			ID:          sess.SessionID,
-			ProjectPath: projectID,
-			FullPath:    sessionID,
-			CreatedAt:   sess.StartTime,
-			ModifiedAt:  sess.LastUpdated,
-			Source:      thinkt.SourceGemini,
-			WorkspaceID: ws.ID,
-			FileSize:    info.Size(),
-			EntryCount:  len(sess.Messages),
-		}, nil
+		
+		ws := s.Workspace()
+		return s.readSessionMeta(sessionID, projectID, info.Size(), info.ModTime(), ws.ID)
 	}
 
-	// Slow path: Search all projects
+	// Search all projects
 	projects, _ := s.ListProjects(ctx)
 	for _, p := range projects {
 		sessions, _ := s.ListSessions(ctx, p.ID)
@@ -295,11 +296,8 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 // LoadSession loads a complete session.
 func (s *Store) LoadSession(ctx context.Context, sessionID string) (*thinkt.Session, error) {
 	meta, err := s.GetSessionMeta(ctx, sessionID)
-	if err != nil {
+	if err != nil || meta == nil {
 		return nil, err
-	}
-	if meta == nil {
-		return nil, nil
 	}
 
 	f, err := os.Open(meta.FullPath)
@@ -317,8 +315,6 @@ func (s *Store) LoadSession(ctx context.Context, sessionID string) (*thinkt.Sess
 }
 
 // OpenSession returns a streaming reader.
-// For Gemini JSON, we currently read the whole file anyway since it's a single JSON object,
-// not JSONL. So streaming is faked by loading all and iterating.
 func (s *Store) OpenSession(ctx context.Context, sessionID string) (thinkt.SessionReader, error) {
 	sess, err := s.LoadSession(ctx, sessionID)
 	if err != nil {
@@ -356,8 +352,7 @@ func (r *memorySessionReader) Close() error {
 	return nil
 }
 
-// Conversion helpers
-
+// convertSession converts Gemini specific structure to thinkt.
 func convertSession(g *Session, meta *thinkt.SessionMeta) *thinkt.Session {
 	var entries []thinkt.Entry
 
@@ -372,7 +367,6 @@ func convertSession(g *Session, meta *thinkt.SessionMeta) *thinkt.Session {
 				Text:        msg.Content,
 			})
 		} else if msg.Type == "gemini" {
-			// Assistant entry
 			asstEntry := thinkt.Entry{
 				UUID:        msg.ID,
 				Role:        thinkt.RoleAssistant,
@@ -382,7 +376,6 @@ func convertSession(g *Session, meta *thinkt.SessionMeta) *thinkt.Session {
 				Model:       msg.Model,
 			}
 
-			// Add Tokens
 			if msg.Tokens != nil {
 				asstEntry.Usage = &thinkt.TokenUsage{
 					InputTokens:  msg.Tokens.Input,
@@ -390,8 +383,6 @@ func convertSession(g *Session, meta *thinkt.SessionMeta) *thinkt.Session {
 				}
 			}
 
-			// Content Blocks
-			// 1. Text
 			if msg.Content != "" {
 				asstEntry.ContentBlocks = append(asstEntry.ContentBlocks, thinkt.ContentBlock{
 					Type: "text",
@@ -399,7 +390,6 @@ func convertSession(g *Session, meta *thinkt.SessionMeta) *thinkt.Session {
 				})
 			}
 
-			// 2. Thoughts
 			for _, t := range msg.Thoughts {
 				asstEntry.ContentBlocks = append(asstEntry.ContentBlocks, thinkt.ContentBlock{
 					Type:     "thinking",
@@ -407,7 +397,6 @@ func convertSession(g *Session, meta *thinkt.SessionMeta) *thinkt.Session {
 				})
 			}
 
-			// 3. Tool Calls
 			for _, tc := range msg.ToolCalls {
 				asstEntry.ContentBlocks = append(asstEntry.ContentBlocks, thinkt.ContentBlock{
 					Type:      "tool_use",
@@ -422,7 +411,6 @@ func convertSession(g *Session, meta *thinkt.SessionMeta) *thinkt.Session {
 			// Separate entries for Tool Results
 			for _, tc := range msg.ToolCalls {
 				for _, res := range tc.Result {
-					// Extract output string from map if possible
 					output := ""
 					if o, ok := res.FunctionResponse.Response["output"]; ok {
 						if s, ok := o.(string); ok {
@@ -433,10 +421,16 @@ func convertSession(g *Session, meta *thinkt.SessionMeta) *thinkt.Session {
 						}
 					}
 
+					// Ensure unique UUID for tool results
+					resID := res.FunctionResponse.ID
+					if resID == "" {
+						resID = fmt.Sprintf("%s-res", tc.ID)
+					}
+
 					entries = append(entries, thinkt.Entry{
-						UUID:        res.FunctionResponse.ID, // Use result ID if available
-						Role:        thinkt.RoleTool, // Use Tool role
-						Timestamp:   msg.Timestamp, // Approx same time
+						UUID:        resID,
+						Role:        thinkt.RoleTool,
+						Timestamp:   msg.Timestamp,
 						Source:      thinkt.SourceGemini,
 						WorkspaceID: meta.WorkspaceID,
 						ContentBlocks: []thinkt.ContentBlock{

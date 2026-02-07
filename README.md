@@ -53,9 +53,8 @@ Right now much of the implementation is in package `internal`, but we will event
 
 ### Homebrew
 
-*Homewbrew is NOT AVAILABLE YET*
 ```bash
-brew install wethinkt/tap/thinkt
+brew install --cask wethinkt/tap/thinkt
 ```
 
 ### Go

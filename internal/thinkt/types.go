@@ -194,6 +194,7 @@ type Project struct {
 	LastModified time.Time `json:"last_modified"`
 	Source       Source    `json:"source"`       // Which tool
 	WorkspaceID  string    `json:"workspace_id"` // Which machine/host
+	SourceBasePath string  `json:"source_base_path,omitempty"` // Root storage path for this source
 	PathExists   bool      `json:"path_exists"`  // Whether the project directory still exists on disk
 }
 

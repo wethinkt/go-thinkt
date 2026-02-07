@@ -85,6 +85,7 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 			LastModified: p.LastModified,
 			Source:       thinkt.SourceClaude,
 			WorkspaceID:  ws.ID,
+			SourceBasePath: ws.BasePath,
 		}
 	}
 	s.cache.SetProjects(result, nil)

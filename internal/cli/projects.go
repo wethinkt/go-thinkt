@@ -4,6 +4,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -335,14 +336,19 @@ func sourceBasePath(projects []thinkt.Project) string {
 	if len(projects) == 0 {
 		return ""
 	}
-	// Get base path from workspace info stored in first project
-	// We use a simplified approach - just show the source directory
-	switch projects[0].Source {
-	case thinkt.SourceKimi:
-		return "~/.kimi"
-	case thinkt.SourceClaude:
-		return "~/.claude"
-	default:
+
+	path := projects[0].SourceBasePath
+	if path == "" {
 		return ""
 	}
+
+	// Try to replace home dir with ~ for better display
+	home, err := os.UserHomeDir()
+	if err == nil {
+		if strings.HasPrefix(path, home) {
+			path = "~" + strings.TrimPrefix(path, home)
+		}
+	}
+
+	return path
 }
