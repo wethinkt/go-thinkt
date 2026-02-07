@@ -102,17 +102,24 @@ homebrew_casks:
       - man/man1/thinkt-completion-powershell.1
       - man/man1/thinkt-completion-zsh.1
       - man/man1/thinkt-completion.1
+      - man/man1/thinkt-docs-man.1
+      - man/man1/thinkt-docs-markdown.1
+      - man/man1/thinkt-docs.1
+      - man/man1/thinkt-indexer.1
       - man/man1/thinkt-projects-copy.1
       - man/man1/thinkt-projects-delete.1
       - man/man1/thinkt-projects-summary.1
+      - man/man1/thinkt-projects-tree.1
       - man/man1/thinkt-projects.1
       - man/man1/thinkt-prompts-extract.1
       - man/man1/thinkt-prompts-info.1
       - man/man1/thinkt-prompts-list.1
       - man/man1/thinkt-prompts-templates.1
       - man/man1/thinkt-prompts.1
+      - man/man1/thinkt-serve-fingerprint.1
       - man/man1/thinkt-serve-lite.1
       - man/man1/thinkt-serve-mcp.1
+      - man/man1/thinkt-serve-token.1
       - man/man1/thinkt-serve.1
       - man/man1/thinkt-sessions-copy.1
       - man/man1/thinkt-sessions-delete.1
@@ -123,11 +130,14 @@ homebrew_casks:
       - man/man1/thinkt-sources-list.1
       - man/man1/thinkt-sources-status.1
       - man/man1/thinkt-sources.1
+      - man/man1/thinkt-teams-list.1
+      - man/man1/thinkt-teams.1
       - man/man1/thinkt-theme-builder.1
       - man/man1/thinkt-theme-list.1
       - man/man1/thinkt-theme-set.1
       - man/man1/thinkt-theme.1
       - man/man1/thinkt-tui.1
+      - man/man1/thinkt-version.1
       - man/man1/thinkt.1
 
 dockers:
