@@ -20,6 +20,7 @@ func RunViewer(sessionPath string) error {
 	}
 
 	model := NewMultiViewerModel([]string{sessionPath})
+	model.standalone = true
 	p := tea.NewProgram(model, opts...)
 	_, err := p.Run()
 	return err
@@ -39,6 +40,7 @@ func RunMultiViewer(sessionPaths []string) error {
 	}
 
 	model := NewMultiViewerModel(sessionPaths)
+	model.standalone = true
 	p := tea.NewProgram(model, opts...)
 	_, err := p.Run()
 	return err

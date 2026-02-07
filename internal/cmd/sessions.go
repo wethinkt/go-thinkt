@@ -466,18 +466,23 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no session specified and no TTY available\n\nUsage: thinkt sessions view -p <project> <session>\n\nUse 'thinkt sessions list -p %s' to see available sessions", sessionProject)
 	}
 
-	selected, err := tui.PickSession(sessions)
-	if err != nil {
-		return err
-	}
-	if selected == nil {
-		// User cancelled
-		return nil
-	}
+	// Loop: pick a session, view it, then return to the picker on back/esc
+	for {
+		selected, err := tui.PickSession(sessions)
+		if err != nil {
+			return err
+		}
+		if selected == nil {
+			// User cancelled
+			return nil
+		}
 
-	// Handle --raw flag for undecorated output
-	if sessionViewRaw {
-		return tui.ViewSessionRaw(selected.FullPath, os.Stdout)
+		// Handle --raw flag for undecorated output
+		if sessionViewRaw {
+			return tui.ViewSessionRaw(selected.FullPath, os.Stdout)
+		}
+		if err := tui.RunViewer(selected.FullPath); err != nil {
+			return err
+		}
 	}
-	return tui.RunViewer(selected.FullPath)
 }
