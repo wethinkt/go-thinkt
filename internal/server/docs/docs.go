@@ -969,6 +969,10 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "source_base_path": {
+                    "description": "Root storage path for this source",
+                    "type": "string"
+                },
                 "workspace_id": {
                     "description": "Which machine/host",
                     "type": "string"
