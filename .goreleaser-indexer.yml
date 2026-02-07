@@ -19,7 +19,7 @@ builds:
       - CC=x86_64-linux-gnu-gcc
       - CXX=x86_64-linux-gnu-g++
     ldflags:
-      - -s -w
+      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
 
   - id: linux-arm64
     main: ./cmd/thinkt-indexer
@@ -33,7 +33,7 @@ builds:
       - CC=aarch64-linux-gnu-gcc
       - CXX=aarch64-linux-gnu-g++
     ldflags:
-      - -s -w
+      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
 
   - id: darwin-amd64
     main: ./cmd/thinkt-indexer
@@ -48,7 +48,7 @@ builds:
       - CC=o64-clang
       - CXX=o64-clang++
     ldflags:
-      - -s -w
+      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
 
   - id: darwin-arm64
     main: ./cmd/thinkt-indexer
@@ -63,7 +63,7 @@ builds:
       - CC=oa64-clang
       - CXX=oa64-clang++
     ldflags:
-      - -s -w
+      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
 
 archives:
   - id: default
