@@ -49,3 +49,7 @@ func init() {
 func getDB() (*db.DB, error) {
 	return db.Open(dbPath)
 }
+
+func getReadOnlyDB() (*db.DB, error) {
+	return db.OpenReadOnly(dbPath)
+}

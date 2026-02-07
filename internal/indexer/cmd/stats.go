@@ -16,7 +16,7 @@ var statsCmd = &cobra.Command{
 	Use:   "stats",
 	Short: "Show usage statistics from the index",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		db, err := getDB()
+		db, err := getReadOnlyDB()
 		if err != nil {
 			return err
 		}

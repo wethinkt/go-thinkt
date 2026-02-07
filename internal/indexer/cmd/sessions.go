@@ -19,7 +19,7 @@ var sessionsCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projectID := args[0]
-		db, err := getDB()
+		db, err := getReadOnlyDB()
 		if err != nil {
 			return err
 		}

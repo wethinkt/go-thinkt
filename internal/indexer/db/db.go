@@ -55,6 +55,43 @@ func Open(path string) (*DB, error) {
 		return nil, fmt.Errorf("failed to initialize schema: %w", err)
 	}
 
+	// Security hardening: Disable external access to prevent SQL injection attacks
+	// from reading/writing arbitrary files or accessing network resources
+	if _, err := db.Exec("SET enable_external_access=false"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to set security settings: %w", err)
+	}
+
+	return &DB{
+		DB:   db,
+		path: path,
+	}, nil
+}
+
+// OpenReadOnly opens a DuckDB database at the given path in read-only mode.
+//
+// IMPORTANT: DuckDB currently does NOT support concurrent READ_ONLY connections
+// when a READ_WRITE connection is active (e.g., from the watch command).
+// This function is provided for future compatibility and for cases where no
+// write connection is active. If you get a lock error, stop the watch process
+// before running read operations.
+//
+// See: https://github.com/duckdb/duckdb/discussions/14676
+func OpenReadOnly(path string) (*DB, error) {
+	// DuckDB connection string with read-only access mode
+	connStr := fmt.Sprintf("%s?access_mode=READ_ONLY", path)
+	db, err := sql.Open("duckdb", connStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open duckdb (read-only): %w", err)
+	}
+
+	// Security hardening: Disable external access to prevent SQL injection attacks
+	// from reading/writing arbitrary files or accessing network resources
+	if _, err := db.Exec("SET enable_external_access=false"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to set security settings: %w", err)
+	}
+
 	return &DB{
 		DB:   db,
 		path: path,
