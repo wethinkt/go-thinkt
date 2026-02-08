@@ -1,5 +1,9 @@
 # `go-thinkt` CHANGELOG
 
+ ## v0.4.0 (2026-02-08)
+
+ * Moar polish 💎
+
  ## v0.3.4 (2026-02-07)
 
   * Add `thinkt-indexer`
