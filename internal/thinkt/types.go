@@ -40,6 +40,25 @@ func (s Source) String() string {
 	}
 }
 
+func (s Source) DisplayName() string {
+	switch s {
+	case SourceThinkt:
+		return "thinkt"
+	case SourceClaude:
+		return "Claude Code"
+	case SourceCopilot:
+		return "GitHub Copilot"
+	case SourceKimi:
+		return "Kimi Code"
+	case SourceGemini:
+		return "Gemini CLI"
+	case "":
+		return "unknown source"
+	default:
+		return string(s)
+	}
+}
+
 func (s Source) Description() string {
 	switch s {
 	case SourceThinkt:
@@ -133,8 +152,8 @@ type Entry struct {
 
 	// Provenance - where this entry came from
 	Source        Source `json:"source,omitempty"`          // Which tool created this entry
-	WorkspaceID   string `json:"workspace_id,omitempty"`   // Which machine/host
-	AgentID       string `json:"agent_id,omitempty"`       // Resolved agent name (e.g., "researcher")
+	WorkspaceID   string `json:"workspace_id,omitempty"`    // Which machine/host
+	AgentID       string `json:"agent_id,omitempty"`        // Resolved agent name (e.g., "researcher")
 	SourceAgentID string `json:"source_agent_id,omitempty"` // Raw source identifier (e.g., "ab17e07")
 
 	// Content (one of these will be set)
@@ -186,16 +205,16 @@ type Session struct {
 // Project represents a working directory containing multiple sessions.
 // The same project path may exist on multiple workspaces.
 type Project struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`         // Display name
-	Path         string    `json:"path"`         // Full filesystem path
-	DisplayPath  string    `json:"display_path"` // Human-readable path
-	SessionCount int       `json:"session_count"`
-	LastModified time.Time `json:"last_modified"`
-	Source       Source    `json:"source"`       // Which tool
-	WorkspaceID  string    `json:"workspace_id"` // Which machine/host
-	SourceBasePath string  `json:"source_base_path,omitempty"` // Root storage path for this source
-	PathExists   bool      `json:"path_exists"`  // Whether the project directory still exists on disk
+	ID             string    `json:"id"`
+	Name           string    `json:"name"`         // Display name
+	Path           string    `json:"path"`         // Full filesystem path
+	DisplayPath    string    `json:"display_path"` // Human-readable path
+	SessionCount   int       `json:"session_count"`
+	LastModified   time.Time `json:"last_modified"`
+	Source         Source    `json:"source"`                     // Which tool
+	WorkspaceID    string    `json:"workspace_id"`               // Which machine/host
+	SourceBasePath string    `json:"source_base_path,omitempty"` // Root storage path for this source
+	PathExists     bool      `json:"path_exists"`                // Whether the project directory still exists on disk
 }
 
 // Store provides access to projects and sessions from a single workspace.
@@ -446,7 +465,7 @@ func (r *StoreRegistry) SourceStatus(ctx context.Context) []SourceInfo {
 		ws := store.Workspace()
 		info := SourceInfo{
 			Source:   store.Source(),
-			Name:     string(store.Source()),
+			Name:     store.Source().String(),
 			BasePath: ws.BasePath,
 		}
 
@@ -457,9 +476,6 @@ func (r *StoreRegistry) SourceStatus(ctx context.Context) []SourceInfo {
 			info.ProjectCount = len(projects)
 			info.WorkspaceID = ws.ID
 		}
-
-		// Add descriptions
-		info.Name = store.Source().String()
 
 		infos = append(infos, info)
 	}
@@ -522,9 +538,9 @@ const (
 // already exist in the source (Claude) storage.
 type Team struct {
 	// Name is the team identifier (directory name under ~/.claude/teams/).
-	Name        string       `json:"name"`
-	Description string       `json:"description,omitempty"`
-	CreatedAt   time.Time    `json:"created_at"`
+	Name        string    `json:"name"`
+	Description string    `json:"description,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
 
 	// LeadAgentID is the config-format agent ID (e.g., "team-lead@myteam").
 	LeadAgentID string `json:"lead_agent_id"`
@@ -551,11 +567,11 @@ type TeamMember struct {
 	// session data. May be empty if not yet resolved.
 	SourceAgentID string `json:"source_agent_id,omitempty"`
 	// AgentType classifies the member (e.g., "team-lead", "general-purpose").
-	AgentType string `json:"agent_type"`
-	Model     string `json:"model,omitempty"`
+	AgentType string    `json:"agent_type"`
+	Model     string    `json:"model,omitempty"`
 	JoinedAt  time.Time `json:"joined_at"`
-	CWD       string `json:"cwd,omitempty"`
-	Color     string `json:"color,omitempty"`
+	CWD       string    `json:"cwd,omitempty"`
+	Color     string    `json:"color,omitempty"`
 	// SessionPath is the path to this member's subagent JSONL file.
 	// Populated during discovery. Empty for unresolved members.
 	SessionPath string `json:"session_path,omitempty"`

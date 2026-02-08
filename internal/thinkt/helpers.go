@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// Text returns the text content of an entry.
+// TextContent returns the text content of an entry.
 // If the Text field is set, it returns that.
 // Otherwise, it extracts text from ContentBlocks.
 func (e *Entry) TextContent() string {
@@ -140,7 +140,7 @@ func (s *Session) Duration() time.Duration {
 	return last.Sub(first)
 }
 
-// TokenUsage returns total token usage across all entries.
+// TotalTokenUsage returns total token usage across all entries.
 func (s *Session) TotalTokenUsage() TokenUsage {
 	var total TokenUsage
 	for _, e := range s.Entries {

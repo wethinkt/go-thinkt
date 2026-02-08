@@ -35,19 +35,19 @@ func Path() (string, error) {
 func Load() (Config, error) {
 	configPath, err := Path()
 	if err != nil {
-		return Default(), err
+		return Config{}, err
 	}
 
 	data, err := os.ReadFile(configPath)
 	if os.IsNotExist(err) {
 		return Default(), nil
 	} else if err != nil {
-		return Default(), err
+		return Config{}, err
 	}
 
 	var config Config
 	if err := json.Unmarshal(data, &config); err != nil {
-		return Default(), err
+		return Config{}, err
 	}
 
 	if config.Theme == "" {

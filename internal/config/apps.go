@@ -39,6 +39,7 @@ func (a AppConfig) Info() AppInfo {
 //   - Path traversal attempts (rejected)
 //   - Symlink resolution (verified)
 //   - Location within allowed directories (verified)
+//
 // The path is passed directly to exec.Command, not through a shell, but
 // proper validation is essential to prevent command injection.
 func (a AppConfig) BuildCommand(path string) (string, []string) {
@@ -136,10 +137,15 @@ func checkCommandExists(cmd string) bool {
 
 // checkAppExists checks if a macOS app exists in /Applications.
 func checkAppExists(name string) bool {
-	paths := []string{
-		"/Applications/" + name + ".app",
-		filepath.Join(os.Getenv("HOME"), "Applications", name+".app"),
+	var paths []string
+
+	if home, err := os.UserHomeDir(); err == nil {
+		paths = append(paths, filepath.Join(home, "Applications", name+".app"))
 	}
+
+	// TODO: platform-specific checks for Windows and Linux
+	paths = append(paths, "/Applications/"+name+".app")
+
 	for _, p := range paths {
 		if _, err := os.Stat(p); err == nil {
 			return true

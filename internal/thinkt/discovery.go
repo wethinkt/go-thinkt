@@ -2,7 +2,6 @@ package thinkt
 
 import (
 	"context"
-	"fmt"
 )
 
 // StoreFactory creates Store instances for a specific source.
@@ -90,8 +89,8 @@ func (d *Discovery) DiscoverAvailable(ctx context.Context) ([]SourceInfo, error)
 
 		info := SourceInfo{
 			Source:       factory.Source(),
-			Name:         sourceDisplayName(factory.Source()),
-			Description:  sourceDescription(factory.Source()),
+			Name:         factory.Source().DisplayName(),
+			Description:  factory.Source().Description(),
 			Available:    true,
 			WorkspaceID:  ws.ID,
 			BasePath:     ws.BasePath,
@@ -176,28 +175,4 @@ func (f *FileSystemFactory) IsAvailable() (bool, error) {
 // DefaultDiscovery creates a Discovery with all built-in factories.
 func DefaultDiscovery() *Discovery {
 	return NewDiscovery()
-}
-
-// sourceDisplayName returns a human-readable name for a source.
-func sourceDisplayName(s Source) string {
-	switch s {
-	case SourceKimi:
-		return "Kimi Code"
-	case SourceClaude:
-		return "Claude Code"
-	default:
-		return string(s)
-	}
-}
-
-// sourceDescription returns a description for a source.
-func sourceDescription(s Source) string {
-	switch s {
-	case SourceKimi:
-		return "Kimi Code sessions (~/.kimi)"
-	case SourceClaude:
-		return "Claude Code sessions (~/.claude)"
-	default:
-		return fmt.Sprintf("%s sessions", s)
-	}
 }
