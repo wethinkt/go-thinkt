@@ -12,8 +12,8 @@ import (
 var webappLiteFS embed.FS
 
 //go:embed web/index.html
-//go:embed web/assets/*
-//go:embed web/assets/styles/*
+//go:embed web/assets/*.js
+//go:embed web/assets/styles/*.css
 var webappFS embed.FS
 
 // StaticLiteWebAppHandler returns an http.Handler that serves the embedded web-lite app.
