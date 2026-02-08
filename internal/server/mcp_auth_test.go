@@ -7,90 +7,52 @@ import (
 	"testing"
 )
 
-func TestGenerateSecureToken(t *testing.T) {
-	token, err := GenerateSecureToken()
-	if err != nil {
-		t.Fatalf("GenerateSecureToken() error = %v", err)
-	}
-
-	// Token should be 64 characters (32 bytes hex encoded)
-	if len(token) != 64 {
-		t.Errorf("GenerateSecureToken() length = %d, want 64", len(token))
-	}
-
-	// Token should be different each time
-	token2, err := GenerateSecureToken()
-	if err != nil {
-		t.Fatalf("GenerateSecureToken() second call error = %v", err)
-	}
-	if token == token2 {
-		t.Error("GenerateSecureToken() should generate unique tokens")
-	}
-}
-
-func TestGenerateSecureTokenWithPrefix(t *testing.T) {
-	token, err := GenerateSecureTokenWithPrefix()
-	if err != nil {
-		t.Fatalf("GenerateSecureTokenWithPrefix() error = %v", err)
-	}
-
-	// Token should start with "thinkt_"
-	if len(token) < 8 || token[:7] != "thinkt_" {
-		t.Errorf("GenerateSecureTokenWithPrefix() should start with 'thinkt_', got %s", token)
-	}
-
-	// Token should contain date
-	if len(token) < 16 {
-		t.Errorf("GenerateSecureTokenWithPrefix() too short: %s", token)
-	}
-}
-
 func TestMCPAuthenticator_AuthenticateRequest(t *testing.T) {
 	tests := []struct {
 		name       string
-		config     MCPAuthConfig
+		config     AuthConfig
 		authHeader string
 		wantStatus int
 		wantAuth   bool
 	}{
 		{
 			name:       "AuthModeNone allows all",
-			config:     MCPAuthConfig{Mode: AuthModeNone},
+			config:     AuthConfig{Mode: AuthModeNone},
 			authHeader: "",
 			wantStatus: http.StatusOK,
 			wantAuth:   true,
 		},
 		{
 			name:       "AuthModeToken valid token",
-			config:     MCPAuthConfig{Mode: AuthModeToken, Token: "valid-token-123"},
+			config:     AuthConfig{Mode: AuthModeToken, Token: "valid-token-123"},
 			authHeader: "Bearer valid-token-123",
 			wantStatus: http.StatusOK,
 			wantAuth:   true,
 		},
 		{
 			name:       "AuthModeToken invalid token",
-			config:     MCPAuthConfig{Mode: AuthModeToken, Token: "valid-token-123"},
+			config:     AuthConfig{Mode: AuthModeToken, Token: "valid-token-123"},
 			authHeader: "Bearer wrong-token",
 			wantStatus: http.StatusUnauthorized,
 			wantAuth:   false,
 		},
 		{
 			name:       "AuthModeToken missing header",
-			config:     MCPAuthConfig{Mode: AuthModeToken, Token: "valid-token-123"},
+			config:     AuthConfig{Mode: AuthModeToken, Token: "valid-token-123"},
 			authHeader: "",
 			wantStatus: http.StatusUnauthorized,
 			wantAuth:   false,
 		},
 		{
 			name:       "AuthModeToken wrong format",
-			config:     MCPAuthConfig{Mode: AuthModeToken, Token: "valid-token-123"},
+			config:     AuthConfig{Mode: AuthModeToken, Token: "valid-token-123"},
 			authHeader: "Basic dXNlcjpwYXNz",
 			wantStatus: http.StatusUnauthorized,
 			wantAuth:   false,
 		},
 		{
 			name:       "AuthModeToken empty token",
-			config:     MCPAuthConfig{Mode: AuthModeToken, Token: ""},
+			config:     AuthConfig{Mode: AuthModeToken, Token: ""},
 			authHeader: "Bearer some-token",
 			wantStatus: http.StatusUnauthorized,
 			wantAuth:   false,
@@ -99,7 +61,7 @@ func TestMCPAuthenticator_AuthenticateRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			auth := NewMCPAuthenticator(tt.config)
+			auth := NewBearerAuthenticator(tt.config)
 
 			req := httptest.NewRequest("GET", "/test", nil)
 			if tt.authHeader != "" {
@@ -133,11 +95,11 @@ func TestMCPAuthenticator_AuthModeEnvToken(t *testing.T) {
 	os.Setenv("THINKT_MCP_TOKEN", "env-token-123")
 	defer os.Unsetenv("THINKT_MCP_TOKEN")
 
-	config := MCPAuthConfig{
+	config := AuthConfig{
 		Mode:   AuthModeEnvToken,
 		EnvVar: "THINKT_MCP_TOKEN",
 	}
-	auth := NewMCPAuthenticator(config)
+	auth := NewBearerAuthenticator(config)
 
 	// Valid token from env
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -163,11 +125,11 @@ func TestMCPAuthenticator_AuthModeEnvToken(t *testing.T) {
 }
 
 func TestMCPAuthenticator_Middleware(t *testing.T) {
-	config := MCPAuthConfig{
+	config := AuthConfig{
 		Mode:  AuthModeToken,
 		Token: "secret-token",
 	}
-	auth := NewMCPAuthenticator(config)
+	auth := NewBearerAuthenticator(config)
 
 	// Create a simple handler that returns 200
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -205,11 +167,11 @@ func TestMCPAuthenticator_Middleware(t *testing.T) {
 func TestMCPAuthenticator_TimingAttack(t *testing.T) {
 	// This test verifies that we use constant-time comparison
 	// The test itself doesn't measure timing, but ensures the function exists
-	config := MCPAuthConfig{
+	config := AuthConfig{
 		Mode:  AuthModeToken,
 		Token: "correct-token",
 	}
-	auth := NewMCPAuthenticator(config)
+	auth := NewBearerAuthenticator(config)
 
 	// Both should fail but take similar time
 	req1 := httptest.NewRequest("GET", "/test", nil)

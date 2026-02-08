@@ -24,7 +24,7 @@ import (
 type MCPServer struct {
 	server        *mcp.Server
 	registry      *thinkt.StoreRegistry
-	authenticator *MCPAuthenticator
+	authenticator *BearerAuthenticator
 	allowTools    map[string]bool
 	denyTools     map[string]bool
 }
@@ -35,7 +35,7 @@ func NewMCPServer(registry *thinkt.StoreRegistry) *MCPServer {
 }
 
 // NewMCPServerWithAuth creates a new MCP server with authentication.
-func NewMCPServerWithAuth(registry *thinkt.StoreRegistry, authConfig MCPAuthConfig) *MCPServer {
+func NewMCPServerWithAuth(registry *thinkt.StoreRegistry, authConfig AuthConfig) *MCPServer {
 	tuilog.Log.Info("NewMCPServer: creating MCP server", "auth_mode", authConfig.Mode)
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "thinkt",
@@ -45,7 +45,7 @@ func NewMCPServerWithAuth(registry *thinkt.StoreRegistry, authConfig MCPAuthConf
 	ms := &MCPServer{
 		server:        server,
 		registry:      registry,
-		authenticator: NewMCPAuthenticator(authConfig),
+		authenticator: NewBearerAuthenticator(authConfig),
 	}
 
 	return ms
@@ -612,7 +612,9 @@ func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallTool
 		return nil, nil, err
 	}
 	var res any
-	json.Unmarshal(out, &res)
+	if err := json.Unmarshal(out, &res); err != nil {
+		return nil, nil, fmt.Errorf("indexer returned invalid JSON: %w", err)
+	}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(out)}}}, res, nil
 }
 
@@ -627,7 +629,9 @@ func (ms *MCPServer) handleGetUsageStats(ctx context.Context, req *mcp.CallToolR
 		return nil, nil, err
 	}
 	var res any
-	json.Unmarshal(out, &res)
+	if err := json.Unmarshal(out, &res); err != nil {
+		return nil, nil, fmt.Errorf("indexer returned invalid JSON: %w", err)
+	}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(out)}}}, res, nil
 }
 

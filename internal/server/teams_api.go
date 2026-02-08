@@ -23,6 +23,17 @@ type TeamMessagesResponse struct {
 	Messages []thinkt.TeamMessage `json:"messages"`
 }
 
+// requireTeamStore is middleware that returns 404 if no team store is configured.
+func (s *HTTPServer) requireTeamStore(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.teamStore == nil {
+			writeError(w, http.StatusNotFound, "not_available", "Teams not available")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // handleGetTeams returns all discovered teams.
 // @Summary List all teams
 // @Description Returns all Claude Code teams discovered on this machine
@@ -34,11 +45,6 @@ type TeamMessagesResponse struct {
 // @Router /teams [get]
 // @Security BearerAuth
 func (s *HTTPServer) handleGetTeams(w http.ResponseWriter, r *http.Request) {
-	if s.teamStore == nil {
-		writeJSON(w, http.StatusOK, TeamsResponse{Teams: []thinkt.Team{}})
-		return
-	}
-
 	teams, err := s.teamStore.ListTeams(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "list_teams_failed", err.Error())
@@ -64,11 +70,6 @@ func (s *HTTPServer) handleGetTeams(w http.ResponseWriter, r *http.Request) {
 // @Router /teams/{teamName} [get]
 // @Security BearerAuth
 func (s *HTTPServer) handleGetTeam(w http.ResponseWriter, r *http.Request) {
-	if s.teamStore == nil {
-		writeError(w, http.StatusNotFound, "not_found", "Teams not available")
-		return
-	}
-
 	teamName := chi.URLParam(r, "teamName")
 	if teamName == "" {
 		writeError(w, http.StatusBadRequest, "missing_team_name", "Team name is required")
@@ -100,11 +101,6 @@ func (s *HTTPServer) handleGetTeam(w http.ResponseWriter, r *http.Request) {
 // @Router /teams/{teamName}/tasks [get]
 // @Security BearerAuth
 func (s *HTTPServer) handleGetTeamTasks(w http.ResponseWriter, r *http.Request) {
-	if s.teamStore == nil {
-		writeJSON(w, http.StatusOK, TeamTasksResponse{Tasks: []thinkt.TeamTask{}})
-		return
-	}
-
 	teamName := chi.URLParam(r, "teamName")
 	if teamName == "" {
 		writeError(w, http.StatusBadRequest, "missing_team_name", "Team name is required")
@@ -136,11 +132,6 @@ func (s *HTTPServer) handleGetTeamTasks(w http.ResponseWriter, r *http.Request) 
 // @Router /teams/{teamName}/members/{memberName}/messages [get]
 // @Security BearerAuth
 func (s *HTTPServer) handleGetTeamMemberMessages(w http.ResponseWriter, r *http.Request) {
-	if s.teamStore == nil {
-		writeJSON(w, http.StatusOK, TeamMessagesResponse{Messages: []thinkt.TeamMessage{}})
-		return
-	}
-
 	teamName := chi.URLParam(r, "teamName")
 	memberName := chi.URLParam(r, "memberName")
 	if teamName == "" || memberName == "" {

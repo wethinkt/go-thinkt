@@ -187,9 +187,10 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 	// Configure authentication
 	authConfig := server.DefaultAPIAuthConfig()
 	if apiToken != "" {
-		authConfig = server.APIAuthConfig{
-			Mode:  server.APIAuthModeToken,
+		authConfig = server.AuthConfig{
+			Mode:  server.AuthModeToken,
 			Token: apiToken,
+			Realm: "thinkt-api",
 		}
 	}
 
@@ -216,6 +217,7 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 		CORSOrigin:    resolveCORSOrigin(),
 		StaticHandler: server.StaticWebAppHandler(),
 	}
+	defer config.Close()
 	srv := server.NewHTTPServerWithAuth(registry, config, authConfig)
 	for _, ts := range registry.TeamStores() {
 		srv.SetTeamStore(ts)
@@ -285,6 +287,7 @@ func runServeLite(cmd *cobra.Command, args []string) error {
 		HTTPLog:    serveHTTPLog,
 		CORSOrigin: resolveCORSOrigin(),
 	}
+	defer config.Close()
 	srv := server.NewHTTPServer(registry, config)
 	for _, ts := range registry.TeamStores() {
 		srv.SetTeamStore(ts)
@@ -402,9 +405,10 @@ func runServeMCP(cmd *cobra.Command, args []string) error {
 	// Configure authentication
 	authConfig := server.DefaultMCPAuthConfig()
 	if mcpToken != "" {
-		authConfig = server.MCPAuthConfig{
+		authConfig = server.AuthConfig{
 			Mode:  server.AuthModeToken,
 			Token: mcpToken,
+			Realm: "thinkt-mcp",
 		}
 	}
 

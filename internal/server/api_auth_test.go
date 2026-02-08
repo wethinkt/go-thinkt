@@ -12,8 +12,8 @@ func TestDefaultAPIAuthConfig(t *testing.T) {
 	os.Unsetenv("THINKT_API_TOKEN")
 	config := DefaultAPIAuthConfig()
 
-	if config.Mode != APIAuthModeNone {
-		t.Errorf("DefaultAPIAuthConfig() Mode = %v, want APIAuthModeNone when env not set", config.Mode)
+	if config.Mode != AuthModeNone {
+		t.Errorf("DefaultAPIAuthConfig() Mode = %v, want AuthModeNone when env not set", config.Mode)
 	}
 
 	// Test with env var set
@@ -21,25 +21,25 @@ func TestDefaultAPIAuthConfig(t *testing.T) {
 	defer os.Unsetenv("THINKT_API_TOKEN")
 
 	config2 := DefaultAPIAuthConfig()
-	if config2.Mode != APIAuthModeEnvToken {
-		t.Errorf("DefaultAPIAuthConfig() Mode = %v, want APIAuthModeEnvToken when env set", config2.Mode)
+	if config2.Mode != AuthModeEnvToken {
+		t.Errorf("DefaultAPIAuthConfig() Mode = %v, want AuthModeEnvToken when env set", config2.Mode)
 	}
 }
 
 func TestAPIAuthenticator_IsEnabled(t *testing.T) {
 	tests := []struct {
 		name     string
-		config   APIAuthConfig
+		config   AuthConfig
 		expected bool
 	}{
-		{"none", APIAuthConfig{Mode: APIAuthModeNone}, false},
-		{"token", APIAuthConfig{Mode: APIAuthModeToken, Token: "test"}, true},
-		{"env", APIAuthConfig{Mode: APIAuthModeEnvToken}, true},
+		{"none", AuthConfig{Mode: AuthModeNone}, false},
+		{"token", AuthConfig{Mode: AuthModeToken, Token: "test"}, true},
+		{"env", AuthConfig{Mode: AuthModeEnvToken}, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			auth := NewAPIAuthenticator(tt.config)
+			auth := NewBearerAuthenticator(tt.config)
 			if got := auth.IsEnabled(); got != tt.expected {
 				t.Errorf("IsEnabled() = %v, want %v", got, tt.expected)
 			}
@@ -50,49 +50,49 @@ func TestAPIAuthenticator_IsEnabled(t *testing.T) {
 func TestAPIAuthenticator_AuthenticateRequest(t *testing.T) {
 	tests := []struct {
 		name       string
-		config     APIAuthConfig
+		config     AuthConfig
 		authHeader string
 		wantStatus int
 		wantAuth   bool
 	}{
 		{
-			name:       "APIAuthModeNone allows all",
-			config:     APIAuthConfig{Mode: APIAuthModeNone},
+			name:       "AuthModeNone allows all",
+			config:     AuthConfig{Mode: AuthModeNone},
 			authHeader: "",
 			wantStatus: http.StatusOK,
 			wantAuth:   true,
 		},
 		{
-			name:       "APIAuthModeToken valid token",
-			config:     APIAuthConfig{Mode: APIAuthModeToken, Token: "valid-token-123"},
+			name:       "AuthModeToken valid token",
+			config:     AuthConfig{Mode: AuthModeToken, Token: "valid-token-123"},
 			authHeader: "Bearer valid-token-123",
 			wantStatus: http.StatusOK,
 			wantAuth:   true,
 		},
 		{
-			name:       "APIAuthModeToken invalid token",
-			config:     APIAuthConfig{Mode: APIAuthModeToken, Token: "valid-token-123"},
+			name:       "AuthModeToken invalid token",
+			config:     AuthConfig{Mode: AuthModeToken, Token: "valid-token-123"},
 			authHeader: "Bearer wrong-token",
 			wantStatus: http.StatusUnauthorized,
 			wantAuth:   false,
 		},
 		{
-			name:       "APIAuthModeToken missing header",
-			config:     APIAuthConfig{Mode: APIAuthModeToken, Token: "valid-token-123"},
+			name:       "AuthModeToken missing header",
+			config:     AuthConfig{Mode: AuthModeToken, Token: "valid-token-123"},
 			authHeader: "",
 			wantStatus: http.StatusUnauthorized,
 			wantAuth:   false,
 		},
 		{
-			name:       "APIAuthModeToken wrong format",
-			config:     APIAuthConfig{Mode: APIAuthModeToken, Token: "valid-token-123"},
+			name:       "AuthModeToken wrong format",
+			config:     AuthConfig{Mode: AuthModeToken, Token: "valid-token-123"},
 			authHeader: "Basic dXNlcjpwYXNz",
 			wantStatus: http.StatusUnauthorized,
 			wantAuth:   false,
 		},
 		{
-			name:       "APIAuthModeToken empty token",
-			config:     APIAuthConfig{Mode: APIAuthModeToken, Token: ""},
+			name:       "AuthModeToken empty token",
+			config:     AuthConfig{Mode: AuthModeToken, Token: ""},
 			authHeader: "Bearer some-token",
 			wantStatus: http.StatusUnauthorized,
 			wantAuth:   false,
@@ -101,7 +101,7 @@ func TestAPIAuthenticator_AuthenticateRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			auth := NewAPIAuthenticator(tt.config)
+			auth := NewBearerAuthenticator(tt.config)
 
 			req := httptest.NewRequest("GET", "/test", nil)
 			if tt.authHeader != "" {
@@ -135,11 +135,11 @@ func TestAPIAuthenticator_AuthModeEnvToken(t *testing.T) {
 	os.Setenv("THINKT_API_TOKEN", "env-api-token")
 	defer os.Unsetenv("THINKT_API_TOKEN")
 
-	config := APIAuthConfig{
-		Mode:   APIAuthModeEnvToken,
+	config := AuthConfig{
+		Mode:   AuthModeEnvToken,
 		EnvVar: "THINKT_API_TOKEN",
 	}
-	auth := NewAPIAuthenticator(config)
+	auth := NewBearerAuthenticator(config)
 
 	// Valid token from env
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -165,11 +165,11 @@ func TestAPIAuthenticator_AuthModeEnvToken(t *testing.T) {
 }
 
 func TestAPIAuthenticator_Middleware(t *testing.T) {
-	config := APIAuthConfig{
-		Mode:  APIAuthModeToken,
+	config := AuthConfig{
+		Mode:  AuthModeToken,
 		Token: "secret-api-token",
 	}
-	auth := NewAPIAuthenticator(config)
+	auth := NewBearerAuthenticator(config)
 
 	// Create a simple handler that returns 200
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -206,7 +206,7 @@ func TestAPIAuthenticator_Middleware(t *testing.T) {
 
 func TestAPIAuthenticator_OptionalMiddleware(t *testing.T) {
 	// Test with auth disabled - should allow all
-	authNone := NewAPIAuthenticator(APIAuthConfig{Mode: APIAuthModeNone})
+	authNone := NewBearerAuthenticator(AuthConfig{Mode: AuthModeNone})
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
@@ -221,7 +221,7 @@ func TestAPIAuthenticator_OptionalMiddleware(t *testing.T) {
 	}
 
 	// Test with auth enabled - should require token
-	authToken := NewAPIAuthenticator(APIAuthConfig{Mode: APIAuthModeToken, Token: "token"})
+	authToken := NewBearerAuthenticator(AuthConfig{Mode: AuthModeToken, Token: "token"})
 	wrappedToken := authToken.OptionalMiddleware(handler)
 
 	// Without token should fail

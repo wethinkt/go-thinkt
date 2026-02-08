@@ -57,7 +57,7 @@ func newTestMCPServer(stores ...thinkt.Store) *MCPServer {
 	for _, s := range stores {
 		registry.Register(s)
 	}
-	ms := NewMCPServerWithAuth(registry, MCPAuthConfig{Mode: AuthModeNone})
+	ms := NewMCPServerWithAuth(registry, AuthConfig{Mode: AuthModeNone})
 	ms.SetToolFilters(nil, nil)
 	return ms
 }
@@ -622,7 +622,7 @@ func TestMCP_GetSessionEntries_MissingPath(t *testing.T) {
 
 func TestMCP_ToolFilter_AllowList(t *testing.T) {
 	registry := thinkt.NewRegistry()
-	ms := NewMCPServerWithAuth(registry, MCPAuthConfig{Mode: AuthModeNone})
+	ms := NewMCPServerWithAuth(registry, AuthConfig{Mode: AuthModeNone})
 	ms.SetToolFilters([]string{"list_sources"}, nil)
 
 	// list_sources should work
@@ -640,7 +640,7 @@ func TestMCP_ToolFilter_AllowList(t *testing.T) {
 
 func TestMCP_ToolFilter_DenyList(t *testing.T) {
 	registry := thinkt.NewRegistry()
-	ms := NewMCPServerWithAuth(registry, MCPAuthConfig{Mode: AuthModeNone})
+	ms := NewMCPServerWithAuth(registry, AuthConfig{Mode: AuthModeNone})
 	ms.SetToolFilters(nil, []string{"list_projects"})
 
 	// list_sources should work

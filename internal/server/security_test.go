@@ -9,6 +9,44 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
+func TestGenerateSecureToken(t *testing.T) {
+	token, err := GenerateSecureToken()
+	if err != nil {
+		t.Fatalf("GenerateSecureToken() error = %v", err)
+	}
+
+	// Token should be 64 characters (32 bytes hex encoded)
+	if len(token) != 64 {
+		t.Errorf("GenerateSecureToken() length = %d, want 64", len(token))
+	}
+
+	// Token should be different each time
+	token2, err := GenerateSecureToken()
+	if err != nil {
+		t.Fatalf("GenerateSecureToken() second call error = %v", err)
+	}
+	if token == token2 {
+		t.Error("GenerateSecureToken() should generate unique tokens")
+	}
+}
+
+func TestGenerateSecureTokenWithPrefix(t *testing.T) {
+	token, err := GenerateSecureTokenWithPrefix()
+	if err != nil {
+		t.Fatalf("GenerateSecureTokenWithPrefix() error = %v", err)
+	}
+
+	// Token should start with "thinkt_"
+	if len(token) < 8 || token[:7] != "thinkt_" {
+		t.Errorf("GenerateSecureTokenWithPrefix() should start with 'thinkt_', got %s", token)
+	}
+
+	// Token should contain date
+	if len(token) < 16 {
+		t.Errorf("GenerateSecureTokenWithPrefix() too short: %s", token)
+	}
+}
+
 func TestValidateNoShellMetacharacters(t *testing.T) {
 	tests := []struct {
 		name    string

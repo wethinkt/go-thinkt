@@ -101,7 +101,7 @@ type HTTPServer struct {
 	router        chi.Router
 	config        Config
 	pathValidator *thinkt.PathValidator
-	authenticator *APIAuthenticator
+	authenticator *BearerAuthenticator
 }
 
 // NewHTTPServer creates a new HTTP server for the REST API.
@@ -110,12 +110,12 @@ func NewHTTPServer(registry *thinkt.StoreRegistry, config Config) *HTTPServer {
 }
 
 // NewHTTPServerWithAuth creates a new HTTP server with authentication.
-func NewHTTPServerWithAuth(registry *thinkt.StoreRegistry, config Config, authConfig APIAuthConfig) *HTTPServer {
+func NewHTTPServerWithAuth(registry *thinkt.StoreRegistry, config Config, authConfig AuthConfig) *HTTPServer {
 	s := &HTTPServer{
 		registry:      registry,
 		config:        config,
 		pathValidator: thinkt.NewPathValidator(registry),
-		authenticator: NewAPIAuthenticator(authConfig),
+		authenticator: NewBearerAuthenticator(authConfig),
 	}
 	s.router = s.setupRouter()
 	return s
@@ -171,10 +171,13 @@ func (s *HTTPServer) setupRouter() chi.Router {
 		r.Get("/themes", s.handleGetThemes)
 
 		// Team endpoints
-		r.Get("/teams", s.handleGetTeams)
-		r.Get("/teams/{teamName}", s.handleGetTeam)
-		r.Get("/teams/{teamName}/tasks", s.handleGetTeamTasks)
-		r.Get("/teams/{teamName}/members/{memberName}/messages", s.handleGetTeamMemberMessages)
+		r.Route("/teams", func(r chi.Router) {
+			r.Use(s.requireTeamStore)
+			r.Get("/", s.handleGetTeams)
+			r.Get("/{teamName}", s.handleGetTeam)
+			r.Get("/{teamName}/tasks", s.handleGetTeamTasks)
+			r.Get("/{teamName}/members/{memberName}/messages", s.handleGetTeamMemberMessages)
+		})
 	})
 
 	// Swagger documentation
