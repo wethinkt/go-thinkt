@@ -8,15 +8,6 @@ definitions:
       name:
         type: string
     type: object
-  server.APISourceInfo:
-    properties:
-      available:
-        type: boolean
-      base_path:
-        type: string
-      name:
-        type: string
-    type: object
   server.AllowedAppsResponse:
     properties:
       apps:
@@ -74,11 +65,20 @@ definitions:
           $ref: '#/definitions/thinkt.SessionMeta'
         type: array
     type: object
+  server.SourceInfo:
+    properties:
+      available:
+        type: boolean
+      base_path:
+        type: string
+      name:
+        type: string
+    type: object
   server.SourcesResponse:
     properties:
       sources:
         items:
-          $ref: '#/definitions/server.APISourceInfo'
+          $ref: '#/definitions/server.SourceInfo'
         type: array
     type: object
   server.TeamMessagesResponse:

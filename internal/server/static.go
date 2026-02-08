@@ -9,23 +9,40 @@ import (
 
 //go:embed web-lite/index.html
 //go:embed web-lite/static/*
+var webappLiteFS embed.FS
+
+//go:embed web/index.html
+//go:embed web/assets/*
+//go:embed web/assets/styles/*
 var webappFS embed.FS
 
-// staticHandler returns an http.Handler that serves the embedded webapp files.
-func staticHandler() http.Handler {
-	// Get the webapp subdirectory
-	sub, err := fs.Sub(webappFS, "web-lite")
+// StaticLiteWebAppHandler returns an http.Handler that serves the embedded web-lite app.
+func StaticLiteWebAppHandler() http.Handler {
+	sub, err := fs.Sub(webappLiteFS, "web-lite")
 	if err != nil {
-		// This should never happen with a valid embed
-		panic(err)
+		panic(err) // This should never happen with a valid embed
 	}
-	fileServer := http.FileServer(http.FS(sub))
+	return spaHandler(sub)
+}
+
+// StaticWebAppHandler returns an http.Handler that serves the full thinkt-web app.
+func StaticWebAppHandler() http.Handler {
+	sub, err := fs.Sub(webappFS, "web")
+	if err != nil {
+		panic(err) // This should never happen with a valid embed
+	}
+	return spaHandler(sub)
+}
+
+// spaHandler returns an http.Handler that serves static files from fsys,
+// falling back to index.html for non-file routes (SPA routing).
+func spaHandler(fsys fs.FS) http.Handler {
+	fileServer := http.FileServer(http.FS(fsys))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if path == "/" || path == "/index.html" || !strings.Contains(path, ".") {
-			// SPA: serve index.html for all non-file routes
-			data, err := fs.ReadFile(sub, "index.html")
+			data, err := fs.ReadFile(fsys, "index.html")
 			if err != nil {
 				http.Error(w, "index.html not found", http.StatusNotFound)
 				return

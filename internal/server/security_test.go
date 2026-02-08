@@ -147,7 +147,7 @@ func TestPathValidator_ValidateOpenInPath(t *testing.T) {
 	registry := thinkt.NewRegistry()
 
 	validator := thinkt.NewPathValidator(registry)
-	
+
 	// Manually add the temp directory to allowed bases for testing
 	// This is needed because t.TempDir() is typically outside home on macOS (/var/folders/...)
 	validator.AdditionalBases = []string{tmpDir}
@@ -218,32 +218,5 @@ func TestPathValidator_GetAllowedBaseDirectories(t *testing.T) {
 
 	if !foundHome {
 		t.Errorf("GetAllowedBaseDirectories() should include home directory %q, got %v", homeDir, bases)
-	}
-}
-
-func TestSanitizePathForLogging(t *testing.T) {
-	tests := []struct {
-		name     string
-		path     string
-		expected string
-	}{
-		{"short path", "/home/user/project", "/home/user/project"},
-		{"exactly 100 chars", string(make([]byte, 100)), string(make([]byte, 100))},
-		{"long path", "/home/user/" + string(make([]byte, 200)), "/home/user/" + string(make([]byte, 50)) + "..." + string(make([]byte, 50))},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// For the long path test, we need to adjust expected value
-			expected := tt.expected
-			if tt.name == "long path" {
-				expected = tt.path[:50] + "..." + tt.path[len(tt.path)-50:]
-			}
-
-			result := SanitizePathForLogging(tt.path)
-			if result != expected {
-				t.Errorf("SanitizePathForLogging() length = %d, expected %d", len(result), len(expected))
-			}
-		})
 	}
 }

@@ -536,20 +536,6 @@ const docTemplate = `{
                 }
             }
         },
-        "server.APISourceInfo": {
-            "type": "object",
-            "properties": {
-                "available": {
-                    "type": "boolean"
-                },
-                "base_path": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
         "server.AllowedAppsResponse": {
             "type": "object",
             "properties": {
@@ -638,13 +624,27 @@ const docTemplate = `{
                 }
             }
         },
+        "server.SourceInfo": {
+            "type": "object",
+            "properties": {
+                "available": {
+                    "type": "boolean"
+                },
+                "base_path": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "server.SourcesResponse": {
             "type": "object",
             "properties": {
                 "sources": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/server.APISourceInfo"
+                        "$ref": "#/definitions/server.SourceInfo"
                     }
                 }
             }

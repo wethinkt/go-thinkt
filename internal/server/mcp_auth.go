@@ -29,8 +29,8 @@ const (
 
 // MCPAuthConfig holds authentication configuration for the MCP server.
 type MCPAuthConfig struct {
-	Mode  AuthMode
-	Token string // For AuthModeToken
+	Mode   AuthMode
+	Token  string // For AuthModeToken
 	EnvVar string // For AuthModeEnvToken (default: THINKT_MCP_TOKEN)
 }
 
@@ -185,13 +185,4 @@ func (s *StdioAuthProvider) AuthenticateContext(ctx context.Context) (context.Co
 // IsAuthenticated returns true if authentication is configured.
 func (s *StdioAuthProvider) IsAuthenticated() bool {
 	return s.token != ""
-}
-
-// MCPAuthContextKey is the key for storing auth info in context.
-type MCPAuthContextKey struct{}
-
-// MCPAuthInfo holds authentication information for a request.
-type MCPAuthInfo struct {
-	Authenticated bool
-	TokenSource   string // "env", "header", "none"
 }

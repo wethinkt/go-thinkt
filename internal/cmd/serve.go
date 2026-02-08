@@ -209,12 +209,12 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 
 	// HTTP mode: start HTTP server
 	config := server.Config{
-		Mode:       server.ModeHTTPOnly,
-		Port:       servePort,
-		Host:       serveHost,
-		Quiet:      serveQuiet,
-		HTTPLog:    serveHTTPLog,
-		CORSOrigin: resolveCORSOrigin(),
+		Port:          servePort,
+		Host:          serveHost,
+		Quiet:         serveQuiet,
+		HTTPLog:       serveHTTPLog,
+		CORSOrigin:    resolveCORSOrigin(),
+		StaticHandler: server.StaticWebAppHandler(),
 	}
 	srv := server.NewHTTPServerWithAuth(registry, config, authConfig)
 	for _, ts := range registry.TeamStores() {
@@ -279,7 +279,6 @@ func runServeLite(cmd *cobra.Command, args []string) error {
 
 	// HTTP mode: start HTTP server
 	config := server.Config{
-		Mode:       server.ModeHTTPOnly,
 		Port:       serveLitePort,
 		Host:       serveHost,
 		Quiet:      serveQuiet,

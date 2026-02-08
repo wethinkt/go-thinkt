@@ -163,14 +163,8 @@ func findIndexerBinary() string {
 
 type listSourcesInput struct{}
 
-type sourceInfo struct {
-	Name      string `json:"name"`
-	Available bool   `json:"available"`
-	BasePath  string `json:"base_path,omitempty"`
-}
-
 type listSourcesOutput struct {
-	Sources []sourceInfo `json:"sources"`
+	Sources []SourceInfo `json:"sources"`
 }
 
 type listProjectsInput struct {
@@ -314,9 +308,9 @@ type getUsageStatsInput struct{}
 
 func (ms *MCPServer) handleListSources(ctx context.Context, req *mcp.CallToolRequest, _ listSourcesInput) (*mcp.CallToolResult, listSourcesOutput, error) {
 	status := ms.registry.SourceStatus(ctx)
-	sources := make([]sourceInfo, 0, len(status))
+	sources := make([]SourceInfo, 0, len(status))
 	for _, info := range status {
-		sources = append(sources, sourceInfo{
+		sources = append(sources, SourceInfo{
 			Name:      string(info.Source),
 			Available: info.Available,
 			BasePath:  info.BasePath,
@@ -656,7 +650,10 @@ func (ms *MCPServer) RunHTTP(ctx context.Context, host string, port int) error {
 	}
 	addr := fmt.Sprintf("%s:%d", host, port)
 	srv := &http.Server{Addr: addr, Handler: handler}
-	ln, _ := net.Listen("tcp", addr)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
 	go func() { <-ctx.Done(); srv.Shutdown(context.Background()) }()
 	return srv.Serve(ln)
 }

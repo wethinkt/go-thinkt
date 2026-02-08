@@ -41,11 +41,11 @@ import (
 
 // SourcesResponse lists available trace sources.
 type SourcesResponse struct {
-	Sources []APISourceInfo `json:"sources"`
+	Sources []SourceInfo `json:"sources"`
 }
 
-// APISourceInfo describes a trace source for the API response.
-type APISourceInfo struct {
+// SourceInfo describes a trace source for the API response.
+type SourceInfo struct {
 	Name      string `json:"name"`
 	Available bool   `json:"available"`
 	BasePath  string `json:"base_path,omitempty"`
@@ -100,9 +100,9 @@ func (s *HTTPServer) handleGetSources(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	status := s.registry.SourceStatus(ctx)
 
-	sources := make([]APISourceInfo, 0, len(status))
+	sources := make([]SourceInfo, 0, len(status))
 	for _, info := range status {
-		sources = append(sources, APISourceInfo{
+		sources = append(sources, SourceInfo{
 			Name:      string(info.Source),
 			Available: info.Available,
 			BasePath:  info.BasePath,
@@ -249,22 +249,20 @@ func (s *HTTPServer) handleGetSession(w http.ResponseWriter, r *http.Request) {
 
 	// Load the session
 	ctx := r.Context()
-	session, hasMore, err := s.loadSession(ctx, path, limit, offset)
+	session, err := s.loadSession(ctx, path, limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "load_session_failed", err.Error())
 		return
 	}
 
 	writeJSON(w, http.StatusOK, session)
-	_ = hasMore // used in response
 }
 
 // loadSession loads a session with optional pagination.
-func (s *HTTPServer) loadSession(ctx context.Context, path string, limit, offset int) (*SessionResponse, bool, error) {
-	// Try to open the session using the TUI session loader logic
-	ls, err := openLazySession(path)
+func (s *HTTPServer) loadSession(ctx context.Context, path string, limit, offset int) (*SessionResponse, error) {
+	ls, err := tui.OpenLazySession(path)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	defer ls.Close()
 
@@ -300,13 +298,7 @@ func (s *HTTPServer) loadSession(ctx context.Context, path string, limit, offset
 		Entries: entries,
 		HasMore: hasMore,
 		Total:   total,
-	}, hasMore, nil
-}
-
-// openLazySession opens a session file, auto-detecting format.
-func openLazySession(path string) (thinkt.LazySession, error) {
-	// Use the TUI session loader which handles both Claude and Kimi formats
-	return tui.OpenLazySession(path)
+	}, nil
 }
 
 // OpenInRequest is the request body for the open-in endpoint.
