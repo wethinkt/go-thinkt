@@ -1,20 +1,32 @@
 package claude
 
-import "testing"
+import (
+	"path/filepath"
+	"runtime"
+	"testing"
+)
 
 func TestDecodeDirName(t *testing.T) {
+	sep := string(filepath.Separator)
+
 	tests := []struct {
 		input       string
 		wantDisplay string
 		wantPath    string
+		windowsOnly bool
 	}{
-		{"-Users-evan-brainstm-foo", "foo", "/Users/evan/brainstm/foo"},
-		// Hyphens in names are ambiguous — best-effort decode
-		{"-Users-evan-brainstm-thinking-tracer-tools", "tools", "/Users/evan/brainstm/thinking/tracer/tools"},
-		{"-", "~", ""},
+		// Unix-style paths (leading "-" = root)
+		{"-Users-evan-brainstm-foo", "foo", sep + "Users" + sep + "evan" + sep + "brainstm" + sep + "foo", false},
+		{"-Users-evan-brainstm-thinking-tracer-tools", "tools", sep + "Users" + sep + "evan" + sep + "brainstm" + sep + "thinking" + sep + "tracer" + sep + "tools", false},
+		{"-", "~", "", false},
+		// Windows-style paths (drive letter prefix)
+		{"C-Users-evan-project", "project", "C:" + sep + "Users" + sep + "evan" + sep + "project", true},
 	}
 
 	for _, tt := range tests {
+		if tt.windowsOnly && runtime.GOOS != "windows" {
+			continue
+		}
 		t.Run(tt.input, func(t *testing.T) {
 			gotDisplay, gotPath := DecodeDirName(tt.input)
 			if gotDisplay != tt.wantDisplay {

@@ -3,7 +3,6 @@ package config
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
 )
 
 // AppConfig defines a launchable application for the open-in feature.
@@ -86,28 +85,9 @@ func (a AppConfig) Launch(validatedPath string) error {
 	return nil
 }
 
-// DefaultApps returns the default app configurations.
-// On macOS, it checks which apps are available.
-func DefaultApps() []AppConfig {
+// editorApps returns cross-platform editor app configurations.
+func editorApps() []AppConfig {
 	return []AppConfig{
-		{
-			ID:      "finder",
-			Name:    "Finder",
-			Exec:    []string{"open", "{}"},
-			Enabled: true,
-		},
-		{
-			ID:      "terminal",
-			Name:    "Terminal",
-			Exec:    []string{"open", "-a", "Terminal", "{}"},
-			Enabled: true,
-		},
-		{
-			ID:      "iterm",
-			Name:    "iTerm",
-			Exec:    []string{"open", "-a", "iTerm", "{}"},
-			Enabled: checkAppExists("iTerm"),
-		},
 		{
 			ID:      "vscode",
 			Name:    "VS Code",
@@ -133,25 +113,6 @@ func DefaultApps() []AppConfig {
 func checkCommandExists(cmd string) bool {
 	_, err := exec.LookPath(cmd)
 	return err == nil
-}
-
-// checkAppExists checks if a macOS app exists in /Applications.
-func checkAppExists(name string) bool {
-	var paths []string
-
-	if home, err := os.UserHomeDir(); err == nil {
-		paths = append(paths, filepath.Join(home, "Applications", name+".app"))
-	}
-
-	// TODO: platform-specific checks for Windows and Linux
-	paths = append(paths, "/Applications/"+name+".app")
-
-	for _, p := range paths {
-		if _, err := os.Stat(p); err == nil {
-			return true
-		}
-	}
-	return false
 }
 
 // GetApp returns an app config by ID, or nil if not found or disabled.

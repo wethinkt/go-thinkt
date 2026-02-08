@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -49,8 +50,11 @@ type sessionsIndex struct {
 }
 
 // DecodeDirName converts a Claude Code hashed directory name to a human-readable
-// display name and decoded full path. The directory name format replaces "/" with "-",
-// e.g., "-Users-evan-brainstm-foo" decodes to "/Users/evan/brainstm/foo".
+// display name and decoded full path. The directory name format replaces path
+// separators with "-":
+//
+//   - Unix: "-Users-evan-project" → "/Users/evan/project" (leading "-" = root "/")
+//   - Windows: "C-Users-evan-project" → "C:\Users\evan\project" (first segment = drive letter)
 //
 // Because "-" is ambiguous (it could be a path separator or a literal hyphen in a
 // directory name), we validate against the filesystem. If the naive decode doesn't
@@ -61,20 +65,26 @@ func DecodeDirName(dirName string) (displayName string, fullPath string) {
 		return "~", ""
 	}
 
-	// Leading "-" maps to "/"
+	// Parse segments and determine root prefix.
+	// On Unix: leading "-" maps to "/".
+	// On Windows: a single-letter first segment is a drive letter (e.g., "C" → "C:\").
 	var segments []string
+	var prefix string
+	sep := string(filepath.Separator)
 	if strings.HasPrefix(dirName, "-") {
 		segments = strings.Split(dirName[1:], "-")
+		prefix = sep // "/" on Unix, "\" on Windows
 	} else {
 		segments = strings.Split(dirName, "-")
+		if runtime.GOOS == "windows" && len(segments) > 0 && len(segments[0]) == 1 {
+			// Drive letter: "C-Users-..." → "C:\"
+			prefix = segments[0] + ":" + sep
+			segments = segments[1:]
+		}
 	}
 
-	// Fast path: naive decode (all "-" become "/")
-	if strings.HasPrefix(dirName, "-") {
-		fullPath = "/" + strings.Join(segments, "/")
-	} else {
-		fullPath = strings.Join(segments, "/")
-	}
+	// Fast path: naive decode (all "-" become path separators)
+	fullPath = prefix + strings.Join(segments, sep)
 
 	if _, err := os.Stat(fullPath); err == nil {
 		displayName = filepath.Base(fullPath)
@@ -82,27 +92,19 @@ func DecodeDirName(dirName string) (displayName string, fullPath string) {
 	}
 
 	// Slow path: greedily build the path, joining segments with "-" when
-	// a "/" split doesn't match an existing directory on disk.
-	var prefix string
-	if strings.HasPrefix(dirName, "-") {
-		prefix = "/"
-	}
-
+	// a separator split doesn't match an existing directory on disk.
 	rebuilt := prefix + segments[0]
 	for i := 1; i < len(segments); i++ {
-		// Try extending the current component with "-"
 		withHyphen := rebuilt + "-" + segments[i]
-		// Try starting a new path component with "/"
-		withSlash := rebuilt + "/" + segments[i]
+		withSep := rebuilt + sep + segments[i]
 
-		// Prefer "/" if that directory exists, otherwise use "-"
-		if _, err := os.Stat(withSlash); err == nil {
-			rebuilt = withSlash
+		// Prefer path separator if that directory exists, otherwise use "-"
+		if _, err := os.Stat(withSep); err == nil {
+			rebuilt = withSep
 		} else if _, err := os.Stat(withHyphen); err == nil {
 			rebuilt = withHyphen
 		} else {
-			// Neither exists yet; assume "/" (the common case for intermediate dirs)
-			rebuilt = withSlash
+			rebuilt = withSep
 		}
 	}
 

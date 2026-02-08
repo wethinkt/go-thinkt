@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/wethinkt/go-thinkt/internal/cmd"
@@ -48,7 +47,7 @@ var watchCmd = &cobra.Command{
 
 		// Wait for interrupt
 		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		signal.Notify(sigChan, os.Interrupt)
 		<-sigChan
 
 		if progress.ShouldShowProgress(quiet, verbose) {

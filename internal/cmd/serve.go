@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -115,7 +114,9 @@ The token format is: thinkt_YYYYMMDD_<random>
 
 Examples:
   thinkt serve token                  # Generate and print a token
-  thinkt serve token | pbcopy         # Generate and copy to clipboard (macOS)
+  thinkt serve token | pbcopy         # Copy to clipboard (macOS)
+  thinkt serve token | xclip -sel c   # Copy to clipboard (Linux)
+  thinkt serve token | clip           # Copy to clipboard (Windows)
   export THINKT_MCP_TOKEN=$(thinkt serve token)
   thinkt serve mcp --port 8786        # Uses token from env`,
 	RunE: runServeToken,
@@ -200,7 +201,7 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 
 	// Handle interrupt signal
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(sigCh, os.Interrupt)
 	go func() {
 		<-sigCh
 		tuilog.Log.Info("Received interrupt signal, shutting down")
@@ -271,7 +272,7 @@ func runServeLite(cmd *cobra.Command, args []string) error {
 
 	// Handle interrupt signal
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(sigCh, os.Interrupt)
 	go func() {
 		<-sigCh
 		tuilog.Log.Info("Received interrupt signal, shutting down")
@@ -394,7 +395,7 @@ func runServeMCP(cmd *cobra.Command, args []string) error {
 
 	// Handle interrupt signal
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(sigCh, os.Interrupt)
 	go func() {
 		<-sigCh
 		tuilog.Log.Info("Received interrupt signal, shutting down")
