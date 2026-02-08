@@ -5,10 +5,23 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"testing"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
+
+// platformFileManager returns the default file manager app ID for the current OS.
+func platformFileManager() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "finder"
+	case "windows":
+		return "explorer"
+	default:
+		return "files"
+	}
+}
 
 func TestHandleGetAllowedApps(t *testing.T) {
 	// Create a test server
@@ -31,16 +44,17 @@ func TestHandleGetAllowedApps(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	// Should have at least finder enabled
-	var finderFound bool
+	// Should have the platform file manager
+	expectedApp := platformFileManager()
+	var found bool
 	for _, app := range response.Apps {
-		if app.ID == "finder" {
-			finderFound = true
+		if app.ID == expectedApp {
+			found = true
 			break
 		}
 	}
-	if !finderFound {
-		t.Error("finder should be in the allowed apps list")
+	if !found {
+		t.Errorf("%s should be in the allowed apps list", expectedApp)
 	}
 }
 
@@ -66,7 +80,7 @@ func TestHandleOpenIn_MissingPath(t *testing.T) {
 	config := DefaultConfig()
 	server := NewHTTPServer(registry, config)
 
-	body := []byte(`{"app": "finder"}`)
+	body := []byte(`{"app": "` + platformFileManager() + `"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/open-in", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
