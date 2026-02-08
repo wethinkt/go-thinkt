@@ -142,9 +142,9 @@ docker run --rm \
 
 ## Running Servers
 
-### Web Server
+### Web Server (Full Interface)
 
-Start the HTTP server with port mapping:
+Start the HTTP server with the full web interface:
 
 ```bash
 docker run --rm -p 8784:8784 \
@@ -168,7 +168,7 @@ docker run --rm -p 8784:8784 \
   ghcr.io/wethinkt/thinkt serve --host 0.0.0.0 --quiet
 ```
 
-### Lite Server
+### Lite Server (Debug Interface)
 
 Start the lightweight debug server:
 

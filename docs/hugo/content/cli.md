@@ -170,16 +170,17 @@ thinkt prompts templates              # Available output templates
 
 ### Web Interface
 
-Start a local web server for visual exploration:
+Start a local web server for visual trace exploration:
 
 ```bash
-thinkt serve                          # Default port 8784
+thinkt serve                          # Full webapp on port 8784
 thinkt serve -p 8080                  # Custom port
 thinkt serve --no-open                # Don't open browser
 thinkt serve --quiet                  # Suppress request logging
+thinkt serve lite                     # Lightweight debug interface on port 8785
 ```
 
-All data stays on your machine.
+`thinkt serve` provides the full web interface. `thinkt serve lite` provides a lightweight debug view. Both include the REST API. All data stays on your machine.
 
 ### MCP Server
 
@@ -217,12 +218,14 @@ thinkt serve fingerprint              # Human-readable output
 thinkt serve fingerprint --json       # JSON output
 ```
 
-The fingerprint is derived from system identifiers:
-- **macOS**: IOPlatformUUID from `ioreg`
-- **Linux**: `/etc/machine-id` or `/var/lib/dbus/machine-id`
-- **Windows**: MachineGuid from registry
+The fingerprint is derived from platform-specific system identifiers:
 
-If no system identifier is available, a fingerprint is generated and cached in `~/.thinkt/machine_id`.
+| Platform | Source |
+|----------|--------|
+| macOS | IOPlatformUUID from `ioreg` |
+| Linux | `/etc/machine-id` or `/var/lib/dbus/machine-id` |
+| Windows | MachineGuid from registry |
+| Fallback | Generated and cached in `~/.thinkt/machine_id` |
 
 ---
 

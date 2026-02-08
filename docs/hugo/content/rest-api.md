@@ -26,7 +26,7 @@ Once running, access the API at `http://localhost:8784/api/v1/` (or your configu
 
 ### Full Server (`thinkt serve`)
 
-The main HTTP server with REST API and web interface:
+The main HTTP server with REST API and full web interface:
 
 ```bash
 thinkt serve                    # Default port 8784
@@ -38,7 +38,8 @@ thinkt serve --http-log access.log  # Log requests to file
 
 **Features:**
 - Full REST API
-- Web interface for visual exploration
+- Full web interface ([thinkt-web](https://github.com/wethinkt/thinkt-web)) for visual trace exploration
+- SPA routing — all non-API paths serve the webapp
 - Auto-opens browser on startup
 
 ### Lite Server (`thinkt serve lite`)
@@ -53,7 +54,7 @@ thinkt serve lite --no-open     # Don't auto-open browser
 
 **Features:**
 - REST API access
-- Simple debug interface showing:
+- Lightweight debug interface ([thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite)) showing:
   - Available sources and status
   - Project list with session counts
   - Quick links to API endpoints
@@ -456,9 +457,10 @@ GET /api/v1/open-in/apps
 {
   "apps": [
     {"id": "finder", "name": "Finder", "enabled": true},
+    {"id": "terminal", "name": "Terminal", "enabled": true},
     {"id": "vscode", "name": "VS Code", "enabled": true},
-    {"id": "cursor", "name": "Cursor", "enabled": true},
-    {"id": "terminal", "name": "Terminal", "enabled": false}
+    {"id": "cursor", "name": "Cursor", "enabled": false},
+    {"id": "zed", "name": "Zed", "enabled": false}
   ]
 }
 ```

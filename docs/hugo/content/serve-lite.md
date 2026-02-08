@@ -62,12 +62,11 @@ Projects are aggregated by path across all sources. If you've used multiple AI a
 
 ### Apps Panel
 
-Shows configured applications for the "Open In" feature:
-- Finder / File Explorer
-- VS Code
-- Cursor
-- Terminal
-- Custom applications
+Shows configured applications for the "Open In" feature. Available apps depend on the platform:
+- **macOS**: Finder, Terminal, iTerm
+- **Linux**: File Manager (xdg-open), Terminal (x-terminal-emulator)
+- **Windows**: Explorer, Windows Terminal, Command Prompt
+- **All platforms**: VS Code, Cursor, Zed (when installed)
 
 ### Themes Panel
 
@@ -177,9 +176,13 @@ Access at `http://localhost:8785`.
 |---------|--------------|---------|
 | Port | 8785 | 8784 |
 | REST API | Yes | Yes |
-| Web UI | Simple overview | Full explorer |
+| Web UI | Lightweight debug interface | Full webapp ([thinkt-web](https://github.com/wethinkt/thinkt-web)) |
 | Swagger docs | Yes | Yes |
-| Purpose | Debugging, quick view | Full exploration |
+| Purpose | Debugging, quick inspection | Full trace exploration |
+
+{{< hint info >}}
+**Tip:** For full visual exploration of your AI coding sessions, use `thinkt serve` instead. The lite server is designed for quick inspection and API debugging.
+{{< /hint >}}
 
 ## See Also
 

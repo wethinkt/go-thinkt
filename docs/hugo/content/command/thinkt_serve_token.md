@@ -19,7 +19,9 @@ The token format is: thinkt_YYYYMMDD_<random>
 
 Examples:
   thinkt serve token                  # Generate and print a token
-  thinkt serve token | pbcopy         # Generate and copy to clipboard (macOS)
+  thinkt serve token | pbcopy         # Copy to clipboard (macOS)
+  thinkt serve token | xclip -sel c   # Copy to clipboard (Linux)
+  thinkt serve token | clip           # Copy to clipboard (Windows)
   export THINKT_MCP_TOKEN=$(thinkt serve token)
   thinkt serve mcp --port 8786        # Uses token from env
 

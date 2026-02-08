@@ -32,6 +32,7 @@ Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot` flags to 
 | `internal/sources/copilot` | Copilot storage implementation |
 | `internal/tui` | BubbleTea terminal UI (shell, pickers, viewer, theme builder) |
 | `internal/server` | HTTP REST API, teams API, and MCP server |
+| `internal/server/web` | Full webapp submodule ([thinkt-web](https://github.com/wethinkt/thinkt-web), `dist` branch) |
 | `internal/server/web-lite` | Lite webapp submodule ([thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite)) |
 | `internal/analytics` | Analytics |
 | `internal/prompt` | Prompt extraction and formatting |
@@ -120,11 +121,14 @@ thinkt tui --log /tmp/thinkt-debug.log
 
 ### Authentication
 
-Both the REST API server and MCP HTTP server support Bearer token authentication.
+Both the REST API server and MCP HTTP server use a unified `BearerAuthenticator` (defined in `auth.go`) with a single `AuthConfig` type supporting three modes: `AuthModeNone`, `AuthModeToken`, and `AuthModeEnvToken`. Each server has its own defaults via `DefaultAPIAuthConfig()` and `DefaultMCPAuthConfig()`, which embed the appropriate realm (`thinkt-api` or `thinkt-mcp`).
 
 **Token Generation:**
 ```bash
-thinkt serve token  # Generates thinkt_YYYYMMDD_<random> format
+thinkt serve token                  # Generates thinkt_YYYYMMDD_<random> format
+thinkt serve token | pbcopy         # Copy to clipboard (macOS)
+thinkt serve token | xclip -sel c   # Copy to clipboard (Linux)
+thinkt serve token | clip           # Copy to clipboard (Windows)
 ```
 
 ### Machine Fingerprint
@@ -182,7 +186,7 @@ Teams represent multi-agent coordination (e.g., Claude Code swarms). The `TeamSt
 - **TeamStore** (`internal/thinkt/teams.go`) — Interface: `ListTeams`, `GetTeam`, `GetTeamTasks`, `GetTeamMessages`
 - **ClaudeTeamStore** (`internal/sources/claude/teams.go`) — Implementation reading from `~/.claude/teams/` and `~/.claude/tasks/`
 - **Teams CLI** (`internal/cmd/teams.go`) — `thinkt teams [list]` with `--json`, `--active`, `--inactive` flags
-- **Teams API** (`internal/server/teams_api.go`) — REST endpoints: `/api/v1/teams`, `/api/v1/teams/{name}`, etc.
+- **Teams API** (`internal/server/teams_api.go`) — REST endpoints under `/api/v1/teams` route group, guarded by `requireTeamStore` middleware
 
 **Claude Code team file layout:**
 - Config: `~/.claude/teams/{name}/config.json`
@@ -193,9 +197,14 @@ Teams represent multi-agent coordination (e.g., Claude Code swarms). The `TeamSt
 
 `StoreCache` (`internal/thinkt/cache.go`) provides project and session caching for Store implementations. Stores embed this struct to avoid repeated filesystem scans. Supports optional TTL for cache expiry (default: no expiry).
 
-## Lite Webapp
+## Webapps
 
-The lightweight webapp (`thinkt serve lite`) lives in the [thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite) repo, included as a git submodule at `internal/server/web-lite/`.
+Two web interfaces are embedded into the binary via git submodules:
+
+| Submodule | Path | Command | Port | Description |
+|-----------|------|---------|------|-------------|
+| [thinkt-web](https://github.com/wethinkt/thinkt-web) (`dist` branch) | `internal/server/web/` | `thinkt serve` | 8784 | Full webapp for trace exploration |
+| [thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite) | `internal/server/web-lite/` | `thinkt serve lite` | 8785 | Lightweight debug interface |
 
 ### Submodule Setup
 
@@ -205,29 +214,37 @@ After cloning, initialize submodules if not already done:
 git submodule update --init --recursive
 ```
 
-### Structure
-
-```
-internal/server/web-lite/   # git submodule → thinkt-web-lite
-├── index.html              # Main HTML file
-└── static/
-    ├── style.css           # Stylesheet
-    └── i18n.js             # Internationalization (EN/ES/ZH)
-```
-
 ### Static File Serving
 
-Only `index.html` and `static/*` are embedded via `//go:embed` in `internal/server/static.go`. Other files in the submodule (README, AGENTS.md, LICENSE, etc.) are excluded from the binary.
+Both webapps are embedded via `//go:embed` directives in `internal/server/static.go`:
+- `StaticWebAppHandler()` — serves `web/index.html` + `web/assets/*` (full webapp)
+- `StaticLiteWebAppHandler()` — serves `web-lite/index.html` + `web-lite/static/*` (lite)
 
-### Updating the Webapp
+The `Config.StaticHandler` field selects which handler to use. `thinkt serve` sets it to `StaticWebAppHandler()`; `thinkt serve lite` leaves it nil (defaults to `StaticLiteWebAppHandler()`). Both use SPA routing — non-file paths fall back to `index.html`.
 
-1. Make changes inside `internal/server/web-lite/`
+### Updating the Webapps
+
+1. Make changes inside the submodule directory
 2. Commit and push from within the submodule
 3. Back in the go-thinkt root, stage the updated ref:
    ```bash
-   git add internal/server/web-lite
-   git commit -m "update web-lite submodule"
+   git add internal/server/web       # or internal/server/web-lite
+   git commit -m "update web submodule"
    ```
+
+## Cross-Platform Support
+
+thinkt builds and runs on macOS, Linux, and Windows. Platform-specific code uses Go build tags and `runtime.GOOS` checks:
+
+| Area | Approach | Files |
+|------|----------|-------|
+| Default apps (Finder/Explorer/xdg-open, terminals, editors) | Build-tagged `DefaultApps()` per platform | `internal/config/apps_darwin.go`, `apps_linux.go`, `apps_windows.go` |
+| Machine fingerprint | Build-tagged implementations | `internal/fingerprint/fingerprint_{darwin,linux,windows,fallback}.go` |
+| Directory name decoding | `runtime.GOOS` check for Windows drive letters | `internal/sources/claude/projects.go` `DecodeDirName()` |
+| Signal handling | `os.Interrupt` only (not `syscall.SIGTERM`) | `internal/cmd/serve.go`, `internal/indexer/cmd/watch.go` |
+| Browser opening | `runtime.GOOS` switch: `open` / `xdg-open` / `rundll32` | `internal/cmd/serve.go` `openBrowser()` |
+
+Shared code (editor apps, `BuildCommand`, `Launch`, `checkCommandExists`) lives in `internal/config/apps.go`.
 
 ## Documentation Map
 

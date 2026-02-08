@@ -27,7 +27,7 @@ Access methods: CLI, REST API, MCP, Go library.
 |------|-------------|
 | `/cmd/thinkt/` | CLI application |
 | `/internal/thinkt/` | Core library |
-| `/internal/server/` | HTTP and MCP servers |
+| `/internal/server/` | HTTP and MCP servers (embeds web + web-lite submodules) |
 | `/docs/hugo/content/` | Documentation |
 | `/internal/server/docs/swagger.yaml` | OpenAPI spec |
 

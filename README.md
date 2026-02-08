@@ -46,6 +46,7 @@ Right now much of the implementation is in package `internal`, but we will event
 - **Prompt Extraction**: Generate timestamped logs of user prompts in markdown, JSON, or plain text
 - **MCP Server**: Model Context Protocol integration for use with AI assistants
 - **REST API**: HTTP server for programmatic access
+- **Web Interface**: Full webapp for visual trace exploration via `thinkt serve`
 - **Lite Webapp**: Lightweight debug interface with i18n (EN/ES/中文), connection status, and "open-in" buttons
 - **Themes**: Customizable color themes with interactive theme builder
 
@@ -144,8 +145,8 @@ thinkt tui --log /tmp/thinkt-debug.log
 | `thinkt teams` | List agent teams (Claude Code) |
 | `thinkt teams list` | Same as above |
 | `thinkt prompts extract` | Extract prompts to markdown/JSON |
-| `thinkt serve` | Start HTTP server (port 8784) |
-| `thinkt serve lite` | Start lightweight webapp (port 8785) |
+| `thinkt serve` | Start web interface and REST API (port 8784) |
+| `thinkt serve lite` | Start lightweight debug webapp (port 8785) |
 | `thinkt serve mcp` | Start MCP server |
 | `thinkt serve token` | Generate secure authentication token |
 | `thinkt serve fingerprint` | Display machine fingerprint for workspace correlation |
@@ -207,7 +208,7 @@ thinkt serve lite --quiet --no-open
 
 | Command | Port | Description |
 |---------|------|-------------|
-| `thinkt serve` | 8784 | REST API and web interface |
+| `thinkt serve` | 8784 | Full web interface and REST API |
 | `thinkt serve lite` | 8785 | Lightweight debug webapp |
 | `thinkt serve mcp --port` | 8786 | MCP server over HTTP |
 | [VS Code extension](https://github.com/wethinkt/thinkt-vscode) | 8787 | Reserved for embedded server |
@@ -264,9 +265,16 @@ Clients must pass the token in the `Authorization` header:
 Authorization: Bearer thinkt_20260205_...
 ```
 
+## Cross-Platform Support
+
+thinkt runs on macOS, Linux, and Windows. Platform-specific behavior is handled automatically:
+- **Default apps**: Finder/Terminal/iTerm (macOS), xdg-open/x-terminal-emulator (Linux), Explorer/Windows Terminal/cmd (Windows), plus VS Code/Cursor/Zed on all platforms
+- **Machine fingerprint**: IOPlatformUUID (macOS), `/etc/machine-id` (Linux), registry MachineGuid (Windows)
+- **Browser opening**: `open` (macOS), `xdg-open` (Linux), `rundll32` (Windows)
+
 ## Machine Fingerprint
 
-Use `thinkt serve fingerprint` to display a unique machine identifier. This fingerprint is derived from system identifiers (e.g., hardware UUID on macOS, `/etc/machine-id` on Linux) and can be used to correlate sessions across different AI coding assistant sources on the same machine.
+Use `thinkt serve fingerprint` to display a unique machine identifier. This fingerprint is derived from system identifiers (e.g., hardware UUID on macOS, `/etc/machine-id` on Linux, MachineGuid on Windows) and can be used to correlate sessions across different AI coding assistant sources on the same machine.
 
 ```bash
 # Display fingerprint
@@ -280,7 +288,9 @@ The fingerprint is normalized to a consistent UUID format across all platforms.
 
 ## Lite Webapp Features
 
-The lightweight webapp (`thinkt serve lite`) provides:
+For full trace exploration, use `thinkt serve` which provides the full web interface on port 8784.
+
+The lightweight webapp (`thinkt serve lite`) provides a quick debug interface:
 
 - **Internationalization**: English, Spanish, and Chinese (auto-detected)
 - **Connection Status**: Real-time indicator showing server connectivity

@@ -43,7 +43,8 @@ thinkt sessions view
 - **Themes** - Customizable color themes with interactive theme builder
 
 - [**REST API**](/rest-api) - Programmatic access with OpenAPI/Swagger documentation
-- [**Lite Server**](/serve-lite) - Lightweight web interface for quick exploration
+- [**Web Interface**](/rest-api#server-modes) - Full webapp for visual trace exploration via `thinkt serve`
+- [**Lite Server**](/serve-lite) - Lightweight debug interface for quick inspection
 - [**MCP Server**](/mcp-server) - Expose session data via Model Context Protocol for AI assistants
 - [**Docker**](/docker) - Sandboxed, read-only access via container
 
