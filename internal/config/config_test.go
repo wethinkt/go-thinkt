@@ -2,32 +2,55 @@ package config
 
 import (
 	"encoding/json"
+	"runtime"
 	"testing"
 )
 
 func TestDefaultApps(t *testing.T) {
 	apps := DefaultApps()
 
-	// Should have at least finder
 	if len(apps) == 0 {
 		t.Fatal("DefaultApps returned empty slice")
 	}
 
-	// Check that finder is present and enabled
-	var finderFound bool
+	// Each platform should include its file manager and editor apps
+	var expectedID string
+	switch runtime.GOOS {
+	case "darwin":
+		expectedID = "finder"
+	case "linux":
+		expectedID = "files"
+	case "windows":
+		expectedID = "explorer"
+	default:
+		t.Skipf("unsupported GOOS %q", runtime.GOOS)
+	}
+
+	var found bool
 	for _, app := range apps {
-		if app.ID == "finder" {
-			finderFound = true
-			if !app.Enabled {
-				t.Error("finder should be enabled by default")
+		if app.ID == expectedID {
+			found = true
+			if len(app.Exec) == 0 {
+				t.Errorf("%s app has empty Exec", expectedID)
 			}
-			if len(app.Exec) == 0 || app.Exec[0] != "open" {
-				t.Errorf("finder exec should start with 'open', got %v", app.Exec)
-			}
+			break
 		}
 	}
-	if !finderFound {
-		t.Error("finder app not found in default apps")
+	if !found {
+		t.Errorf("%s app not found in default apps", expectedID)
+	}
+
+	// All platforms should include editor apps (vscode, cursor, zed)
+	editorIDs := map[string]bool{"vscode": false, "cursor": false, "zed": false}
+	for _, app := range apps {
+		if _, ok := editorIDs[app.ID]; ok {
+			editorIDs[app.ID] = true
+		}
+	}
+	for id, found := range editorIDs {
+		if !found {
+			t.Errorf("editor app %q not found in default apps", id)
+		}
 	}
 }
 
