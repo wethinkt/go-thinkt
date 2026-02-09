@@ -5,29 +5,32 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/wethinkt/go-thinkt/internal/indexer/db"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 // Watcher monitors session directories for changes and triggers ingestion.
 type Watcher struct {
-	ingester *Ingester
+	dbPath   string
 	registry *thinkt.StoreRegistry
 	watcher  *fsnotify.Watcher
 	done     chan struct{}
+	mu       sync.Mutex
 }
 
 // NewWatcher creates a new Watcher instance.
-func NewWatcher(ingester *Ingester, registry *thinkt.StoreRegistry) (*Watcher, error) {
+func NewWatcher(dbPath string, registry *thinkt.StoreRegistry) (*Watcher, error) {
 	fw, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
 
 	return &Watcher{
-		ingester: ingester,
+		dbPath:   dbPath,
 		registry: registry,
 		watcher:  fw,
 		done:     make(chan struct{}),
@@ -139,6 +142,9 @@ func (w *Watcher) watchLoop(ctx context.Context) {
 }
 
 func (w *Watcher) handleFileChange(path string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	// Normalize incoming path
 	realPath, err := filepath.EvalSymlinks(path)
 	if err != nil {
@@ -162,9 +168,16 @@ func (w *Watcher) handleFileChange(path string) {
 			}
 
 			if sRealPath == realPath {
-				if err := w.ingester.IngestSession(ctx, p.ID, s); err != nil {
+				database, err := db.Open(w.dbPath)
+				if err != nil {
+					log.Printf("Failed to open database: %v", err)
+					return
+				}
+				ingester := NewIngester(database, w.registry)
+				if err := ingester.IngestSession(ctx, p.ID, s); err != nil {
 					log.Printf("Failed to re-index session %s: %v", s.ID, err)
 				}
+				database.Close()
 				return
 			}
 		}

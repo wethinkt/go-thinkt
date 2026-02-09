@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/wethinkt/go-thinkt/internal/cmd"
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/indexer"
 )
 
@@ -15,20 +17,24 @@ var watchCmd = &cobra.Command{
 	Use:   "watch",
 	Short: "Watch session directories for changes and index them in real-time",
 	RunE: func(cmdObj *cobra.Command, args []string) error {
-		database, err := getDB()
-		if err != nil {
-			return err
-		}
-		defer database.Close()
-
 		registry := cmd.CreateSourceRegistry()
-		ingester := indexer.NewIngester(database, registry)
-		
-		watcher, err := indexer.NewWatcher(ingester, registry)
+
+		watcher, err := indexer.NewWatcher(dbPath, registry)
 		if err != nil {
 			return fmt.Errorf("failed to create watcher: %w", err)
 		}
 		defer watcher.Stop()
+
+		// Register instance for discovery
+		inst := config.Instance{
+			Type:      config.InstanceIndexerWatch,
+			PID:       os.Getpid(),
+			StartedAt: time.Now(),
+		}
+		if err := config.RegisterInstance(inst); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to register instance: %v\n", err)
+		}
+		defer config.UnregisterInstance(os.Getpid())
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()

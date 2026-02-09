@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	_ "github.com/wethinkt/go-thinkt/internal/server/docs" // swagger docs
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
@@ -33,11 +34,12 @@ const (
 type Config struct {
 	Port          int
 	Host          string
-	Quiet         bool         // suppress HTTP request logging
-	HTTPLog       string       // path to HTTP access log file (empty = stdout, "-" = discard unless Quiet)
-	CORSOrigin    string       // Access-Control-Allow-Origin value (default "*")
-	StaticHandler http.Handler // if nil, defaults to StaticLiteWebAppHandler()
-	httpLogFile   *os.File     // internal: opened log file handle
+	Quiet         bool                // suppress HTTP request logging
+	HTTPLog       string              // path to HTTP access log file (empty = stdout, "-" = discard unless Quiet)
+	CORSOrigin    string              // Access-Control-Allow-Origin value (default "*")
+	StaticHandler http.Handler        // if nil, defaults to StaticLiteWebAppHandler()
+	InstanceType  config.InstanceType // instance type for discovery file registration
+	httpLogFile   *os.File            // internal: opened log file handle
 }
 
 // DefaultConfig returns a default configuration.
@@ -207,6 +209,14 @@ func (s *HTTPServer) Addr() string {
 
 // ListenAndServe starts the HTTP server.
 func (s *HTTPServer) ListenAndServe(ctx context.Context) error {
+	// Check for port conflicts via instance discovery
+	if s.config.Port != 0 {
+		if existing := config.FindInstanceByPort(s.config.Port); existing != nil {
+			return fmt.Errorf("port %d is already in use by thinkt %s (PID %d, started %s)",
+				s.config.Port, existing.Type, existing.PID, existing.StartedAt.Format(time.RFC3339))
+		}
+	}
+
 	srv := &http.Server{
 		Addr:    s.Addr(),
 		Handler: s.router,
@@ -222,9 +232,26 @@ func (s *HTTPServer) ListenAndServe(ctx context.Context) error {
 		s.config.Port = ln.Addr().(*net.TCPAddr).Port
 	}
 
+	// Register instance for discovery
+	instType := s.config.InstanceType
+	if instType == "" {
+		instType = config.InstanceServe
+	}
+	inst := config.Instance{
+		Type:      instType,
+		PID:       os.Getpid(),
+		Port:      s.config.Port,
+		Host:      s.config.Host,
+		StartedAt: time.Now(),
+	}
+	if err := config.RegisterInstance(inst); err != nil {
+		tuilog.Log.Warn("Failed to register instance", "error", err)
+	}
+
 	// Graceful shutdown
 	go func() {
 		<-ctx.Done()
+		config.UnregisterInstance(os.Getpid())
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		srv.Shutdown(shutdownCtx)

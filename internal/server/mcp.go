@@ -15,6 +15,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
@@ -647,6 +648,12 @@ func (ms *MCPServer) RunStdio(ctx context.Context) error {
 }
 
 func (ms *MCPServer) RunHTTP(ctx context.Context, host string, port int) error {
+	// Check for port conflicts via instance discovery
+	if existing := config.FindInstanceByPort(port); existing != nil {
+		return fmt.Errorf("port %d is already in use by thinkt %s (PID %d, started %s)",
+			port, existing.Type, existing.PID, existing.StartedAt.Format(time.RFC3339))
+	}
+
 	sseHandler := mcp.NewSSEHandler(func(req *http.Request) *mcp.Server { return ms.server }, nil)
 	var handler http.Handler = sseHandler
 	if ms.authenticator.config.Mode != AuthModeNone {
@@ -658,7 +665,24 @@ func (ms *MCPServer) RunHTTP(ctx context.Context, host string, port int) error {
 	if err != nil {
 		return err
 	}
-	go func() { <-ctx.Done(); srv.Shutdown(context.Background()) }()
+
+	// Register instance for discovery
+	inst := config.Instance{
+		Type:      config.InstanceServeMCP,
+		PID:       os.Getpid(),
+		Port:      port,
+		Host:      host,
+		StartedAt: time.Now(),
+	}
+	if err := config.RegisterInstance(inst); err != nil {
+		tuilog.Log.Warn("Failed to register MCP instance", "error", err)
+	}
+
+	go func() {
+		<-ctx.Done()
+		config.UnregisterInstance(os.Getpid())
+		srv.Shutdown(context.Background())
+	}()
 	return srv.Serve(ln)
 }
 

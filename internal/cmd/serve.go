@@ -16,6 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/fingerprint"
 	"github.com/wethinkt/go-thinkt/internal/server"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
@@ -210,16 +211,17 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 	}()
 
 	// HTTP mode: start HTTP server
-	config := server.Config{
+	thinktConfig := server.Config{
 		Port:          servePort,
 		Host:          serveHost,
 		Quiet:         serveQuiet,
 		HTTPLog:       serveHTTPLog,
 		CORSOrigin:    resolveCORSOrigin(),
 		StaticHandler: server.StaticWebAppHandler(),
+		InstanceType:  config.InstanceServe,
 	}
-	defer config.Close()
-	srv := server.NewHTTPServerWithAuth(registry, config, authConfig)
+	defer thinktConfig.Close()
+	srv := server.NewHTTPServerWithAuth(registry, thinktConfig, authConfig)
 	for _, ts := range registry.TeamStores() {
 		srv.SetTeamStore(ts)
 	}
@@ -281,15 +283,16 @@ func runServeLite(cmd *cobra.Command, args []string) error {
 	}()
 
 	// HTTP mode: start HTTP server
-	config := server.Config{
-		Port:       serveLitePort,
-		Host:       serveHost,
-		Quiet:      serveQuiet,
-		HTTPLog:    serveHTTPLog,
-		CORSOrigin: resolveCORSOrigin(),
+	thinktConfig := server.Config{
+		Port:         serveLitePort,
+		Host:         serveHost,
+		Quiet:        serveQuiet,
+		HTTPLog:      serveHTTPLog,
+		CORSOrigin:   resolveCORSOrigin(),
+		InstanceType: config.InstanceServeLite,
 	}
-	defer config.Close()
-	srv := server.NewHTTPServer(registry, config)
+	defer thinktConfig.Close()
+	srv := server.NewHTTPServer(registry, thinktConfig)
 	for _, ts := range registry.TeamStores() {
 		srv.SetTeamStore(ts)
 	}

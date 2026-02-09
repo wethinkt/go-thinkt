@@ -38,10 +38,6 @@ ensuring your private content remains in your local files, not the index.`,
 
 		db, err := getReadOnlyDB()
 		if err != nil {
-			// Check if it's a lock conflict error
-			if strings.Contains(err.Error(), "Conflicting lock") {
-				return fmt.Errorf("database is locked by another process (likely 'thinkt-indexer watch').\nPlease stop the watch process before running search, or use the MCP server which handles this automatically")
-			}
 			return err
 		}
 		defer db.Close()
