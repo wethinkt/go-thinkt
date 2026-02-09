@@ -227,21 +227,6 @@ tasks:
       - xcrun notarytool submit thinkt.zip --key "$MACOS_NOTARY_KEY" --key-id "$MACOS_NOTARY_KEY_ID" --issuer "$MACOS_NOTARY_ISSUER_ID" --wait
 
   release:test:
-    desc: Test release build with goreleaser (requires PRO key)
+    desc: Test release build with goreleaser
     cmds:
-      - |
-        if [ -z "$GORELEASER_KEY" ]; then
-          echo "Error: GORELEASER_KEY env var not set"
-          exit 1
-        fi
-      - goreleaser release --snapshot --clean --split
-
-  release:merge:
-    desc: Merge split release builds (requires PRO key)
-    cmds:
-      - |
-        if [ -z "$GORELEASER_KEY" ]; then
-          echo "Error: GORELEASER_KEY env var not set"
-          exit 1
-        fi
-      - goreleaser continue --merge
+      - goreleaser release --snapshot --clean
