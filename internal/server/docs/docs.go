@@ -15,6 +15,27 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/indexer/health": {
+            "get": {
+                "description": "Returns whether the indexer binary is available and the database path",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "indexer"
+                ],
+                "summary": "Get indexer health status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/open-in": {
             "post": {
                 "security": [
@@ -206,6 +227,82 @@ const docTemplate = `{
                 }
             }
         },
+        "/search": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Search for text within the original session files using the DuckDB index",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "indexer"
+                ],
+                "summary": "Search across indexed sessions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search query text",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by project name (substring match)",
+                        "name": "project",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by source (claude, kimi)",
+                        "name": "source",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum total matches (default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum matches per session (default 2, 0 for no limit)",
+                        "name": "limit_per_session",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.SearchResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - missing query",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable - indexer not found",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/sessions/{path}": {
             "get": {
                 "security": [
@@ -294,6 +391,43 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns aggregate usage statistics including total tokens and most used tools",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "indexer"
+                ],
+                "summary": "Get index usage statistics",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.StatsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable - indexer not found",
                         "schema": {
                             "$ref": "#/definitions/server.ErrorResponse"
                         }
@@ -593,6 +727,57 @@ const docTemplate = `{
                 }
             }
         },
+        "server.SearchMatch": {
+            "type": "object",
+            "properties": {
+                "line_num": {
+                    "type": "integer"
+                },
+                "preview": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "server.SearchResponse": {
+            "type": "object",
+            "properties": {
+                "sessions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/server.SearchSessionResult"
+                    }
+                },
+                "total_matches": {
+                    "type": "integer"
+                }
+            }
+        },
+        "server.SearchSessionResult": {
+            "type": "object",
+            "properties": {
+                "matches": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/server.SearchMatch"
+                    }
+                },
+                "path": {
+                    "type": "string"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                }
+            }
+        },
         "server.SessionResponse": {
             "type": "object",
             "properties": {
@@ -646,6 +831,29 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/server.SourceInfo"
                     }
+                }
+            }
+        },
+        "server.StatsResponse": {
+            "type": "object",
+            "properties": {
+                "tool_usage": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "total_entries": {
+                    "type": "integer"
+                },
+                "total_projects": {
+                    "type": "integer"
+                },
+                "total_sessions": {
+                    "type": "integer"
+                },
+                "total_tokens": {
+                    "type": "integer"
                 }
             }
         },

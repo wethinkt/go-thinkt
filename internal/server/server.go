@@ -172,6 +172,11 @@ func (s *HTTPServer) setupRouter() chi.Router {
 		// Themes endpoint
 		r.Get("/themes", s.handleGetThemes)
 
+		// Indexer endpoints (search/stats)
+		r.Get("/search", s.handleSearchSessions)
+		r.Get("/stats", s.handleGetStats)
+		r.Get("/indexer/health", s.handleIndexerHealth)
+
 		// Team endpoints
 		r.Route("/teams", func(r chi.Router) {
 			r.Use(s.requireTeamStore)

@@ -45,6 +45,39 @@ definitions:
           $ref: '#/definitions/thinkt.Project'
         type: array
     type: object
+  server.SearchMatch:
+    properties:
+      line_num:
+        type: integer
+      preview:
+        type: string
+      role:
+        type: string
+    type: object
+  server.SearchResponse:
+    properties:
+      sessions:
+        items:
+          $ref: '#/definitions/server.SearchSessionResult'
+        type: array
+      total_matches:
+        type: integer
+    type: object
+  server.SearchSessionResult:
+    properties:
+      matches:
+        items:
+          $ref: '#/definitions/server.SearchMatch'
+        type: array
+      path:
+        type: string
+      project_name:
+        type: string
+      session_id:
+        type: string
+      source:
+        type: string
+    type: object
   server.SessionResponse:
     properties:
       entries:
@@ -80,6 +113,21 @@ definitions:
         items:
           $ref: '#/definitions/server.SourceInfo'
         type: array
+    type: object
+  server.StatsResponse:
+    properties:
+      tool_usage:
+        additionalProperties:
+          type: integer
+        type: object
+      total_entries:
+        type: integer
+      total_projects:
+        type: integer
+      total_sessions:
+        type: integer
+      total_tokens:
+        type: integer
     type: object
   server.TeamMessagesResponse:
     properties:
@@ -514,6 +562,21 @@ info:
   title: Thinkt API
   version: "1.0"
 paths:
+  /indexer/health:
+    get:
+      description: Returns whether the indexer binary is available and the database
+        path
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get indexer health status
+      tags:
+      - indexer
   /open-in:
     post:
       consumes:
@@ -636,6 +699,56 @@ paths:
       summary: List sessions for a project
       tags:
       - sessions
+  /search:
+    get:
+      description: Search for text within the original session files using the DuckDB
+        index
+      parameters:
+      - description: Search query text
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: Filter by project name (substring match)
+        in: query
+        name: project
+        type: string
+      - description: Filter by source (claude, kimi)
+        in: query
+        name: source
+        type: string
+      - description: Maximum total matches (default 50)
+        in: query
+        name: limit
+        type: integer
+      - description: Maximum matches per session (default 2, 0 for no limit)
+        in: query
+        name: limit_per_session
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.SearchResponse'
+        "400":
+          description: Bad Request - missing query
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing token
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "503":
+          description: Service Unavailable - indexer not found
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Search across indexed sessions
+      tags:
+      - indexer
   /sessions/{path}:
     get:
       description: Returns session metadata and entries with optional pagination
@@ -696,6 +809,30 @@ paths:
       summary: List available trace sources
       tags:
       - sources
+  /stats:
+    get:
+      description: Returns aggregate usage statistics including total tokens and most
+        used tools
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.StatsResponse'
+        "401":
+          description: Unauthorized - invalid or missing token
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "503":
+          description: Service Unavailable - indexer not found
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get index usage statistics
+      tags:
+      - indexer
   /teams:
     get:
       description: Returns all Claude Code teams discovered on this machine
