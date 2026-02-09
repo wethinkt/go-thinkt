@@ -302,6 +302,108 @@ curl "http://localhost:8784/api/v1/sessions/%2Fpath%2Fto%2Fsession.jsonl?limit=1
 
 ---
 
+### Search
+
+#### Search Sessions
+
+Search for text across indexed sessions. Requires `thinkt-indexer` to be available.
+
+```
+GET /api/v1/search?q=query
+```
+
+**Query Parameters:**
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `q` | string | (required) | Search query text |
+| `project` | string | | Filter by project name (substring match) |
+| `source` | string | | Filter by source (`claude`, `kimi`) |
+| `limit` | int | 50 | Maximum total matches |
+| `limit_per_session` | int | 2 | Maximum matches per session (0 for no limit) |
+| `case_sensitive` | bool | false | Enable case-sensitive matching |
+| `regex` | bool | false | Treat query as a regular expression (Go RE2 syntax) |
+
+**Response:**
+```json
+{
+  "sessions": [
+    {
+      "session_id": "abc-123",
+      "project_name": "my-project",
+      "source": "claude",
+      "path": "/Users/you/.claude/projects/abc123/session.jsonl",
+      "matches": [
+        {
+          "line_num": 42,
+          "preview": "...Help me refactor the authentication module...",
+          "role": "user"
+        }
+      ]
+    }
+  ],
+  "total_matches": 5
+}
+```
+
+**Examples:**
+```bash
+# Basic search (case-insensitive)
+curl "http://localhost:8784/api/v1/search?q=authentication"
+
+# Case-sensitive search
+curl "http://localhost:8784/api/v1/search?q=AuthManager&case_sensitive=true"
+
+# Regex search
+curl "http://localhost:8784/api/v1/search?q=func\s%2BTest\w%2B&regex=true"
+
+# Filter by project
+curl "http://localhost:8784/api/v1/search?q=error&project=my-app"
+```
+
+#### Get Usage Statistics
+
+Get aggregate usage statistics from the index.
+
+```
+GET /api/v1/stats
+```
+
+**Response:**
+```json
+{
+  "total_projects": 12,
+  "total_sessions": 156,
+  "total_entries": 4200,
+  "total_tokens": 1250000,
+  "tool_usage": {
+    "Read": 450,
+    "Edit": 280,
+    "Bash": 190
+  }
+}
+```
+
+#### Indexer Health
+
+Check whether the indexer is available and the database is accessible.
+
+```
+GET /api/v1/indexer/health
+```
+
+**Response:**
+```json
+{
+  "available": true,
+  "path": "/usr/local/bin/thinkt-indexer",
+  "database_accessible": true,
+  "indexed_projects": 12,
+  "indexed_sessions": 156
+}
+```
+
+---
+
 ### Teams
 
 #### List Teams

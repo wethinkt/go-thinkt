@@ -229,6 +229,37 @@ The fingerprint is derived from platform-specific system identifiers:
 
 ---
 
+## Indexer
+
+The `thinkt-indexer` provides DuckDB-powered indexing and search for your session data:
+
+```bash
+# Sync all sessions to the index
+thinkt-indexer sync
+
+# Search (case-insensitive by default)
+thinkt-indexer search "authentication"
+
+# Case-sensitive search
+thinkt-indexer search "AuthManager" --case-sensitive
+
+# Regex search (Go RE2 syntax)
+thinkt-indexer search --regex "func\s+Test\w+"
+
+# Filter by project or source
+thinkt-indexer search "TODO" --project my-app --source claude
+
+# Usage statistics
+thinkt-indexer stats
+
+# Watch for changes and auto-index
+thinkt-indexer watch
+```
+
+**Reference:** [thinkt indexer search](/command/thinkt_indexer_search)
+
+---
+
 ## Theming
 
 Customize the TUI appearance:

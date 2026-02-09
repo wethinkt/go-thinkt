@@ -21,7 +21,7 @@ The MCP server supports two transport modes:
 
 ## Available Tools
 
-The MCP server exposes five tools for exploring session data:
+The MCP server exposes seven tools for exploring session data:
 
 ### list_sources
 
@@ -194,6 +194,68 @@ Get session entry content with pagination and filtering.
   "has_more": true,
   "total": 10,
   "returned": 5
+}
+```
+
+---
+
+### search_sessions
+
+Search for text across all indexed sessions. Requires `thinkt-indexer` to be installed and sessions to be indexed with `thinkt-indexer sync`.
+
+**Parameters:**
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `query` | string | Yes | - | Search query text |
+| `project` | string | No | - | Filter by project name |
+| `source` | string | No | - | Filter by source (`claude`, `kimi`) |
+| `limit` | int | No | 50 | Maximum total matches |
+| `limit_per_session` | int | No | 2 | Maximum matches per session (0 for no limit) |
+| `case_sensitive` | bool | No | false | Enable case-sensitive matching |
+| `regex` | bool | No | false | Treat query as a regular expression (Go RE2 syntax) |
+
+**Returns:**
+```json
+{
+  "sessions": [
+    {
+      "session_id": "abc-123",
+      "project_name": "my-project",
+      "source": "claude",
+      "path": "/path/to/session.jsonl",
+      "matches": [
+        {
+          "line_num": 42,
+          "preview": "...matching text in context...",
+          "role": "user"
+        }
+      ]
+    }
+  ],
+  "total_matches": 5
+}
+```
+
+---
+
+### get_usage_stats
+
+Get aggregate usage statistics including total tokens and most used tools.
+
+**Parameters:** None
+
+**Returns:**
+```json
+{
+  "total_projects": 12,
+  "total_sessions": 156,
+  "total_entries": 4200,
+  "total_tokens": 1250000,
+  "tool_usage": {
+    "Read": 450,
+    "Edit": 280,
+    "Bash": 190
+  }
 }
 ```
 

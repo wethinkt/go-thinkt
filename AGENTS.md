@@ -25,18 +25,21 @@ Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot` flags to 
 | Package | Purpose |
 |---------|---------|
 | `cmd/thinkt` | CLI entry point (Cobra commands) |
+| `cmd/thinkt-indexer` | DuckDB-powered indexer CLI |
 | `internal/thinkt` | Core types, Store/TeamStore interfaces, registry, cache |
 | `internal/sources/claude` | Claude Code storage + teams implementation |
 | `internal/sources/kimi` | Kimi Code storage implementation |
 | `internal/sources/gemini` | Gemini CLI storage implementation |
 | `internal/sources/copilot` | Copilot storage implementation |
 | `internal/tui` | BubbleTea terminal UI (shell, pickers, viewer, theme builder) |
-| `internal/server` | HTTP REST API, teams API, and MCP server |
+| `internal/server` | HTTP REST API, teams API, indexer API, and MCP server |
 | `internal/server/web` | Full webapp submodule ([thinkt-web](https://github.com/wethinkt/thinkt-web), `dist` branch) |
 | `internal/server/web-lite` | Lite webapp submodule ([thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite)) |
+| `internal/indexer` | Indexer ingestion, watching, and search |
+| `internal/indexer/db` | DuckDB database layer with copy-on-read support |
 | `internal/analytics` | Analytics |
 | `internal/prompt` | Prompt extraction and formatting |
-| `internal/config` | Configuration management |
+| `internal/config` | Configuration management, instance registry |
 | `internal/fingerprint` | Machine fingerprint generation |
 
 ### Command Structure
@@ -74,6 +77,12 @@ thinkt
     ├── list
     ├── set
     └── builder
+
+thinkt-indexer          # DuckDB-powered indexer (separate binary)
+├── sync                # Full sync of all sessions
+├── search              # Search across indexed sessions
+├── stats               # Show usage statistics
+└── watch               # Watch for changes and auto-index
 ```
 
 ### TUI Architecture
@@ -179,6 +188,40 @@ The fingerprint is normalized to a consistent UUID format (lowercase, 8-4-4-4-12
 | `THINKT_MCP_TOKEN` | Bearer token for MCP server authentication | (none) |
 | `THINKT_PROFILE` | Write CPU profiling to this file path | (disabled) |
 
+### Instance Registry
+
+The instance registry (`internal/config/instances.go`) provides cross-process discovery to prevent port conflicts:
+
+```go
+type InstanceType string
+
+const (
+    InstanceServe        InstanceType = "serve"
+    InstanceServeLite    InstanceType = "serve-lite"
+    InstanceServeMCP     InstanceType = "serve-mcp"
+    InstanceIndexerWatch InstanceType = "indexer-watch"
+)
+```
+
+- **Storage**: `~/.thinkt/instances.json`
+- **Cleanup**: Stale PIDs removed via `syscall.Kill(pid, 0)` check
+- **Usage**: Servers check `FindInstanceByPort()` before binding; clear error if port in use
+
+### DuckDB Concurrency (Copy-on-Read)
+
+DuckDB does not support concurrent READ_ONLY connections when a READ_WRITE connection is active. The `internal/indexer/db` package implements a copy-on-read fallback:
+
+**`OpenReadOnly()` strategy:**
+1. Retry direct read-only open (5 attempts, 100ms delay)
+2. If locked, copy the main DB file to a temp directory
+3. Validate the copy by querying actual table data
+4. Clean up temp files on `Close()`
+
+**`Watcher` pattern:**
+- Opens/closes DB per file change (not long-lived connection)
+- Uses mutex to serialize ingestion
+- Triggered by `fsnotify` events with 2-second debounce
+
 ### Teams
 
 Teams represent multi-agent coordination (e.g., Claude Code swarms). The `TeamStore` interface is separate from `Store` because teams are an overlay concept — they reference agents whose sessions exist in an underlying Store.
@@ -196,6 +239,18 @@ Teams represent multi-agent coordination (e.g., Claude Code swarms). The `TeamSt
 ### StoreCache
 
 `StoreCache` (`internal/thinkt/cache.go`) provides project and session caching for Store implementations. Stores embed this struct to avoid repeated filesystem scans. Supports optional TTL for cache expiry (default: no expiry).
+
+### Indexer API
+
+The REST API (`thinkt serve`) exposes indexer functionality via `internal/server/indexer_api.go`:
+
+| Endpoint | Handler | Description |
+|----------|---------|-------------|
+| `GET /api/v1/search` | `handleSearchSessions` | Search indexed sessions with filters |
+| `GET /api/v1/stats` | `handleGetStats` | Aggregate usage statistics |
+| `GET /api/v1/indexer/health` | `handleIndexerHealth` | Indexer binary and DB health |
+
+These endpoints shell out to the `thinkt-indexer` binary (same pattern as MCP tools).
 
 ## Webapps
 

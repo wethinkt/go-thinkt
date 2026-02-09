@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -17,7 +18,46 @@ var (
 	searchLimit         int
 	searchLimitPerSess  int
 	searchJSON          bool
+	searchCaseSensitive bool
+	searchRegex         bool
 )
+
+// matcher encapsulates the search matching strategy.
+type matcher struct {
+	re *regexp.Regexp // non-nil for regex or case-insensitive substring
+}
+
+// newMatcher creates a matcher from the query and flags. For plain substring
+// search it compiles a regexp.QuoteMeta'd pattern; for regex it uses the
+// query directly. Case-insensitivity is handled via the (?i) flag.
+func newMatcher(query string, caseSensitive, regex bool) (*matcher, error) {
+	pattern := query
+	if !regex {
+		pattern = regexp.QuoteMeta(query)
+	}
+	if !caseSensitive {
+		pattern = "(?i)" + pattern
+	}
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, fmt.Errorf("invalid pattern %q: %w", query, err)
+	}
+	return &matcher{re: re}, nil
+}
+
+func (m *matcher) match(text string) bool {
+	return m.re.MatchString(text)
+}
+
+// findIndex returns the byte offsets [start, end) of the first match in text,
+// or (-1, -1) if there is no match.
+func (m *matcher) findIndex(text string) (int, int) {
+	loc := m.re.FindStringIndex(text)
+	if loc == nil {
+		return -1, -1
+	}
+	return loc[0], loc[1]
+}
 
 type candidate struct {
 	Path        string
@@ -35,6 +75,11 @@ ensuring your private content remains in your local files, not the index.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		queryText := args[0]
+
+		m, err := newMatcher(queryText, searchCaseSensitive, searchRegex)
+		if err != nil {
+			return err
+		}
 
 		db, err := getReadOnlyDB()
 		if err != nil {
@@ -89,7 +134,7 @@ ensuring your private content remains in your local files, not the index.`,
 				sem <- struct{}{}
 				defer func() { <-sem }()
 
-				scanFile(cand, queryText, rawHits)
+				scanFile(cand, m, rawHits)
 			}(c)
 		}
 
@@ -193,7 +238,7 @@ type rawMatch struct {
 	Role    string
 }
 
-func scanFile(c candidate, query string, out chan<- rawMatch) {
+func scanFile(c candidate, m *matcher, out chan<- rawMatch) {
 	f, err := os.Open(c.Path)
 	if err != nil {
 		return
@@ -207,7 +252,7 @@ func scanFile(c candidate, query string, out chan<- rawMatch) {
 		lineNum++
 		text := scanner.Text()
 
-		if strings.Contains(strings.ToLower(text), strings.ToLower(query)) {
+		if m.match(text) {
 			role := "unknown"
 			var entry struct {
 				Role string `json:"role"` // Kimi style
@@ -224,38 +269,36 @@ func scanFile(c candidate, query string, out chan<- rawMatch) {
 			out <- rawMatch{
 				candidate: c,
 				LineNum:   lineNum,
-				Preview:   extractPreview(text, query),
+				Preview:   extractPreview(text, m),
 				Role:      role,
 			}
 		}
 	}
 }
 
-func extractPreview(line string, query string) string {
-	lowerLine := strings.ToLower(line)
-	lowerQuery := strings.ToLower(query)
-	idx := strings.Index(lowerLine, lowerQuery)
-	if idx == -1 {
+func extractPreview(line string, m *matcher) string {
+	start, end := m.findIndex(line)
+	if start == -1 {
 		return ""
 	}
 
 	const window = 100
-	
-	start := idx - window
-	if start < 0 {
-		start = 0
+
+	pStart := start - window
+	if pStart < 0 {
+		pStart = 0
 	}
-	end := idx + len(query) + window
-	if end > len(line) {
-		end = len(line)
+	pEnd := end + window
+	if pEnd > len(line) {
+		pEnd = len(line)
 	}
 
-	preview := line[start:end]
-	
-	if start > 0 {
+	preview := line[pStart:pEnd]
+
+	if pStart > 0 {
 		preview = "..." + preview
 	}
-	if end < len(line) {
+	if pEnd < len(line) {
 		preview = preview + "..."
 	}
 
@@ -276,6 +319,8 @@ func init() {
 	searchCmd.Flags().IntVarP(&searchLimit, "limit", "n", 50, "Limit total number of matches (default 50)")
 	searchCmd.Flags().IntVar(&searchLimitPerSess, "limit-per-session", 2, "Limit hits per session to reduce noise (default 2, 0 for no limit)")
 	searchCmd.Flags().BoolVar(&searchJSON, "json", false, "Output as JSON")
+	searchCmd.Flags().BoolVarP(&searchCaseSensitive, "case-sensitive", "C", false, "Case-sensitive matching")
+	searchCmd.Flags().BoolVarP(&searchRegex, "regex", "E", false, "Treat query as a regular expression")
 
 	rootCmd.AddCommand(searchCmd)
 }

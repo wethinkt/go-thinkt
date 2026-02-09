@@ -131,7 +131,7 @@ func (ms *MCPServer) registerTools() {
 		if ms.isToolAllowed("search_sessions") {
 			mcp.AddTool(ms.server, &mcp.Tool{
 				Name:        "search_sessions",
-				Description: "Search for text across all indexed sessions. Results are limited to 50 total and 2 per session by default.",
+				Description: "Search for text across all indexed sessions. Results are limited to 50 total and 2 per session by default. Supports case_sensitive matching and regex patterns.",
 			}, ms.handleSearchSessions)
 		}
 
@@ -301,6 +301,8 @@ type searchSessionsInput struct {
 	Source          string `json:"source,omitempty"`
 	Limit           int    `json:"limit,omitempty"`
 	LimitPerSession int    `json:"limit_per_session,omitempty"`
+	CaseSensitive   bool   `json:"case_sensitive,omitempty"`
+	Regex           bool   `json:"regex,omitempty"`
 }
 
 type getUsageStatsInput struct{}
@@ -606,6 +608,12 @@ func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallTool
 	}
 	if input.LimitPerSession > 0 {
 		args = append(args, "--limit-per-session", fmt.Sprintf("%d", input.LimitPerSession))
+	}
+	if input.CaseSensitive {
+		args = append(args, "--case-sensitive")
+	}
+	if input.Regex {
+		args = append(args, "--regex")
 	}
 	cmd := exec.Command(path, args...)
 	out, err := cmd.Output()

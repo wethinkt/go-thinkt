@@ -273,6 +273,18 @@ const docTemplate = `{
                         "description": "Maximum matches per session (default 2, 0 for no limit)",
                         "name": "limit_per_session",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Enable case-sensitive matching (default false)",
+                        "name": "case_sensitive",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Treat query as a regular expression (default false)",
+                        "name": "regex",
+                        "in": "query"
                     }
                 ],
                 "responses": {

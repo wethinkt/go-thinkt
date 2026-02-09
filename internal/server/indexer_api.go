@@ -47,6 +47,8 @@ type StatsResponse struct {
 // @Param source query string false "Filter by source (claude, kimi)"
 // @Param limit query int false "Maximum total matches (default 50)"
 // @Param limit_per_session query int false "Maximum matches per session (default 2, 0 for no limit)"
+// @Param case_sensitive query bool false "Enable case-sensitive matching (default false)"
+// @Param regex query bool false "Treat query as a regular expression (default false)"
 // @Success 200 {object} SearchResponse
 // @Failure 400 {object} ErrorResponse "Bad Request - missing query"
 // @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
@@ -79,6 +81,12 @@ func (s *HTTPServer) handleSearchSessions(w http.ResponseWriter, r *http.Request
 	}
 	if limitPerSess := r.URL.Query().Get("limit_per_session"); limitPerSess != "" {
 		args = append(args, "--limit-per-session", limitPerSess)
+	}
+	if r.URL.Query().Get("case_sensitive") == "true" {
+		args = append(args, "--case-sensitive")
+	}
+	if r.URL.Query().Get("regex") == "true" {
+		args = append(args, "--regex")
 	}
 
 	cmd := exec.Command(indexerPath, args...)

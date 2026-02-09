@@ -42,7 +42,7 @@ Right now much of the implementation is in package `internal`, but we will event
 - **Multi-Source Support**: Works with Claude Code (`~/.claude`), Kimi Code (`~/.kimi`), Gemini CLI, and Copilot — sessions from all sources are shown together
 - **Tree View**: Browse projects in a collapsible tree grouped by directory, or switch to a flat list
 - **Agent Teams**: Inspect multi-agent teams (Claude Code), including members, tasks, and messages
-- **Analytics**: Token usage, tool frequency, word analysis, activity timelines
+- **Analytics**: Token usage, tool frequency, word analysis, activity timelines via `thinkt-indexer`
 - **Prompt Extraction**: Generate timestamped logs of user prompts in markdown, JSON, or plain text
 - **MCP Server**: Model Context Protocol integration for use with AI assistants
 - **REST API**: HTTP server for programmatic access
@@ -152,6 +152,30 @@ thinkt tui --log /tmp/thinkt-debug.log
 | `thinkt serve fingerprint` | Display machine fingerprint for workspace correlation |
 | `thinkt theme` | Display current theme |
 | `thinkt theme builder` | Interactive theme editor |
+
+## Indexer (DuckDB-Powered)
+
+The `thinkt-indexer` provides fast, searchable storage for your conversation traces:
+
+```bash
+# Sync all sessions to the index
+thinkt-indexer sync
+
+# Search across indexed sessions (case-insensitive by default)
+thinkt-indexer search "authentication"
+
+# Case-sensitive or regex search
+thinkt-indexer search "AuthManager" --case-sensitive
+thinkt-indexer search --regex "func\s+Test\w+"
+
+# Show usage statistics
+thinkt-indexer stats
+
+# Watch for changes and auto-index
+thinkt-indexer watch
+```
+
+Indexer data is stored in `~/.thinkt/index.duckdb`.
 
 ## TUI Keyboard Shortcuts
 
@@ -298,6 +322,35 @@ The lightweight webapp (`thinkt serve lite`) provides a quick debug interface:
 - **Open-In Buttons**: Quick buttons to open projects in VS Code, Cursor, etc.
 - **Language Selector**: Switch between EN/ES/中文 in the top-right corner
 
+## REST API
+
+The `thinkt serve` command provides a REST API for programmatic access:
+
+```bash
+# Start the server
+thinkt serve
+
+# With authentication
+export THINKT_API_TOKEN=$(thinkt serve token)
+thinkt serve
+```
+
+### API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/v1/sources` | List available trace sources |
+| `GET /api/v1/projects` | List all projects |
+| `GET /api/v1/projects/{id}/sessions` | List sessions for a project |
+| `GET /api/v1/sessions/{path}` | Get session content |
+| `GET /api/v1/search?q=query` | **Search indexed sessions** |
+| `GET /api/v1/stats` | **Get usage statistics** |
+| `GET /api/v1/indexer/health` | **Check indexer health** |
+| `GET /api/v1/teams` | List agent teams |
+| `POST /api/v1/open-in` | Open path in application |
+
+Swagger documentation is available at `http://localhost:8784/swagger`.
+
 ## MCP Integration
 
 Use `thinkt` as an MCP server for AI assistants like Claude Desktop:
@@ -327,6 +380,8 @@ Available MCP tools:
 - `list_sessions` - List sessions for a project
 - `get_session_metadata` - Get session metadata
 - `get_session_entries` - Get session content with pagination
+- `search_sessions` - Search across indexed sessions (supports regex)
+- `get_usage_stats` - Get aggregate usage statistics
 
 See [Authentication](#authentication) for more details on securing the MCP server.
 

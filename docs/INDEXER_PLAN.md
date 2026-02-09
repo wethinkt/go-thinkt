@@ -26,7 +26,20 @@ We leverage DuckDB's native JSON support to maintain flexibility while ensuring 
 - **Filtering**: By model, git branch, or time range using structured columns.
 
 ## 5. Implementation Roadmap
-- [ ] Database Schema & Migrations
-- [ ] Core Ingester (Incremental updates)
-- [ ] Search API
-- [ ] Filesystem Watcher (inotify/fsnotify)
+- [x] Database Schema & Migrations
+- [x] Core Ingester (Incremental updates)
+- [x] Search API (CLI and REST)
+- [x] Filesystem Watcher (fsnotify)
+- [x] Copy-on-Read concurrency (DuckDB lock handling)
+
+## 6. REST API Endpoints
+
+The indexer is exposed via the REST API (`thinkt serve`):
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/v1/search?q=query` | Search across indexed sessions (supports `case_sensitive`, `regex` params) |
+| `GET /api/v1/stats` | Get usage statistics (tokens, tools) |
+| `GET /api/v1/indexer/health` | Check indexer availability |
+
+See Swagger docs at `http://localhost:8784/swagger` when server is running.

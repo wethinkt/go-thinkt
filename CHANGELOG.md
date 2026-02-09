@@ -1,8 +1,26 @@
 # `go-thinkt` CHANGELOG
 
- ## v0.4.0 (2026-02-08)
+## v0.5.0 (2026-02-09)
 
- * Moar polish 💎
+* **Indexer REST API**: New OpenAPI endpoints for search and statistics
+  - `GET /api/v1/search` - Search across indexed sessions
+  - `GET /api/v1/stats` - Get usage statistics (tokens, tools)
+  - `GET /api/v1/indexer/health` - Check indexer health
+* **Search Enhancements**: Case-insensitive by default, with regex support
+  - `--case-sensitive` / `-C` flag for exact case matching
+  - `--regex` / `-E` flag for regular expression queries (Go RE2 syntax)
+  - Available via CLI, REST API (`case_sensitive`, `regex` params), and MCP
+* **DuckDB Concurrency Fix**: Copy-on-read fallback for locked databases
+  - `OpenReadOnly()` retries and falls back to copying DB when locked
+  - Watcher opens/closes DB per ingestion instead of holding long-lived connection
+* **Port Allocation Fix**: Instance registry prevents port conflicts
+  - PID-based instance tracking in `~/.thinkt/instances.json`
+  - Clear error messages when port already in use
+  - Automatic cleanup of stale entries
+
+## v0.4.0 (2026-02-08)
+
+* Moar polish 💎
 
  ## v0.3.4 (2026-02-07)
 

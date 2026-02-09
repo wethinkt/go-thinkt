@@ -725,6 +725,14 @@ paths:
         in: query
         name: limit_per_session
         type: integer
+      - description: Enable case-sensitive matching (default false)
+        in: query
+        name: case_sensitive
+        type: boolean
+      - description: Treat query as a regular expression (default false)
+        in: query
+        name: regex
+        type: boolean
       produces:
       - application/json
       responses:
