@@ -102,9 +102,6 @@ homebrew_casks:
       - man/man1/thinkt-completion-powershell.1
       - man/man1/thinkt-completion-zsh.1
       - man/man1/thinkt-completion.1
-      - man/man1/thinkt-docs-man.1
-      - man/man1/thinkt-docs-markdown.1
-      - man/man1/thinkt-docs.1
       - man/man1/thinkt-indexer-help.1
       - man/man1/thinkt-indexer-search.1
       - man/man1/thinkt-indexer-sessions.1
