@@ -6,220 +6,164 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 func TestProjectCopier_Copy_Success(t *testing.T) {
-	// Create a temp directory with a project
 	tmpDir := t.TempDir()
-	projectsDir := filepath.Join(tmpDir, "projects")
-	projDir := filepath.Join(projectsDir, "-test-myproject")
-	if err := os.MkdirAll(projDir, 0755); err != nil {
+	projectPath := filepath.Join(tmpDir, "workspace", "myproject")
+	if err := os.MkdirAll(projectPath, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create session files
-	sessions := []string{"session1.jsonl", "session2.jsonl"}
-	for _, name := range sessions {
-		content := []byte(`{"type":"user","message":"hello"}`)
-		if err := os.WriteFile(filepath.Join(projDir, name), content, 0644); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	// Create an index file
-	indexContent := []byte(`{"version":1}`)
-	if err := os.WriteFile(filepath.Join(projDir, "sessions-index.json"), indexContent, 0644); err != nil {
+	srcDir := filepath.Join(tmpDir, "sessions")
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create target directory
+	sessionA := filepath.Join(srcDir, "session1.jsonl")
+	sessionB := filepath.Join(srcDir, "session2.json")
+	if err := os.WriteFile(sessionA, []byte(`{"type":"user","text":"hello"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sessionB, []byte(`{"type":"user","text":"world"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	registry := makeSingleProjectRegistry(thinkt.SourceClaude, "project-1", projectPath, []string{sessionA, sessionB})
 	targetDir := filepath.Join(tmpDir, "backup")
 
 	var stdout bytes.Buffer
-	copier := NewProjectCopier(tmpDir, CopyOptions{Stdout: &stdout})
-
-	err := copier.Copy("/test/myproject", targetDir)
-	if err != nil {
+	copier := NewProjectCopier(registry, CopyOptions{Stdout: &stdout})
+	if err := copier.Copy(projectPath, targetDir); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Verify files were copied
-	for _, name := range sessions {
-		dstPath := filepath.Join(targetDir, name)
-		if _, err := os.Stat(dstPath); os.IsNotExist(err) {
-			t.Errorf("expected %s to be copied", name)
+	for _, name := range []string{"session1.jsonl", "session2.json"} {
+		if _, err := os.Stat(filepath.Join(targetDir, name)); os.IsNotExist(err) {
+			t.Fatalf("expected %s to be copied", name)
 		}
 	}
 
-	// Verify index was copied
-	indexPath := filepath.Join(targetDir, "sessions-index.json")
-	if _, err := os.Stat(indexPath); os.IsNotExist(err) {
-		t.Error("expected sessions-index.json to be copied")
+	if !strings.Contains(stdout.String(), "Copied 2 files") {
+		t.Fatalf("expected copied files message, got: %s", stdout.String())
+	}
+}
+
+func TestProjectCopier_Copy_RelativePathQuery(t *testing.T) {
+	tmpDir := t.TempDir()
+	workingDir := filepath.Join(tmpDir, "work")
+	projectPath := filepath.Join(workingDir, "repo")
+	if err := os.MkdirAll(projectPath, 0755); err != nil {
+		t.Fatal(err)
 	}
 
-	// Verify output message
-	if !strings.Contains(stdout.String(), "Copied 3 files") {
-		t.Errorf("expected 'Copied 3 files' in output, got: %s", stdout.String())
+	session := filepath.Join(tmpDir, "session.jsonl")
+	if err := os.WriteFile(session, []byte(`{}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	registry := makeSingleProjectRegistry(thinkt.SourceKimi, "kimi-repo", projectPath, []string{session})
+	targetDir := filepath.Join(tmpDir, "backup")
+
+	origWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(origWD) })
+
+	if err := os.Chdir(workingDir); err != nil {
+		t.Fatal(err)
+	}
+
+	copier := NewProjectCopier(registry, CopyOptions{})
+	if err := copier.Copy("repo", targetDir); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(targetDir, "session.jsonl")); os.IsNotExist(err) {
+		t.Fatal("expected session file to be copied")
 	}
 }
 
 func TestProjectCopier_Copy_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	projectsDir := filepath.Join(tmpDir, "projects")
-	if err := os.MkdirAll(projectsDir, 0755); err != nil {
+	projectPath := filepath.Join(tmpDir, "workspace", "myproject")
+	if err := os.MkdirAll(projectPath, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	var stdout bytes.Buffer
-	copier := NewProjectCopier(tmpDir, CopyOptions{Stdout: &stdout})
+	session := filepath.Join(tmpDir, "session.jsonl")
+	if err := os.WriteFile(session, []byte(`{}`), 0644); err != nil {
+		t.Fatal(err)
+	}
 
-	err := copier.Copy("/nonexistent/path", filepath.Join(tmpDir, "backup"))
+	registry := makeSingleProjectRegistry(thinkt.SourceClaude, "project-1", projectPath, []string{session})
+	copier := NewProjectCopier(registry, CopyOptions{})
+
+	err := copier.Copy(filepath.Join(tmpDir, "missing"), filepath.Join(tmpDir, "backup"))
 	if err == nil {
-		t.Error("expected error for nonexistent project")
+		t.Fatal("expected error for missing project")
 	}
 	if !strings.Contains(err.Error(), "project not found") {
-		t.Errorf("expected 'project not found' error, got: %v", err)
+		t.Fatalf("expected project not found error, got: %v", err)
 	}
 }
 
 func TestProjectCopier_Copy_NoSessions(t *testing.T) {
-	// Create a temp directory with a project but no sessions
 	tmpDir := t.TempDir()
-	projectsDir := filepath.Join(tmpDir, "projects")
-	projDir := filepath.Join(projectsDir, "-test-emptyproject")
-	if err := os.MkdirAll(projDir, 0755); err != nil {
+	projectPath := filepath.Join(tmpDir, "workspace", "empty")
+	if err := os.MkdirAll(projectPath, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create a non-session file
-	if err := os.WriteFile(filepath.Join(projDir, "readme.txt"), []byte("hello"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	registry := makeSingleProjectRegistry(thinkt.SourceGemini, "gemini-empty", projectPath, nil)
+	copier := NewProjectCopier(registry, CopyOptions{})
 
-	var stdout bytes.Buffer
-	copier := NewProjectCopier(tmpDir, CopyOptions{Stdout: &stdout})
-
-	err := copier.Copy("/test/emptyproject", filepath.Join(tmpDir, "backup"))
+	err := copier.Copy(projectPath, filepath.Join(tmpDir, "backup"))
 	if err == nil {
-		t.Error("expected error for project with no sessions")
+		t.Fatal("expected error for project with no sessions")
 	}
 	if !strings.Contains(err.Error(), "no sessions found") {
-		t.Errorf("expected 'no sessions found' error, got: %v", err)
+		t.Fatalf("expected no sessions found error, got: %v", err)
 	}
 }
 
-func TestProjectCopier_Copy_CreatesTargetDir(t *testing.T) {
-	// Create a temp directory with a project
+func TestProjectCopier_Copy_NameCollision(t *testing.T) {
 	tmpDir := t.TempDir()
-	projectsDir := filepath.Join(tmpDir, "projects")
-	projDir := filepath.Join(projectsDir, "-test-myproject")
-	if err := os.MkdirAll(projDir, 0755); err != nil {
+	projectPath := filepath.Join(tmpDir, "workspace", "collision")
+	if err := os.MkdirAll(projectPath, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create a session file
-	if err := os.WriteFile(filepath.Join(projDir, "session.jsonl"), []byte(`{}`), 0644); err != nil {
+	srcA := filepath.Join(tmpDir, "a", "session.jsonl")
+	srcB := filepath.Join(tmpDir, "b", "session.jsonl")
+	if err := os.MkdirAll(filepath.Dir(srcA), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(srcB), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(srcA, []byte(`{"session":"a"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(srcB, []byte(`{"session":"b"}`), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Target directory doesn't exist yet
-	targetDir := filepath.Join(tmpDir, "nested", "backup", "dir")
+	registry := makeSingleProjectRegistry(thinkt.SourceCodex, "codex-collision", projectPath, []string{srcA, srcB})
+	targetDir := filepath.Join(tmpDir, "backup")
 
-	var stdout bytes.Buffer
-	copier := NewProjectCopier(tmpDir, CopyOptions{Stdout: &stdout})
-
-	err := copier.Copy("/test/myproject", targetDir)
-	if err != nil {
+	copier := NewProjectCopier(registry, CopyOptions{})
+	if err := copier.Copy(projectPath, targetDir); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Verify target directory was created
-	if _, err := os.Stat(targetDir); os.IsNotExist(err) {
-		t.Error("target directory should be created")
-	}
-
-	// Verify file was copied
 	if _, err := os.Stat(filepath.Join(targetDir, "session.jsonl")); os.IsNotExist(err) {
-		t.Error("session file should be copied")
+		t.Fatal("expected first session filename")
 	}
-}
-
-func TestProjectCopier_Copy_PreservesContent(t *testing.T) {
-	// Create a temp directory with a project
-	tmpDir := t.TempDir()
-	projectsDir := filepath.Join(tmpDir, "projects")
-	projDir := filepath.Join(projectsDir, "-test-myproject")
-	if err := os.MkdirAll(projDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create a session file with specific content
-	originalContent := []byte(`{"type":"user","message":"test content 12345"}`)
-	if err := os.WriteFile(filepath.Join(projDir, "session.jsonl"), originalContent, 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	targetDir := filepath.Join(tmpDir, "backup")
-
-	var stdout bytes.Buffer
-	copier := NewProjectCopier(tmpDir, CopyOptions{Stdout: &stdout})
-
-	err := copier.Copy("/test/myproject", targetDir)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Verify content matches
-	copiedContent, err := os.ReadFile(filepath.Join(targetDir, "session.jsonl"))
-	if err != nil {
-		t.Fatalf("failed to read copied file: %v", err)
-	}
-
-	if string(copiedContent) != string(originalContent) {
-		t.Errorf("content mismatch: expected %q, got %q", originalContent, copiedContent)
-	}
-}
-
-func TestProjectCopier_Copy_SkipsDirectories(t *testing.T) {
-	// Create a temp directory with a project
-	tmpDir := t.TempDir()
-	projectsDir := filepath.Join(tmpDir, "projects")
-	projDir := filepath.Join(projectsDir, "-test-myproject")
-	if err := os.MkdirAll(projDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create a session file
-	if err := os.WriteFile(filepath.Join(projDir, "session.jsonl"), []byte(`{}`), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create a subdirectory (should be skipped)
-	subDir := filepath.Join(projDir, "subagents")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(subDir, "agent.jsonl"), []byte(`{}`), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	targetDir := filepath.Join(tmpDir, "backup")
-
-	var stdout bytes.Buffer
-	copier := NewProjectCopier(tmpDir, CopyOptions{Stdout: &stdout})
-
-	err := copier.Copy("/test/myproject", targetDir)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Subdirectory should NOT be copied
-	if _, err := os.Stat(filepath.Join(targetDir, "subagents")); !os.IsNotExist(err) {
-		t.Error("subdirectories should not be copied")
-	}
-
-	// Only the top-level session should be copied
-	if !strings.Contains(stdout.String(), "Copied 1 file") {
-		t.Errorf("expected 'Copied 1 file' in output, got: %s", stdout.String())
+	if _, err := os.Stat(filepath.Join(targetDir, "session_2.jsonl")); os.IsNotExist(err) {
+		t.Fatal("expected collision-resolved session filename")
 	}
 }

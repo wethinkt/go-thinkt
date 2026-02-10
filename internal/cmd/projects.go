@@ -11,7 +11,6 @@ import (
 	"golang.org/x/term"
 
 	"github.com/wethinkt/go-thinkt/internal/cli"
-	"github.com/wethinkt/go-thinkt/internal/sources/claude"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
@@ -267,17 +266,7 @@ func runProjectsSummary(cmd *cobra.Command, args []string) error {
 }
 
 func runProjectsCopy(cmd *cobra.Command, args []string) error {
-	// For multi-source copy, we need to find the project first
 	registry := CreateSourceRegistry()
-
-	// TODO: Update ProjectCopier to use registry for multi-source support
-	// For now, use Claude default for backward compatibility
-	claudeDir, err := claude.DefaultDir()
-	if err != nil {
-		return fmt.Errorf("could not find Claude directory: %w", err)
-	}
-	_ = registry // Use registry when ProjectCopier is updated
-
-	copier := cli.NewProjectCopier(claudeDir, cli.CopyOptions{})
+	copier := cli.NewProjectCopier(registry, cli.CopyOptions{})
 	return copier.Copy(args[0], args[1])
 }

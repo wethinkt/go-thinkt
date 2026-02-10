@@ -1286,6 +1286,7 @@
             "enum": [
                 "thinkt",
                 "claude",
+                "codex",
                 "copilot",
                 "gemini",
                 "kimi"
@@ -1293,6 +1294,7 @@
             "x-enum-varnames": [
                 "SourceThinkt",
                 "SourceClaude",
+                "SourceCodex",
                 "SourceCopilot",
                 "SourceGemini",
                 "SourceKimi"

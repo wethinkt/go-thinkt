@@ -416,6 +416,7 @@ definitions:
     enum:
     - thinkt
     - claude
+    - codex
     - copilot
     - gemini
     - kimi
@@ -423,6 +424,7 @@ definitions:
     x-enum-varnames:
     - SourceThinkt
     - SourceClaude
+    - SourceCodex
     - SourceCopilot
     - SourceGemini
     - SourceKimi

@@ -6,164 +6,122 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 func TestProjectDeleter_Delete_NotFound(t *testing.T) {
-	// Create a temp directory as base
 	tmpDir := t.TempDir()
-	projectsDir := filepath.Join(tmpDir, "projects")
-	if err := os.MkdirAll(projectsDir, 0755); err != nil {
+	projectPath := filepath.Join(tmpDir, "workspace", "myproject")
+	if err := os.MkdirAll(projectPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	session := filepath.Join(tmpDir, "session.jsonl")
+	if err := os.WriteFile(session, []byte(`{}`), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	var stdout bytes.Buffer
-	deleter := NewProjectDeleter(tmpDir, DeleteOptions{
-		Force:  true,
-		Stdout: &stdout,
-	})
+	registry := makeSingleProjectRegistry(thinkt.SourceClaude, "project-1", projectPath, []string{session})
+	deleter := NewProjectDeleter(registry, DeleteOptions{Force: true})
 
-	err := deleter.Delete("/nonexistent/path")
+	err := deleter.Delete(filepath.Join(tmpDir, "missing"))
 	if err == nil {
-		t.Error("expected error for nonexistent project")
+		t.Fatal("expected error for nonexistent project")
 	}
 	if !strings.Contains(err.Error(), "project not found") {
-		t.Errorf("expected 'project not found' error, got: %v", err)
+		t.Fatalf("expected project not found error, got: %v", err)
 	}
 }
 
 func TestProjectDeleter_Delete_NoSessions(t *testing.T) {
-	// Create a temp directory with a project but no sessions
 	tmpDir := t.TempDir()
-	projectsDir := filepath.Join(tmpDir, "projects")
-	projDir := filepath.Join(projectsDir, "-test-emptyproject")
-	if err := os.MkdirAll(projDir, 0755); err != nil {
+	projectPath := filepath.Join(tmpDir, "workspace", "empty")
+	if err := os.MkdirAll(projectPath, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create a non-session file (should not count)
-	nonSessionFile := filepath.Join(projDir, "readme.txt")
-	if err := os.WriteFile(nonSessionFile, []byte("hello"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	registry := makeSingleProjectRegistry(thinkt.SourceGemini, "project-empty", projectPath, nil)
+	deleter := NewProjectDeleter(registry, DeleteOptions{Force: true})
 
-	var stdout bytes.Buffer
-	deleter := NewProjectDeleter(tmpDir, DeleteOptions{
-		Force:  true, // Even with force, should refuse
-		Stdout: &stdout,
-	})
-
-	err := deleter.Delete("/test/emptyproject")
+	err := deleter.Delete(projectPath)
 	if err == nil {
-		t.Error("expected error for project with no sessions")
+		t.Fatal("expected error for project with no sessions")
 	}
 	if !strings.Contains(err.Error(), "no sessions found") {
-		t.Errorf("expected 'no sessions found' error, got: %v", err)
-	}
-
-	// Directory should still exist
-	if _, err := os.Stat(projDir); os.IsNotExist(err) {
-		t.Error("project directory should NOT be deleted when it has no sessions")
+		t.Fatalf("expected no sessions found error, got: %v", err)
 	}
 }
 
 func TestProjectDeleter_Delete_Force(t *testing.T) {
-	// Create a temp directory with a project
 	tmpDir := t.TempDir()
-	projectsDir := filepath.Join(tmpDir, "projects")
-	projDir := filepath.Join(projectsDir, "-test-myproject")
-	if err := os.MkdirAll(projDir, 0755); err != nil {
+	projectPath := filepath.Join(tmpDir, "workspace", "myproject")
+	if err := os.MkdirAll(projectPath, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create a session file
-	sessionFile := filepath.Join(projDir, "session1.jsonl")
+	sessionFile := filepath.Join(tmpDir, "session1.jsonl")
 	if err := os.WriteFile(sessionFile, []byte(`{"type":"user"}`), 0644); err != nil {
 		t.Fatal(err)
 	}
 
+	registry := makeSingleProjectRegistry(thinkt.SourceCopilot, "project-1", projectPath, []string{sessionFile})
+
 	var stdout bytes.Buffer
-	deleter := NewProjectDeleter(tmpDir, DeleteOptions{
+	deleter := NewProjectDeleter(registry, DeleteOptions{
 		Force:  true,
 		Stdout: &stdout,
 	})
 
-	err := deleter.Delete("/test/myproject")
-	if err != nil {
+	if err := deleter.Delete(projectPath); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Project should be deleted without prompting
-	if _, err := os.Stat(projDir); !os.IsNotExist(err) {
-		t.Error("project directory should be deleted")
+	if _, err := os.Stat(sessionFile); !os.IsNotExist(err) {
+		t.Fatal("session file should be deleted")
 	}
 
-	output := stdout.String()
-	if !strings.Contains(output, "Deleted") {
-		t.Error("expected 'Deleted' message in output")
+	if !strings.Contains(stdout.String(), "Deleted") {
+		t.Fatalf("expected Deleted output, got: %s", stdout.String())
 	}
 }
 
 func TestProjectDeleter_Delete_ForceMultipleSessions(t *testing.T) {
-	// Create a temp directory with a project containing multiple sessions
 	tmpDir := t.TempDir()
-	projectsDir := filepath.Join(tmpDir, "projects")
-	projDir := filepath.Join(projectsDir, "-test-myproject")
-	if err := os.MkdirAll(projDir, 0755); err != nil {
+	projectPath := filepath.Join(tmpDir, "workspace", "myproject")
+	if err := os.MkdirAll(projectPath, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create multiple session files
-	for _, name := range []string{"session1.jsonl", "session2.jsonl", "session3.jsonl"} {
-		sessionFile := filepath.Join(projDir, name)
-		if err := os.WriteFile(sessionFile, []byte(`{"type":"user"}`), 0644); err != nil {
+	sessionPaths := []string{
+		filepath.Join(tmpDir, "session1.jsonl"),
+		filepath.Join(tmpDir, "session2.jsonl"),
+		filepath.Join(tmpDir, "session3.jsonl"),
+	}
+	for _, p := range sessionPaths {
+		if err := os.WriteFile(p, []byte(`{"type":"user"}`), 0644); err != nil {
 			t.Fatal(err)
 		}
 	}
 
+	registry := makeSingleProjectRegistry(thinkt.SourceCodex, "project-1", projectPath, sessionPaths)
+
 	var stdout bytes.Buffer
-	deleter := NewProjectDeleter(tmpDir, DeleteOptions{
+	deleter := NewProjectDeleter(registry, DeleteOptions{
 		Force:  true,
 		Stdout: &stdout,
 	})
 
-	err := deleter.Delete("/test/myproject")
-	if err != nil {
+	if err := deleter.Delete(projectPath); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Project should be deleted
-	if _, err := os.Stat(projDir); !os.IsNotExist(err) {
-		t.Error("project directory should be deleted")
+	for _, p := range sessionPaths {
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			t.Fatalf("session file should be deleted: %s", p)
+		}
 	}
 
-	output := stdout.String()
-	if !strings.Contains(output, "3 sessions") {
-		t.Errorf("expected '3 sessions' in output, got: %s", output)
-	}
-}
-
-func TestEncodePathToDirName(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"/Users/evan/myproject", "-Users-evan-myproject"},
-		{"/test/path", "-test-path"},
-		{"", "-"},
-		{"relative/path", "-relative-path"},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.input, func(t *testing.T) {
-			result := encodePathToDirName(tc.input)
-			if result != tc.expected {
-				t.Errorf("encodePathToDirName(%q) = %q, want %q", tc.input, result, tc.expected)
-			}
-		})
+	if !strings.Contains(stdout.String(), "3 sessions") {
+		t.Fatalf("expected session count in output, got: %s", stdout.String())
 	}
 }
-
-// Note: Interactive confirmation tests are not included because huh.Confirm
-// uses a TUI that requires an actual terminal. The interactive flow is
-// tested manually. The --force flag bypasses the confirmation and is
-// thoroughly tested above.

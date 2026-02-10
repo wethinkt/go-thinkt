@@ -1294,6 +1294,7 @@ const docTemplate = `{
             "enum": [
                 "thinkt",
                 "claude",
+                "codex",
                 "copilot",
                 "gemini",
                 "kimi"
@@ -1301,6 +1302,7 @@ const docTemplate = `{
             "x-enum-varnames": [
                 "SourceThinkt",
                 "SourceClaude",
+                "SourceCodex",
                 "SourceCopilot",
                 "SourceGemini",
                 "SourceKimi"
