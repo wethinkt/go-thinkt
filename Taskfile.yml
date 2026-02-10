@@ -115,7 +115,7 @@ tasks:
     cmds:
       - swag init --parseDependency --parseDepth 2 -o ./docs -g ./api.go
     sources:
-      - "*.go"
+      - "**/*.go"
     generates:
       - ./docs/docs.go
       - ./docs/swagger.json
