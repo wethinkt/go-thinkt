@@ -364,7 +364,7 @@ type ProjectPickerModel struct {
 	height       int
 	ready        bool
 	standalone   bool // true when run via PickProject(), false when embedded in Shell
-	treeView     bool              // true = tree, false = flat list
+	treeView     bool // true = tree, false = flat list
 	sortField    sortField
 	sortDir      sortDir
 	sourceFilter []thinkt.Source // empty = all sources
@@ -375,11 +375,11 @@ type ProjectPickerModel struct {
 }
 
 type projectPickerKeyMap struct {
-	Enter    key.Binding
-	Back     key.Binding
-	Quit     key.Binding
-	SortDate key.Binding
-	SortName key.Binding
+	Enter      key.Binding
+	Back       key.Binding
+	Quit       key.Binding
+	SortDate   key.Binding
+	SortName   key.Binding
 	Sources    key.Binding
 	OpenIn     key.Binding
 	Left       key.Binding
@@ -763,6 +763,7 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				thinkt.SourceKimi,
 				thinkt.SourceGemini,
 				thinkt.SourceCopilot,
+				thinkt.SourceCodex,
 			}
 			var options []SourceOption
 			for _, s := range allSources {

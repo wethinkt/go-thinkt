@@ -405,6 +405,7 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				thinkt.SourceKimi,
 				thinkt.SourceGemini,
 				thinkt.SourceCopilot,
+				thinkt.SourceCodex,
 			}
 			var options []SourceOption
 			for _, s := range allSources {

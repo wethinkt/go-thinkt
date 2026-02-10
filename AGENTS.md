@@ -17,8 +17,9 @@ The tool supports multiple AI coding assistants via a `Store` interface:
 - **Kimi Code** (`~/.kimi`) - Secondary source
 - **Gemini CLI** (`~/.gemini`) - Tertiary source
 - **GitHub Copilot** (`~/.copilot`) - Quaternary source
+- **Codex CLI** (`~/.codex`) - Quinary source
 
-Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot` flags to filter.
+Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot|codex` flags to filter.
 
 ### Key Packages
 
@@ -31,6 +32,7 @@ Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot` flags to 
 | `internal/sources/kimi` | Kimi Code storage implementation |
 | `internal/sources/gemini` | Gemini CLI storage implementation |
 | `internal/sources/copilot` | Copilot storage implementation |
+| `internal/sources/codex` | Codex CLI storage implementation |
 | `internal/tui` | BubbleTea terminal UI (shell, pickers, viewer, theme builder) |
 | `internal/server` | HTTP REST API, teams API, indexer API, and MCP server |
 | `internal/server/web` | Full webapp submodule ([thinkt-web](https://github.com/wethinkt/thinkt-web), `dist` branch) |
@@ -184,6 +186,7 @@ The fingerprint is normalized to a consistent UUID format (lowercase, 8-4-4-4-12
 | `THINKT_CLAUDE_HOME` | Claude Code data directory | `~/.claude` |
 | `THINKT_GEMINI_HOME` | Gemini CLI data directory | `~/.gemini` |
 | `THINKT_COPILOT_HOME` | Copilot data directory | `~/.copilot` |
+| `THINKT_CODEX_HOME` | Codex CLI data directory | `~/.codex` |
 | `THINKT_API_TOKEN` | Bearer token for API server authentication | (none) |
 | `THINKT_MCP_TOKEN` | Bearer token for MCP server authentication | (none) |
 | `THINKT_PROFILE` | Write CPU profiling to this file path | (disabled) |
@@ -356,6 +359,7 @@ Both use `debian:bookworm-slim` runtime.
 docker run -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
+  -v ~/.codex:/data/.codex:ro \
   ghcr.io/wethinkt/thinkt:latest serve --host 0.0.0.0
 ```
 

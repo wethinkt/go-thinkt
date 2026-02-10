@@ -43,7 +43,7 @@ Project selection:
   - -p/--project <path>: use specified project
   - --pick: force picker even if in a project directory
 
-Use --source to filter by source (e.g. claude, kimi, gemini, copilot).
+Use --source to filter by source (e.g. claude, kimi, gemini, copilot, codex).
 
 Examples:
   thinkt sessions                   # Interactive viewer (same as view)

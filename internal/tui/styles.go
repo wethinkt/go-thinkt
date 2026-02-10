@@ -182,6 +182,8 @@ func SourceColorHex(s thinkt.Source) string {
 		return "#6ba3ff"
 	case thinkt.SourceCopilot:
 		return "#7fcc5a"
+	case thinkt.SourceCodex:
+		return "#4f8cff"
 	default:
 		return "#888888"
 	}

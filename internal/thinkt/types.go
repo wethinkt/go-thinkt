@@ -16,6 +16,7 @@ type Source string
 const (
 	SourceThinkt  Source = "thinkt"
 	SourceClaude  Source = "claude"
+	SourceCodex   Source = "codex"
 	SourceCopilot Source = "copilot"
 	SourceGemini  Source = "gemini"
 	SourceKimi    Source = "kimi"
@@ -27,6 +28,8 @@ func (s Source) String() string {
 		return "thinkt"
 	case SourceClaude:
 		return "claude"
+	case SourceCodex:
+		return "codex"
 	case SourceCopilot:
 		return "copilot"
 	case SourceKimi:
@@ -46,6 +49,8 @@ func (s Source) DisplayName() string {
 		return "thinkt"
 	case SourceClaude:
 		return "Claude Code"
+	case SourceCodex:
+		return "Codex CLI"
 	case SourceCopilot:
 		return "GitHub Copilot"
 	case SourceKimi:
@@ -65,6 +70,8 @@ func (s Source) Description() string {
 		return "thinkt sessions"
 	case SourceClaude:
 		return "Claude Code sessions (~/.claude)"
+	case SourceCodex:
+		return "Codex CLI sessions (~/.codex)"
 	case SourceCopilot:
 		return "GitHub Copilot sessions"
 	case SourceKimi:

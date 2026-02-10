@@ -31,6 +31,7 @@ We have a common `thinkt` interface to enable uniform access to various `Sources
   - [*Kimi Code*](https://www.kimi.com/code) from Moonshot
   - [*Gemini CLI*](https://geminicli.com) from Google
   - [*Copilot CLI*](https://github.com/features/copilot/cli) from GitHub
+  - [*Codex CLI*](https://github.com/openai/codex) from OpenAI
 
 Right now much of the implementation is in package `internal`, but we will eventually build out a public package as it stabilizes.
 
@@ -39,7 +40,7 @@ Right now much of the implementation is in package `internal`, but we will event
 ## Features
 
 - **Interactive TUI**: Navigate projects, sessions, and conversation content with a keyboard-driven terminal interface
-- **Multi-Source Support**: Works with Claude Code (`~/.claude`), Kimi Code (`~/.kimi`), Gemini CLI, and Copilot — sessions from all sources are shown together
+- **Multi-Source Support**: Works with Claude Code (`~/.claude`), Kimi Code (`~/.kimi`), Gemini CLI (`~/.gemini`), Copilot CLI (`~/.copilot`), and Codex CLI (`~/.codex`) — sessions from all sources are shown together
 - **Tree View**: Browse projects in a collapsible tree grouped by directory, or switch to a flat list
 - **Agent Teams**: Inspect multi-agent teams (Claude Code), including members, tasks, and messages
 - **Analytics**: Token usage, tool frequency, word analysis, activity timelines via `thinkt-indexer`
@@ -87,10 +88,13 @@ The container user's home directory is `/data`, so default paths like `~/.claude
 docker run -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
+  -v ~/.codex:/data/.codex:ro \
   ghcr.io/wethinkt/thinkt:latest serve --host 0.0.0.0
 
 # Run any command
-docker run -v ~/.claude:/data/.claude:ro \
+docker run \
+  -v ~/.claude:/data/.claude:ro \
+  -v ~/.codex:/data/.codex:ro \
   ghcr.io/wethinkt/thinkt:latest projects
 
 # Show help
@@ -135,7 +139,7 @@ thinkt tui --log /tmp/thinkt-debug.log
 |---------|-------------|
 | `thinkt` | Launch interactive TUI (default) |
 | `thinkt tui` | Launch interactive TUI |
-| `thinkt sources` | List available sources (claude, kimi, gemini, copilot) |
+| `thinkt sources` | List available sources (claude, kimi, gemini, copilot, codex) |
 | `thinkt sources status` | Show detailed source status |
 | `thinkt projects` | List all projects (detailed columns) |
 | `thinkt projects --short` | List project paths only |
@@ -397,6 +401,7 @@ See [Authentication](#authentication) for more details on securing the MCP serve
 | `THINKT_KIMI_HOME` | Kimi Code data directory | `~/.kimi` |
 | `THINKT_GEMINI_HOME` | Gemini CLI data directory | `~/.gemini` |
 | `THINKT_COPILOT_HOME` | Copilot data directory | `~/.copilot` |
+| `THINKT_CODEX_HOME` | Codex CLI data directory | `~/.codex` |
 | `THINKT_API_TOKEN` | Bearer token for API server authentication | (none) |
 | `THINKT_MCP_TOKEN` | Bearer token for MCP server authentication | (none) |
 | `THINKT_PROFILE` | Write CPU profiling to this file path | (disabled) |

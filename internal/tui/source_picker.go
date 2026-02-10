@@ -322,6 +322,7 @@ func SourceOptionsFromRegistry(registry *thinkt.StoreRegistry, selected []thinkt
 		thinkt.SourceKimi,
 		thinkt.SourceGemini,
 		thinkt.SourceCopilot,
+		thinkt.SourceCodex,
 	}
 
 	registered := make(map[thinkt.Source]bool)

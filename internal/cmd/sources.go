@@ -17,7 +17,7 @@ var sourcesCmd = &cobra.Command{
 	Long: `View and manage available AI assistant session sources.
 
 Sources are the AI coding assistants that store session data
-on this machine (e.g., Claude Code, Kimi Code).
+on this machine (e.g., Claude Code, Kimi Code, Gemini CLI, Copilot CLI, Codex CLI).
 
 Examples:
   thinkt sources list      # List all available sources
@@ -58,6 +58,9 @@ func runSourcesList(cmd *cobra.Command, args []string) error {
 		fmt.Println("\nExpected sources:")
 		fmt.Println("  - Kimi Code: ~/.kimi/")
 		fmt.Println("  - Claude Code: ~/.claude/")
+		fmt.Println("  - Gemini CLI: ~/.gemini/")
+		fmt.Println("  - Copilot CLI: ~/.copilot/")
+		fmt.Println("  - Codex CLI: ~/.codex/")
 		return nil
 	}
 

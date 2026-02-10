@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/wethinkt/go-thinkt/internal/sources/claude"
+	"github.com/wethinkt/go-thinkt/internal/sources/codex"
 	"github.com/wethinkt/go-thinkt/internal/sources/copilot"
 	"github.com/wethinkt/go-thinkt/internal/sources/gemini"
 	"github.com/wethinkt/go-thinkt/internal/sources/kimi"
@@ -340,6 +341,7 @@ func loadSourcesCmd(registry *thinkt.StoreRegistry) tea.Cmd {
 			claude.Factory(),
 			gemini.Factory(),
 			copilot.Factory(),
+			codex.Factory(),
 		)
 
 		ctx := context.Background()

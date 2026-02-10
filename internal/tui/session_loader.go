@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/sources/claude"
+	"github.com/wethinkt/go-thinkt/internal/sources/codex"
 	"github.com/wethinkt/go-thinkt/internal/sources/copilot"
 	"github.com/wethinkt/go-thinkt/internal/sources/gemini"
 	"github.com/wethinkt/go-thinkt/internal/sources/kimi"
@@ -26,6 +27,9 @@ func OpenLazySession(path string) (thinkt.LazySession, error) {
 	case isKimiSession(path):
 		tuilog.Log.Info("OpenLazySession: detected as kimi session")
 		return openKimiLazySession(path)
+	case isCodexSession(path):
+		tuilog.Log.Info("OpenLazySession: detected as codex session")
+		return openCodexLazySession(path)
 	case isCopilotSession(path):
 		tuilog.Log.Info("OpenLazySession: detected as copilot session")
 		return openCopilotLazySession(path)
@@ -41,6 +45,9 @@ func OpenLazySession(path string) (thinkt.LazySession, error) {
 		case "claude":
 			tuilog.Log.Info("OpenLazySession: detected as claude session")
 			return openClaudeLazySession(path)
+		case "codex":
+			tuilog.Log.Info("OpenLazySession: detected as codex session")
+			return openCodexLazySession(path)
 		default:
 			return nil, fmt.Errorf("unsupported jsonl session format: %s", path)
 		}
@@ -74,6 +81,21 @@ func isCopilotSession(path string) bool {
 	return filepath.Base(path) == "events.jsonl"
 }
 
+// isCodexSession detects Codex CLI session logs.
+func isCodexSession(path string) bool {
+	if filepath.Ext(path) != ".jsonl" {
+		return false
+	}
+	clean := filepath.Clean(path)
+	parts := strings.Split(clean, string(os.PathSeparator))
+	for i := 0; i < len(parts)-1; i++ {
+		if parts[i] == ".codex" && i+1 < len(parts) && parts[i+1] == "sessions" {
+			return true
+		}
+	}
+	return false
+}
+
 // isGeminiSession detects Gemini chat JSON files.
 func isGeminiSession(path string) bool {
 	return filepath.Ext(path) == ".json"
@@ -91,7 +113,7 @@ func detectJSONLSessionType(path string) (string, error) {
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 64*1024), 2*1024*1024)
+	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -122,10 +144,24 @@ func detectJSONLSessionType(path string) (string, error) {
 				}
 			case strings.HasPrefix(t, "file-history-"):
 				return "claude", nil
+			case t == "session_meta":
+				return "codex", nil
+			case t == "event_msg":
+				if payload, ok := obj["payload"].(map[string]any); ok {
+					switch payloadType, _ := payload["type"].(string); payloadType {
+					case "user_message", "agent_message", "agent_reasoning", "turn_context", "turn_aborted", "token_count":
+						return "codex", nil
+					}
+				}
+			case t == "response_item":
+				if payload, ok := obj["payload"].(map[string]any); ok {
+					switch payloadType, _ := payload["type"].(string); payloadType {
+					case "message", "reasoning", "function_call", "function_call_output", "custom_tool_call", "custom_tool_call_output":
+						return "codex", nil
+					}
+				}
 			}
 		}
-
-		return "unknown", nil
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -195,6 +231,18 @@ func openGeminiLazySession(path string) (thinkt.LazySession, error) {
 	return thinkt.NewLazySession(reader)
 }
 
+// openCodexLazySession opens a Codex session via the source store.
+func openCodexLazySession(path string) (thinkt.LazySession, error) {
+	baseDir := findCodexBaseDir(path)
+	store := codex.NewStore(baseDir)
+
+	reader, err := store.OpenSession(context.Background(), path)
+	if err != nil {
+		return nil, fmt.Errorf("open codex session: %w", err)
+	}
+	return thinkt.NewLazySession(reader)
+}
+
 // findKimiBaseDir finds the Kimi base directory from a session path.
 // Path format: ~/.kimi/sessions/{hash}/{uuid}/context.jsonl
 func findKimiBaseDir(sessionPath string) string {
@@ -247,6 +295,26 @@ func findGeminiBaseDir(sessionPath string) string {
 			break
 		}
 		if filepath.Base(parent) == ".gemini" || filepath.Base(parent) == "gemini" {
+			return parent
+		}
+		dir = parent
+	}
+	return ""
+}
+
+// findCodexBaseDir finds the Codex base directory from a session path.
+// Path format: ~/.codex/sessions/YYYY/MM/DD/*.jsonl
+func findCodexBaseDir(sessionPath string) string {
+	dir := filepath.Dir(sessionPath)
+	for {
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		if filepath.Base(dir) == ".codex" || filepath.Base(dir) == "codex" {
+			return dir
+		}
+		if filepath.Base(parent) == ".codex" {
 			return parent
 		}
 		dir = parent
