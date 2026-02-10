@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	pathpkg "path"
 	"path/filepath"
 	"strings"
 )
@@ -24,16 +25,10 @@ func NewPathValidator(registry *StoreRegistry) *PathValidator {
 //   - Exists on the filesystem
 //   - Is a directory (not a file)
 //   - Is within an allowed location (user's home or known project)
-//   - Does not contain shell metacharacters
 //   - Is not a symlink to outside allowed locations
 //
 // Returns the cleaned, absolute path if valid, or an error if invalid.
 func (v *PathValidator) ValidateOpenInPath(path string) (string, error) {
-	// Check for shell metacharacters first (before any file operations)
-	if err := ValidateNoShellMetacharacters(path); err != nil {
-		return "", err
-	}
-
 	// Resolve to absolute path
 	absPath, err := filepath.Abs(path)
 	if err != nil {
@@ -122,81 +117,90 @@ func (v *PathValidator) GetAllowedBaseDirectories() ([]string, error) {
 	return bases, nil
 }
 
-// ValidateNoShellMetacharacters checks if the path contains any shell
-// metacharacters that could lead to command injection.
-func ValidateNoShellMetacharacters(path string) error {
-	// List of dangerous shell metacharacters
-	dangerous := []string{
-		";",  // Command separator
-		"|",  // Pipe
-		"&",  // Background/AND
-		"$",  // Variable expansion
-		"`",  // Command substitution
-		"(",  // Subshell start
-		")",  // Subshell end
-		"{",  // Brace expansion start
-		"}",  // Brace expansion end
-		"<",  // Input redirection
-		">",  // Output redirection
-		"\"", // Quote
-		"'",  // Single quote
-		"\\", // Escape
-		"\n", // Newline (command separator)
-		"\r", // Carriage return
-		"\t", // Tab
-		"*",  // Glob (wildcard)
-		"?",  // Single char wildcard
-		"[",  // Character class start
-		"]",  // Character class end
-		"#",  // Comment
-		"!",  // History expansion (bash)
-		"~",  // Tilde expansion (home directory)
-	}
-
-	// Check for null bytes (can be used to bypass filters)
-	if strings.Contains(path, "\x00") {
-		return fmt.Errorf("path contains null byte")
-	}
-
-	// Check each dangerous character
-	for _, char := range dangerous {
-		if strings.Contains(path, char) {
-			return fmt.Errorf("path contains invalid character: %q", char)
-		}
-	}
-
-	// Additional check: ensure path doesn't start with '-' (could be interpreted as flag)
-	if strings.HasPrefix(strings.TrimSpace(path), "-") {
-		return fmt.Errorf("path cannot start with '-'")
-	}
-
-	return nil
-}
-
 // IsPathWithinAny checks if the given path is within any of the allowed base directories.
-// Both paths are cleaned and compared. The path must be equal to or a subdirectory of a base.
+// Both paths are canonicalized (including slash and Windows volume normalization).
+// The path must be equal to or a subdirectory of a base.
 func IsPathWithinAny(path string, bases []string) bool {
-	// Clean the path (remove .., ., etc.)
-	cleanPath := filepath.Clean(path)
+	canonicalPath, isWindowsPath := canonicalPathForMatch(path)
+	if canonicalPath == "" {
+		return false
+	}
 
 	for _, base := range bases {
-		cleanBase := filepath.Clean(base)
+		canonicalBase, isWindowsBase := canonicalPathForMatch(base)
+		if canonicalBase == "" {
+			continue
+		}
+		if (isWindowsPath || isWindowsBase) && isWindowsPath != isWindowsBase {
+			continue
+		}
 
 		// Check if path is exactly the base or is a subdirectory
-		if cleanPath == cleanBase {
+		if canonicalPath == canonicalBase {
 			return true
 		}
 
 		// Add trailing separator to ensure proper prefix matching
-		// (prevents /foo/bar matching /foo/barbaz)
-		if !strings.HasSuffix(cleanBase, string(filepath.Separator)) {
-			cleanBase += string(filepath.Separator)
+		// (prevents /foo/bar matching /foo/barbaz and C:/foo matching C:/foobar)
+		if !strings.HasSuffix(canonicalBase, "/") {
+			canonicalBase += "/"
 		}
 
-		if strings.HasPrefix(cleanPath+string(filepath.Separator), cleanBase) {
+		if strings.HasPrefix(canonicalPath+"/", canonicalBase) {
 			return true
 		}
 	}
 
 	return false
+}
+
+func canonicalPathForMatch(input string) (canonical string, isWindowsStyle bool) {
+	trimmed := strings.TrimSpace(input)
+	if trimmed == "" {
+		return "", false
+	}
+
+	normalized := strings.ReplaceAll(trimmed, "\\", "/")
+	volume, rest, isWindows := splitPathVolume(normalized)
+
+	restClean := pathpkg.Clean(rest)
+	if strings.HasPrefix(rest, "/") && !strings.HasPrefix(restClean, "/") {
+		restClean = "/" + restClean
+	}
+	if restClean == "." {
+		if strings.HasPrefix(rest, "/") {
+			restClean = "/"
+		} else {
+			restClean = ""
+		}
+	}
+
+	if isWindows {
+		return strings.ToLower(volume + restClean), true
+	}
+	return pathpkg.Clean(normalized), false
+}
+
+func splitPathVolume(input string) (volume string, rest string, isWindows bool) {
+	if len(input) >= 2 && isASCIIAlpha(input[0]) && input[1] == ':' {
+		return strings.ToUpper(input[:2]), input[2:], true
+	}
+
+	if strings.HasPrefix(input, "//") {
+		withoutPrefix := strings.TrimPrefix(input, "//")
+		parts := strings.SplitN(withoutPrefix, "/", 3)
+		if len(parts) >= 2 && parts[0] != "" && parts[1] != "" {
+			vol := "//" + strings.ToUpper(parts[0]) + "/" + strings.ToUpper(parts[1])
+			if len(parts) == 3 {
+				return vol, "/" + parts[2], true
+			}
+			return vol, "/", true
+		}
+	}
+
+	return "", input, false
+}
+
+func isASCIIAlpha(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }

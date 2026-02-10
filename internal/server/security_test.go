@@ -47,65 +47,6 @@ func TestGenerateSecureTokenWithPrefix(t *testing.T) {
 	}
 }
 
-func TestValidateNoShellMetacharacters(t *testing.T) {
-	tests := []struct {
-		name    string
-		path    string
-		wantErr bool
-	}{
-		// Valid paths
-		{"simple path", "/home/user/project", false},
-		{"path with spaces", "/home/user/my project", false},
-		{"path with dots", "/home/user/project.v2", false},
-		{"path with dash", "/home/user/my-project", false},
-		{"path with underscore", "/home/user/my_project", false},
-		{"path with numbers", "/home/user/project123", false},
-
-		// Invalid - command separators
-		{"semicolon", "/home/user/project;rm -rf /", true},
-		{"pipe", "/home/user/project|cat /etc/passwd", true},
-		{"ampersand", "/home/user/project&&evil", true},
-
-		// Invalid - variable expansion
-		{"dollar", "/home/user/$HOME", true},
-		{"backtick", "/home/user/`whoami`", true},
-
-		// Invalid - redirects
-		{"less than", "/home/user/project</etc/passwd", true},
-		{"greater than", "/home/user/project>/tmp/pwned", true},
-
-		// Invalid - quotes
-		{"double quote", `/home/user/project"`, true},
-		{"single quote", "/home/user/project'", true},
-		{"backslash", "/home/user/project\\", true},
-
-		// Invalid - other
-		{"newline", "/home/user/project\nrm -rf /", true},
-		{"null byte", "/home/user/project\x00/etc/passwd", true},
-		{"glob", "/home/user/*", true},
-		{"question", "/home/user/project?", true},
-		{"bracket", "/home/user/project[abc]", true},
-		{"tilde", "~/project", true},
-		{"leading dash", "-rf /", true},
-		{"hash", "/home/user/project#comment", true},
-		{"exclamation", "/home/user/project!history", true},
-		{"parentheses", "/home/user/project$(whoami)", true},
-		{"curly braces", "/home/user/project${VAR}", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := thinkt.ValidateNoShellMetacharacters(tt.path)
-			if tt.wantErr && err == nil {
-				t.Errorf("ValidateNoShellMetacharacters(%q) expected error, got nil", tt.path)
-			}
-			if !tt.wantErr && err != nil {
-				t.Errorf("ValidateNoShellMetacharacters(%q) unexpected error: %v", tt.path, err)
-			}
-		})
-	}
-}
-
 func TestIsPathWithinAny(t *testing.T) {
 	// Use platform-appropriate paths
 	var bases []string
@@ -143,6 +84,39 @@ func TestIsPathWithinAny(t *testing.T) {
 		// Edge cases - prefix matching (should NOT match)
 		{"prefix of base (false positive check)", bases[0] + "evil", false},
 		{"prefix of projects", bases[1] + "_extra", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := thinkt.IsPathWithinAny(tt.path, bases)
+			if result != tt.expected {
+				t.Errorf("IsPathWithinAny(%q) = %v, want %v", tt.path, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestIsPathWithinAny_WindowsPathForms(t *testing.T) {
+	bases := []string{
+		`C:\Users\alice`,
+		`\\server\share\projects`,
+	}
+
+	tests := []struct {
+		name     string
+		path     string
+		expected bool
+	}{
+		{"drive exact backslashes", `C:\Users\alice`, true},
+		{"drive exact forward slashes", `C:/Users/alice`, true},
+		{"drive nested mixed slashes", `C:\Users/alice\repo`, true},
+		{"drive case insensitive", `c:\users\ALICE\repo`, true},
+		{"drive prefix should not match", `C:\Users\aliceevil`, false},
+		{"different drive", `D:\Users\alice`, false},
+		{"drive path traversal cleaned", `C:\Users\alice\repo\..\work`, true},
+		{"unc nested backslashes", `\\server\share\projects\team-a`, true},
+		{"unc nested forward slashes", `//server/share/projects/team-b`, true},
+		{"unc different share", `\\server\other\projects`, false},
 	}
 
 	for _, tt := range tests {
@@ -204,10 +178,6 @@ func TestPathValidator_ValidateOpenInPath(t *testing.T) {
 
 		// Files (not directories)
 		{"file instead of dir", testFile, true},
-
-		// Paths with shell metacharacters
-		{"path with semicolon", filepath.Join(tmpDir, "safe;rm -rf /"), true},
-		{"path with pipe", filepath.Join(tmpDir, "safe|cat /etc/passwd"), true},
 
 		// Symlinks (valid if they point to allowed locations)
 		{"symlink to safe", symlinkDir, false},
