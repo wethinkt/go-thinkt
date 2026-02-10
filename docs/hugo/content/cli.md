@@ -135,16 +135,19 @@ thinkt sessions list --source kimi    # Filter by source
 
 ```bash
 thinkt sessions view                  # Interactive picker
-thinkt sessions view <session-id>     # View specific session
-thinkt sessions summary               # Detailed session info
+thinkt sessions view -p ./myproject <session-id>  # View specific session
+thinkt sessions summary -p ./myproject            # Detailed session info
 ```
 
 ### Manage Sessions
 
 ```bash
-thinkt sessions copy <session-id> ./backup   # Copy session
-thinkt sessions delete <session-id>          # Delete session
+thinkt sessions resolve -p ./myproject <session-id>   # Canonical path
+thinkt sessions copy -p ./myproject <session-id> ./backup
+thinkt sessions delete -p ./myproject <session-id>
 ```
+
+`sessions copy` and `sessions delete` operate only on sessions discovered from registered sources. Use `sessions resolve` to inspect the canonical path first.
 
 **Reference:** [thinkt sessions](/command/thinkt_sessions)
 
@@ -331,17 +334,18 @@ thinkt sessions list
 
 ```bash
 # View a session
-thinkt sessions view <session-id>
+thinkt sessions view -p ./myproject <session-id>
 ```
 
 ### Export for Sharing
 
 ```bash
-# Copy sessions to share
-thinkt sessions copy <session-id> ./export
+# Resolve then copy a known session to share
+session_path=$(thinkt sessions resolve -p ./myproject <session-id>)
+thinkt sessions copy -p ./myproject <session-id> ./export
 
 # Extract just the prompts
-thinkt prompts extract -i ./export/session.jsonl -o prompts.md
+thinkt prompts extract -i "$session_path" -o prompts.md
 ```
 
 ---

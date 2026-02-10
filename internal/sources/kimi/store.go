@@ -104,14 +104,14 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 		sessions, _ := s.listSessionsForHash(hash)
 
 		projects = append(projects, thinkt.Project{
-			ID:           wd.Path,
-			Name:         filepath.Base(wd.Path),
-			Path:         wd.Path,
-			DisplayPath:  wd.Path,
-			SessionCount: len(sessions),
-			LastModified: info.ModTime(),
-			Source:       thinkt.SourceKimi,
-			WorkspaceID:  ws.ID,
+			ID:             wd.Path,
+			Name:           filepath.Base(wd.Path),
+			Path:           wd.Path,
+			DisplayPath:    wd.Path,
+			SessionCount:   len(sessions),
+			LastModified:   info.ModTime(),
+			Source:         thinkt.SourceKimi,
+			WorkspaceID:    ws.ID,
 			SourceBasePath: ws.BasePath,
 		})
 	}
@@ -138,14 +138,14 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 	ws := s.Workspace()
 
 	return &thinkt.Project{
-		ID:           id,
-		Name:         filepath.Base(id),
-		Path:         id,
-		DisplayPath:  id,
-		SessionCount: len(sessions),
-		LastModified: info.ModTime(),
-		Source:       thinkt.SourceKimi,
-		WorkspaceID:  ws.ID,
+		ID:             id,
+		Name:           filepath.Base(id),
+		Path:           id,
+		DisplayPath:    id,
+		SessionCount:   len(sessions),
+		LastModified:   info.ModTime(),
+		Source:         thinkt.SourceKimi,
+		WorkspaceID:    ws.ID,
 		SourceBasePath: ws.BasePath,
 	}, nil
 }
@@ -186,7 +186,7 @@ func (s *Store) listSessionsForHash(hash string) ([]thinkt.SessionMeta, error) {
 
 		// Count entries by reading the file(s)
 		count, firstPrompt := s.countEntriesAndFirstPrompt(contextPath)
-		
+
 		// Count chunks (context_sub_*.jsonl files)
 		chunkCount := countChunks(sessionPath)
 
@@ -214,7 +214,7 @@ func countChunks(sessionPath string) int {
 	if err != nil {
 		return 1 // Assume single file if we can't read
 	}
-	
+
 	count := 0
 	for _, entry := range entries {
 		name := entry.Name()
@@ -289,9 +289,38 @@ func (s *Store) countEntriesAndFirstPrompt(path string) (int, string) {
 
 // GetSessionMeta returns session metadata.
 func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.SessionMeta, error) {
+	// Support absolute path lookups for context.jsonl files.
+	if filepath.IsAbs(sessionID) {
+		sessionDir := filepath.Dir(sessionID)
+		uuid := filepath.Base(sessionDir)
+		hash := filepath.Base(filepath.Dir(sessionDir))
+		if uuid != "" && hash != "" {
+			contextPath := filepath.Join(sessionDir, "context.jsonl")
+			info, err := os.Stat(contextPath)
+			if err == nil {
+				count, firstPrompt := s.countEntriesAndFirstPrompt(contextPath)
+				chunkCount := countChunks(sessionDir)
+				ws := s.Workspace()
+
+				return &thinkt.SessionMeta{
+					ID:          uuid,
+					ProjectPath: hash,
+					FullPath:    contextPath,
+					FirstPrompt: firstPrompt,
+					EntryCount:  count,
+					CreatedAt:   info.ModTime(),
+					ModifiedAt:  info.ModTime(),
+					Source:      thinkt.SourceKimi,
+					WorkspaceID: ws.ID,
+					ChunkCount:  chunkCount,
+				}, nil
+			}
+		}
+	}
+
 	// sessionID format: {hash}/{uuid} or just {uuid}
 	parts := strings.Split(sessionID, "/")
-	
+
 	var hash, uuid string
 	if len(parts) == 2 {
 		hash, uuid = parts[0], parts[1]
@@ -323,11 +352,11 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 	}
 
 	count, firstPrompt := s.countEntriesAndFirstPrompt(contextPath)
-	
+
 	// Count chunks
 	sessionPath := filepath.Join(s.baseDir, "sessions", hash, uuid)
 	chunkCount := countChunks(sessionPath)
-	
+
 	ws := s.Workspace()
 
 	return &thinkt.SessionMeta{
@@ -406,17 +435,17 @@ func (s *Store) OpenSession(ctx context.Context, sessionID string) (thinkt.Sessi
 // openChunkedSession creates a reader that transparently reads across chunked files.
 func (s *Store) openChunkedSession(meta thinkt.SessionMeta) (thinkt.SessionReader, error) {
 	sessionPath := filepath.Dir(meta.FullPath)
-	
+
 	// Build list of chunk files in order
 	var chunkFiles []string
 	chunkFiles = append(chunkFiles, meta.FullPath) // context.jsonl
-	
+
 	// Find and sort context_sub_*.jsonl files
 	entries, err := os.ReadDir(sessionPath)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var subChunks []string
 	for _, entry := range entries {
 		name := entry.Name()
@@ -431,14 +460,14 @@ func (s *Store) openChunkedSession(meta thinkt.SessionMeta) (thinkt.SessionReade
 		numJ := extractChunkNumber(subChunks[j])
 		return numI < numJ
 	})
-	
+
 	chunkFiles = append(chunkFiles, subChunks...)
-	
+
 	return &chunkedKimiReader{
-		files:   chunkFiles,
-		meta:    meta,
-		source:  thinkt.SourceKimi,
-		wsID:    s.Workspace().ID,
+		files:  chunkFiles,
+		meta:   meta,
+		source: thinkt.SourceKimi,
+		wsID:   s.Workspace().ID,
 	}, nil
 }
 
@@ -454,13 +483,13 @@ func extractChunkNumber(path string) int {
 
 // kimiReader implements thinkt.SessionReader for Kimi format.
 type kimiReader struct {
-	reader     *jsonl.Reader
-	meta       thinkt.SessionMeta
-	closed     bool
-	done       bool
-	lineNum    int
-	source     thinkt.Source
-	wsID       string
+	reader  *jsonl.Reader
+	meta    thinkt.SessionMeta
+	closed  bool
+	done    bool
+	lineNum int
+	source  thinkt.Source
+	wsID    string
 }
 
 func (r *kimiReader) ReadNext() (*thinkt.Entry, error) {
@@ -542,7 +571,7 @@ func (r *chunkedKimiReader) ReadNext() (*thinkt.Entry, error) {
 	for r.current != nil {
 		line, err := r.current.ReadLine()
 		r.lineNum++
-		
+
 		if err == io.EOF {
 			// Try to process any final line
 			if len(line) > 0 {
@@ -564,11 +593,11 @@ func (r *chunkedKimiReader) ReadNext() (*thinkt.Entry, error) {
 			r.current = reader
 			continue
 		}
-		
+
 		if err != nil {
 			return nil, err
 		}
-		
+
 		if len(line) == 0 {
 			continue
 		}
@@ -610,7 +639,7 @@ func parseKimiEntry(data []byte, lineNum int, source thinkt.Source, wsID string)
 	}
 
 	role, _ := raw["role"].(string)
-	
+
 	// Skip empty entries and usage metadata entries
 	if role == "" || role == "_usage" {
 		return nil, nil
@@ -734,11 +763,11 @@ func convertKimiContentBlocks(arr []any) []thinkt.ContentBlock {
 		if !ok {
 			continue
 		}
-		
+
 		cb := thinkt.ContentBlock{
 			Type: getString(block, "type"),
 		}
-		
+
 		switch cb.Type {
 		case "text":
 			cb.Text = getString(block, "text")
@@ -766,7 +795,7 @@ func convertKimiContentBlocks(arr []any) []thinkt.ContentBlock {
 			}
 			cb.IsError = getBool(block, "is_error")
 		}
-		
+
 		result = append(result, cb)
 	}
 	return result

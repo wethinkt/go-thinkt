@@ -78,8 +78,8 @@ type PopPageMsg struct{}
 type InitialPage int
 
 const (
-	InitialPageAuto InitialPage = iota // Auto-detect project from CWD
-	InitialPageProjects                // Always start at projects list
+	InitialPageAuto     InitialPage = iota // Auto-detect project from CWD
+	InitialPageProjects                    // Always start at projects list
 )
 
 // Shell is the main TUI container with navigation
@@ -90,6 +90,7 @@ type Shell struct {
 	registry    *thinkt.StoreRegistry
 	loading     bool
 	initialPage InitialPage
+	preloaded   bool
 }
 
 // NewShell creates the main TUI shell
@@ -106,9 +107,17 @@ func NewShell(initial InitialPage) *Shell {
 // Back navigation from the viewer returns to the picker via PopPageMsg.
 // Cancelling the picker exits the program.
 func NewShellWithSessions(sessions []thinkt.SessionMeta) *Shell {
+	return NewShellWithSessionsAndRegistry(sessions, nil)
+}
+
+// NewShellWithSessionsAndRegistry creates a Shell that starts with a pre-loaded
+// session picker and uses the provided registry for source-aware viewing.
+func NewShellWithSessionsAndRegistry(sessions []thinkt.SessionMeta, registry *thinkt.StoreRegistry) *Shell {
 	s := &Shell{
-		stack:   NewNavStack(),
-		loading: false,
+		stack:     NewNavStack(),
+		registry:  registry,
+		loading:   false,
+		preloaded: true,
 	}
 	picker := NewSessionPickerModel(sessions, nil)
 	s.stack.items = append(s.stack.items, NavItem{
@@ -120,7 +129,7 @@ func NewShellWithSessions(sessions []thinkt.SessionMeta) *Shell {
 
 func (s *Shell) Init() tea.Cmd {
 	tuilog.Log.Info("Shell.Init: starting")
-	if s.registry == nil {
+	if s.preloaded || s.registry == nil {
 		// Pre-loaded shell (e.g. NewShellWithSessions), init the current page
 		if current, ok := s.stack.Peek(); ok {
 			return current.Model.Init()
@@ -264,7 +273,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Selected != nil {
 			tuilog.Log.Info("Shell.Update: session selected", "sessionID", msg.Selected.ID, "path", msg.Selected.FullPath)
 			// Use multi-viewer with single session for now
-			viewer := NewMultiViewerModel([]string{msg.Selected.FullPath})
+			viewer := NewMultiViewerModelWithRegistry([]string{msg.Selected.FullPath}, s.registry)
 			cmd := s.stack.Push(NavItem{
 				Title: msg.Selected.ID[:8],
 				Model: viewer,

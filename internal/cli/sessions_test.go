@@ -2,6 +2,8 @@ package cli
 
 import (
 	"bytes"
+	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +12,69 @@ import (
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
+
+type testSessionStore struct {
+	projectID string
+	project   thinkt.Project
+	sessions  []thinkt.SessionMeta
+}
+
+func (s *testSessionStore) Source() thinkt.Source { return thinkt.SourceClaude }
+func (s *testSessionStore) Workspace() thinkt.Workspace {
+	return thinkt.Workspace{ID: "test-workspace", Source: thinkt.SourceClaude}
+}
+func (s *testSessionStore) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
+	return []thinkt.Project{s.project}, nil
+}
+func (s *testSessionStore) GetProject(ctx context.Context, id string) (*thinkt.Project, error) {
+	if id == s.project.ID || id == s.project.Path {
+		p := s.project
+		return &p, nil
+	}
+	return nil, nil
+}
+func (s *testSessionStore) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
+	if projectID == s.projectID {
+		return s.sessions, nil
+	}
+	return nil, nil
+}
+func (s *testSessionStore) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.SessionMeta, error) {
+	for _, meta := range s.sessions {
+		if meta.ID == sessionID || meta.FullPath == sessionID {
+			m := meta
+			return &m, nil
+		}
+	}
+	return nil, nil
+}
+func (s *testSessionStore) LoadSession(ctx context.Context, sessionID string) (*thinkt.Session, error) {
+	return nil, nil
+}
+func (s *testSessionStore) OpenSession(ctx context.Context, sessionID string) (thinkt.SessionReader, error) {
+	return &noopSessionReader{}, nil
+}
+
+type noopSessionReader struct{}
+
+func (r *noopSessionReader) ReadNext() (*thinkt.Entry, error) { return nil, io.EOF }
+func (r *noopSessionReader) Metadata() thinkt.SessionMeta     { return thinkt.SessionMeta{} }
+func (r *noopSessionReader) Close() error                     { return nil }
+
+func makeRegistryWithSession(projectID string, session thinkt.SessionMeta) *thinkt.StoreRegistry {
+	registry := thinkt.NewRegistry()
+	registry.Register(&testSessionStore{
+		projectID: projectID,
+		project: thinkt.Project{
+			ID:     projectID,
+			Path:   projectID,
+			Name:   filepath.Base(projectID),
+			Source: thinkt.SourceClaude,
+		},
+		sessions: []thinkt.SessionMeta{session},
+	})
+	return registry
+}
 
 func TestSessionsFormatter_FormatList(t *testing.T) {
 	sessions := []thinkt.SessionMeta{
@@ -133,8 +198,12 @@ func TestSessionDeleter_Delete_Force(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create a mock registry
-	registry := thinkt.NewRegistry()
+	registry := makeRegistryWithSession("/test/myproject", thinkt.SessionMeta{
+		ID:          "session123",
+		FullPath:    sessionFile,
+		Source:      thinkt.SourceClaude,
+		ProjectPath: "/test/myproject",
+	})
 
 	var stdout bytes.Buffer
 	deleter := NewSessionDeleter(registry, SessionDeleteOptions{
@@ -159,7 +228,6 @@ func TestSessionDeleter_Delete_Force(t *testing.T) {
 }
 
 func TestSessionDeleter_Delete_NotFound(t *testing.T) {
-	// Create a mock registry
 	registry := thinkt.NewRegistry()
 
 	var stdout bytes.Buffer
@@ -192,8 +260,12 @@ func TestSessionCopier_Copy_Success(t *testing.T) {
 
 	targetDir := filepath.Join(tmpDir, "backup")
 
-	// Create a mock registry
-	registry := thinkt.NewRegistry()
+	registry := makeRegistryWithSession("/test/myproject", thinkt.SessionMeta{
+		ID:          "session123",
+		FullPath:    sessionFile,
+		Source:      thinkt.SourceClaude,
+		ProjectPath: "/test/myproject",
+	})
 
 	var stdout bytes.Buffer
 	copier := NewSessionCopier(registry, SessionCopyOptions{
@@ -240,8 +312,12 @@ func TestSessionCopier_Copy_ToSpecificFile(t *testing.T) {
 
 	targetFile := filepath.Join(tmpDir, "backup", "renamed.jsonl")
 
-	// Create a mock registry
-	registry := thinkt.NewRegistry()
+	registry := makeRegistryWithSession("/test/myproject", thinkt.SessionMeta{
+		ID:          "session123",
+		FullPath:    sessionFile,
+		Source:      thinkt.SourceClaude,
+		ProjectPath: "/test/myproject",
+	})
 
 	var stdout bytes.Buffer
 	copier := NewSessionCopier(registry, SessionCopyOptions{

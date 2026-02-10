@@ -10,7 +10,7 @@ Tools for AI assistant session exploration and extraction
 
 thinkt provides tools for exploring and extracting data from AI coding assistant sessions.
 
-Supports: Claude Code, Kimi Code, Gemini CLI
+Supports: Claude Code, Kimi Code, Gemini CLI, Copilot CLI
 
 Running without a subcommand launches the interactive TUI.
 
@@ -23,7 +23,7 @@ Commands:
 
 Examples:
   thinkt                          # Launch TUI
-  thinkt sources list             # List available sources (kimi, claude, gemini)
+  thinkt sources list             # List available sources (claude, kimi, gemini, copilot)
   thinkt projects list            # List all projects from all sources
 
 ```
@@ -41,7 +41,6 @@ thinkt [flags]
 ### SEE ALSO
 
 * [thinkt completion](thinkt_completion.md)	 - Generate the autocompletion script for the specified shell
-* [thinkt docs](thinkt_docs.md)	 - Generate documentation for thinkt
 * [thinkt indexer](thinkt_indexer.md)	 - Specialized indexing and search via DuckDB (requires thinkt-indexer)
 * [thinkt projects](thinkt_projects.md)	 - Manage and view projects
 * [thinkt prompts](thinkt_prompts.md)	 - Extract and manage prompts from trace files

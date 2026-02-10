@@ -25,7 +25,12 @@ func termSizeOpts() []tea.ProgramOption {
 
 // RunViewer runs a single session viewer TUI.
 func RunViewer(sessionPath string) error {
-	model := NewMultiViewerModel([]string{sessionPath})
+	return RunViewerWithRegistry(sessionPath, nil)
+}
+
+// RunViewerWithRegistry runs a single-session viewer with source-aware session loading.
+func RunViewerWithRegistry(sessionPath string, registry *thinkt.StoreRegistry) error {
+	model := NewMultiViewerModelWithRegistry([]string{sessionPath}, registry)
 	p := tea.NewProgram(model, termSizeOpts()...)
 	_, err := p.Run()
 	return err
@@ -33,7 +38,12 @@ func RunViewer(sessionPath string) error {
 
 // RunMultiViewer runs a multi-session viewer TUI.
 func RunMultiViewer(sessionPaths []string) error {
-	model := NewMultiViewerModel(sessionPaths)
+	return RunMultiViewerWithRegistry(sessionPaths, nil)
+}
+
+// RunMultiViewerWithRegistry runs a multi-session viewer with source-aware session loading.
+func RunMultiViewerWithRegistry(sessionPaths []string, registry *thinkt.StoreRegistry) error {
+	model := NewMultiViewerModelWithRegistry(sessionPaths, registry)
 	p := tea.NewProgram(model, termSizeOpts()...)
 	_, err := p.Run()
 	return err
@@ -42,7 +52,12 @@ func RunMultiViewer(sessionPaths []string) error {
 // RunSessionBrowser runs a session picker with back-navigable viewer.
 // Selecting a session opens the viewer; ESC returns to the picker via PopPageMsg.
 func RunSessionBrowser(sessions []thinkt.SessionMeta) error {
-	shell := NewShellWithSessions(sessions)
+	return RunSessionBrowserWithRegistry(sessions, nil)
+}
+
+// RunSessionBrowserWithRegistry runs a session picker with source-aware session loading.
+func RunSessionBrowserWithRegistry(sessions []thinkt.SessionMeta, registry *thinkt.StoreRegistry) error {
+	shell := NewShellWithSessionsAndRegistry(sessions, registry)
 	p := tea.NewProgram(shell, termSizeOpts()...)
 	_, err := p.Run()
 	return err

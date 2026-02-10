@@ -2,14 +2,17 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
 	"github.com/wethinkt/go-thinkt/internal/cli"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 )
 
@@ -24,12 +27,13 @@ var (
 	sessionTemplate    string
 	sessionViewAll     bool
 	sessionViewRaw     bool // --raw flag for undecorated output
+	sessionResolveJSON bool
 )
 
 var sessionsCmd = &cobra.Command{
 	Use:   "sessions",
 	Short: "View and manage sessions across all sources",
-	Long: `View and manage sessions from Kimi, Claude, and other sources.
+	Long: `View and manage sessions from all discovered sources.
 
 Running without a subcommand launches the interactive session viewer.
 
@@ -39,7 +43,7 @@ Project selection:
   - -p/--project <path>: use specified project
   - --pick: force picker even if in a project directory
 
-Use --source to filter by source (kimi, claude).
+Use --source to filter by source (e.g. claude, kimi, gemini, copilot).
 
 Examples:
   thinkt sessions                   # Interactive viewer (same as view)
@@ -91,10 +95,10 @@ Output can be customized with a Go text/template via --template.
 var sessionsDeleteCmd = &cobra.Command{
 	Use:   "delete <session>",
 	Short: "Delete a session",
-	Long: `Delete a Claude Code session file.
+	Long: `Delete a session file from a known source.
 
 The session can be specified as:
-  - Full path to the .jsonl file
+  - Full path to a known session file
   - Session ID (requires -p/--project)
   - Filename (requires -p/--project)
 
@@ -102,7 +106,7 @@ Before deletion, shows session info and prompts for confirmation.
 Use --force to skip the confirmation.
 
 Examples:
-  thinkt sessions delete /full/path/to/session.jsonl
+  thinkt sessions delete /full/path/to/session
   thinkt sessions delete -p ./myproject abc123
   thinkt sessions delete -p ./myproject --force abc123`,
 	Args: cobra.ExactArgs(1),
@@ -112,19 +116,19 @@ Examples:
 var sessionsCopyCmd = &cobra.Command{
 	Use:   "copy <session> <target>",
 	Short: "Copy a session to a target location",
-	Long: `Copy a Claude Code session file to a target location.
+	Long: `Copy a known session file to a target location.
 
 The session can be specified as:
-  - Full path to the .jsonl file
+  - Full path to a known session file
   - Session ID (requires -p/--project)
   - Filename (requires -p/--project)
 
 The target can be a file path or directory.
 
 Examples:
-  thinkt sessions copy /full/path/to/session.jsonl ./backup/
+  thinkt sessions copy /full/path/to/session ./backup/
   thinkt sessions copy -p ./myproject abc123 ./backup/
-  thinkt sessions copy -p ./myproject abc123 ./backup/renamed.jsonl`,
+  thinkt sessions copy -p ./myproject abc123 ./backup/renamed-session`,
 	Args: cobra.ExactArgs(2),
 	RunE: runSessionsCopy,
 }
@@ -135,10 +139,10 @@ var sessionsViewCmd = &cobra.Command{
 	Long: `View a session in a full-terminal viewer.
 
 If no session is specified, shows an interactive picker of all recent sessions.
-The picker works across all sources (kimi, claude).
+The picker works across all discovered sources.
 
-The session can be specified as:
-  - Full path to the .jsonl file
+	The session can be specified as:
+  - Full path to a known session file
   - Session ID (requires -p/--project)
   - Filename (requires -p/--project)
 
@@ -152,12 +156,24 @@ Use --raw to output undecorated text to stdout (no TUI).
 
 Examples:
   thinkt sessions view              # Interactive picker across all sources
-  thinkt sessions view /full/path/to/session.jsonl
+  thinkt sessions view /full/path/to/session
   thinkt sessions view -p ./myproject abc123
   thinkt sessions view -p ./myproject --all        # view all
   thinkt sessions view /path/to/session --raw      # raw output to stdout`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runSessionsView,
+}
+
+var sessionsResolveCmd = &cobra.Command{
+	Use:   "resolve <session>",
+	Short: "Resolve a session query to its canonical path",
+	Long: `Resolve a session query (ID, filename suffix, or absolute path)
+to a known session from registered sources.
+
+By default, outputs only the canonical full path.
+Use --json for structured output.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runSessionsResolve,
 }
 
 // logSelectedProject prints the resolved project to stderr when -v is set.
@@ -306,7 +322,7 @@ func runSessionsDelete(cmd *cobra.Command, args []string) error {
 
 	// If no project specified and not an absolute path, try auto-detection from cwd
 	// (--pick is not useful for delete since we need a specific session, but we check for consistency)
-	if sessionProject == "" && !strings.HasPrefix(args[0], "/") && !sessionForcePicker {
+	if sessionProject == "" && !filepath.IsAbs(args[0]) && !sessionForcePicker {
 		cwd, err := os.Getwd()
 		if err == nil {
 			if project := registry.FindProjectForPath(ctx, cwd); project != nil {
@@ -334,7 +350,7 @@ func runSessionsCopy(cmd *cobra.Command, args []string) error {
 
 	// If no project specified and not an absolute path, try auto-detection from cwd
 	// (--pick is not useful for copy since we need a specific session, but we check for consistency)
-	if sessionProject == "" && !strings.HasPrefix(args[0], "/") && !sessionForcePicker {
+	if sessionProject == "" && !filepath.IsAbs(args[0]) && !sessionForcePicker {
 		cwd, err := os.Getwd()
 		if err == nil {
 			if project := registry.FindProjectForPath(ctx, cwd); project != nil {
@@ -360,11 +376,11 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 
 	// Handle absolute path first (doesn't need project)
-	if len(args) > 0 && strings.HasPrefix(args[0], "/") {
+	if len(args) > 0 && filepath.IsAbs(args[0]) {
 		if sessionViewRaw {
-			return tui.ViewSessionRaw(args[0], os.Stdout)
+			return tui.ViewSessionRawWithRegistry(args[0], registry, os.Stdout)
 		}
-		return tui.RunViewer(args[0])
+		return tui.RunViewerWithRegistry(args[0], registry)
 	}
 
 	// If no project specified and not forcing picker, try auto-detection from cwd
@@ -427,13 +443,16 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 		var sessionPath string
 
 		// Check if it's an absolute path
-		if strings.HasPrefix(sessionArg, "/") {
+		if filepath.IsAbs(sessionArg) {
 			sessionPath = sessionArg
 		} else {
 			// Match by session ID or filename
 			found := false
 			for _, s := range sessions {
-				if s.ID == sessionArg || strings.HasSuffix(s.FullPath, sessionArg) || strings.HasSuffix(s.FullPath, sessionArg+".jsonl") {
+				if s.ID == sessionArg ||
+					strings.HasSuffix(s.FullPath, sessionArg) ||
+					strings.HasSuffix(s.FullPath, sessionArg+".jsonl") ||
+					strings.HasSuffix(s.FullPath, sessionArg+".json") {
 					sessionPath = s.FullPath
 					found = true
 					break
@@ -446,9 +465,9 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 
 		// Handle --raw flag for undecorated output
 		if sessionViewRaw {
-			return tui.ViewSessionRaw(sessionPath, os.Stdout)
+			return tui.ViewSessionRawWithRegistry(sessionPath, registry, os.Stdout)
 		}
-		return tui.RunViewer(sessionPath)
+		return tui.RunViewerWithRegistry(sessionPath, registry)
 	}
 
 	// No session specified - either show picker or view all
@@ -458,7 +477,7 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 		for i, s := range sessions {
 			paths[i] = s.FullPath
 		}
-		return tui.RunMultiViewer(paths)
+		return tui.RunMultiViewerWithRegistry(paths, registry)
 	}
 
 	// Show session picker (requires TTY)
@@ -467,5 +486,51 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 	}
 
 	// Run session browser: picker + viewer with back navigation via Shell
-	return tui.RunSessionBrowser(sessions)
+	return tui.RunSessionBrowserWithRegistry(sessions, registry)
+}
+
+func runSessionsResolve(cmd *cobra.Command, args []string) error {
+	registry := CreateSourceRegistry()
+	ctx := context.Background()
+
+	// If no project specified and query is not absolute, try auto-detection from cwd.
+	if sessionProject == "" && !filepath.IsAbs(args[0]) && !sessionForcePicker {
+		cwd, err := os.Getwd()
+		if err == nil {
+			if project := registry.FindProjectForPath(ctx, cwd); project != nil {
+				sessionProject = project.ID
+			}
+		}
+	}
+
+	meta, err := cli.ResolveSession(registry, sessionProject, args[0])
+	if err != nil {
+		return err
+	}
+
+	if sessionResolveJSON {
+		out := struct {
+			ID         string        `json:"id"`
+			FullPath   string        `json:"full_path"`
+			Project    string        `json:"project_path,omitempty"`
+			Source     thinkt.Source `json:"source"`
+			Workspace  string        `json:"workspace_id,omitempty"`
+			EntryCount int           `json:"entry_count,omitempty"`
+			ModifiedAt string        `json:"modified_at,omitempty"`
+		}{
+			ID:         meta.ID,
+			FullPath:   meta.FullPath,
+			Project:    meta.ProjectPath,
+			Source:     meta.Source,
+			Workspace:  meta.WorkspaceID,
+			EntryCount: meta.EntryCount,
+		}
+		if !meta.ModifiedAt.IsZero() {
+			out.ModifiedAt = meta.ModifiedAt.Format("2006-01-02T15:04:05Z07:00")
+		}
+		return json.NewEncoder(os.Stdout).Encode(out)
+	}
+
+	fmt.Fprintln(os.Stdout, meta.FullPath)
+	return nil
 }

@@ -33,6 +33,105 @@ type SessionListOptions struct {
 	Template   string // Custom Go template
 }
 
+// ResolveSession resolves a user-provided query (ID, suffix, or absolute path)
+// into a known session from registered sources.
+func ResolveSession(registry *thinkt.StoreRegistry, projectID, query string) (*thinkt.SessionMeta, error) {
+	if strings.TrimSpace(query) == "" {
+		return nil, fmt.Errorf("session query is required")
+	}
+
+	ctx := context.Background()
+
+	// Absolute paths must resolve to a known session in the registry.
+	if filepath.IsAbs(query) {
+		_, meta, err := registry.ResolveSessionByPath(ctx, query)
+		if err == nil && meta != nil {
+			return meta, nil
+		}
+		if err != nil && err != os.ErrNotExist {
+			return nil, fmt.Errorf("resolve session path: %w", err)
+		}
+		return nil, fmt.Errorf("session not found in known sources: %s", query)
+	}
+
+	candidates, err := collectCandidateSessions(registry, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	matches := make([]thinkt.SessionMeta, 0, 4)
+	for _, s := range candidates {
+		if sessionMatchesQuery(s, query) {
+			matches = append(matches, s)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return nil, fmt.Errorf("session not found: %s", query)
+	case 1:
+		return &matches[0], nil
+	default:
+		var b strings.Builder
+		b.WriteString("session query is ambiguous, matched multiple sessions:\n")
+		max := len(matches)
+		if max > 5 {
+			max = 5
+		}
+		for i := 0; i < max; i++ {
+			b.WriteString("  - ")
+			b.WriteString(matches[i].FullPath)
+			b.WriteByte('\n')
+		}
+		if len(matches) > max {
+			b.WriteString(fmt.Sprintf("  ... and %d more", len(matches)-max))
+		}
+		return nil, fmt.Errorf("%s", strings.TrimSpace(b.String()))
+	}
+}
+
+func collectCandidateSessions(registry *thinkt.StoreRegistry, projectID string) ([]thinkt.SessionMeta, error) {
+	if projectID != "" {
+		return ListSessionsForProject(registry, projectID)
+	}
+
+	ctx := context.Background()
+	var all []thinkt.SessionMeta
+	for _, store := range registry.All() {
+		projects, err := store.ListProjects(ctx)
+		if err != nil {
+			continue
+		}
+		for _, p := range projects {
+			sessions, err := store.ListSessions(ctx, p.ID)
+			if err != nil {
+				continue
+			}
+			all = append(all, sessions...)
+		}
+	}
+	return all, nil
+}
+
+func sessionMatchesQuery(meta thinkt.SessionMeta, query string) bool {
+	if meta.ID == query {
+		return true
+	}
+	if filepath.Base(meta.FullPath) == query {
+		return true
+	}
+	if strings.HasSuffix(meta.FullPath, query) {
+		return true
+	}
+	if strings.HasSuffix(meta.FullPath, query+".jsonl") {
+		return true
+	}
+	if strings.HasSuffix(meta.FullPath, query+".json") {
+		return true
+	}
+	return false
+}
+
 // FormatList outputs sessions one per line (full path).
 func (f *SessionsFormatter) FormatList(sessions []thinkt.SessionMeta) error {
 	for _, s := range sessions {
@@ -234,45 +333,14 @@ func (d *SessionDeleter) Delete(sessionPath string) error {
 
 // findSession finds a session by path or ID within the project scope.
 func (d *SessionDeleter) findSession(sessionPath string) (*thinkt.SessionMeta, error) {
-	// If it's an absolute path to a .jsonl file, use it directly
-	if filepath.IsAbs(sessionPath) && strings.HasSuffix(sessionPath, ".jsonl") {
-		if _, err := os.Stat(sessionPath); err == nil {
-			// Load session metadata
-			return d.loadSessionMeta(sessionPath)
-		}
-	}
-
-	// Otherwise, search within the project
-	if d.opts.Project == "" {
-		return nil, fmt.Errorf("session not found: %s\n\nSpecify -p/--project to search within a project, or provide the full session path", sessionPath)
-	}
-
-	sessions, err := ListSessionsForProject(d.registry, d.opts.Project)
+	meta, err := ResolveSession(d.registry, d.opts.Project, sessionPath)
 	if err != nil {
-		return nil, err
-	}
-
-	// Try to match by session ID or path suffix
-	for _, s := range sessions {
-		if s.ID == sessionPath || strings.HasSuffix(s.FullPath, sessionPath) {
-			return &s, nil
+		if d.opts.Project != "" {
+			return nil, fmt.Errorf("%w\n\nUse 'thinkt sessions list -p %s' to see available sessions", err, d.opts.Project)
 		}
+		return nil, fmt.Errorf("%w\n\nUse 'thinkt sessions list' or 'thinkt sessions resolve <query>' to find valid sessions", err)
 	}
-
-	return nil, fmt.Errorf("session not found: %s\n\nUse 'thinkt sessions list -p %s' to see available sessions", sessionPath, d.opts.Project)
-}
-
-func (d *SessionDeleter) loadSessionMeta(path string) (*thinkt.SessionMeta, error) {
-	info, err := os.Stat(path)
-	if err != nil {
-		return nil, fmt.Errorf("stat session: %w", err)
-	}
-
-	return &thinkt.SessionMeta{
-		ID:       strings.TrimSuffix(filepath.Base(path), ".jsonl"),
-		FullPath: path,
-		ModifiedAt:  info.ModTime(),
-	}, nil
+	return meta, nil
 }
 
 // SessionCopier handles session copying.
@@ -308,7 +376,7 @@ func (c *SessionCopier) Copy(sessionPath, targetPath string) error {
 	if info, err := os.Stat(targetPath); err == nil && info.IsDir() {
 		// Target is a directory, use original filename
 		targetFile = filepath.Join(targetPath, filepath.Base(session.FullPath))
-	} else if !strings.HasSuffix(targetPath, ".jsonl") {
+	} else if filepath.Ext(targetPath) == "" {
 		// Create target directory and use original filename
 		if err := os.MkdirAll(targetPath, 0755); err != nil {
 			return fmt.Errorf("create target directory: %w", err)
@@ -332,33 +400,12 @@ func (c *SessionCopier) Copy(sessionPath, targetPath string) error {
 
 // findSession finds a session by path or ID within the project scope.
 func (c *SessionCopier) findSession(sessionPath string) (*thinkt.SessionMeta, error) {
-	// If it's an absolute path to a .jsonl file, use it directly
-	if filepath.IsAbs(sessionPath) && strings.HasSuffix(sessionPath, ".jsonl") {
-		if info, err := os.Stat(sessionPath); err == nil {
-			return &thinkt.SessionMeta{
-				ID:         strings.TrimSuffix(filepath.Base(sessionPath), ".jsonl"),
-				FullPath:   sessionPath,
-				ModifiedAt: info.ModTime(),
-			}, nil
-		}
-	}
-
-	// Otherwise, search within the project
-	if c.opts.Project == "" {
-		return nil, fmt.Errorf("session not found: %s\n\nSpecify -p/--project to search within a project, or provide the full session path", sessionPath)
-	}
-
-	sessions, err := ListSessionsForProject(c.registry, c.opts.Project)
+	meta, err := ResolveSession(c.registry, c.opts.Project, sessionPath)
 	if err != nil {
-		return nil, err
-	}
-
-	// Try to match by session ID or path suffix
-	for _, s := range sessions {
-		if s.ID == sessionPath || strings.HasSuffix(s.FullPath, sessionPath) {
-			return &s, nil
+		if c.opts.Project != "" {
+			return nil, fmt.Errorf("%w\n\nUse 'thinkt sessions list -p %s' to see available sessions", err, c.opts.Project)
 		}
+		return nil, fmt.Errorf("%w\n\nUse 'thinkt sessions list' or 'thinkt sessions resolve <query>' to find valid sessions", err)
 	}
-
-	return nil, fmt.Errorf("session not found: %s\n\nUse 'thinkt sessions list -p %s' to see available sessions", sessionPath, c.opts.Project)
+	return meta, nil
 }

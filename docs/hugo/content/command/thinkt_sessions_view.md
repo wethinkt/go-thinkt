@@ -11,10 +11,10 @@ View a session in the terminal (interactive picker)
 View a session in a full-terminal viewer.
 
 If no session is specified, shows an interactive picker of all recent sessions.
-The picker works across all sources (kimi, claude).
+The picker works across all discovered sources.
 
-The session can be specified as:
-  - Full path to the .jsonl file
+	The session can be specified as:
+  - Full path to a known session file
   - Session ID (requires -p/--project)
   - Filename (requires -p/--project)
 
@@ -28,7 +28,7 @@ Use --raw to output undecorated text to stdout (no TUI).
 
 Examples:
   thinkt sessions view              # Interactive picker across all sources
-  thinkt sessions view /full/path/to/session.jsonl
+  thinkt sessions view /full/path/to/session
   thinkt sessions view -p ./myproject abc123
   thinkt sessions view -p ./myproject --all        # view all
   thinkt sessions view /path/to/session --raw      # raw output to stdout
@@ -50,7 +50,7 @@ thinkt sessions view [session] [flags]
 ```
       --pick                 force project picker even if in a known project directory
   -p, --project string       project path (auto-detects from cwd if not set)
-  -s, --source stringArray   filter by source (kimi|claude, can be specified multiple times)
+  -s, --source stringArray   filter by source (claude|kimi|gemini|copilot, can be specified multiple times)
   -v, --verbose              verbose output
 ```
 

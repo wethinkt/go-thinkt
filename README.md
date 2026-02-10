@@ -114,6 +114,7 @@ thinkt projects tree
 # View sessions
 thinkt sessions list
 thinkt sessions view
+thinkt sessions resolve -p ./myproject <session-id>
 
 # List agent teams
 thinkt teams
@@ -134,7 +135,7 @@ thinkt tui --log /tmp/thinkt-debug.log
 |---------|-------------|
 | `thinkt` | Launch interactive TUI (default) |
 | `thinkt tui` | Launch interactive TUI |
-| `thinkt sources` | List available sources (kimi, claude, gemini, copilot) |
+| `thinkt sources` | List available sources (claude, kimi, gemini, copilot) |
 | `thinkt sources status` | Show detailed source status |
 | `thinkt projects` | List all projects (detailed columns) |
 | `thinkt projects --short` | List project paths only |
@@ -142,6 +143,9 @@ thinkt tui --log /tmp/thinkt-debug.log
 | `thinkt projects summary` | Detailed project info |
 | `thinkt sessions list` | List sessions in a project |
 | `thinkt sessions view` | View session in terminal |
+| `thinkt sessions resolve` | Resolve a session query to its canonical path |
+| `thinkt sessions copy` | Copy a known session to another path |
+| `thinkt sessions delete` | Delete a known session (with confirmation) |
 | `thinkt teams` | List agent teams (Claude Code) |
 | `thinkt teams list` | Same as above |
 | `thinkt prompts extract` | Extract prompts to markdown/JSON |

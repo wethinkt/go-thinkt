@@ -75,14 +75,14 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 
 		if _, exists := projectsMap[path]; !exists {
 			projectsMap[path] = &thinkt.Project{
-				ID:           path, // Use path as ID
-				Name:         filepath.Base(path),
-				Path:         path,
-				DisplayPath:  path,
-				Source:       thinkt.SourceCopilot,
-				WorkspaceID:  ws.ID,
+				ID:             path, // Use path as ID
+				Name:           filepath.Base(path),
+				Path:           path,
+				DisplayPath:    path,
+				Source:         thinkt.SourceCopilot,
+				WorkspaceID:    ws.ID,
 				SourceBasePath: ws.BasePath,
-				LastModified: sess.ModifiedAt,
+				LastModified:   sess.ModifiedAt,
 			}
 		}
 
@@ -155,6 +155,15 @@ func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.Se
 
 // GetSessionMeta returns session metadata.
 func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.SessionMeta, error) {
+	// Support absolute path lookups for API/MCP/TUI path-based entry points.
+	if filepath.IsAbs(sessionID) {
+		if _, err := os.Stat(sessionID); os.IsNotExist(err) {
+			return nil, nil
+		}
+		id := filepath.Base(filepath.Dir(sessionID))
+		return s.readSessionMeta(id, sessionID)
+	}
+
 	// sessionID is expected to be the UUID
 	path := filepath.Join(s.baseDir, "session-state", sessionID, "events.jsonl")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -191,7 +200,7 @@ func (s *Store) LoadSession(ctx context.Context, sessionID string) (*thinkt.Sess
 		if err != nil {
 			return nil, err
 		}
-		
+
 		// Fill in missing metadata derived from session
 		entry.WorkspaceID = meta.WorkspaceID
 		entries = append(entries, *entry)
@@ -239,10 +248,10 @@ func (s *Store) scanSessions() ([]thinkt.SessionMeta, error) {
 		if !e.IsDir() {
 			continue
 		}
-		
+
 		id := e.Name()
 		fullPath := filepath.Join(sessionDir, id, "events.jsonl")
-		
+
 		// Skip if no events file
 		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
 			continue
@@ -272,7 +281,7 @@ func (s *Store) readSessionMeta(id, path string) (*thinkt.SessionMeta, error) {
 
 	// Also get file stats
 	info, _ := f.Stat()
-	
+
 	var entryCount int
 	for scanner.Scan() {
 		entryCount++

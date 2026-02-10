@@ -3,8 +3,10 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
@@ -260,9 +262,16 @@ func (s *HTTPServer) handleGetSession(w http.ResponseWriter, r *http.Request) {
 
 // loadSession loads a session with optional pagination.
 func (s *HTTPServer) loadSession(ctx context.Context, path string, limit, offset int) (*SessionResponse, error) {
-	ls, err := tui.OpenLazySession(path)
+	ls, err := s.registry.OpenLazySessionByPath(ctx, path)
 	if err != nil {
-		return nil, err
+		// Fallback for direct file paths not discovered via registry.
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+		ls, err = tui.OpenLazySession(path)
+		if err != nil {
+			return nil, err
+		}
 	}
 	defer ls.Close()
 

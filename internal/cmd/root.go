@@ -27,7 +27,7 @@ var rootCmd = &cobra.Command{
 	Short: "Tools for AI assistant session exploration and extraction",
 	Long: `thinkt provides tools for exploring and extracting data from AI coding assistant sessions.
 
-Supports: Claude Code, Kimi Code, Gemini CLI
+Supports: Claude Code, Kimi Code, Gemini CLI, Copilot CLI
 
 Running without a subcommand launches the interactive TUI.
 
@@ -40,7 +40,7 @@ Commands:
 
 Examples:
   thinkt                          # Launch TUI
-  thinkt sources list             # List available sources (kimi, claude, gemini)
+  thinkt sources list             # List available sources (claude, kimi, gemini, copilot)
   thinkt projects list            # List all projects from all sources`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Start pprof profiling if THINKT_PROFILE is set
@@ -104,7 +104,7 @@ func init() {
 	// - -p <path>: use specified path
 	sessionsCmd.PersistentFlags().StringVarP(&sessionProject, "project", "p", "", "project path (auto-detects from cwd if not set)")
 	sessionsCmd.PersistentFlags().BoolVar(&sessionForcePicker, "pick", false, "force project picker even if in a known project directory")
-	sessionsCmd.PersistentFlags().StringArrayVarP(&sessionSources, "source", "s", nil, "filter by source (kimi|claude, can be specified multiple times)")
+	sessionsCmd.PersistentFlags().StringArrayVarP(&sessionSources, "source", "s", nil, "filter by source (claude|kimi|gemini|copilot, can be specified multiple times)")
 	sessionsSummaryCmd.Flags().StringVar(&sessionTemplate, "template", "", "custom Go text/template for output")
 	sessionsSummaryCmd.Flags().StringVar(&sessionSortBy, "sort", "time", "sort by: name, time")
 	sessionsSummaryCmd.Flags().BoolVar(&sessionSortDesc, "desc", false, "sort descending (default for time)")
@@ -121,6 +121,8 @@ func init() {
 	sessionsCmd.AddCommand(sessionsDeleteCmd)
 	sessionsCmd.AddCommand(sessionsCopyCmd)
 	sessionsCmd.AddCommand(sessionsViewCmd)
+	sessionsCmd.AddCommand(sessionsResolveCmd)
+	sessionsResolveCmd.Flags().BoolVar(&sessionResolveJSON, "json", false, "output resolved session metadata as JSON")
 	promptsCmd.AddCommand(extractCmd)
 	promptsCmd.AddCommand(listCmd)
 	promptsCmd.AddCommand(infoCmd)

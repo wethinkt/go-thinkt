@@ -19,6 +19,7 @@ import (
 type MultiViewerModel struct {
 	sessionPaths  []string
 	sessions      []thinkt.LazySession
+	registry      *thinkt.StoreRegistry
 	viewport      viewport.Model
 	width         int
 	height        int
@@ -28,7 +29,7 @@ type MultiViewerModel struct {
 	rendered      string
 	loadedCount   int
 	loadingMore   bool
-	currentIdx    int // Index of session currently being loaded
+	currentIdx    int  // Index of session currently being loaded
 	hasMoreData   bool // True if any session has more content to load
 	prefetchBytes int  // How many bytes to prefetch when scrolling near bottom
 
@@ -57,9 +58,15 @@ type moreContentLoadedMsg struct {
 
 // NewMultiViewerModel creates a new multi-session viewer.
 func NewMultiViewerModel(sessionPaths []string) MultiViewerModel {
+	return NewMultiViewerModelWithRegistry(sessionPaths, nil)
+}
+
+// NewMultiViewerModelWithRegistry creates a new multi-session viewer with source-aware loading.
+func NewMultiViewerModelWithRegistry(sessionPaths []string, registry *thinkt.StoreRegistry) MultiViewerModel {
 	return MultiViewerModel{
 		sessionPaths:     sessionPaths,
 		sessions:         make([]thinkt.LazySession, len(sessionPaths)),
+		registry:         registry,
 		title:            fmt.Sprintf("All Sessions (%d)", len(sessionPaths)),
 		keys:             defaultViewerKeyMap(),
 		prefetchBytes:    32 * 1024, // Load 32KB chunks when scrolling
@@ -88,7 +95,7 @@ func (m MultiViewerModel) loadSessionAt(idx int) tea.Cmd {
 	tuilog.Log.Info("MultiViewer.loadSessionAt", "idx", idx, "path", path)
 	return func() tea.Msg {
 		tuilog.Log.Info("MultiViewer: opening lazy session", "idx", idx, "path", path)
-		ls, err := OpenLazySession(path)
+		ls, err := OpenLazySessionWithRegistry(path, m.registry)
 		if err != nil {
 			tuilog.Log.Error("MultiViewer: OpenLazySession failed", "idx", idx, "path", path, "error", err)
 			return multiSessionLoadedMsg{index: idx, err: err}

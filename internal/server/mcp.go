@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -431,9 +432,16 @@ func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRe
 }
 
 func (ms *MCPServer) handleGetSessionMetadata(ctx context.Context, req *mcp.CallToolRequest, input getSessionMetadataInput) (*mcp.CallToolResult, getSessionMetadataOutput, error) {
-	ls, err := tui.OpenLazySession(input.Path)
+	ls, err := ms.registry.OpenLazySessionByPath(ctx, input.Path)
 	if err != nil {
-		return nil, getSessionMetadataOutput{}, err
+		// Fallback for direct file paths used in tests/manual calls.
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, getSessionMetadataOutput{}, err
+		}
+		ls, err = tui.OpenLazySession(input.Path)
+		if err != nil {
+			return nil, getSessionMetadataOutput{}, err
+		}
 	}
 	defer ls.Close()
 	ls.LoadAll()
@@ -508,9 +516,16 @@ func (ms *MCPServer) handleGetSessionEntries(ctx context.Context, req *mcp.CallT
 	if input.Path == "" {
 		return nil, getSessionEntriesOutput{}, fmt.Errorf("path is required")
 	}
-	ls, err := tui.OpenLazySession(input.Path)
+	ls, err := ms.registry.OpenLazySessionByPath(ctx, input.Path)
 	if err != nil {
-		return nil, getSessionEntriesOutput{}, err
+		// Fallback for direct file paths used in tests/manual calls.
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, getSessionEntriesOutput{}, err
+		}
+		ls, err = tui.OpenLazySession(input.Path)
+		if err != nil {
+			return nil, getSessionEntriesOutput{}, err
+		}
 	}
 	defer ls.Close()
 	ls.LoadAll()
