@@ -11,7 +11,7 @@ Manage and view available session sources
 View and manage available AI assistant session sources.
 
 Sources are the AI coding assistants that store session data
-on this machine (e.g., Claude Code, Kimi Code).
+on this machine (e.g., Claude Code, Kimi Code, Gemini CLI, Copilot CLI, Codex CLI).
 
 Examples:
   thinkt sources list      # List all available sources

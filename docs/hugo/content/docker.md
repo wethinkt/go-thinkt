@@ -69,7 +69,8 @@ The container runs as user `thinkt` with home directory `/data`. Mount your loca
 | Claude Code | `~/.claude` | `/data/.claude` |
 | Kimi Code | `~/.kimi` | `/data/.kimi` |
 | Gemini CLI | `~/.gemini` | `/data/.gemini` |
-| Copilot CLI | `~/.config/github-copilot` | `/data/.config/github-copilot` |
+| Copilot CLI | `~/.copilot` | `/data/.copilot` |
+| Codex CLI | `~/.codex` | `/data/.codex` |
 
 ### Mount Examples
 
@@ -86,6 +87,7 @@ docker run --rm \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
   -v ~/.gemini:/data/.gemini:ro \
+  -v ~/.codex:/data/.codex:ro \
   ghcr.io/wethinkt/thinkt projects
 ```
 
@@ -95,7 +97,8 @@ docker run --rm \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
   -v ~/.gemini:/data/.gemini:ro \
-  -v ~/.config/github-copilot:/data/.config/github-copilot:ro \
+  -v ~/.copilot:/data/.copilot:ro \
+  -v ~/.codex:/data/.codex:ro \
   ghcr.io/wethinkt/thinkt sources status
 ```
 
@@ -150,6 +153,7 @@ Start the HTTP server with the full web interface:
 docker run --rm -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
+  -v ~/.codex:/data/.codex:ro \
   ghcr.io/wethinkt/thinkt serve --host 0.0.0.0
 ```
 
@@ -208,6 +212,7 @@ alias thinkt-docker='docker run --rm \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
   -v ~/.gemini:/data/.gemini:ro \
+  -v ~/.codex:/data/.codex:ro \
   ghcr.io/wethinkt/thinkt'
 ```
 
@@ -225,6 +230,7 @@ alias thinkt-docker='docker run --rm \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
   -v ~/.gemini:/data/.gemini:ro \
+  -v ~/.codex:/data/.codex:ro \
   ghcr.io/wethinkt/thinkt'
 ```
 {{< /tab >}}
@@ -236,6 +242,7 @@ For the web server, create a separate alias:
 alias thinkt-serve='docker run --rm -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
+  -v ~/.codex:/data/.codex:ro \
   ghcr.io/wethinkt/thinkt serve --host 0.0.0.0'
 ```
 
@@ -257,6 +264,7 @@ services:
       - ~/.claude:/data/.claude:ro
       - ~/.kimi:/data/.kimi:ro
       - ~/.gemini:/data/.gemini:ro
+      - ~/.codex:/data/.codex:ro
     restart: unless-stopped
 ```
 

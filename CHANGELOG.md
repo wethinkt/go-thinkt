@@ -2,6 +2,15 @@
 
 ## v0.5.0 (2026-02-09)
 
+* **Codex CLI Source Support**: Added `codex` as a first-class source across thinkt
+  - New source implementation under `internal/sources/codex`
+  - Source discovery and registry wiring in CLI and TUI
+  - Session loading and JSONL detection now recognize Codex traces
+  - Added `THINKT_CODEX_HOME` environment variable (`~/.codex` by default)
+* **CLI/TUI Source Coverage**: Updated source filters and labels to include Codex
+  - `--source` flags now support `codex`
+  - Source picker, project/session filters, and source color mapping updated
+
 * **Indexer REST API**: New OpenAPI endpoints for search and statistics
   - `GET /api/v1/search` - Search across indexed sessions
   - `GET /api/v1/stats` - Get usage statistics (tokens, tools)
@@ -38,5 +47,4 @@ So much more stuff...
  ## v0.1.0 (2026-01-24)
 
  * Initial release
-
 

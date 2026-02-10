@@ -40,6 +40,7 @@ The left sidebar shows all detected AI coding assistant sources:
 | Kimi | Purple | Kimi Code sessions |
 | Gemini | Blue | Gemini CLI sessions |
 | Copilot | Green | GitHub Copilot CLI sessions |
+| Codex | Azure | Codex CLI sessions |
 
 Each source displays:
 - **Name** with color-coded indicator
@@ -165,6 +166,7 @@ Run the lite server in Docker:
 docker run --rm -p 8785:8785 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
+  -v ~/.codex:/data/.codex:ro \
   ghcr.io/wethinkt/thinkt serve lite --host 0.0.0.0
 ```
 

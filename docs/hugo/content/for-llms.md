@@ -10,10 +10,11 @@ This page is designed for AI assistants and LLMs to understand how to use thinkt
 ## What is thinkt?
 
 thinkt provides unified access to AI coding assistant session data from:
-- **Claude Code** (`~/.claude/projects/`)
-- **Kimi Code** (`~/.kimi/workspace/`)
+- **Claude Code** (`~/.claude/`)
+- **Kimi Code** (`~/.kimi/`)
 - **Gemini CLI** (`~/.gemini/`)
-- **Copilot CLI** (`~/.config/github-copilot/`)
+- **Copilot CLI** (`~/.copilot/`)
+- **Codex CLI** (`~/.codex/`)
 
 Access methods: CLI, REST API, MCP, Go library.
 
@@ -89,7 +90,7 @@ GET /sessions/{path}?limit=10&offset=0
 ```go
 import "github.com/wethinkt/go-thinkt/internal/thinkt"
 
-discovery := thinkt.NewDiscovery(claude.Factory(), kimi.Factory())
+discovery := thinkt.NewDiscovery(claude.Factory(), kimi.Factory(), gemini.Factory(), copilot.Factory(), codex.Factory())
 registry, _ := discovery.Discover(ctx)
 projects, _ := registry.ListAllProjects(ctx)
 ```
@@ -99,7 +100,7 @@ projects, _ := registry.ListAllProjects(ctx)
 ## Data Model
 
 ```
-Source (claude|kimi|gemini|copilot)
+Source (claude|kimi|gemini|copilot|codex)
   ├── Project (directory path)
   │     └── Session (JSONL file)
   │           └── Entry (message)

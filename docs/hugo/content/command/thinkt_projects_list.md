@@ -32,7 +32,7 @@ thinkt projects list [flags]
 ### Options inherited from parent commands
 
 ```
-  -s, --source stringArray   source to include (kimi|claude|gemini, can be specified multiple times, default: all)
+  -s, --source stringArray   source to include (kimi|claude|gemini|copilot|codex, can be specified multiple times, default: all)
   -v, --verbose              verbose output
 ```
 

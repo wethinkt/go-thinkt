@@ -129,6 +129,7 @@ homebrew_casks:
       - man/man1/thinkt-sessions-copy.1
       - man/man1/thinkt-sessions-delete.1
       - man/man1/thinkt-sessions-list.1
+      - man/man1/thinkt-sessions-resolve.1
       - man/man1/thinkt-sessions-summary.1
       - man/man1/thinkt-sessions-view.1
       - man/man1/thinkt-sessions.1

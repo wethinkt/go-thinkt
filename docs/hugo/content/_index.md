@@ -16,6 +16,7 @@ We have a common `thinkt` interface to enable uniform access to various `Sources
   - `kimi` [**Kimi Code**](https://www.kimi.com/code) from Moonshot
   - `gemini` [**Gemini CLI**](https://geminicli.com) from Google
   - `copilot` [**Copilot CLI**](https://github.com/features/copilot/cli) from GitHub
+  - `codex` [**Codex CLI**](https://github.com/openai/codex) from OpenAI
 
 ## Quick Start
 
@@ -37,7 +38,7 @@ thinkt sessions view
 
 - **Interactive TUI** - Navigate projects, sessions, and conversations with a keyboard-driven terminal UI
 - **Tree View** - Browse projects in a collapsible tree grouped by directory
-- **Multi-Source Support** - Auto-discovers Claude Code, Kimi Code, Gemini CLI, and Copilot sessions
+- **Multi-Source Support** - Auto-discovers Claude Code, Kimi Code, Gemini CLI, Copilot CLI, and Codex CLI sessions
 - **Agent Teams** - Inspect multi-agent teams (Claude Code), including members, tasks, and messages
 - **Prompt Extraction** - Extract user prompts in markdown, JSON, or plain text
 - **Themes** - Customizable color themes with interactive theme builder

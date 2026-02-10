@@ -46,7 +46,7 @@ thinkt sessions summary [flags]
 ```
       --pick                 force project picker even if in a known project directory
   -p, --project string       project path (auto-detects from cwd if not set)
-  -s, --source stringArray   filter by source (claude|kimi|gemini|copilot, can be specified multiple times)
+  -s, --source stringArray   filter by source (claude|kimi|gemini|copilot|codex, can be specified multiple times)
   -v, --verbose              verbose output
 ```
 

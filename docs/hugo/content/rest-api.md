@@ -115,6 +115,11 @@ GET /api/v1/sources
       "name": "copilot",
       "available": false,
       "base_path": ""
+    },
+    {
+      "name": "codex",
+      "available": false,
+      "base_path": ""
     }
   ]
 }
@@ -141,7 +146,7 @@ GET /api/v1/projects?source=claude
 **Query Parameters:**
 | Name | Type | Description |
 |------|------|-------------|
-| `source` | string | Filter by source (`claude`, `kimi`, `gemini`, `copilot`) |
+| `source` | string | Filter by source (`claude`, `kimi`, `gemini`, `copilot`, `codex`) |
 
 **Response:**
 ```json
@@ -317,7 +322,7 @@ GET /api/v1/search?q=query
 |------|------|---------|-------------|
 | `q` | string | (required) | Search query text |
 | `project` | string | | Filter by project name (substring match) |
-| `source` | string | | Filter by source (`claude`, `kimi`) |
+| `source` | string | | Filter by source (`claude`, `kimi`, `gemini`, `copilot`, `codex`) |
 | `limit` | int | 50 | Maximum total matches |
 | `limit_per_session` | int | 2 | Maximum matches per session (0 for no limit) |
 | `case_sensitive` | bool | false | Enable case-sensitive matching |
@@ -635,6 +640,7 @@ curl -X POST http://localhost:8784/api/v1/open-in \
 | `kimi` | Kimi Code |
 | `gemini` | Gemini CLI |
 | `copilot` | GitHub Copilot CLI |
+| `codex` | Codex CLI |
 
 ---
 

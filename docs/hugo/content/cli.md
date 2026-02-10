@@ -69,7 +69,7 @@ The TUI navigates through three screens: **Project Picker** → **Session Picker
 | `q` / `ctrl+c` | Quit |
 
 {{< hint info >}}
-**Tip:** The TUI auto-detects sessions from Claude Code, Kimi Code, Gemini CLI, and Copilot CLI. If launched from a project directory, it skips straight to the session picker.
+**Tip:** The TUI auto-detects sessions from Claude Code, Kimi Code, Gemini CLI, Copilot CLI, and Codex CLI. If launched from a project directory, it skips straight to the session picker.
 {{< /hint >}}
 
 ---
@@ -83,7 +83,7 @@ thinkt sources list         # List available sources
 thinkt sources status       # Detailed status with paths
 ```
 
-Supported sources: `claude`, `kimi`, `gemini`, `copilot`
+Supported sources: `claude`, `kimi`, `gemini`, `copilot`, `codex`
 
 ---
 
@@ -98,7 +98,7 @@ thinkt projects                        # Detailed: source, sessions, modified ti
 thinkt projects --short                # Simple list (paths only)
 thinkt projects tree                   # Tree view grouped by parent directory
 thinkt projects --source claude        # Only Claude Code projects
-thinkt projects --source kimi --source claude  # Multiple sources
+thinkt projects --source codex --source claude  # Multiple sources
 ```
 
 ### Project Details
@@ -250,7 +250,7 @@ thinkt-indexer search "AuthManager" --case-sensitive
 thinkt-indexer search --regex "func\s+Test\w+"
 
 # Filter by project or source
-thinkt-indexer search "TODO" --project my-app --source claude
+thinkt-indexer search "TODO" --project my-app --source codex
 
 # Usage statistics
 thinkt-indexer stats

@@ -56,7 +56,7 @@ List all projects across all sources, optionally filtered by source.
 **Parameters:**
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `source` | string | No | Filter by source (e.g., `claude`, `kimi`, `gemini`, `copilot`) |
+| `source` | string | No | Filter by source (e.g., `claude`, `kimi`, `gemini`, `copilot`, `codex`) |
 
 **Returns:**
 ```json
@@ -208,7 +208,7 @@ Search for text across all indexed sessions. Requires `thinkt-indexer` to be ins
 |------|------|----------|---------|-------------|
 | `query` | string | Yes | - | Search query text |
 | `project` | string | No | - | Filter by project name |
-| `source` | string | No | - | Filter by source (`claude`, `kimi`) |
+| `source` | string | No | - | Filter by source (`claude`, `kimi`, `gemini`, `copilot`, `codex`) |
 | `limit` | int | No | 50 | Maximum total matches |
 | `limit_per_session` | int | No | 2 | Maximum matches per session (0 for no limit) |
 | `case_sensitive` | bool | No | false | Enable case-sensitive matching |

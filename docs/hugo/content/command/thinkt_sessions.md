@@ -18,7 +18,7 @@ Project selection:
   - -p/--project <path>: use specified project
   - --pick: force picker even if in a project directory
 
-Use --source to filter by source (e.g. claude, kimi, gemini, copilot).
+Use --source to filter by source (e.g. claude, kimi, gemini, copilot, codex).
 
 Examples:
   thinkt sessions                   # Interactive viewer (same as view)
@@ -42,7 +42,7 @@ thinkt sessions [flags]
       --pick                 force project picker even if in a known project directory
   -p, --project string       project path (auto-detects from cwd if not set)
       --raw                  output raw text without decoration/rendering
-  -s, --source stringArray   filter by source (claude|kimi|gemini|copilot, can be specified multiple times)
+  -s, --source stringArray   filter by source (claude|kimi|gemini|copilot|codex, can be specified multiple times)
 ```
 
 ### Options inherited from parent commands
