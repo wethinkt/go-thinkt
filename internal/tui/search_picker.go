@@ -33,17 +33,18 @@ func (i searchResultItem) FilterValue() string {
 	return i.result.ProjectName + " " + i.result.SessionID + " " + i.result.Source
 }
 
-// resultTitle returns a formatted title for the search result.
+// resultTitle returns a formatted title for the search result (plain text version for list filtering).
 func (i searchResultItem) resultTitle(maxLen int) string {
 	if maxLen <= 0 {
 		maxLen = 80
 	}
 
-	// Format: "ProjectName · SessionID (N matches)"
+	// Format: "ProjectName · SessionID · Source (N matches)"
 	matches := len(i.result.Matches)
-	title := fmt.Sprintf("%s · %s (%d %s)",
+	title := fmt.Sprintf("%s · %s · %s (%d %s)",
 		i.result.ProjectName,
 		shortenID(i.result.SessionID),
+		i.result.Source,
 		matches,
 		pluralize("match", "matches", matches),
 	)
@@ -53,6 +54,35 @@ func (i searchResultItem) resultTitle(maxLen int) string {
 		return string(runes[:maxLen]) + "..."
 	}
 	return title
+}
+
+// renderTitle renders the title with colored source badge.
+func (i searchResultItem) renderTitle(maxLen int, muted bool) string {
+	if maxLen <= 0 {
+		maxLen = 80
+	}
+
+	res := i.result
+	matches := len(res.Matches)
+
+	// Build the parts
+	projectPart := res.ProjectName
+	sessionPart := shortenID(res.SessionID)
+	matchesPart := fmt.Sprintf("(%d %s)", matches, pluralize("match", "matches", matches))
+
+	// Color the source
+	sourceStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(SourceColorHex(thinkt.Source(res.Source))))
+	if muted {
+		sourceStyle = sourceStyle.Faint(true)
+	}
+	sourcePart := sourceStyle.Render(res.Source)
+
+	// Combine: "Project · Session · Source (N matches)"
+	title := fmt.Sprintf("%s · %s · %s %s", projectPart, sessionPart, sourcePart, matchesPart)
+
+	// Truncate if needed
+	return truncateStyled(title, maxLen)
 }
 
 func shortenID(id string) string {
@@ -69,6 +99,97 @@ func pluralize(singular, plural string, count int) string {
 	return plural
 }
 
+// truncateStyled truncates a string that may contain ANSI escape codes.
+func truncateStyled(s string, maxLen int) string {
+	if maxLen <= 0 {
+		return s
+	}
+
+	// Simple approach: if the visible length exceeds maxLen, truncate
+	// This is a simplified version - for proper handling we'd need to strip ANSI
+	// but for now we'll use a conservative estimate
+	if len(s) > maxLen+50 { // +50 accounts for potential ANSI codes
+		// Find the truncation point
+		runes := []rune(s)
+		visibleCount := 0
+		inEscape := false
+
+		for i, r := range runes {
+			if inEscape {
+				if r == 'm' {
+					inEscape = false
+				}
+				continue
+			}
+			if r == '\x1b' {
+				inEscape = true
+				continue
+			}
+			visibleCount++
+			if visibleCount > maxLen-3 {
+				return string(runes[:i]) + "..."
+			}
+		}
+	}
+	return s
+}
+
+// renderPreview renders the preview with the matched text highlighted.
+func renderPreview(m search.Match, maxLen int, muted bool) string {
+	if m.Preview == "" {
+		return ""
+	}
+
+	// Truncate preview if too long
+	preview := m.Preview
+	if len(preview) > maxLen {
+		preview = preview[:maxLen-3] + "..."
+	}
+
+	// Style for the match highlight
+	var highlightStyle, normalStyle lipgloss.Style
+	if muted {
+		normalStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(theme.Current().TextMuted.Fg))
+		highlightStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(theme.Current().TextPrimary.Fg)).
+			Bold(true)
+	} else {
+		normalStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(theme.Current().TextSecondary.Fg))
+		highlightStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(theme.Current().GetAccent())).
+			Bold(true)
+	}
+
+	// Build the preview with highlighted match
+	// Format: "[role]: preview-with-highlighted-match"
+	roleStr := fmt.Sprintf("[%s]:", m.Role)
+	roleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(theme.Current().TextMuted.Fg))
+	if muted {
+		roleStyle = roleStyle.Faint(true)
+	}
+
+	// Check if we have valid match positions
+	if m.MatchStart >= 0 && m.MatchEnd > m.MatchStart && m.MatchStart < len(preview) {
+		// Adjust MatchEnd if it exceeds preview length
+		matchEnd := m.MatchEnd
+		if matchEnd > len(preview) {
+			matchEnd = len(preview)
+		}
+
+		before := preview[:m.MatchStart]
+		match := preview[m.MatchStart:matchEnd]
+		after := preview[matchEnd:]
+
+		return roleStyle.Render(roleStr) + " " +
+			normalStyle.Render(before) +
+			highlightStyle.Render(match) +
+			normalStyle.Render(after)
+	}
+
+	// No valid match positions, just render the preview normally
+	return roleStyle.Render(roleStr) + " " + normalStyle.Render(preview)
+}
+
 // searchResultDelegate renders each search result.
 type searchResultDelegate struct {
 	normalStyle   lipgloss.Style
@@ -77,7 +198,6 @@ type searchResultDelegate struct {
 	mutedStyle    lipgloss.Style
 	cursorStyle   lipgloss.Style
 	sepStyle      lipgloss.Style
-	sourceStyle   func(string) lipgloss.Style
 }
 
 func newSearchResultDelegate() searchResultDelegate {
@@ -89,14 +209,10 @@ func newSearchResultDelegate() searchResultDelegate {
 		mutedStyle:    lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)),
 		cursorStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
 		sepStyle:      lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetBorderInactive())),
-		sourceStyle: func(source string) lipgloss.Style {
-			return lipgloss.NewStyle().
-				Foreground(lipgloss.Color(SourceColorHex(thinkt.Source(source))))
-		},
 	}
 }
 
-func (d searchResultDelegate) Height() int                             { return 4 }
+func (d searchResultDelegate) Height() int                             { return 3 }
 func (d searchResultDelegate) Spacing() int                            { return 0 }
 func (d searchResultDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 
@@ -131,21 +247,21 @@ func (d searchResultDelegate) Render(w io.Writer, m list.Model, index int, item 
 		textWidth = 20
 	}
 
-	// Line 1: Title (Project · SessionID)
-	title := si.resultTitle(textWidth)
+	// Line 1: Title with colored source (Project · SessionID · Source · N matches)
+	var titleStr string
+	if emptyFilter {
+		titleStr = d.dimmedStyle.Render(si.renderTitle(textWidth, true))
+	} else if isSelected {
+		marker := d.cursorStyle.Render(">  ")
+		titleStr = marker + d.selectedStyle.Render(si.renderTitle(textWidth, false))
+	} else {
+		titleStr = d.normalStyle.Render(si.renderTitle(textWidth, false))
+	}
 
-	// Line 2: Source and match count
-	sourceStr := d.sourceStyle(res.Source).Render(res.Source)
-	metaStr := fmt.Sprintf("%s  ·  %d %s", sourceStr, len(res.Matches), pluralize("match", "matches", len(res.Matches)))
-
-	// Line 3: First match preview (if any)
-	previewStr := ""
+	// Line 2: First match preview with highlighted match
+	var previewStr string
 	if len(res.Matches) > 0 {
-		preview := res.Matches[0].Preview
-		if len(preview) > textWidth-4 {
-			preview = preview[:textWidth-4] + "..."
-		}
-		previewStr = d.mutedStyle.Render(fmt.Sprintf("[%s]: %s", res.Matches[0].Role, preview))
+		previewStr = renderPreview(res.Matches[0], textWidth, emptyFilter && !isSelected)
 	}
 
 	// Separator line
@@ -155,21 +271,8 @@ func (d searchResultDelegate) Render(w io.Writer, m list.Model, index int, item 
 	}
 	sep := d.sepStyle.Render(strings.Repeat("─", sepWidth))
 
-	// Render based on state
-	if emptyFilter {
-		line1 := d.dimmedStyle.Render(title)
-		line2 := d.dimmedStyle.Render(metaStr)
-		fmt.Fprintf(w, "%s\n%s\n%s\n%s", line1, line2, previewStr, "    "+sep) //nolint: errcheck
-	} else if isSelected {
-		marker := d.cursorStyle.Render(">  ")
-		line1 := marker + d.selectedStyle.Render(title)
-		line2 := "    " + d.mutedStyle.Render(metaStr)
-		fmt.Fprintf(w, "%s\n%s\n%s\n%s", line1, line2, previewStr, "    "+sep) //nolint: errcheck
-	} else {
-		line1 := d.normalStyle.Render(title)
-		line2 := d.normalStyle.Render(d.mutedStyle.Render(metaStr))
-		fmt.Fprintf(w, "%s\n%s\n%s\n%s", line1, line2, previewStr, "    "+sep) //nolint: errcheck
-	}
+	// Render (3 lines: title, preview, separator)
+	fmt.Fprintf(w, "%s\n%s\n%s", titleStr, previewStr, "    "+sep) //nolint: errcheck
 }
 
 // SearchPickerResult holds the result of the search picker.

@@ -62,9 +62,11 @@ type Candidate struct {
 
 // Match represents a single match within a session.
 type Match struct {
-	LineNum int    `json:"line_num"`
-	Preview string `json:"preview"`
-	Role    string `json:"role"`
+	LineNum    int    `json:"line_num"`
+	Preview    string `json:"preview"`
+	Role       string `json:"role"`
+	MatchStart int    `json:"match_start"` // Start offset of match within Preview
+	MatchEnd   int    `json:"match_end"`   // End offset of match within Preview
 }
 
 // SessionResult represents all matches found in a single session.
@@ -79,9 +81,11 @@ type SessionResult struct {
 // RawMatch is an internal type used during parallel scanning.
 type RawMatch struct {
 	Candidate
-	LineNum int
-	Preview string
-	Role    string
+	LineNum    int
+	Preview    string
+	Role       string
+	MatchStart int // Start offset of match within Preview
+	MatchEnd   int // End offset of match within Preview
 }
 
 // SearchOptions contains all options for a search operation.
@@ -207,9 +211,11 @@ func (s *Service) Search(opts SearchOptions) ([]SessionResult, int, error) {
 		}
 
 		group.Matches = append(group.Matches, Match{
-			LineNum: hit.LineNum,
-			Preview: hit.Preview,
-			Role:    hit.Role,
+			LineNum:    hit.LineNum,
+			Preview:    hit.Preview,
+			Role:       hit.Role,
+			MatchStart: hit.MatchStart,
+			MatchEnd:   hit.MatchEnd,
 		})
 		totalMatches++
 
@@ -259,20 +265,25 @@ func scanFile(c Candidate, m *Matcher, out chan<- RawMatch) {
 				}
 			}
 
+			preview, matchStart, matchEnd := extractPreview(text, m)
 			out <- RawMatch{
-				Candidate: c,
-				LineNum:   lineNum,
-				Preview:   extractPreview(text, m),
-				Role:      role,
+				Candidate:  c,
+				LineNum:    lineNum,
+				Preview:    preview,
+				Role:       role,
+				MatchStart: matchStart,
+				MatchEnd:   matchEnd,
 			}
 		}
 	}
 }
 
-func extractPreview(line string, m *Matcher) string {
+// extractPreview extracts a window of text around the match and returns the preview
+// along with the start and end positions of the match within the preview.
+func extractPreview(line string, m *Matcher) (preview string, matchStart, matchEnd int) {
 	start, end := m.FindIndex(line)
 	if start == -1 {
-		return ""
+		return "", 0, 0
 	}
 
 	const window = 100
@@ -286,16 +297,20 @@ func extractPreview(line string, m *Matcher) string {
 		pEnd = len(line)
 	}
 
-	preview := line[pStart:pEnd]
+	preview = line[pStart:pEnd]
+	matchStart = start - pStart
+	matchEnd = matchStart + (end - start)
 
 	if pStart > 0 {
 		preview = "..." + preview
+		matchStart += 3
+		matchEnd += 3
 	}
 	if pEnd < len(line) {
 		preview = preview + "..."
 	}
 
-	return preview
+	return preview, matchStart, matchEnd
 }
 
 // ShortenPath replaces the home directory with ~ in a path.
