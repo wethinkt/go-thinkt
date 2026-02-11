@@ -129,6 +129,7 @@ thinkt tui --log /tmp/thinkt-debug.log
 | `--http-log <file>` | Write HTTP access log to file |
 | `--log` | Write debug log to file |
 | `--token` | Bearer token for authentication (API and MCP HTTP) |
+| `--dev <url>` | Dev mode: proxy non-API routes to a frontend dev server (e.g. `http://localhost:5173`) |
 
 ### Authentication
 
@@ -279,6 +280,20 @@ Both webapps are embedded via `//go:embed` directives in `internal/server/static
 - `StaticLiteWebAppHandler()` — serves `web-lite/index.html` + `web-lite/static/*` (lite)
 
 The `Config.StaticHandler` field selects which handler to use. `thinkt serve` sets it to `StaticWebAppHandler()`; `thinkt serve lite` leaves it nil (defaults to `StaticLiteWebAppHandler()`). Both use SPA routing — non-file paths fall back to `index.html`.
+
+### Co-developing thinkt-web
+
+Use `--dev` to proxy non-API routes to a local frontend dev server (e.g. Vite). This gives you hot module reload and source maps while the Go backend serves the API:
+
+```bash
+# Terminal 1: run the frontend dev server
+cd ../thinkt-web && npm run dev     # e.g. starts on localhost:5173
+
+# Terminal 2: run the Go backend with dev proxy
+thinkt serve --dev http://localhost:5173
+```
+
+All API routes (`/api/*`, `/swagger/*`) are served by Go. Everything else (SPA, assets, HMR websocket) is reverse-proxied to the frontend dev server.
 
 ### Updating the Webapps
 

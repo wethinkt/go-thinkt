@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
@@ -47,6 +50,7 @@ var (
 // Serve subcommand flags
 var (
 	apiToken string // Bearer token for API server authentication
+	serveDev string // Dev proxy URL (e.g. http://localhost:5173)
 )
 
 // Serve lite subcommand flags
@@ -75,7 +79,8 @@ Use 'thinkt serve mcp' for MCP (Model Context Protocol) server.
 Examples:
   thinkt serve                    # Start HTTP server on default port 8784
   thinkt serve -p 8080            # Start on custom port
-  thinkt serve --no-open          # Don't auto-open browser`,
+  thinkt serve --no-open          # Don't auto-open browser
+  thinkt serve --dev http://localhost:5173  # Proxy to frontend dev server`,
 	RunE: runServeHTTP,
 }
 
@@ -202,6 +207,19 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 		cancel()
 	}()
 
+	// Resolve static handler: reverse proxy in dev mode, embedded assets otherwise
+	var staticHandler http.Handler
+	if serveDev != "" {
+		target, err := url.Parse(serveDev)
+		if err != nil {
+			return fmt.Errorf("invalid --dev URL %q: %w", serveDev, err)
+		}
+		fmt.Fprintf(os.Stderr, "Dev mode: proxying to %s\n", target)
+		staticHandler = httputil.NewSingleHostReverseProxy(target)
+	} else {
+		staticHandler = server.StaticWebAppHandler()
+	}
+
 	// HTTP mode: start HTTP server
 	thinktConfig := server.Config{
 		Port:          servePort,
@@ -209,7 +227,7 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 		Quiet:         serveQuiet,
 		HTTPLog:       serveHTTPLog,
 		CORSOrigin:    resolveCORSOrigin(),
-		StaticHandler: server.StaticWebAppHandler(),
+		StaticHandler: staticHandler,
 		InstanceType:  config.InstanceServe,
 	}
 	defer thinktConfig.Close()

@@ -181,6 +181,7 @@ func init() {
 	serveCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
 	serveCmd.Flags().BoolVarP(&serveQuiet, "quiet", "q", false, "suppress HTTP request logging (errors still go to stderr)")
 	serveCmd.Flags().StringVar(&serveHTTPLog, "http-log", "", "write HTTP access log to file (default: stdout, unless --quiet)")
+	serveCmd.Flags().StringVar(&serveDev, "dev", "", "dev mode: proxy non-API routes to this URL (e.g. http://localhost:5173)")
 
 	// Serve token subcommand
 	serveCmd.AddCommand(serveTokenCmd)

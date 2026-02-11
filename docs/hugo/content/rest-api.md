@@ -34,6 +34,7 @@ thinkt serve -p 8080            # Custom port
 thinkt serve --no-open          # Don't auto-open browser
 thinkt serve --quiet            # Suppress request logging
 thinkt serve --http-log access.log  # Log requests to file
+thinkt serve --dev http://localhost:5173  # Proxy to frontend dev server
 ```
 
 **Features:**
@@ -41,6 +42,7 @@ thinkt serve --http-log access.log  # Log requests to file
 - Full web interface ([thinkt-web](https://github.com/wethinkt/thinkt-web)) for visual trace exploration
 - SPA routing — all non-API paths serve the webapp
 - Auto-opens browser on startup
+- `--dev` mode for co-developing the frontend (proxies non-API routes to a local dev server)
 
 ### Lite Server (`thinkt serve lite`)
 

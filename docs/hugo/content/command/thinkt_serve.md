@@ -22,6 +22,7 @@ Examples:
   thinkt serve                    # Start HTTP server on default port 8784
   thinkt serve -p 8080            # Start on custom port
   thinkt serve --no-open          # Don't auto-open browser
+  thinkt serve --dev http://localhost:5173  # Proxy to frontend dev server
 
 ```
 thinkt serve [flags]
@@ -31,6 +32,7 @@ thinkt serve [flags]
 
 ```
       --cors-origin string   CORS Access-Control-Allow-Origin (default "*", env: THINKT_CORS_ORIGIN)
+      --dev string           dev mode: proxy non-API routes to this URL (e.g. http://localhost:5173)
   -h, --help                 help for serve
       --host string          server host (default "localhost")
       --http-log string      write HTTP access log to file (default: stdout, unless --quiet)
