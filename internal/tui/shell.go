@@ -2,10 +2,12 @@ package tui
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/sources/claude"
 	"github.com/wethinkt/go-thinkt/internal/sources/codex"
 	"github.com/wethinkt/go-thinkt/internal/sources/copilot"
@@ -74,6 +76,10 @@ type PushPageMsg struct {
 }
 
 type PopPageMsg struct{}
+
+// OpenSearchMsg signals the shell to open the search picker.
+// This is sent when the user presses the search key (e.g., '/').
+type OpenSearchMsg struct{}
 
 // InitialPage defines which page to start on
 type InitialPage int
@@ -294,6 +300,85 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, func() tea.Msg {
 				return tea.WindowSizeMsg{Width: s.width, Height: s.height}
 			})
+		}
+
+	case SearchPickerResult:
+		tuilog.Log.Info("Shell.Update: SearchPickerResult received", "cancelled", msg.Cancelled, "hasSelection", msg.Selected != nil)
+		if msg.Cancelled {
+			tuilog.Log.Info("Shell.Update: search picker cancelled, popping")
+			s.stack.Pop()
+			if s.stack.IsEmpty() {
+				return s, tea.Quit
+			}
+			// Send WindowSizeMsg to the revealed page so it re-renders
+			if s.width > 0 && s.height > 0 {
+				cmds = append(cmds, func() tea.Msg {
+					return tea.WindowSizeMsg{Width: s.width, Height: s.height}
+				})
+			}
+			return s, tea.Batch(cmds...)
+		}
+		if msg.Selected != nil {
+			tuilog.Log.Info("Shell.Update: search result selected", "sessionID", msg.Selected.SessionID, "path", msg.Selected.Path)
+			// Open the selected session in the viewer
+			viewer := NewMultiViewerModelWithRegistry([]string{msg.Selected.Path}, s.registry)
+			cmd := s.stack.Push(NavItem{
+				Title: msg.Selected.SessionID[:8],
+				Model: viewer,
+			}, s.width, s.height)
+			cmds = append(cmds, cmd)
+		}
+
+	case OpenSearchMsg:
+		tuilog.Log.Info("Shell.Update: OpenSearchMsg received")
+		// Check if indexer is available
+		if !IndexerAvailable() {
+			tuilog.Log.Warn("Shell.Update: indexer not available, cannot search")
+			return s, nil
+		}
+		// Open the search input overlay
+		input := NewSearchInputModel()
+		cmd := s.stack.Push(NavItem{
+			Title: "Search",
+			Model: input,
+		}, s.width, s.height)
+		cmds = append(cmds, cmd)
+
+	case SearchInputResult:
+		tuilog.Log.Info("Shell.Update: SearchInputResult received", "cancelled", msg.Cancelled, "query", msg.Query)
+		if msg.Cancelled {
+			tuilog.Log.Info("Shell.Update: search input cancelled, popping")
+			s.stack.Pop()
+			// Send WindowSizeMsg to the revealed page so it re-renders
+			if s.width > 0 && s.height > 0 {
+				cmds = append(cmds, func() tea.Msg {
+					return tea.WindowSizeMsg{Width: s.width, Height: s.height}
+				})
+			}
+			return s, tea.Batch(cmds...)
+		}
+		if msg.Query != "" {
+			tuilog.Log.Info("Shell.Update: performing search", "query", msg.Query)
+			// Perform the search
+			results, err := PerformSearch(msg.Query, search.DefaultSearchOptions())
+			if err != nil {
+				tuilog.Log.Error("Shell.Update: search failed", "error", err)
+				s.stack.Pop()
+				return s, tea.Batch(cmds...)
+			}
+			if len(results) == 0 {
+				tuilog.Log.Info("Shell.Update: no search results")
+				s.stack.Pop()
+				return s, tea.Batch(cmds...)
+			}
+			// Replace the search input with the results picker
+			s.stack.Pop()
+			picker := NewSearchPickerModel(results, msg.Query)
+			cmd := s.stack.Push(NavItem{
+				Title: fmt.Sprintf("Search: %s", msg.Query),
+				Model: picker,
+			}, s.width, s.height)
+			cmds = append(cmds, cmd)
 		}
 	}
 

@@ -262,6 +262,7 @@ func (d treeProjectDelegate) ShortHelp() []key.Binding {
 		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "sources")),
 		key.NewBinding(key.WithKeys("left", "right", "space"), key.WithHelp("←/→/space", "collapse/expand")),
 		key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "flat view")),
+		key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "search")),
 	}
 }
 
@@ -386,6 +387,7 @@ type projectPickerKeyMap struct {
 	Right      key.Binding
 	Toggle     key.Binding
 	TreeToggle key.Binding
+	Search     key.Binding // / key for search
 }
 
 func defaultProjectPickerKeyMap() projectPickerKeyMap {
@@ -433,6 +435,10 @@ func defaultProjectPickerKeyMap() projectPickerKeyMap {
 		TreeToggle: key.NewBinding(
 			key.WithKeys("t"),
 			key.WithHelp("t", "tree/flat"),
+		),
+		Search: key.NewBinding(
+			key.WithKeys("/"),
+			key.WithHelp("/", "search"),
 		),
 	}
 }
@@ -805,6 +811,11 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			cmd := m.rebuildAndRefresh()
 			return m, cmd
+
+		case key.Matches(msg, keys.Search):
+			tuilog.Log.Info("ProjectPicker.Update: Search key pressed")
+			// Signal the shell to open search
+			return m, func() tea.Msg { return OpenSearchMsg{} }
 
 		case m.treeView && key.Matches(msg, keys.Toggle):
 			// Toggle expand/collapse on directory nodes

@@ -138,6 +138,7 @@ func (d sessionDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 func (d sessionDelegate) ShortHelp() []key.Binding {
 	return []key.Binding{
 		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "sources")),
+		key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "search")),
 	}
 }
 
@@ -248,6 +249,7 @@ type pickerKeyMap struct {
 	Back    key.Binding
 	Quit    key.Binding
 	Sources key.Binding
+	Search  key.Binding // / key for search
 }
 
 func defaultPickerKeyMap() pickerKeyMap {
@@ -267,6 +269,10 @@ func defaultPickerKeyMap() pickerKeyMap {
 		Sources: key.NewBinding(
 			key.WithKeys("s"),
 			key.WithHelp("s", "sources"),
+		),
+		Search: key.NewBinding(
+			key.WithKeys("/"),
+			key.WithHelp("/", "search"),
 		),
 	}
 }
@@ -462,6 +468,11 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.sourcePicker.height = m.height
 			m.showSources = true
 			return m, nil
+
+		case key.Matches(msg, keys.Search):
+			tuilog.Log.Info("SessionPicker.Update: Search key pressed")
+			// Signal the shell to open search
+			return m, func() tea.Msg { return OpenSearchMsg{} }
 
 		case key.Matches(msg, keys.Enter):
 			tuilog.Log.Info("SessionPicker.Update: Enter key pressed")

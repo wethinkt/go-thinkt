@@ -1,15 +1,14 @@
 package cmd
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
-	"regexp"
-	"strings"
-	"sync"
 
 	"github.com/spf13/cobra"
+
+	"github.com/wethinkt/go-thinkt/internal/indexer/search"
+	"github.com/wethinkt/go-thinkt/internal/tui"
 )
 
 var (
@@ -20,66 +19,22 @@ var (
 	searchJSON          bool
 	searchCaseSensitive bool
 	searchRegex         bool
+	searchList          bool // Output as list (old behavior) instead of TUI
 )
-
-// matcher encapsulates the search matching strategy.
-type matcher struct {
-	re *regexp.Regexp // non-nil for regex or case-insensitive substring
-}
-
-// newMatcher creates a matcher from the query and flags. For plain substring
-// search it compiles a regexp.QuoteMeta'd pattern; for regex it uses the
-// query directly. Case-insensitivity is handled via the (?i) flag.
-func newMatcher(query string, caseSensitive, regex bool) (*matcher, error) {
-	pattern := query
-	if !regex {
-		pattern = regexp.QuoteMeta(query)
-	}
-	if !caseSensitive {
-		pattern = "(?i)" + pattern
-	}
-	re, err := regexp.Compile(pattern)
-	if err != nil {
-		return nil, fmt.Errorf("invalid pattern %q: %w", query, err)
-	}
-	return &matcher{re: re}, nil
-}
-
-func (m *matcher) match(text string) bool {
-	return m.re.MatchString(text)
-}
-
-// findIndex returns the byte offsets [start, end) of the first match in text,
-// or (-1, -1) if there is no match.
-func (m *matcher) findIndex(text string) (int, int) {
-	loc := m.re.FindStringIndex(text)
-	if loc == nil {
-		return -1, -1
-	}
-	return loc[0], loc[1]
-}
-
-type candidate struct {
-	Path        string
-	Source      string
-	SessionID   string
-	ProjectName string
-}
 
 var searchCmd = &cobra.Command{
 	Use:   "search <query>",
 	Short: "Search for text across indexed sessions",
 	Long: `Search for text within the original session files.
+
 This uses the database to find relevant files and then scans them directly,
-ensuring your private content remains in your local files, not the index.`,
+ensuring your private content remains in your local files, not the index.
+
+By default, this command opens an interactive TUI to browse search results.
+Use --list to output results directly to the terminal (useful for scripting).`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		queryText := args[0]
-
-		m, err := newMatcher(queryText, searchCaseSensitive, searchRegex)
-		if err != nil {
-			return err
-		}
 
 		db, err := getReadOnlyDB()
 		if err != nil {
@@ -87,230 +42,73 @@ ensuring your private content remains in your local files, not the index.`,
 		}
 		defer db.Close()
 
-		// 1. Find candidate sessions from the DB with metadata
-		sql := `
-			SELECT s.path, p.source, s.id, p.name 
-			FROM sessions s 
-			JOIN projects p ON s.project_id = p.id
-			WHERE 1=1`
-
-		var sqlArgs []interface{}
-		if searchFilterProject != "" {
-			sql += " AND p.name LIKE ?"
-			sqlArgs = append(sqlArgs, "%"+searchFilterProject+"%")
-		}
-		if searchFilterSource != "" {
-			sql += " AND p.source = ?"
-			sqlArgs = append(sqlArgs, searchFilterSource)
+		opts := search.SearchOptions{
+			Query:           queryText,
+			FilterProject:   searchFilterProject,
+			FilterSource:    searchFilterSource,
+			Limit:           searchLimit,
+			LimitPerSession: searchLimitPerSess,
+			CaseSensitive:   searchCaseSensitive,
+			UseRegex:        searchRegex,
 		}
 
-		rows, err := db.Query(sql, sqlArgs...)
+		svc := search.NewService(db)
+
+		if verbose && !searchJSON && !searchList {
+			fmt.Printf("Searching for %q...\n", queryText)
+		}
+
+		results, totalMatches, err := svc.Search(opts)
 		if err != nil {
-			return fmt.Errorf("database error: %w", err)
-		}
-		defer rows.Close()
-
-		var candidates []candidate
-		for rows.Next() {
-			var c candidate
-			if err := rows.Scan(&c.Path, &c.Source, &c.SessionID, &c.ProjectName); err == nil {
-				candidates = append(candidates, c)
-			}
+			return err
 		}
 
-		if verbose && !searchJSON {
-			fmt.Printf("Scanning %d sessions for %q...\n", len(candidates), queryText)
-		}
-
-		// 2. Parallel Scan
-		rawHits := make(chan rawMatch)
-		var wg sync.WaitGroup
-		sem := make(chan struct{}, 20)
-
-		for _, c := range candidates {
-			wg.Add(1)
-			go func(cand candidate) {
-				defer wg.Done()
-				sem <- struct{}{}
-				defer func() { <-sem }()
-
-				scanFile(cand, m, rawHits)
-			}(c)
-		}
-
-		// Closer
-		go func() {
-			wg.Wait()
-			close(rawHits)
-		}()
-
-		// 3. Aggregate hits by session
-		sessionGroups := make(map[string]*sessionResult)
-		var sessionOrder []string // Maintain some order
-
-		totalMatches := 0
-		for hit := range rawHits {
-			group, exists := sessionGroups[hit.SessionID]
-			if !exists {
-				group = &sessionResult{
-					SessionID:   hit.SessionID,
-					ProjectName: hit.ProjectName,
-					Source:      hit.Source,
-					Path:        hit.Path,
-					Matches:     []match{},
-				}
-				sessionGroups[hit.SessionID] = group
-				sessionOrder = append(sessionOrder, hit.SessionID)
-			}
-
-			// Apply per-session limit
-			if searchLimitPerSess > 0 && len(group.Matches) >= searchLimitPerSess {
-				continue
-			}
-
-			group.Matches = append(group.Matches, match{
-				LineNum: hit.LineNum,
-				Preview: hit.Preview,
-				Role:    hit.Role,
-			})
-			totalMatches++
-
-			// Apply global limit (rough, might go over slightly due to grouping)
-			if searchLimit > 0 && totalMatches >= searchLimit {
-				break
-			}
-		}
-
-		// 4. Output Results
-		finalResults := []sessionResult{}
-		for _, id := range sessionOrder {
-			res := sessionGroups[id]
-			if len(res.Matches) > 0 {
-				finalResults = append(finalResults, *res)
-			}
-		}
-
+		// Output as JSON
 		if searchJSON {
 			output := struct {
-				Sessions []sessionResult `json:"sessions"`
-				Count    int             `json:"total_matches"`
+				Sessions []search.SessionResult `json:"sessions"`
+				Count    int                    `json:"total_matches"`
 			}{
-				Sessions: finalResults,
+				Sessions: results,
 				Count:    totalMatches,
 			}
 			return json.NewEncoder(os.Stdout).Encode(output)
 		}
 
-		for _, res := range finalResults {
-			fmt.Printf("\nSession: %s (Project: %s, Source: %s)\n", res.SessionID, res.ProjectName, res.Source)
-			fmt.Printf("Path:    %s\n", shortenPath(res.Path))
-			for _, m := range res.Matches {
-				fmt.Printf("  Line %d [%s]: %s\n", m.LineNum, m.Role, m.Preview)
-			}
-		}
-
-		if totalMatches == 0 && !searchJSON {
-			fmt.Println("No matches found.")
-		}
-
-		return nil
-	},
-}
-
-type sessionResult struct {
-	SessionID   string  `json:"session_id"`
-	ProjectName string  `json:"project_name"`
-	Source      string  `json:"source"`
-	Path        string  `json:"path"`
-	Matches     []match `json:"matches"`
-}
-
-type match struct {
-	LineNum int    `json:"line_num"`
-	Preview string `json:"preview"`
-	Role    string `json:"role"`
-}
-
-type rawMatch struct {
-	candidate
-	LineNum int
-	Preview string
-	Role    string
-}
-
-func scanFile(c candidate, m *matcher, out chan<- rawMatch) {
-	f, err := os.Open(c.Path)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	lineNum := 0
-
-	for scanner.Scan() {
-		lineNum++
-		text := scanner.Text()
-
-		if m.match(text) {
-			role := "unknown"
-			var entry struct {
-				Role string `json:"role"` // Kimi style
-				Type string `json:"type"` // Claude style
-			}
-			if err := json.Unmarshal([]byte(text), &entry); err == nil {
-				if entry.Role != "" {
-					role = entry.Role
-				} else if entry.Type != "" {
-					role = entry.Type
+		// Output as list (old behavior)
+		if searchList {
+			for _, res := range results {
+				fmt.Printf("\nSession: %s (Project: %s, Source: %s)\n", res.SessionID, res.ProjectName, res.Source)
+				fmt.Printf("Path:    %s\n", search.ShortenPath(res.Path))
+				for _, m := range res.Matches {
+					fmt.Printf("  Line %d [%s]: %s\n", m.LineNum, m.Role, m.Preview)
 				}
 			}
 
-			out <- rawMatch{
-				candidate: c,
-				LineNum:   lineNum,
-				Preview:   extractPreview(text, m),
-				Role:      role,
+			if totalMatches == 0 {
+				fmt.Println("No matches found.")
 			}
+			return nil
 		}
-	}
-}
 
-func extractPreview(line string, m *matcher) string {
-	start, end := m.findIndex(line)
-	if start == -1 {
-		return ""
-	}
+		// TUI mode (default)
+		if len(results) == 0 {
+			fmt.Println("No matches found.")
+			return nil
+		}
 
-	const window = 100
+		selected, err := tui.PickSearchResult(results, queryText)
+		if err != nil {
+			return fmt.Errorf("TUI error: %w", err)
+		}
+		if selected == nil {
+			// User cancelled
+			return nil
+		}
 
-	pStart := start - window
-	if pStart < 0 {
-		pStart = 0
-	}
-	pEnd := end + window
-	if pEnd > len(line) {
-		pEnd = len(line)
-	}
-
-	preview := line[pStart:pEnd]
-
-	if pStart > 0 {
-		preview = "..." + preview
-	}
-	if pEnd < len(line) {
-		preview = preview + "..."
-	}
-
-	return preview
-}
-
-func shortenPath(path string) string {
-	home, _ := os.UserHomeDir()
-	if strings.HasPrefix(path, home) {
-		return "~" + path[len(home):]
-	}
-	return path
+		// User selected a session - view it
+		return tui.RunViewer(selected.Path)
+	},
 }
 
 func init() {
@@ -318,6 +116,7 @@ func init() {
 	searchCmd.Flags().StringVarP(&searchFilterSource, "source", "s", "", "Filter by source (claude, kimi)")
 	searchCmd.Flags().IntVarP(&searchLimit, "limit", "n", 50, "Limit total number of matches (default 50)")
 	searchCmd.Flags().IntVar(&searchLimitPerSess, "limit-per-session", 2, "Limit hits per session to reduce noise (default 2, 0 for no limit)")
+	searchCmd.Flags().BoolVar(&searchList, "list", false, "Output as list instead of TUI (useful for scripting)")
 	searchCmd.Flags().BoolVar(&searchJSON, "json", false, "Output as JSON")
 	searchCmd.Flags().BoolVarP(&searchCaseSensitive, "case-sensitive", "C", false, "Case-sensitive matching")
 	searchCmd.Flags().BoolVarP(&searchRegex, "regex", "E", false, "Treat query as a regular expression")
