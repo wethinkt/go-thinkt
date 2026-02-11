@@ -18,7 +18,7 @@ func (r *StoreRegistry) ResolveSessionByPath(ctx context.Context, sessionPath st
 
 	// Fast path: ask each store if it can resolve this path directly.
 	for _, store := range r.All() {
-		meta, err := store.GetSessionMeta(ctx, sessionPath)
+		meta, err := store.GetSessionMeta(ctx, cleanPath)
 		if err != nil || meta == nil {
 			continue
 		}
@@ -61,19 +61,36 @@ func (r *StoreRegistry) OpenLazySessionByPath(ctx context.Context, sessionPath s
 		return nil, os.ErrNotExist
 	}
 
-	sessionID := meta.ID
-	if sessionID == "" {
-		sessionID = meta.FullPath
+	cleanPath := filepath.Clean(sessionPath)
+	candidates := make([]string, 0, 3)
+	if meta.FullPath != "" {
+		candidates = append(candidates, meta.FullPath)
+	}
+	if cleanPath != "" && !samePath(cleanPath, meta.FullPath) {
+		candidates = append(candidates, cleanPath)
+	}
+	if meta.ID != "" && meta.ID != cleanPath && !samePath(meta.ID, meta.FullPath) {
+		candidates = append(candidates, meta.ID)
 	}
 
-	reader, err := store.OpenSession(ctx, sessionID)
-	if (err != nil || reader == nil) && meta.FullPath != "" && meta.FullPath != sessionID {
-		reader, err = store.OpenSession(ctx, meta.FullPath)
-	}
-	if err != nil {
-		return nil, err
+	var reader SessionReader
+	var firstErr error
+	for _, candidate := range candidates {
+		reader, err = store.OpenSession(ctx, candidate)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		if reader != nil {
+			break
+		}
 	}
 	if reader == nil {
+		if firstErr != nil {
+			return nil, firstErr
+		}
 		return nil, os.ErrNotExist
 	}
 

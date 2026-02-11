@@ -27,14 +27,6 @@ Press T to open thinking-tracer for the selected session.`,
 }
 
 func runTUI(cmd *cobra.Command, args []string) error {
-	// Initialize logger if requested
-	if logPath != "" {
-		if err := tuilog.Init(logPath); err != nil {
-			return err
-		}
-		defer tuilog.Log.Close()
-	}
-
 	tuilog.Log.Info("Starting TUI")
 
 	// Get initial terminal size - try stdout, stdin, stderr in order

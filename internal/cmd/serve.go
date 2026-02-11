@@ -172,14 +172,6 @@ Examples:
 }
 
 func runServeHTTP(cmd *cobra.Command, args []string) error {
-	// Initialize logger if requested
-	if logPath != "" {
-		if err := tuilog.Init(logPath); err != nil {
-			return err
-		}
-		defer tuilog.Log.Close()
-	}
-
 	tuilog.Log.Info("Starting HTTP server", "port", servePort, "host", serveHost)
 
 	// Create source registry
@@ -244,14 +236,6 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 }
 
 func runServeLite(cmd *cobra.Command, args []string) error {
-	// Initialize logger if requested
-	if logPath != "" {
-		if err := tuilog.Init(logPath); err != nil {
-			return err
-		}
-		defer tuilog.Log.Close()
-	}
-
 	tuilog.Log.Info("Starting Lite HTTP server", "port", serveLitePort, "host", serveHost)
 
 	// Create source registry
@@ -340,14 +324,6 @@ func runServeFingerprint(cmd *cobra.Command, args []string) error {
 }
 
 func runServeMCP(cmd *cobra.Command, args []string) error {
-	// Initialize logger if requested
-	if logPath != "" {
-		if err := tuilog.Init(logPath); err != nil {
-			return err
-		}
-		defer tuilog.Log.Close()
-	}
-
 	// Start indexer sidecar if not disabled
 	if !mcpNoIndexer {
 		if indexerPath := findIndexerBinary(); indexerPath != "" {

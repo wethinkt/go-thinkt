@@ -132,14 +132,6 @@ func init() {
 }
 
 func runProjectsView(cmd *cobra.Command, args []string) error {
-	// Initialize logger if requested
-	if logPath != "" {
-		if err := tuilog.Init(logPath); err != nil {
-			return err
-		}
-		defer tuilog.Log.Close()
-	}
-
 	tuilog.Log.Info("Starting Projects View TUI")
 
 	// Get initial terminal size

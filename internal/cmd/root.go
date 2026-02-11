@@ -6,11 +6,13 @@ import (
 	"os"
 	"runtime/pprof"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/wethinkt/go-thinkt/internal/server"
+	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 // global flags
@@ -43,6 +45,21 @@ Examples:
   thinkt sources list             # List available sources (claude, kimi, gemini, copilot, codex)
   thinkt projects list            # List all projects from all sources`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Initialize debug logging once for all commands.
+		if logPath == "" {
+			if flag := cmd.Flags().Lookup("log"); flag != nil && flag.Value != nil {
+				logPath = strings.TrimSpace(flag.Value.String())
+			}
+		}
+		if logPath == "" {
+			logPath = strings.TrimSpace(os.Getenv("THINKT_LOG_FILE"))
+		}
+		if logPath != "" {
+			if err := tuilog.Init(logPath); err != nil {
+				return fmt.Errorf("init debug log: %w", err)
+			}
+		}
+
 		// Start pprof profiling if THINKT_PROFILE is set
 		if profilePath := os.Getenv("THINKT_PROFILE"); profilePath != "" {
 			f, err := os.Create(profilePath)
@@ -66,6 +83,7 @@ Examples:
 			profileFile.Close()
 			profileFile = nil
 		}
+		_ = tuilog.Log.Close()
 		return nil
 	},
 	RunE: runTUI,
@@ -105,6 +123,7 @@ func init() {
 	sessionsCmd.PersistentFlags().StringVarP(&sessionProject, "project", "p", "", "project path (auto-detects from cwd if not set)")
 	sessionsCmd.PersistentFlags().BoolVar(&sessionForcePicker, "pick", false, "force project picker even if in a known project directory")
 	sessionsCmd.PersistentFlags().StringArrayVarP(&sessionSources, "source", "s", nil, "filter by source (claude|kimi|gemini|copilot|codex, can be specified multiple times)")
+	sessionsCmd.PersistentFlags().StringVar(&logPath, "log", "", "write debug log to file")
 	sessionsSummaryCmd.Flags().StringVar(&sessionTemplate, "template", "", "custom Go text/template for output")
 	sessionsSummaryCmd.Flags().StringVar(&sessionSortBy, "sort", "time", "sort by: name, time")
 	sessionsSummaryCmd.Flags().BoolVar(&sessionSortDesc, "desc", false, "sort descending (default for time)")

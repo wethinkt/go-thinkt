@@ -20,6 +20,7 @@ type MultiViewerModel struct {
 	sessionPaths  []string
 	sessions      []thinkt.LazySession
 	registry      *thinkt.StoreRegistry
+	loadErrors    []string
 	viewport      viewport.Model
 	width         int
 	height        int
@@ -138,7 +139,7 @@ func (m *MultiViewerModel) renderForViewport() {
 	}
 
 	if len(m.sortedSessions) == 0 {
-		m.rendered = "No sessions loaded successfully"
+		m.rendered = m.renderNoSessionContent()
 		m.viewport.SetContent(m.rendered)
 		return
 	}
@@ -272,6 +273,11 @@ func (m *MultiViewerModel) rebuildRenderedOutput() {
 	moreStyle := s.MoreText
 
 	var parts []string
+	if len(m.loadErrors) > 0 {
+		parts = append(parts, moreStyle.Render(fmt.Sprintf("Debug: %d session load error(s)", len(m.loadErrors))))
+		parts = append(parts, moreStyle.Render("Last error: "+truncateDebugLine(m.loadErrors[len(m.loadErrors)-1], m.width-8)))
+		parts = append(parts, "")
+	}
 	for _, origIdx := range m.sortedSessions {
 		s := m.sessions[origIdx]
 		if s == nil {
@@ -338,6 +344,49 @@ func (m *MultiViewerModel) updateHasMoreData() {
 	}
 }
 
+func (m *MultiViewerModel) appendLoadError(idx int, err error) {
+	path := "<unknown>"
+	if idx >= 0 && idx < len(m.sessionPaths) {
+		path = m.sessionPaths[idx]
+	}
+	msg := fmt.Sprintf("%s: %v", path, err)
+	m.loadErrors = append(m.loadErrors, msg)
+	if len(m.loadErrors) > 8 {
+		m.loadErrors = m.loadErrors[len(m.loadErrors)-8:]
+	}
+}
+
+func (m MultiViewerModel) renderNoSessionContent() string {
+	if len(m.loadErrors) == 0 {
+		return "No sessions loaded successfully"
+	}
+
+	lines := []string{
+		"No sessions loaded successfully",
+		"",
+		"Debug (load errors):",
+	}
+	for _, errLine := range m.loadErrors {
+		lines = append(lines, " - "+truncateDebugLine(errLine, m.width-6))
+	}
+	lines = append(lines, "")
+	lines = append(lines, "Set THINKT_LOG_FILE=/tmp/thinkt.log for full logs.")
+	return strings.Join(lines, "\n")
+}
+
+func truncateDebugLine(s string, max int) string {
+	if max < 16 {
+		max = 16
+	}
+	if len(s) <= max {
+		return s
+	}
+	if max <= 3 {
+		return s[:max]
+	}
+	return s[:max-3] + "..."
+}
+
 func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -348,7 +397,7 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			// Log error but continue loading other sessions
 			tuilog.Log.Error("MultiViewer.Update: session load failed", "index", msg.index, "error", msg.err)
-			fmt.Printf("Warning: failed to load session %d: %v\n", msg.index, msg.err)
+			m.appendLoadError(msg.index, msg.err)
 		} else {
 			m.sessions[msg.index] = msg.session
 			m.loadedCount++
@@ -528,7 +577,7 @@ func (m MultiViewerModel) View() tea.View {
 	// Handle case where content couldn't be rendered (e.g., all sessions failed)
 	if m.rendered == "" && allSessionsLoaded {
 		tuilog.Log.Warn("MultiViewer.View: no content to display", "loadedCount", m.loadedCount)
-		v := tea.NewView("No content to display")
+		v := tea.NewView(m.renderNoSessionContent())
 		v.AltScreen = true
 		return v
 	}
@@ -544,6 +593,9 @@ func (m MultiViewerModel) View() tea.View {
 		loadInfo = viewerInfoStyle.Render("  (scroll for more)")
 	} else {
 		loadInfo = viewerInfoStyle.Render(fmt.Sprintf("  %d sessions", m.loadedCount))
+	}
+	if len(m.loadErrors) > 0 {
+		loadInfo += viewerInfoStyle.Render(fmt.Sprintf("  %d failed", len(m.loadErrors)))
 	}
 	header := title + loadInfo + "  " + m.renderFilterStatus()
 

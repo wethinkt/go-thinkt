@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -36,17 +37,57 @@ func (i pickerSessionItem) sessionTitle(maxLen int) string {
 	if maxLen <= 0 {
 		maxLen = 80
 	}
-	if i.meta.FirstPrompt != "" {
-		text := i.meta.FirstPrompt
-		if len(text) > maxLen {
-			text = text[:maxLen] + "..."
+
+	title := ""
+	for _, candidate := range []string{i.meta.Summary, i.meta.FirstPrompt} {
+		candidate = normalizeTitleText(candidate)
+		if candidate == "" {
+			continue
 		}
-		return text
+		if looksLikeProjectIdentifier(candidate, i.meta.ProjectPath) {
+			continue
+		}
+		title = candidate
+		break
 	}
-	if len(i.meta.ID) > 8 {
-		return i.meta.ID[:8]
+
+	if title == "" {
+		if i.meta.ID != "" && !looksLikeProjectIdentifier(i.meta.ID, i.meta.ProjectPath) {
+			title = i.meta.ID
+		}
 	}
-	return i.meta.ID
+	if title == "" && i.meta.FullPath != "" {
+		base := filepath.Base(i.meta.FullPath)
+		title = strings.TrimSuffix(base, filepath.Ext(base))
+	}
+	if title == "" {
+		title = i.meta.ID
+	}
+	if title == "" {
+		title = "(untitled)"
+	}
+
+	runes := []rune(title)
+	if len(runes) > maxLen {
+		return string(runes[:maxLen]) + "..."
+	}
+	return title
+}
+
+func normalizeTitleText(s string) string {
+	return strings.Join(strings.Fields(strings.TrimSpace(s)), " ")
+}
+
+func looksLikeProjectIdentifier(value, projectPath string) bool {
+	if value == "" || projectPath == "" {
+		return false
+	}
+	cleanValue := filepath.Clean(value)
+	cleanProject := filepath.Clean(projectPath)
+	if cleanValue == cleanProject {
+		return true
+	}
+	return cleanValue == filepath.Base(cleanProject)
 }
 
 func formatFileSize(size int64) string {
