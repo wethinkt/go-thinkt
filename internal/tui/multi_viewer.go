@@ -558,7 +558,7 @@ func (m MultiViewerModel) renderFilterStatus() string {
 	return strings.Join(parts, " ")
 }
 
-func (m MultiViewerModel) View() tea.View {
+func (m MultiViewerModel) viewContent() string {
 	// Check if we're still loading sessions
 	allSessionsLoaded := m.currentIdx >= len(m.sessionPaths)-1 || m.loadedCount >= len(m.sessionPaths)
 
@@ -569,17 +569,13 @@ func (m MultiViewerModel) View() tea.View {
 			progress = fmt.Sprintf(" (%d/%d)", m.currentIdx, len(m.sessionPaths))
 		}
 		tuilog.Log.Debug("MultiViewer.View: still loading", "ready", m.ready, "renderedLen", len(m.rendered), "currentIdx", m.currentIdx, "allSessionsLoaded", allSessionsLoaded)
-		v := tea.NewView("Loading..." + progress)
-		v.AltScreen = true
-		return v
+		return "Loading..." + progress
 	}
 
 	// Handle case where content couldn't be rendered (e.g., all sessions failed)
 	if m.rendered == "" && allSessionsLoaded {
 		tuilog.Log.Warn("MultiViewer.View: no content to display", "loadedCount", m.loadedCount)
-		v := tea.NewView(m.renderNoSessionContent())
-		v.AltScreen = true
-		return v
+		return m.renderNoSessionContent()
 	}
 
 	// Header
@@ -617,9 +613,11 @@ func (m MultiViewerModel) View() tea.View {
 		Height(contentHeight).
 		Render(m.viewport.View())
 
-	result := header + "\n" + content + "\n" + footer
+	return header + "\n" + content + "\n" + footer
+}
 
-	v := tea.NewView(result)
+func (m MultiViewerModel) View() tea.View {
+	v := tea.NewView(m.viewContent())
 	v.AltScreen = true
 	return v
 }

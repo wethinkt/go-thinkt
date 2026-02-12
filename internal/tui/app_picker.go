@@ -181,7 +181,7 @@ func (m AppPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m AppPickerModel) View() tea.View {
+func (m AppPickerModel) viewContent() string {
 	t := theme.Current()
 	accent := lipgloss.Color(t.GetAccent())
 
@@ -207,7 +207,7 @@ func (m AppPickerModel) View() tea.View {
 	// Build Content
 	title := labelStyle.Render("Open Project In:")
 	path := pathStyle.Render(m.target)
-	
+
 	// Add a distinct border or separator for the list area
 	listArea := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder(), true, false, false, false).
@@ -221,16 +221,20 @@ func (m AppPickerModel) View() tea.View {
 		path,
 		listArea,
 	)
-	
+
 	// Center the overlay
 	overlay := overlayStyle.Render(content)
-	
-	view := tea.NewView(lipgloss.Place(m.width, m.height,
+
+	return lipgloss.Place(m.width, m.height,
 		lipgloss.Center, lipgloss.Center,
 		overlay,
-	))
-	view.AltScreen = true
-	return view
+	)
+}
+
+func (m AppPickerModel) View() tea.View {
+	v := tea.NewView(m.viewContent())
+	v.AltScreen = true
+	return v
 }
 
 func (m AppPickerModel) Result() AppPickerResult {

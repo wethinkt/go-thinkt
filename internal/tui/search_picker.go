@@ -413,20 +413,18 @@ func (m SearchPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 var searchPickerStyle = lipgloss.NewStyle().Padding(1, 2)
 
-func (m SearchPickerModel) View() tea.View {
+func (m SearchPickerModel) viewContent() string {
 	if !m.ready {
-		v := tea.NewView("Loading...")
-		v.AltScreen = true
-		return v
+		return "Loading..."
 	}
-
 	if m.quitting {
-		v := tea.NewView("")
-		return v
+		return ""
 	}
+	return searchPickerStyle.Render(m.list.View())
+}
 
-	content := searchPickerStyle.Render(m.list.View())
-	v := tea.NewView(content)
+func (m SearchPickerModel) View() tea.View {
+	v := tea.NewView(m.viewContent())
 	v.AltScreen = true
 	return v
 }

@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"bufio"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -26,6 +27,7 @@ type SessionMeta struct {
 	FullPath     string    `json:"fullPath"`
 	FirstPrompt  string    `json:"firstPrompt"`
 	Summary      string    `json:"summary"`
+	Model        string    `json:"model,omitempty"`
 	MessageCount int       `json:"messageCount"`
 	Created      time.Time `json:"-"`
 	Modified     time.Time `json:"-"`
@@ -200,19 +202,43 @@ func ListProjects(baseDir string) ([]Project, error) {
 
 // ListProjectSessions returns session metadata for a project directory.
 // Uses sessions-index.json when available for fast metadata access,
-// falls back to stat-based listing.
+// falls back to stat-based listing. Sessions missing a FirstPrompt are
+// backfilled by reading the first user message from their JSONL file.
 func ListProjectSessions(projectDir string) ([]SessionMeta, error) {
+	var sessions []SessionMeta
+
 	// Try sessions-index.json first
 	indexPath := filepath.Join(projectDir, "sessions-index.json")
 	if data, err := os.ReadFile(indexPath); err == nil {
 		var idx sessionsIndex
 		if err := json.Unmarshal(data, &idx); err == nil {
-			return parseIndexEntries(idx.Entries, projectDir), nil
+			sessions = parseIndexEntries(idx.Entries, projectDir)
 		}
 	}
 
 	// Fall back to stat-based listing
-	return statBasedSessions(projectDir)
+	if sessions == nil {
+		var err error
+		sessions, err = statBasedSessions(projectDir)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Backfill missing FirstPrompt/Model from JSONL content
+	for i := range sessions {
+		if sessions[i].FullPath != "" && (sessions[i].FirstPrompt == "" || sessions[i].Model == "") {
+			prompt, model := extractSessionHints(sessions[i].FullPath)
+			if sessions[i].FirstPrompt == "" {
+				sessions[i].FirstPrompt = prompt
+			}
+			if sessions[i].Model == "" {
+				sessions[i].Model = model
+			}
+		}
+	}
+
+	return sessions, nil
 }
 
 func parseIndexEntries(entries []sessionMetaJSON, projectDir string) []SessionMeta {
@@ -267,6 +293,67 @@ func GetSessionFileInfo(path string) (size int64, err error) {
 		return 0, err
 	}
 	return info.Size(), nil
+}
+
+// extractSessionHints reads the first user message and first model from a
+// Claude JSONL session file. It scans at most the first 50 lines to keep the
+// operation lightweight.
+func extractSessionHints(path string) (firstPrompt, model string) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", ""
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	// Use a generous buffer - some early lines can be large (system prompts)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1*1024*1024) // 1MB max per line
+
+	for i := 0; i < 50 && scanner.Scan(); i++ {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+
+		lineStr := string(line)
+
+		// Extract first user prompt
+		if firstPrompt == "" && strings.Contains(lineStr, `"type":"user"`) {
+			var entry struct {
+				Type    string          `json:"type"`
+				Message json.RawMessage `json:"message"`
+			}
+			if json.Unmarshal(line, &entry) == nil && entry.Type == "user" {
+				var msg UserMessage
+				if json.Unmarshal(entry.Message, &msg) == nil {
+					firstPrompt = msg.Content.GetText()
+				}
+			}
+		}
+
+		// Extract first model from assistant entry
+		if model == "" && strings.Contains(lineStr, `"type":"assistant"`) {
+			var entry struct {
+				Type    string          `json:"type"`
+				Message json.RawMessage `json:"message"`
+			}
+			if json.Unmarshal(line, &entry) == nil && entry.Type == "assistant" {
+				var msg struct {
+					Model string `json:"model"`
+				}
+				if json.Unmarshal(entry.Message, &msg) == nil && msg.Model != "" {
+					model = msg.Model
+				}
+			}
+		}
+
+		if firstPrompt != "" && model != "" {
+			break
+		}
+	}
+
+	return firstPrompt, model
 }
 
 func statBasedSessions(projectDir string) ([]SessionMeta, error) {

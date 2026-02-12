@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/sources/claude"
@@ -14,8 +16,17 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/sources/gemini"
 	"github.com/wethinkt/go-thinkt/internal/sources/kimi"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
+
+const shellHeaderHeight = 1
+
+// shellContent is implemented by models that can render their content as a string
+// for composition with the Shell's header bar.
+type shellContent interface {
+	viewContent() string
+}
 
 // NavItem represents a page in the navigation stack
 type NavItem struct {
@@ -114,24 +125,114 @@ func NewShell(initial InitialPage) *Shell {
 // Back navigation from the viewer returns to the picker via PopPageMsg.
 // Cancelling the picker exits the program.
 func NewShellWithSessions(sessions []thinkt.SessionMeta) *Shell {
-	return NewShellWithSessionsAndRegistry(sessions, nil)
+	return NewShellWithSessionsAndRegistry(sessions, nil, "")
 }
 
 // NewShellWithSessionsAndRegistry creates a Shell that starts with a pre-loaded
 // session picker and uses the provided registry for source-aware viewing.
-func NewShellWithSessionsAndRegistry(sessions []thinkt.SessionMeta, registry *thinkt.StoreRegistry) *Shell {
+// projectName is used for the header breadcrumb; if empty, the project path
+// from the first session is used.
+func NewShellWithSessionsAndRegistry(sessions []thinkt.SessionMeta, registry *thinkt.StoreRegistry, projectName string) *Shell {
 	s := &Shell{
 		stack:     NewNavStack(),
 		registry:  registry,
 		loading:   false,
 		preloaded: true,
 	}
+
+	title := "Sessions"
+	if projectName != "" {
+		title = projectName
+	}
+
 	picker := NewSessionPickerModel(sessions, nil)
 	s.stack.items = append(s.stack.items, NavItem{
-		Title: "Sessions",
+		Title: title,
 		Model: picker,
 	})
 	return s
+}
+
+// childHeight returns the height available for child models (terminal height minus header).
+func (s *Shell) childHeight() int {
+	h := s.height - shellHeaderHeight
+	if h < 0 {
+		h = 0
+	}
+	return h
+}
+
+// renderHeader renders the top header bar with breadcrumb on the left and "thinkt" on the right.
+func (s *Shell) renderHeader() string {
+	t := theme.Current()
+
+	nameStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(t.TextPrimary.Fg))
+
+	sepStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(t.TextMuted.Fg))
+
+	actionStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(t.TextSecondary.Fg))
+
+	brandStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(t.TextMuted.Fg))
+
+	sep := sepStyle.Render("  >  ")
+
+	// Build left side (breadcrumb)
+	var left string
+	if !s.stack.IsEmpty() {
+		items := s.stack.items
+		current := items[len(items)-1]
+
+		switch current.Model.(type) {
+		case ProjectPickerModel:
+			left = actionStyle.Render("Select project...")
+
+		case SessionPickerModel:
+			if current.Title == "Sessions" {
+				left = actionStyle.Render("Select session...")
+			} else {
+				left = nameStyle.Render(current.Title) + sep + actionStyle.Render("Select session...")
+			}
+
+		case MultiViewerModel:
+			// Find the project name from the stack
+			for i := len(items) - 2; i >= 0; i-- {
+				if _, ok := items[i].Model.(SessionPickerModel); ok {
+					left = nameStyle.Render(items[i].Title) + sep + nameStyle.Render(current.Title)
+					break
+				}
+			}
+			if left == "" {
+				left = nameStyle.Render(current.Title)
+			}
+
+		case SearchInputModel:
+			left = actionStyle.Render("Search...")
+
+		case SearchPickerModel:
+			left = nameStyle.Render(current.Title)
+
+		default:
+			left = nameStyle.Render(current.Title)
+		}
+	}
+
+	// Right side
+	right := brandStyle.Render("🧠 thinkt")
+
+	// Compose: left-justified breadcrumb, right-justified brand
+	leftWidth := lipgloss.Width(left)
+	rightWidth := lipgloss.Width(right)
+	padding := s.width - leftWidth - rightWidth
+	if padding < 1 {
+		padding = 1
+	}
+
+	return left + strings.Repeat(" ", padding) + right
 }
 
 func (s *Shell) Init() tea.Cmd {
@@ -149,11 +250,14 @@ func (s *Shell) Init() tea.Cmd {
 func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		s.width = msg.Width
-		s.height = msg.Height
+	// Store full terminal dimensions, then adjust for header before forwarding to children
+	if wsm, ok := msg.(tea.WindowSizeMsg); ok {
+		s.width = wsm.Width
+		s.height = wsm.Height
+		msg = tea.WindowSizeMsg{Width: wsm.Width, Height: s.childHeight()}
+	}
 
+	switch msg := msg.(type) {
 	case sourcesLoadedMsg:
 		tuilog.Log.Info("Shell.Update: sourcesLoadedMsg received", "hasError", msg.err != nil)
 		s.loading = false
@@ -164,7 +268,21 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		ctx := context.Background()
 
-		// Check if we're in a known project directory
+		// Always load all projects and push project picker as the base page
+		allProjects, err := s.registry.ListAllProjects(ctx)
+		if err != nil {
+			tuilog.Log.Error("Shell.Update: failed to list projects", "error", err)
+			return s, nil
+		}
+		tuilog.Log.Info("Shell.Update: pushing project picker", "projectCount", len(allProjects))
+		projectPicker := NewProjectPickerModel(allProjects)
+		projCmd := s.stack.Push(NavItem{
+			Title: "Projects",
+			Model: projectPicker,
+		}, s.width, s.childHeight())
+		cmds = append(cmds, projCmd)
+
+		// If auto-detect finds a project, push session picker on top
 		if s.initialPage == InitialPageAuto {
 			cwd, err := os.Getwd()
 			if err == nil {
@@ -192,7 +310,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						cmd := s.stack.Push(NavItem{
 							Title: project.Name,
 							Model: picker,
-						}, s.width, s.height)
+						}, s.width, s.childHeight())
 						cmds = append(cmds, cmd)
 						return s, tea.Batch(cmds...)
 					}
@@ -200,19 +318,12 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// Fallback: Push project picker as first page
-		projects, err := s.registry.ListAllProjects(ctx)
-		if err != nil {
-			tuilog.Log.Error("Shell.Update: failed to list projects", "error", err)
-			return s, nil
+		// No auto-detect match; send size to the project picker so it renders
+		if s.width > 0 && s.childHeight() > 0 {
+			cmds = append(cmds, func() tea.Msg {
+				return tea.WindowSizeMsg{Width: s.width, Height: s.childHeight()}
+			})
 		}
-		tuilog.Log.Info("Shell.Update: pushing project picker", "projectCount", len(projects))
-		picker := NewProjectPickerModel(projects)
-		cmd := s.stack.Push(NavItem{
-			Title: "Projects",
-			Model: picker,
-		}, s.width, s.height)
-		cmds = append(cmds, cmd)
 
 	case ProjectPickerResult:
 		tuilog.Log.Info("Shell.Update: ProjectPickerResult received", "cancelled", msg.Cancelled, "hasSelection", msg.Selected != nil)
@@ -225,7 +336,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Send WindowSizeMsg to the revealed page so it re-renders
 			if s.width > 0 && s.height > 0 {
 				cmds = append(cmds, func() tea.Msg {
-					return tea.WindowSizeMsg{Width: s.width, Height: s.height}
+					return tea.WindowSizeMsg{Width: s.width, Height: s.childHeight()}
 				})
 			}
 			return s, tea.Batch(cmds...)
@@ -257,7 +368,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := s.stack.Push(NavItem{
 				Title: msg.Selected.Name,
 				Model: picker,
-			}, s.width, s.height)
+			}, s.width, s.childHeight())
 			cmds = append(cmds, cmd)
 		}
 
@@ -272,7 +383,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Send WindowSizeMsg to the revealed page so it re-renders
 			if s.width > 0 && s.height > 0 {
 				cmds = append(cmds, func() tea.Msg {
-					return tea.WindowSizeMsg{Width: s.width, Height: s.height}
+					return tea.WindowSizeMsg{Width: s.width, Height: s.childHeight()}
 				})
 			}
 			return s, tea.Batch(cmds...)
@@ -284,7 +395,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := s.stack.Push(NavItem{
 				Title: msg.Selected.ID[:8],
 				Model: viewer,
-			}, s.width, s.height)
+			}, s.width, s.childHeight())
 			cmds = append(cmds, cmd)
 		}
 
@@ -298,7 +409,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Send WindowSizeMsg to the revealed page so it re-renders
 		if s.width > 0 && s.height > 0 {
 			cmds = append(cmds, func() tea.Msg {
-				return tea.WindowSizeMsg{Width: s.width, Height: s.height}
+				return tea.WindowSizeMsg{Width: s.width, Height: s.childHeight()}
 			})
 		}
 
@@ -313,7 +424,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Send WindowSizeMsg to the revealed page so it re-renders
 			if s.width > 0 && s.height > 0 {
 				cmds = append(cmds, func() tea.Msg {
-					return tea.WindowSizeMsg{Width: s.width, Height: s.height}
+					return tea.WindowSizeMsg{Width: s.width, Height: s.childHeight()}
 				})
 			}
 			return s, tea.Batch(cmds...)
@@ -325,7 +436,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := s.stack.Push(NavItem{
 				Title: msg.Selected.SessionID[:8],
 				Model: viewer,
-			}, s.width, s.height)
+			}, s.width, s.childHeight())
 			cmds = append(cmds, cmd)
 		}
 
@@ -341,7 +452,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd := s.stack.Push(NavItem{
 			Title: "Search",
 			Model: input,
-		}, s.width, s.height)
+		}, s.width, s.childHeight())
 		cmds = append(cmds, cmd)
 
 	case SearchInputResult:
@@ -352,7 +463,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Send WindowSizeMsg to the revealed page so it re-renders
 			if s.width > 0 && s.height > 0 {
 				cmds = append(cmds, func() tea.Msg {
-					return tea.WindowSizeMsg{Width: s.width, Height: s.height}
+					return tea.WindowSizeMsg{Width: s.width, Height: s.childHeight()}
 				})
 			}
 			return s, tea.Batch(cmds...)
@@ -377,7 +488,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := s.stack.Push(NavItem{
 				Title: fmt.Sprintf("Search: %s", msg.Query),
 				Model: picker,
-			}, s.width, s.height)
+			}, s.width, s.childHeight())
 			cmds = append(cmds, cmd)
 		}
 	}
@@ -407,8 +518,18 @@ func (s *Shell) View() tea.View {
 		return v
 	}
 
-	// Get current page view
 	current, _ := s.stack.Peek()
+
+	// Compose header + child content if the model supports it
+	if cv, ok := current.Model.(shellContent); ok {
+		header := s.renderHeader()
+		content := cv.viewContent()
+		v := tea.NewView(header + "\n" + content)
+		v.AltScreen = true
+		return v
+	}
+
+	// Fallback for models that don't implement shellContent
 	return current.Model.View()
 }
 

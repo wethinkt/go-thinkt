@@ -445,7 +445,7 @@ func defaultProjectPickerKeyMap() projectPickerKeyMap {
 
 // pickerTitle returns the list title with sort info, item count, and source filter.
 func pickerTitle(field sortField, dir sortDir, count int, sourceFilter []thinkt.Source) string {
-	title := fmt.Sprintf("Select a Project (%d) · %s %s", count, field, dir.arrow())
+	title := fmt.Sprintf("%d projects · %s %s", count, field, dir.arrow())
 	if len(sourceFilter) > 0 {
 		names := make([]string, len(sourceFilter))
 		for i, s := range sourceFilter {
@@ -901,30 +901,24 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 var projectPickerStyle = lipgloss.NewStyle().Padding(1, 2)
 
-func (m ProjectPickerModel) View() tea.View {
+func (m ProjectPickerModel) viewContent() string {
 	if !m.ready {
-		v := tea.NewView("Loading...")
-		v.AltScreen = true
-		return v
+		return "Loading..."
 	}
-
 	if m.quitting {
-		v := tea.NewView("")
-		return v
+		return ""
 	}
-
-	// Source picker overlay
 	if m.showSources {
-		return m.sourcePicker.View()
+		return m.sourcePicker.viewContent()
 	}
-
-	// App picker overlay
 	if m.showApps {
-		return m.appPicker.View()
+		return m.appPicker.viewContent()
 	}
+	return projectPickerStyle.Render(m.list.View())
+}
 
-	content := projectPickerStyle.Render(m.list.View())
-	v := tea.NewView(content)
+func (m ProjectPickerModel) View() tea.View {
+	v := tea.NewView(m.viewContent())
 	v.AltScreen = true
 	return v
 }

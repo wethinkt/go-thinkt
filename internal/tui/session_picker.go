@@ -304,7 +304,7 @@ func NewSessionPickerModel(sessions []thinkt.SessionMeta, sourceFilter []thinkt.
 }
 
 func sessionPickerTitle(count int, sourceFilter []thinkt.Source) string {
-	title := fmt.Sprintf("Select a Session (%d)", count)
+	title := fmt.Sprintf("%d sessions", count)
 	if len(sourceFilter) > 0 {
 		names := make([]string, len(sourceFilter))
 		for i, s := range sourceFilter {
@@ -502,25 +502,21 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 var pickerStyle = lipgloss.NewStyle().Padding(1, 2)
 
-func (m SessionPickerModel) View() tea.View {
+func (m SessionPickerModel) viewContent() string {
 	if !m.ready {
-		v := tea.NewView("Loading...")
-		v.AltScreen = true
-		return v
+		return "Loading..."
 	}
-
 	if m.quitting {
-		v := tea.NewView("")
-		return v
+		return ""
 	}
-
-	// Source picker overlay
 	if m.showSources {
-		return m.sourcePicker.View()
+		return m.sourcePicker.viewContent()
 	}
+	return pickerStyle.Render(m.list.View())
+}
 
-	content := pickerStyle.Render(m.list.View())
-	v := tea.NewView(content)
+func (m SessionPickerModel) View() tea.View {
+	v := tea.NewView(m.viewContent())
 	v.AltScreen = true
 	return v
 }

@@ -215,7 +215,7 @@ func init() {
 	spHelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)).MarginTop(1)
 }
 
-func (m SourcePickerModel) View() tea.View {
+func (m SourcePickerModel) viewContent() string {
 	var b strings.Builder
 
 	if m.multiSelect {
@@ -273,7 +273,11 @@ func (m SourcePickerModel) View() tea.View {
 		inner = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, inner)
 	}
 
-	v := tea.NewView(inner)
+	return inner
+}
+
+func (m SourcePickerModel) View() tea.View {
+	v := tea.NewView(m.viewContent())
 	v.AltScreen = true
 	return v
 }

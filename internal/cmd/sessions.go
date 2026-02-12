@@ -383,12 +383,16 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 		return tui.RunViewerWithRegistry(args[0], registry)
 	}
 
+	// Track a display-friendly project name for the TUI header
+	var projectDisplayName string
+
 	// If no project specified and not forcing picker, try auto-detection from cwd
 	if sessionProject == "" && !sessionForcePicker {
 		cwd, err := os.Getwd()
 		if err == nil {
 			if project := registry.FindProjectForPath(ctx, cwd); project != nil {
 				sessionProject = project.ID
+				projectDisplayName = project.Name
 			}
 		}
 	}
@@ -423,6 +427,7 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 			return nil // User cancelled
 		}
 		sessionProject = selected.ID
+		projectDisplayName = selected.Name
 	}
 
 	logSelectedProject()
@@ -486,7 +491,7 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 	}
 
 	// Run session browser: picker + viewer with back navigation via Shell
-	return tui.RunSessionBrowserWithRegistry(sessions, registry)
+	return tui.RunSessionBrowserWithRegistry(sessions, registry, projectDisplayName)
 }
 
 func runSessionsResolve(cmd *cobra.Command, args []string) error {

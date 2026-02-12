@@ -52,12 +52,13 @@ func RunMultiViewerWithRegistry(sessionPaths []string, registry *thinkt.StoreReg
 // RunSessionBrowser runs a session picker with back-navigable viewer.
 // Selecting a session opens the viewer; ESC returns to the picker via PopPageMsg.
 func RunSessionBrowser(sessions []thinkt.SessionMeta) error {
-	return RunSessionBrowserWithRegistry(sessions, nil)
+	return RunSessionBrowserWithRegistry(sessions, nil, "")
 }
 
 // RunSessionBrowserWithRegistry runs a session picker with source-aware session loading.
-func RunSessionBrowserWithRegistry(sessions []thinkt.SessionMeta, registry *thinkt.StoreRegistry) error {
-	shell := NewShellWithSessionsAndRegistry(sessions, registry)
+// projectName is shown in the header breadcrumb; pass "" to auto-detect from session metadata.
+func RunSessionBrowserWithRegistry(sessions []thinkt.SessionMeta, registry *thinkt.StoreRegistry, projectName string) error {
+	shell := NewShellWithSessionsAndRegistry(sessions, registry, projectName)
 	p := tea.NewProgram(shell, termSizeOpts()...)
 	_, err := p.Run()
 	return err
