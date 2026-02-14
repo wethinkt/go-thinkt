@@ -99,6 +99,20 @@ notarize:
         wait: true
         timeout: 20m
 
+homebrew_casks:
+  - name: thinkt-indexer
+    url:
+      verified: github.com/wethinkt/go-thinkt
+    repository:
+      owner: wethinkt
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/wethinkt/go-thinkt
+    description: Tools for exploring LLM conversation traces
+    license: MIT
+    binaries:
+      - thinkt-indexer
+
 dockers:
   - id: linux-amd64
     ids:
