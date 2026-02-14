@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/duckdb/duckdb-go/v2"
 	"github.com/wethinkt/go-thinkt/internal/config"
 )
 
