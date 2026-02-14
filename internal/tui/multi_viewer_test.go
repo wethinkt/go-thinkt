@@ -26,6 +26,70 @@ func TestRenderNoSessionContentIncludesErrorsAndHint(t *testing.T) {
 	}
 }
 
+func TestHighlightLineMatches(t *testing.T) {
+	tests := []struct {
+		name      string
+		line      string
+		query     string
+		isCurrent bool
+		wantSub   string // substring that must appear in result
+		wantClean string // ANSI-stripped result must equal original stripped text
+	}{
+		{
+			name:      "plain text match",
+			line:      "hello world",
+			query:     "world",
+			isCurrent: false,
+			wantSub:   "\033[7mworld\033[27m",
+		},
+		{
+			name:      "case insensitive",
+			line:      "Hello World",
+			query:     "hello",
+			isCurrent: false,
+			wantSub:   "\033[7mHello\033[27m",
+		},
+		{
+			name:      "current match uses bold",
+			line:      "foo bar",
+			query:     "bar",
+			isCurrent: true,
+			wantSub:   "\033[1;7mbar\033[27;22m",
+		},
+		{
+			name:      "with ANSI codes",
+			line:      "\033[1mhello\033[0m world",
+			query:     "world",
+			isCurrent: false,
+			wantSub:   "\033[7mworld\033[27m",
+		},
+		{
+			name:      "multiple matches",
+			line:      "ab ab ab",
+			query:     "ab",
+			isCurrent: false,
+			wantSub:   "\033[7mab\033[27m \033[7mab\033[27m \033[7mab\033[27m",
+		},
+		{
+			name:  "no match returns unchanged",
+			line:  "hello world",
+			query: "xyz",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := highlightLineMatches(tt.line, tt.query, tt.isCurrent)
+			if tt.wantSub != "" && !strings.Contains(got, tt.wantSub) {
+				t.Errorf("expected substring %q in result %q", tt.wantSub, got)
+			}
+			if tt.wantSub == "" && got != tt.line {
+				t.Errorf("expected unchanged line %q, got %q", tt.line, got)
+			}
+		})
+	}
+}
+
 func TestTruncateDebugLine(t *testing.T) {
 	got := truncateDebugLine("abcdefghijklmnopqrstuvwxyz", 10)
 	if got != "abcdefghijklm..." {

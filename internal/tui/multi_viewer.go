@@ -7,9 +7,11 @@ import (
 	"strings"
 
 	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
@@ -43,6 +45,13 @@ type MultiViewerModel struct {
 
 	// Entry type filters
 	filters RoleFilterSet
+
+	// Search state
+	searchMode    bool            // true when search input is visible
+	searchInput   textinput.Model // the text input widget
+	searchQuery   string          // current active search query
+	searchMatches []int           // line numbers (0-indexed) of matches
+	currentMatch  int             // index into searchMatches (-1 = none)
 }
 
 // multiSessionLoadedMsg is sent when a session has been loaded (initial open).
@@ -140,7 +149,7 @@ func (m *MultiViewerModel) renderForViewport() {
 
 	if len(m.sortedSessions) == 0 {
 		m.rendered = m.renderNoSessionContent()
-		m.viewport.SetContent(m.rendered)
+		m.setViewportContent()
 		return
 	}
 
@@ -156,7 +165,7 @@ func (m *MultiViewerModel) renderForViewport() {
 	// Build final output from displayed entries
 	m.rebuildRenderedOutput()
 	tuilog.Log.Info("MultiViewer.renderForViewport: complete", "totalLines", m.totalLines, "contentLen", len(m.rendered))
-	m.viewport.SetContent(m.rendered)
+	m.setViewportContent()
 }
 
 // renderUntilLines renders entries until we have at least targetLines of content.
@@ -217,7 +226,7 @@ func (m *MultiViewerModel) renderMoreForScroll() bool {
 
 	if m.totalLines > oldLines {
 		m.rebuildRenderedOutput()
-		m.viewport.SetContent(m.rendered)
+		m.setViewportContent()
 		return true
 	}
 	return false
@@ -332,6 +341,184 @@ func (m *MultiViewerModel) invalidateCache() {
 	if m.ready {
 		m.renderForViewport()
 	}
+	// Re-execute search against new rendered content
+	if m.searchQuery != "" {
+		m.executeSearch()
+	}
+}
+
+// setViewportContent sets the viewport content, applying search highlighting if active.
+func (m *MultiViewerModel) setViewportContent() {
+	if m.searchQuery != "" && len(m.searchMatches) > 0 {
+		m.viewport.SetContent(m.buildHighlightedContent())
+	} else {
+		m.viewport.SetContent(m.rendered)
+	}
+}
+
+// buildHighlightedContent returns m.rendered with search matches highlighted.
+func (m *MultiViewerModel) buildHighlightedContent() string {
+	queryLower := strings.ToLower(m.searchQuery)
+	lines := strings.Split(m.rendered, "\n")
+
+	matchSet := make(map[int]bool, len(m.searchMatches))
+	for _, ln := range m.searchMatches {
+		matchSet[ln] = true
+	}
+
+	currentLine := -1
+	if m.currentMatch >= 0 && m.currentMatch < len(m.searchMatches) {
+		currentLine = m.searchMatches[m.currentMatch]
+	}
+
+	for i, line := range lines {
+		if !matchSet[i] {
+			continue
+		}
+		lines[i] = highlightLineMatches(line, queryLower, i == currentLine)
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// highlightLineMatches highlights all case-insensitive occurrences of queryLower
+// within line, handling ANSI escape sequences correctly.
+// isCurrent uses a bolder highlight for the current match line.
+func highlightLineMatches(line, queryLower string, isCurrent bool) string {
+	stripped := ansi.Strip(line)
+	strippedLower := strings.ToLower(stripped)
+
+	// Find all match byte-positions in the stripped text
+	type span struct{ start, end int }
+	var matches []span
+	start := 0
+	for {
+		idx := strings.Index(strippedLower[start:], queryLower)
+		if idx < 0 {
+			break
+		}
+		mStart := start + idx
+		mEnd := mStart + len(queryLower)
+		matches = append(matches, span{mStart, mEnd})
+		start = mEnd
+	}
+	if len(matches) == 0 {
+		return line
+	}
+
+	// ANSI codes: reverse video for matches, reverse+bold for current match line
+	hlOn := "\033[7m"
+	hlOff := "\033[27m"
+	if isCurrent {
+		hlOn = "\033[1;7m"
+		hlOff = "\033[27;22m"
+	}
+
+	// Walk the original line, tracking visible byte position (position in stripped text).
+	// Insert highlight codes at the right spots.
+	var buf strings.Builder
+	buf.Grow(len(line) + len(matches)*16)
+	visPos := 0 // byte offset in stripped text
+	mi := 0     // index into matches
+	inHL := false
+
+	for i := 0; i < len(line); {
+		// Skip over ANSI escape sequences
+		if line[i] == '\033' && i+1 < len(line) && line[i+1] == '[' {
+			j := i + 2
+			for j < len(line) && !isAnsiTerminator(line[j]) {
+				j++
+			}
+			if j < len(line) {
+				j++ // include the terminator byte
+			}
+			buf.WriteString(line[i:j])
+			i = j
+			continue
+		}
+
+		// Start highlight at match boundary
+		if mi < len(matches) && visPos == matches[mi].start && !inHL {
+			buf.WriteString(hlOn)
+			inHL = true
+		}
+
+		buf.WriteByte(line[i])
+		i++
+		visPos++
+
+		// End highlight at match boundary
+		if inHL && mi < len(matches) && visPos == matches[mi].end {
+			buf.WriteString(hlOff)
+			inHL = false
+			mi++
+		}
+	}
+
+	if inHL {
+		buf.WriteString(hlOff)
+	}
+	return buf.String()
+}
+
+// isAnsiTerminator returns true if b is the final byte of a CSI escape sequence.
+func isAnsiTerminator(b byte) bool {
+	return (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z') || b == '~'
+}
+
+// executeSearch finds all lines matching the current search query.
+func (m *MultiViewerModel) executeSearch() {
+	if m.searchQuery == "" || m.rendered == "" {
+		m.searchMatches = nil
+		m.currentMatch = -1
+		return
+	}
+
+	query := strings.ToLower(m.searchQuery)
+	lines := strings.Split(m.rendered, "\n")
+	m.searchMatches = nil
+
+	for i, line := range lines {
+		stripped := ansi.Strip(line)
+		if strings.Contains(strings.ToLower(stripped), query) {
+			m.searchMatches = append(m.searchMatches, i)
+		}
+	}
+
+	if len(m.searchMatches) > 0 {
+		// Jump to the first match at or after the current viewport position
+		yOffset := m.viewport.YOffset()
+		m.currentMatch = 0
+		for i, lineNum := range m.searchMatches {
+			if lineNum >= yOffset {
+				m.currentMatch = i
+				break
+			}
+		}
+		m.jumpToCurrentMatch()
+	} else {
+		m.currentMatch = -1
+		m.setViewportContent() // remove stale highlights
+	}
+}
+
+// jumpToCurrentMatch scrolls the viewport to show the current match.
+func (m *MultiViewerModel) jumpToCurrentMatch() {
+	if m.currentMatch < 0 || m.currentMatch >= len(m.searchMatches) {
+		return
+	}
+	lineNum := m.searchMatches[m.currentMatch]
+
+	// Update highlighting to reflect new current match
+	m.setViewportContent()
+
+	// Center the match in the viewport
+	viewportHeight := m.viewport.Height()
+	offset := lineNum - viewportHeight/2
+	if offset < 0 {
+		offset = 0
+	}
+	m.viewport.SetYOffset(offset)
 }
 
 func (m *MultiViewerModel) updateHasMoreData() {
@@ -451,7 +638,7 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.ready = true
 
 			// Render if sessions already loaded
-			if m.loadedCount > 0 && m.currentIdx >= len(m.sessionPaths)-1 {
+			if m.allSessionsAttempted() && m.loadedCount > 0 {
 				tuilog.Log.Info("MultiViewer.Update: viewport ready, rendering loaded sessions")
 				m.renderForViewport()
 			}
@@ -461,8 +648,70 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
+		if m.searchMode {
+			switch msg.String() {
+			case "enter":
+				query := m.searchInput.Value()
+				if query != "" {
+					m.searchQuery = query
+					m.searchMode = false
+					m.executeSearch()
+				} else {
+					m.searchMode = false
+				}
+				return m, nil
+			case "esc":
+				m.searchMode = false
+				return m, nil
+			case "ctrl+c":
+				for _, s := range m.sessions {
+					if s != nil {
+						s.Close()
+					}
+				}
+				return m, tea.Quit
+			default:
+				var tiCmd tea.Cmd
+				m.searchInput, tiCmd = m.searchInput.Update(msg)
+				return m, tiCmd
+			}
+		}
+
 		switch {
+		case key.Matches(msg, m.keys.Search):
+			m.searchMode = true
+			m.searchInput = textinput.New()
+			m.searchInput.Prompt = ""
+			m.searchInput.Placeholder = "Search..."
+			m.searchInput.Focus()
+			m.searchInput.CharLimit = 256
+			m.searchInput.SetWidth(m.width - 4)
+			if m.searchQuery != "" {
+				m.searchInput.SetValue(m.searchQuery)
+			}
+			return m, textinput.Blink
+		case key.Matches(msg, m.keys.NextMatch):
+			if len(m.searchMatches) > 0 {
+				m.currentMatch = (m.currentMatch + 1) % len(m.searchMatches)
+				m.jumpToCurrentMatch()
+			}
+		case key.Matches(msg, m.keys.PrevMatch):
+			if len(m.searchMatches) > 0 {
+				m.currentMatch--
+				if m.currentMatch < 0 {
+					m.currentMatch = len(m.searchMatches) - 1
+				}
+				m.jumpToCurrentMatch()
+			}
 		case key.Matches(msg, m.keys.Back):
+			if m.searchQuery != "" {
+				// First ESC clears search and removes highlights
+				m.searchQuery = ""
+				m.searchMatches = nil
+				m.currentMatch = -1
+				m.setViewportContent()
+				return m, nil
+			}
 			// Close all sessions and go back to previous page
 			for _, s := range m.sessions {
 				if s != nil {
@@ -558,22 +807,27 @@ func (m MultiViewerModel) renderFilterStatus() string {
 	return strings.Join(parts, " ")
 }
 
-func (m MultiViewerModel) viewContent() string {
-	// Check if we're still loading sessions
-	allSessionsLoaded := m.currentIdx >= len(m.sessionPaths)-1 || m.loadedCount >= len(m.sessionPaths)
+// allSessionsAttempted returns true when every session path has either loaded
+// successfully or failed with an error.
+func (m MultiViewerModel) allSessionsAttempted() bool {
+	return m.loadedCount+len(m.loadErrors) >= len(m.sessionPaths)
+}
 
-	// Don't show the frame until viewport is ready AND either content is rendered or all sessions loaded
-	if !m.ready || (!allSessionsLoaded && m.rendered == "") {
+func (m MultiViewerModel) viewContent() string {
+	allDone := m.allSessionsAttempted()
+
+	// Show loading screen until viewport is ready and sessions are done
+	if !m.ready || !allDone {
 		progress := ""
-		if m.currentIdx > 0 {
+		if len(m.sessionPaths) > 1 && m.currentIdx > 0 {
 			progress = fmt.Sprintf(" (%d/%d)", m.currentIdx, len(m.sessionPaths))
 		}
-		tuilog.Log.Debug("MultiViewer.View: still loading", "ready", m.ready, "renderedLen", len(m.rendered), "currentIdx", m.currentIdx, "allSessionsLoaded", allSessionsLoaded)
+		tuilog.Log.Debug("MultiViewer.View: still loading", "ready", m.ready, "renderedLen", len(m.rendered), "loadedCount", m.loadedCount, "allDone", allDone)
 		return "Loading..." + progress
 	}
 
 	// Handle case where content couldn't be rendered (e.g., all sessions failed)
-	if m.rendered == "" && allSessionsLoaded {
+	if m.rendered == "" {
 		tuilog.Log.Warn("MultiViewer.View: no content to display", "loadedCount", m.loadedCount)
 		return m.renderNoSessionContent()
 	}
@@ -581,8 +835,8 @@ func (m MultiViewerModel) viewContent() string {
 	// Header
 	title := viewerTitleStyle.Render(m.title)
 	loadInfo := ""
-	if m.currentIdx < len(m.sessionPaths)-1 {
-		loadInfo = viewerInfoStyle.Render(fmt.Sprintf("  Loading %d/%d...", m.currentIdx+1, len(m.sessionPaths)))
+	if !allDone {
+		loadInfo = viewerInfoStyle.Render(fmt.Sprintf("  Loading %d/%d...", m.loadedCount+len(m.loadErrors), len(m.sessionPaths)))
 	} else if m.loadingMore {
 		loadInfo = viewerInfoStyle.Render("  Loading more...")
 	} else if m.hasMoreData {
@@ -596,15 +850,31 @@ func (m MultiViewerModel) viewContent() string {
 	header := title + loadInfo + "  " + m.renderFilterStatus()
 
 	// Footer
-	scrollPercent := m.viewport.ScrollPercent() * 100
-	position := viewerInfoStyle.Render(fmt.Sprintf("%3.0f%%", scrollPercent))
-	helpText := "↑/↓: scroll • 1-5: filters • g/G: top/bottom • esc: back • q: quit"
-	if m.hasMoreData {
-		helpText = "↑/↓: scroll • 1-5: filters • G: load all • esc: back • q: quit"
+	var footer string
+	if m.searchMode {
+		// Show search input
+		prompt := viewerInfoStyle.Render("/")
+		inputView := m.searchInput.View()
+		footer = prompt + inputView
+	} else {
+		scrollPercent := m.viewport.ScrollPercent() * 100
+		position := viewerInfoStyle.Render(fmt.Sprintf("%3.0f%%", scrollPercent))
+
+		var helpText string
+		if m.searchQuery != "" && len(m.searchMatches) > 0 {
+			matchInfo := fmt.Sprintf("Match %d/%d", m.currentMatch+1, len(m.searchMatches))
+			helpText = fmt.Sprintf("%s  ·  n/N: next/prev  ·  /: search  ·  esc: clear", matchInfo)
+		} else if m.searchQuery != "" {
+			helpText = "No matches  ·  /: search  ·  esc: clear"
+		} else if m.hasMoreData {
+			helpText = "↑/↓: scroll • /: search • 1-5: filters • G: load all • esc: back • q: quit"
+		} else {
+			helpText = "↑/↓: scroll • /: search • 1-5: filters • g/G: top/bottom • esc: back • q: quit"
+		}
+		help := viewerHelpStyle.Render(helpText)
+		footerWidth := m.width - lipgloss.Width(position) - 4
+		footer = help + lipgloss.NewStyle().Width(footerWidth).Align(lipgloss.Right).Render(position)
 	}
-	help := viewerHelpStyle.Render(helpText)
-	footerWidth := m.width - lipgloss.Width(position) - 4
-	footer := help + lipgloss.NewStyle().Width(footerWidth).Align(lipgloss.Right).Render(position)
 
 	// Content
 	contentHeight := m.height - 4

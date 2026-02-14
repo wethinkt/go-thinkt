@@ -56,17 +56,25 @@ func OpenLazySession(path string) (thinkt.LazySession, error) {
 	}
 }
 
-// OpenLazySessionWithRegistry resolves the owning source store for a path
-// first, then falls back to path-based detection.
+// OpenLazySessionWithRegistry opens a session from a file path and, if direct
+// detection fails, falls back to registry-based source resolution.
 func OpenLazySessionWithRegistry(path string, registry *thinkt.StoreRegistry) (thinkt.LazySession, error) {
+	// Fast path: for normal TUI navigation we already have a concrete session
+	// file path, so open it directly to avoid expensive registry-wide scans.
+	ls, directErr := OpenLazySession(path)
+	if directErr == nil {
+		return ls, nil
+	}
+
 	if registry != nil {
-		ls, err := registry.OpenLazySessionByPath(context.Background(), path)
-		if err == nil {
+		ls, regErr := registry.OpenLazySessionByPath(context.Background(), path)
+		if regErr == nil {
 			return ls, nil
 		}
-		tuilog.Log.Warn("OpenLazySessionWithRegistry: falling back to format detection", "path", path, "error", err)
+		return nil, fmt.Errorf("open session: direct detection failed: %v; registry lookup failed: %w", directErr, regErr)
 	}
-	return OpenLazySession(path)
+
+	return nil, directErr
 }
 
 // isKimiSession detects if the path is a Kimi session file.

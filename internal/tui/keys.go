@@ -13,6 +13,11 @@ type viewerKeyMap struct {
 	Quit   key.Binding
 	Back   key.Binding
 
+	// Search
+	Search    key.Binding
+	NextMatch key.Binding
+	PrevMatch key.Binding
+
 	// Filter toggles
 	ToggleInput    key.Binding
 	ToggleOutput   key.Binding
@@ -55,6 +60,20 @@ func defaultViewerKeyMap() viewerKeyMap {
 		Back: key.NewBinding(
 			key.WithKeys("esc"),
 			key.WithHelp("esc", "back"),
+		),
+
+		// Search
+		Search: key.NewBinding(
+			key.WithKeys("/"),
+			key.WithHelp("/", "search"),
+		),
+		NextMatch: key.NewBinding(
+			key.WithKeys("n"),
+			key.WithHelp("n", "next match"),
+		),
+		PrevMatch: key.NewBinding(
+			key.WithKeys("N"),
+			key.WithHelp("N", "prev match"),
 		),
 
 		// Filter toggles

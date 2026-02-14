@@ -162,6 +162,20 @@ func (s *Shell) childHeight() int {
 	return h
 }
 
+// hasWindowSize reports whether shell has a known terminal size.
+func (s *Shell) hasWindowSize() bool {
+	return s.width > 0 && s.height > 0
+}
+
+// windowSizeCmd returns a size message using full terminal dimensions.
+// Shell.Update normalizes all WindowSizeMsg values to child dimensions before
+// forwarding to page models, so internal broadcasts must use full size.
+func (s *Shell) windowSizeCmd() tea.Cmd {
+	return func() tea.Msg {
+		return tea.WindowSizeMsg{Width: s.width, Height: s.height}
+	}
+}
+
 // renderHeader renders the top header bar with breadcrumb on the left and "thinkt" on the right.
 func (s *Shell) renderHeader() string {
 	t := theme.Current()
@@ -279,7 +293,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		projCmd := s.stack.Push(NavItem{
 			Title: "Projects",
 			Model: projectPicker,
-		}, s.width, s.childHeight())
+		}, s.width, s.height)
 		cmds = append(cmds, projCmd)
 
 		// If auto-detect finds a project, push session picker on top
@@ -310,7 +324,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						cmd := s.stack.Push(NavItem{
 							Title: project.Name,
 							Model: picker,
-						}, s.width, s.childHeight())
+						}, s.width, s.height)
 						cmds = append(cmds, cmd)
 						return s, tea.Batch(cmds...)
 					}
@@ -319,10 +333,8 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// No auto-detect match; send size to the project picker so it renders
-		if s.width > 0 && s.childHeight() > 0 {
-			cmds = append(cmds, func() tea.Msg {
-				return tea.WindowSizeMsg{Width: s.width, Height: s.childHeight()}
-			})
+		if s.hasWindowSize() {
+			cmds = append(cmds, s.windowSizeCmd())
 		}
 
 	case ProjectPickerResult:
@@ -334,10 +346,8 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return s, tea.Quit
 			}
 			// Send WindowSizeMsg to the revealed page so it re-renders
-			if s.width > 0 && s.height > 0 {
-				cmds = append(cmds, func() tea.Msg {
-					return tea.WindowSizeMsg{Width: s.width, Height: s.childHeight()}
-				})
+			if s.hasWindowSize() {
+				cmds = append(cmds, s.windowSizeCmd())
 			}
 			return s, tea.Batch(cmds...)
 		}
@@ -368,7 +378,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := s.stack.Push(NavItem{
 				Title: msg.Selected.Name,
 				Model: picker,
-			}, s.width, s.childHeight())
+			}, s.width, s.height)
 			cmds = append(cmds, cmd)
 		}
 
@@ -381,10 +391,8 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return s, tea.Quit
 			}
 			// Send WindowSizeMsg to the revealed page so it re-renders
-			if s.width > 0 && s.height > 0 {
-				cmds = append(cmds, func() tea.Msg {
-					return tea.WindowSizeMsg{Width: s.width, Height: s.childHeight()}
-				})
+			if s.hasWindowSize() {
+				cmds = append(cmds, s.windowSizeCmd())
 			}
 			return s, tea.Batch(cmds...)
 		}
@@ -395,7 +403,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := s.stack.Push(NavItem{
 				Title: msg.Selected.ID[:8],
 				Model: viewer,
-			}, s.width, s.childHeight())
+			}, s.width, s.height)
 			cmds = append(cmds, cmd)
 		}
 
@@ -407,10 +415,8 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return s, tea.Quit
 		}
 		// Send WindowSizeMsg to the revealed page so it re-renders
-		if s.width > 0 && s.height > 0 {
-			cmds = append(cmds, func() tea.Msg {
-				return tea.WindowSizeMsg{Width: s.width, Height: s.childHeight()}
-			})
+		if s.hasWindowSize() {
+			cmds = append(cmds, s.windowSizeCmd())
 		}
 
 	case SearchPickerResult:
@@ -422,10 +428,8 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return s, tea.Quit
 			}
 			// Send WindowSizeMsg to the revealed page so it re-renders
-			if s.width > 0 && s.height > 0 {
-				cmds = append(cmds, func() tea.Msg {
-					return tea.WindowSizeMsg{Width: s.width, Height: s.childHeight()}
-				})
+			if s.hasWindowSize() {
+				cmds = append(cmds, s.windowSizeCmd())
 			}
 			return s, tea.Batch(cmds...)
 		}
@@ -436,7 +440,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := s.stack.Push(NavItem{
 				Title: msg.Selected.SessionID[:8],
 				Model: viewer,
-			}, s.width, s.childHeight())
+			}, s.width, s.height)
 			cmds = append(cmds, cmd)
 		}
 
@@ -452,7 +456,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd := s.stack.Push(NavItem{
 			Title: "Search",
 			Model: input,
-		}, s.width, s.childHeight())
+		}, s.width, s.height)
 		cmds = append(cmds, cmd)
 
 	case SearchInputResult:
@@ -461,10 +465,8 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			tuilog.Log.Info("Shell.Update: search input cancelled, popping")
 			s.stack.Pop()
 			// Send WindowSizeMsg to the revealed page so it re-renders
-			if s.width > 0 && s.height > 0 {
-				cmds = append(cmds, func() tea.Msg {
-					return tea.WindowSizeMsg{Width: s.width, Height: s.childHeight()}
-				})
+			if s.hasWindowSize() {
+				cmds = append(cmds, s.windowSizeCmd())
 			}
 			return s, tea.Batch(cmds...)
 		}
@@ -488,7 +490,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := s.stack.Push(NavItem{
 				Title: fmt.Sprintf("Search: %s", msg.Query),
 				Model: picker,
-			}, s.width, s.childHeight())
+			}, s.width, s.height)
 			cmds = append(cmds, cmd)
 		}
 	}
