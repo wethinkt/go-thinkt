@@ -238,6 +238,49 @@ The fingerprint is also available via the REST API at `GET /api/v1/info`.
 
 ---
 
+## Trace Collector & Exporter
+
+Aggregate traces from multiple machines with the push-based collector system. See the [Collector Guide](/collector) for the full architecture.
+
+### Collector
+
+Start a collector server that receives traces from exporters:
+
+```bash
+thinkt collect                              # Start on port 4318
+thinkt collect --port 4318                  # Custom port
+thinkt collect --token mytoken              # Require bearer token auth
+thinkt collect --storage ./traces.duckdb    # Custom storage path
+```
+
+### Exporter
+
+Watch local sessions and ship traces to a collector:
+
+```bash
+thinkt export                               # One-shot export of all traces
+thinkt export --forward                     # Continuous watch mode
+thinkt export --source claude               # Export only Claude traces
+thinkt export --flush                       # Flush the disk buffer
+thinkt export --collector-url http://host:4318/v1/traces  # Explicit endpoint
+```
+
+### Standalone Binaries
+
+For deployment without the full CLI:
+
+```bash
+# Exporter (repeatable --watch-dir flag)
+thinkt-exporter --watch-dir ~/.claude/projects --collector-url http://collect.example.com/v1/traces
+
+# Collector
+thinkt-collector --port 4318 --token mytoken
+```
+
+**Reference:** [Collector Guide](/collector), [thinkt export](/command/thinkt_export), [thinkt collect](/command/thinkt_collect)
+
+---
+
 ## Indexer
 
 The indexer provides DuckDB-powered indexing and search for your session data. Most indexer commands are accessible as top-level aliases through the main `thinkt` CLI, as well as directly via the `thinkt-indexer` binary:

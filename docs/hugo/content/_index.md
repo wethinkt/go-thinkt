@@ -51,6 +51,7 @@ thinkt search "authentication"
 - **Semantic Search** - Find sessions by meaning with on-device embeddings via `thinkt semantic search`
 - **Embedding Management** - Configure and manage embedding models via `thinkt embeddings`
 
+- [**Trace Collector**](/collector) - Push-based trace aggregation from multiple machines
 - [**REST API**](/rest-api) - Programmatic access with OpenAPI/Swagger documentation
 - [**Web Interface**](/rest-api#server-modes) - Full webapp for visual trace exploration via `thinkt web`
 - [**Lite Server**](/serve-lite) - Lightweight debug interface for quick inspection
@@ -71,6 +72,7 @@ See the [Docker Guide](/docker) for sandboxed usage with volume mounts.
 
 ## Next Steps
 
+- Set up [Trace Collection](/collector) for multi-machine trace aggregation
 - Read the [CLI Guide](/cli) for common workflows and examples
 - Run with [Docker](/docker) for sandboxed, read-only access
 - Explore the [REST API](/rest-api) with interactive Swagger documentation

@@ -10,6 +10,8 @@ import (
 	"charm.land/lipgloss/v2"
 
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
+	"github.com/wethinkt/go-thinkt/internal/collect"
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -431,6 +433,32 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 
+	case CollectorPageResult:
+		tuilog.Log.Info("Shell.Update: CollectorPageResult received", "cancelled", msg.Cancelled)
+		s.stack.Pop()
+		if s.stack.IsEmpty() {
+			return s, tea.Quit
+		}
+		if s.width > 0 && s.height > 0 {
+			cmds = append(cmds, func() tea.Msg {
+				return tea.WindowSizeMsg{Width: s.width, Height: s.height}
+			})
+		}
+		return s, tea.Batch(cmds...)
+
+	case ExporterPageResult:
+		tuilog.Log.Info("Shell.Update: ExporterPageResult received", "cancelled", msg.Cancelled)
+		s.stack.Pop()
+		if s.stack.IsEmpty() {
+			return s, tea.Quit
+		}
+		if s.width > 0 && s.height > 0 {
+			cmds = append(cmds, func() tea.Msg {
+				return tea.WindowSizeMsg{Width: s.width, Height: s.height}
+			})
+		}
+		return s, tea.Batch(cmds...)
+
 	case PopPageMsg:
 		tuilog.Log.Info("Shell.Update: PopPageMsg received")
 		s.stack.Pop()
@@ -626,6 +654,31 @@ func (s *Shell) View() tea.View {
 // Internal message for source loading
 type sourcesLoadedMsg struct {
 	err error
+}
+
+// PushCollectorPage pushes a collector status page onto the shell's nav stack
+// if a collector instance is running. Returns true if a page was pushed.
+func (s *Shell) PushCollectorPage() (tea.Cmd, bool) {
+	instances, err := config.ListInstances()
+	if err != nil {
+		return nil, false
+	}
+	for _, inst := range instances {
+		if inst.Type == collect.InstanceCollector {
+			host := inst.Host
+			if host == "" {
+				host = "localhost"
+			}
+			url := fmt.Sprintf("http://%s:%d", host, inst.Port)
+			page := NewCollectorPageModel(url)
+			cmd := s.stack.Push(NavItem{
+				Title: "Collector",
+				Model: page,
+			}, s.width, s.height)
+			return cmd, true
+		}
+	}
+	return nil, false
 }
 
 func loadSourcesCmd(registry *thinkt.StoreRegistry) tea.Cmd {

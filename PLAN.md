@@ -35,6 +35,13 @@ The core CLI is functional with multi-source support, TUI with tree view navigat
 
 - [x] **Machine Fingerprint** - `thinkt server fingerprint` for workspace correlation
 
+- [x] **Trace Collector & Exporter** - Push-based trace aggregation
+  - `thinkt collect` — HTTP server on port 4318, DuckDB storage, agent registry
+  - `thinkt export` — File watcher, HTTP shipper, disk buffer, discovery cascade
+  - `thinkt-exporter` / `thinkt-collector` standalone binaries
+  - TUI views: collector status page, exporter status page
+  - Collector API: `/v1/traces`, `/v1/traces/search`, `/v1/traces/stats`, `/v1/agents`
+
 - [x] **Documentation Updates** - AGENTS.md, README.md, and Hugo docs updated
 
 - [x] **GoReleaser Pro with goreleaser-cross** - CGO cross-compilation
@@ -96,9 +103,11 @@ Tag push (v*) → GitHub Actions → goreleaser-cross container
 cmd/thinkt/           CLI entry point (Cobra)
 internal/
   thinkt/             Core types, Store/TeamStore interfaces, cache
-  sources/            Source implementations (claude, kimi, gemini, copilot)
+  sources/            Source implementations (claude, kimi, gemini, copilot, codex)
   tui/                BubbleTea terminal UI (shell, pickers, viewer, tree)
   server/             HTTP REST API, teams API, MCP server, lite webapp
+  export/             Trace exporter (watcher, shipper, buffer, discovery)
+  collect/            Trace collector (HTTP server, DuckDB store, agent registry)
   analytics/          Analytics
   prompt/             Prompt extraction
   config/             Configuration management

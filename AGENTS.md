@@ -41,10 +41,14 @@ Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot|codex|qwen
 | `internal/server/web-lite` | Lite webapp submodule ([thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite), `dist` branch) |
 | `internal/indexer` | Indexer ingestion, watching, and search |
 | `internal/indexer/db` | DuckDB database layer with copy-on-read support |
+| `internal/export` | Trace exporter: file watcher, HTTP shipper, disk buffer, discovery |
+| `internal/collect` | Trace collector: HTTP server, DuckDB store, agent registry, normalizer |
 | `internal/analytics` | Analytics |
 | `internal/prompt` | Prompt extraction and formatting |
 | `internal/config` | Configuration management, instance registry |
 | `internal/fingerprint` | Machine fingerprint generation |
+| `cmd/thinkt-exporter` | Standalone exporter binary (flag-only, no cobra) |
+| `cmd/thinkt-collector` | Standalone collector binary (flag-only, no cobra) |
 
 ### Command Structure
 
@@ -75,6 +79,8 @@ thinkt
 │   ├── view
 │   ├── delete
 │   └── copy
+├── export              # Export traces to remote collector
+├── collect             # Start trace collector server
 ├── teams               # Agent team management
 │   └── list
 ├── prompts             # Prompt extraction
@@ -92,6 +98,9 @@ thinkt-indexer          # DuckDB-powered indexer (separate binary)
 ├── search              # Search across indexed sessions
 ├── stats               # Show usage statistics
 └── watch               # Watch for changes and auto-index
+
+thinkt-exporter         # Standalone trace exporter (separate binary)
+thinkt-collector        # Standalone trace collector (separate binary)
 ```
 
 ### TUI Architecture
@@ -104,6 +113,8 @@ The TUI uses a `Shell` with a `NavStack` that manages page navigation:
 - **MultiViewerModel** (`multi_viewer.go`) — Lazy-loading session viewer with viewport scrolling
 - **SourcePickerModel** (`source_picker.go`) — Overlay for filtering by source (used within pickers)
 - **ThemeBuilderModel** (`theme_builder.go`) — Standalone theme editor with color picker
+- **CollectorPageModel** (`collector_page.go`) — Live collector status view (fetches REST API, auto-refreshes)
+- **ExporterPageModel** (`exporter_page.go`) — Exporter status view (config, buffer, stats)
 
 **Navigation pattern:**
 - Each page sends a result message (e.g., `ProjectPickerResult`, `SessionPickerResult`) back to Shell
@@ -204,6 +215,8 @@ The fingerprint is normalized to a consistent UUID format (lowercase, 8-4-4-4-12
 | `THINKT_MCP_ALLOW_TOOLS` | Comma-separated list of allowed MCP tools | (all) |
 | `THINKT_MCP_DENY_TOOLS` | Comma-separated list of denied MCP tools | (none) |
 | `THINKT_CORS_ORIGIN` | CORS `Access-Control-Allow-Origin` header | `*` (unauthenticated) |
+| `THINKT_COLLECTOR_URL` | Collector endpoint URL for exporter | (auto-discover) |
+| `THINKT_API_KEY` | Bearer token for collector authentication | (none) |
 | `THINKT_PROFILE` | Write CPU profiling to this file path | (disabled) |
 
 ### Instance Registry
@@ -217,6 +230,8 @@ const (
     InstanceServer       InstanceType = "server"
     InstanceServerMCP    InstanceType = "server-mcp"
     InstanceIndexerWatch InstanceType = "indexer-watch"
+    InstanceCollect      InstanceType = "collect"
+    InstanceExport       InstanceType = "export"
 )
 ```
 
@@ -268,6 +283,43 @@ The REST API (`thinkt server`) exposes indexer functionality via `internal/serve
 | `GET /api/v1/indexer/health` | `handleIndexerHealth` | Indexer binary and DB health |
 
 These endpoints shell out to the `thinkt-indexer` binary (same pattern as MCP tools).
+
+### Trace Collector & Exporter
+
+The collector/exporter system enables push-based trace aggregation from multiple machines:
+
+**Exporter** (`internal/export/`) watches local JSONL session files and ships traces to a remote collector:
+- `FileWatcher` uses fsnotify with 2-second debounce (only `.jsonl` files)
+- `Shipper` POSTs batches with retry (3 attempts, exponential backoff: 1s/2s/4s)
+- `DiskBuffer` stores payloads as JSON files when collector is unreachable
+- `DiscoverCollector()` cascade: `THINKT_COLLECTOR_URL` env → `.thinkt/collector.json` → well-known endpoint → local buffer
+- File offset tracking: only ships new entries since last read
+
+**Collector** (`internal/collect/`) receives, normalizes, and stores traces:
+- HTTP server with chi router, bearer auth (constant-time comparison), CORS
+- `TraceStore` interface backed by DuckDB (`~/.thinkt/collector.duckdb`)
+- Single-writer batch pattern: incoming requests queue to a channel, one goroutine drains and writes in transactions
+- `AgentRegistry` with heartbeat tracking, stale cleanup after 5 minutes
+- `NormalizeRequest()` validates roles, cleans whitespace, clamps token counts
+
+**Collector API endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/traces` | POST | Ingest trace entries from exporters |
+| `/v1/traces/search` | GET | Search collected traces by text query |
+| `/v1/traces/stats` | GET | Aggregate usage statistics |
+| `/v1/agents/register` | POST | Register an exporter agent |
+| `/v1/agents` | GET | List registered agents |
+| `/v1/collector/health` | GET | Health check (no auth required) |
+
+**DuckDB Schema (distinct from indexer):**
+- `collected_sessions` — session summaries with entry counts
+- `collected_entries` — individual trace entries with tokens/thinking
+- `collected_agents` — registered exporter agents
+
+**Standalone Binaries:**
+- `thinkt-exporter` — Flag-only (no cobra), repeatable `--watch-dir`, env var fallbacks
+- `thinkt-collector` — Flag-only (no cobra), `--port`, `--host`, `--storage`, `--token`
 
 ## Webapps
 

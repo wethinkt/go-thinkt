@@ -49,6 +49,8 @@ Right now much of the implementation is in package `internal`, but we will event
 - **REST API**: HTTP server for programmatic access
 - **Web Interface**: Full webapp for visual trace exploration via `thinkt web`
 - **Lite Webapp**: Lightweight debug interface with i18n (EN/ES/中文), connection status, and "open-in" buttons
+- **Trace Collector**: Push-based trace aggregation from multiple machines via `thinkt collect`
+- **Trace Exporter**: Watch local sessions and ship to a remote collector via `thinkt export`
 - **Themes**: Customizable color themes with interactive theme builder
 - **App Management**: Configure open-in apps and default terminal via `thinkt apps`
 
@@ -130,6 +132,12 @@ thinkt web
 # Start HTTP server without opening browser
 thinkt server --no-open
 
+# Export traces to a collector
+thinkt export --forward
+
+# Start a trace collector
+thinkt collect --token mytoken
+
 # Debug logging
 thinkt tui --log /tmp/thinkt-debug.log
 ```
@@ -154,12 +162,11 @@ thinkt tui --log /tmp/thinkt-debug.log
 | `thinkt teams` | List agent teams (Claude Code) |
 | `thinkt teams list` | Same as above |
 | `thinkt prompts extract` | Extract prompts to markdown/JSON |
-| `thinkt server` | Start web interface and REST API (port 8784) |
-| `thinkt server start/stop/status` | Manage background server |
-| `thinkt server logs` | View server logs |
-| `thinkt server mcp` | Start MCP server |
-| `thinkt server token` | Generate secure authentication token |
-| `thinkt server fingerprint` | Display machine fingerprint for workspace correlation |
+| `thinkt export` | Export traces to a remote collector |
+| `thinkt export --forward` | Continuous watch mode |
+| `thinkt export --flush` | Flush the disk buffer |
+| `thinkt collect` | Start trace collector server (port 4318) |
+| `thinkt collect --token` | Collector with bearer token auth |
 | `thinkt web` | Open web interface in browser |
 | `thinkt web lite` | Open lightweight debug webapp |
 | `thinkt apps` | List configured open-in apps |
@@ -385,6 +392,44 @@ The lightweight webapp (`thinkt web lite`) provides a quick debug interface:
 - **Open-In Buttons**: Quick buttons to open projects in VS Code, Cursor, etc.
 - **Language Selector**: Switch between EN/ES/中文 in the top-right corner
 
+## Trace Collector & Exporter
+
+Aggregate traces from multiple machines with the push-based collector system.
+
+### Collector
+
+```bash
+# Start the collector server
+thinkt collect                              # Default port 4318
+thinkt collect --port 4318 --token mytoken  # With authentication
+
+# Standalone binary
+thinkt-collector --port 4318 --token mytoken
+```
+
+Collector data is stored in `~/.thinkt/collector.duckdb` (separate from the indexer).
+
+### Exporter
+
+```bash
+# One-shot export of all traces
+thinkt export
+
+# Continuous watch mode
+thinkt export --forward
+
+# Export only Claude traces
+thinkt export --source claude
+
+# Flush the disk buffer
+thinkt export --flush
+
+# Standalone binary
+thinkt-exporter --watch-dir ~/.claude/projects --collector-url http://collect.example.com/v1/traces
+```
+
+The exporter auto-discovers the collector via `THINKT_COLLECTOR_URL` env var, `.thinkt/collector.json`, or falls back to local buffering.
+
 ## REST API
 
 The `thinkt server` command provides a REST API for programmatic access:
@@ -490,6 +535,8 @@ Contents of `THINKT_HOME`:
 | `THINKT_MCP_ALLOW_TOOLS` | Comma-separated list of allowed MCP tools | (all) |
 | `THINKT_MCP_DENY_TOOLS` | Comma-separated list of denied MCP tools | (none) |
 | `THINKT_CORS_ORIGIN` | CORS `Access-Control-Allow-Origin` header | `*` (unauthenticated) |
+| `THINKT_COLLECTOR_URL` | Collector endpoint URL for exporter | (auto-discover) |
+| `THINKT_API_KEY` | Bearer token for collector authentication | (none) |
 | `THINKT_PROFILE` | Write CPU profiling to this file path | (disabled) |
 
 ## Related Projects

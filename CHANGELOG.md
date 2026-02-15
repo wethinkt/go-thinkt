@@ -1,5 +1,35 @@
 # `go-thinkt` CHANGELOG
 
+## v0.7.0 (2026-03-01)
+
+* **Trace Collector Server**: Push-based trace aggregation via `thinkt collect`
+  - HTTP server with chi router on port 4318 (configurable)
+  - `POST /v1/traces` for batch trace ingestion from exporters
+  - `GET /v1/traces/search` and `GET /v1/traces/stats` for querying
+  - Agent registration with heartbeat tracking and stale cleanup
+  - Bearer token authentication with constant-time comparison
+  - DuckDB storage with single-writer batch pattern (`~/.thinkt/collector.duckdb`)
+  - Request normalization: role validation, whitespace cleanup, token clamping
+
+* **Trace Exporter**: Watch and ship local traces via `thinkt export`
+  - One-shot export, continuous watch mode (`--forward`), and buffer flush (`--flush`)
+  - File watcher using fsnotify with 2-second debounce
+  - HTTP shipper with 3 retries and exponential backoff (1s/2s/4s)
+  - Disk buffer for offline resilience (`~/.thinkt/export-buffer/`)
+  - Collector discovery cascade: env var, project config, well-known, local fallback
+  - File offset tracking for incremental-only shipping
+
+* **Standalone Binaries**: `thinkt-exporter` and `thinkt-collector`
+  - Lightweight flag-based CLIs (no cobra dependency)
+  - Environment variable fallbacks for `THINKT_COLLECTOR_URL` and `THINKT_API_KEY`
+
+* **TUI Views**: Collector and exporter status pages in the interactive TUI
+  - Collector page: live server status, agents, sessions, stats (auto-refreshes every 5s)
+  - Exporter page: connection, watched directories, buffer, export statistics
+  - New navigation result types integrated into Shell
+
+* **Instance Registry**: Added `collect` and `export` instance types for port conflict prevention
+
 ## v0.6.4 (2026-03-01)
 
 * **RPC Refactor**
