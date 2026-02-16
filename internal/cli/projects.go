@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -129,6 +130,12 @@ func (f *ProjectsFormatter) FormatVerbose(projects []thinkt.Project) error {
 	}
 
 	return w.Flush()
+}
+
+// FormatJSON writes projects as JSON.
+func (f *ProjectsFormatter) FormatJSON(projects []thinkt.Project) error {
+	encoder := json.NewEncoder(f.w)
+	return encoder.Encode(projects)
 }
 
 // FormatTree writes projects in a tree view grouped by source, then parent directory.

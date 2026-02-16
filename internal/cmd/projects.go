@@ -24,6 +24,7 @@ var (
 	projectSources  []string // --source flag (can be specified multiple times)
 	withSessions    bool     // --with-sessions flag for summary
 	shortFormat     bool     // --short flag for path-only output
+	jsonFormat      bool     // --json flag for JSON output
 )
 
 var projectsCmd = &cobra.Command{
@@ -58,10 +59,12 @@ var projectsListCmd = &cobra.Command{
 
 By default, shows detailed columns (path, source, sessions, modified time).
 Use --short for a compact list of project paths only.
+Use --json for JSON output.
 
 Examples:
   thinkt projects list                 # Detailed columns
   thinkt projects list --short         # Paths only, one per line
+  thinkt projects list --json          # JSON output
   thinkt projects list --source kimi   # Only Kimi projects`,
 	RunE: runProjectsList,
 }
@@ -115,6 +118,7 @@ func init() {
 
 	// List command flags
 	projectsListCmd.Flags().BoolVar(&shortFormat, "short", false, "show project paths only")
+	projectsListCmd.Flags().BoolVar(&jsonFormat, "json", false, "output in JSON format")
 
 	// Summary command flags
 	projectsSummaryCmd.Flags().StringVar(&summaryTemplate, "template", "", "custom Go text/template for output")
@@ -178,6 +182,10 @@ func runProjectsList(cmd *cobra.Command, args []string) error {
 	})
 
 	formatter := cli.NewProjectsFormatter(os.Stdout)
+
+	if jsonFormat {
+		return formatter.FormatJSON(projects)
+	}
 
 	if shortFormat {
 		return formatter.FormatShort(projects)
