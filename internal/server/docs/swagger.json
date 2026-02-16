@@ -371,6 +371,64 @@
                 }
             }
         },
+        "/sessions/{path}/resume": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the command, arguments, and working directory needed to resume a session in its original CLI tool (e.g., claude --resume)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "Get resume command for a session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session file path (URL-encoded)",
+                        "name": "path",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.ResumeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Source does not support resume",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/sources": {
             "get": {
                 "security": [
@@ -731,6 +789,23 @@
                 }
             }
         },
+        "server.ResumeResponse": {
+            "type": "object",
+            "properties": {
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "command": {
+                    "type": "string"
+                },
+                "dir": {
+                    "type": "string"
+                }
+            }
+        },
         "server.SearchMatch": {
             "type": "object",
             "properties": {
@@ -821,6 +896,9 @@
                 },
                 "base_path": {
                     "type": "string"
+                },
+                "can_resume": {
+                    "type": "boolean"
                 },
                 "name": {
                     "type": "string"

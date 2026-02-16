@@ -164,6 +164,27 @@ Examples:
 	RunE: runSessionsView,
 }
 
+var sessionsResumeCmd = &cobra.Command{
+	Use:   "resume [session]",
+	Short: "Resume a session in its original CLI tool",
+	Long: `Resume a session in its original CLI tool (e.g., claude --resume).
+
+If no session is specified, shows an interactive picker.
+Only sources that support resume (e.g., Claude Code, Kimi Code) are available.
+
+The session can be specified as:
+  - Full path to a known session file
+  - Session ID (requires -p/--project)
+  - Filename (requires -p/--project)
+
+Examples:
+  thinkt sessions resume                   # Interactive picker
+  thinkt sessions resume -p ./myproject abc123
+  thinkt sessions resume /full/path/to/session.jsonl`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runSessionsResume,
+}
+
 var sessionsResolveCmd = &cobra.Command{
 	Use:   "resolve <session>",
 	Short: "Resolve a session query to its canonical path",
@@ -492,6 +513,112 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 
 	// Run session browser: picker + viewer with back navigation via Shell
 	return tui.RunSessionBrowserWithRegistry(sessions, registry, projectDisplayName)
+}
+
+func runSessionsResume(cmd *cobra.Command, args []string) error {
+	registry := CreateSourceRegistry()
+	ctx := context.Background()
+
+	// Handle absolute path first
+	if len(args) > 0 && filepath.IsAbs(args[0]) {
+		_, meta, err := registry.ResolveSessionByPath(ctx, args[0])
+		if err != nil || meta == nil {
+			return fmt.Errorf("session not found: %s", args[0])
+		}
+		return execResume(registry, *meta)
+	}
+
+	var projectDisplayName string
+
+	// If no project specified and not forcing picker, try auto-detection from cwd
+	if sessionProject == "" && !sessionForcePicker {
+		cwd, err := os.Getwd()
+		if err == nil {
+			if project := registry.FindProjectForPath(ctx, cwd); project != nil {
+				sessionProject = project.ID
+				projectDisplayName = project.Name
+			}
+		}
+	}
+
+	// If still no project, show project picker
+	if sessionProject == "" {
+		projects, err := GetProjectsFromSources(registry, sessionSources)
+		if err != nil {
+			return err
+		}
+		if len(projects) == 0 {
+			fmt.Println("No projects found")
+			return nil
+		}
+		if !term.IsTerminal(int(os.Stdin.Fd())) {
+			return fmt.Errorf("--project/-p is required when no TTY available")
+		}
+		selected, err := tui.PickProject(projects)
+		if err != nil {
+			return err
+		}
+		if selected == nil {
+			return nil
+		}
+		sessionProject = selected.ID
+		projectDisplayName = selected.Name
+	}
+
+	logSelectedProject()
+
+	sessions, err := GetSessionsForProject(registry, sessionProject, sessionSources)
+	if err != nil {
+		return err
+	}
+	if len(sessions) == 0 {
+		return fmt.Errorf("no sessions found in project")
+	}
+
+	// If a session is specified, find and resume it
+	if len(args) > 0 {
+		sessionArg := args[0]
+		for _, s := range sessions {
+			if s.ID == sessionArg ||
+				strings.HasSuffix(s.FullPath, sessionArg) ||
+				strings.HasSuffix(s.FullPath, sessionArg+".jsonl") ||
+				strings.HasSuffix(s.FullPath, sessionArg+".json") {
+				return execResume(registry, s)
+			}
+		}
+		return fmt.Errorf("session not found: %s\n\nUse 'thinkt sessions list -p %s' to see available sessions", sessionArg, sessionProject)
+	}
+
+	// No session specified — show picker
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return fmt.Errorf("no session specified and no TTY available\n\nUsage: thinkt sessions resume -p <project> <session>")
+	}
+
+	title := "Resume session"
+	if projectDisplayName != "" {
+		title = projectDisplayName + " · " + title
+	}
+	selected, err := tui.PickSessionWithTitle(sessions, title)
+	if err != nil {
+		return err
+	}
+	if selected == nil {
+		return nil
+	}
+	return execResume(registry, *selected)
+}
+
+// execResume looks up the SessionResumer for a session's source and execs the resume command.
+func execResume(registry *thinkt.StoreRegistry, session thinkt.SessionMeta) error {
+	resumer, ok := registry.GetResumer(session.Source)
+	if !ok {
+		return fmt.Errorf("source %q does not support session resume", session.Source)
+	}
+	info, err := resumer.ResumeCommand(session)
+	if err != nil {
+		return err
+	}
+	return thinkt.ExecResume(info)
 }
 
 func runSessionsResolve(cmd *cobra.Command, args []string) error {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -100,6 +101,9 @@ const (
 	InitialPageProjects                    // Always start at projects list
 )
 
+// resumeFinishedMsg is sent when a resumed CLI process exits and the TUI resumes.
+type resumeFinishedMsg struct{}
+
 // Shell is the main TUI container with navigation
 type Shell struct {
 	width       int
@@ -146,11 +150,26 @@ func NewShellWithSessionsAndRegistry(sessions []thinkt.SessionMeta, registry *th
 	}
 
 	picker := NewSessionPickerModel(sessions, nil)
+	picker.SetResumableSources(s.resumableSources())
 	s.stack.items = append(s.stack.items, NavItem{
 		Title: title,
 		Model: picker,
 	})
 	return s
+}
+
+// resumableSources returns a set of sources that support session resume.
+func (s *Shell) resumableSources() map[thinkt.Source]bool {
+	if s.registry == nil {
+		return nil
+	}
+	result := make(map[thinkt.Source]bool)
+	for _, store := range s.registry.All() {
+		if _, ok := store.(thinkt.SessionResumer); ok {
+			result[store.Source()] = true
+		}
+	}
+	return result
 }
 
 // childHeight returns the height available for child models (terminal height minus header).
@@ -321,6 +340,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if len(allSessions) > 0 {
 						tuilog.Log.Info("Shell.Update: pushing session picker for auto-detected project", "sessionCount", len(allSessions))
 						picker := NewSessionPickerModel(allSessions, nil)
+						picker.SetResumableSources(s.resumableSources())
 						cmd := s.stack.Push(NavItem{
 							Title: project.Name,
 							Model: picker,
@@ -375,6 +395,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			tuilog.Log.Info("Shell.Update: pushing session picker", "sessionCount", len(allSessions))
 			picker := NewSessionPickerModel(allSessions, msg.SourceFilter)
+			picker.SetResumableSources(s.resumableSources())
 			cmd := s.stack.Push(NavItem{
 				Title: msg.Selected.Name,
 				Model: picker,
@@ -442,6 +463,37 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Model: viewer,
 			}, s.width, s.height)
 			cmds = append(cmds, cmd)
+		}
+
+	case ResumeSessionMsg:
+		tuilog.Log.Info("Shell.Update: ResumeSessionMsg received", "sessionID", msg.Session.ID, "source", msg.Session.Source)
+		if s.registry != nil {
+			if resumer, ok := s.registry.GetResumer(msg.Session.Source); ok {
+				info, err := resumer.ResumeCommand(msg.Session)
+				if err != nil {
+					tuilog.Log.Error("Shell.Update: ResumeCommand failed", "error", err)
+					return s, nil
+				}
+				tuilog.Log.Info("Shell.Update: executing resume", "command", info.Command, "args", info.Args, "dir", info.Dir)
+				c := exec.Command(info.Command, info.Args[1:]...)
+				if info.Dir != "" {
+					c.Dir = info.Dir
+				}
+				return s, tea.ExecProcess(c, func(err error) tea.Msg {
+					if err != nil {
+						tuilog.Log.Error("Shell.Update: resume process exited with error", "error", err)
+					}
+					return resumeFinishedMsg{}
+				})
+			}
+			tuilog.Log.Info("Shell.Update: source does not support resume", "source", msg.Session.Source)
+		}
+		return s, nil
+
+	case resumeFinishedMsg:
+		tuilog.Log.Info("Shell.Update: resume finished, re-rendering")
+		if s.hasWindowSize() {
+			cmds = append(cmds, s.windowSizeCmd())
 		}
 
 	case OpenSearchMsg:

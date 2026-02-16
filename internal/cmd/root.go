@@ -140,6 +140,7 @@ func init() {
 	sessionsCmd.AddCommand(sessionsDeleteCmd)
 	sessionsCmd.AddCommand(sessionsCopyCmd)
 	sessionsCmd.AddCommand(sessionsViewCmd)
+	sessionsCmd.AddCommand(sessionsResumeCmd)
 	sessionsCmd.AddCommand(sessionsResolveCmd)
 	sessionsResolveCmd.Flags().BoolVar(&sessionResolveJSON, "json", false, "output resolved session metadata as JSON")
 	promptsCmd.AddCommand(extractCmd)

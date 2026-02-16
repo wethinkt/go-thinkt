@@ -431,6 +431,7 @@ type SourceInfo struct {
 	Name         string `json:"name"`
 	Description  string `json:"description"`
 	Available    bool   `json:"available"`
+	CanResume    bool   `json:"can_resume"`
 	WorkspaceID  string `json:"workspace_id,omitempty"`
 	BasePath     string `json:"base_path,omitempty"`
 	ProjectCount int    `json:"project_count,omitempty"`
@@ -470,10 +471,12 @@ func (r *StoreRegistry) SourceStatus(ctx context.Context) []SourceInfo {
 	var infos []SourceInfo
 	for _, store := range r.All() {
 		ws := store.Workspace()
+		_, canResume := store.(SessionResumer)
 		info := SourceInfo{
-			Source:   store.Source(),
-			Name:     store.Source().String(),
-			BasePath: ws.BasePath,
+			Source:    store.Source(),
+			Name:      store.Source().String(),
+			BasePath:  ws.BasePath,
+			CanResume: canResume,
 		}
 
 		// Get project count to determine availability
@@ -487,6 +490,18 @@ func (r *StoreRegistry) SourceStatus(ctx context.Context) []SourceInfo {
 		infos = append(infos, info)
 	}
 	return infos
+}
+
+// GetResumer returns the SessionResumer for a source, if the store implements it.
+func (r *StoreRegistry) GetResumer(source Source) (SessionResumer, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	s, ok := r.stores[source]
+	if !ok {
+		return nil, false
+	}
+	resumer, ok := s.(SessionResumer)
+	return resumer, ok
 }
 
 // CacheTTLSetter is optionally implemented by Store and TeamStore to support

@@ -50,6 +50,7 @@ type SourcesResponse struct {
 type SourceInfo struct {
 	Name      string `json:"name"`
 	Available bool   `json:"available"`
+	CanResume bool   `json:"can_resume"`
 	BasePath  string `json:"base_path,omitempty"`
 }
 
@@ -107,6 +108,7 @@ func (s *HTTPServer) handleGetSources(w http.ResponseWriter, r *http.Request) {
 		sources = append(sources, SourceInfo{
 			Name:      string(info.Source),
 			Available: info.Available,
+			CanResume: info.CanResume,
 			BasePath:  info.BasePath,
 		})
 	}
@@ -308,6 +310,70 @@ func (s *HTTPServer) loadSession(ctx context.Context, path string, limit, offset
 		HasMore: hasMore,
 		Total:   total,
 	}, nil
+}
+
+// ResumeResponse returns the command to resume a session.
+type ResumeResponse struct {
+	Command string   `json:"command"`
+	Args    []string `json:"args"`
+	Dir     string   `json:"dir,omitempty"`
+}
+
+// handleResumeSession returns the command to resume a session in its original CLI tool.
+// @Summary Get resume command for a session
+// @Description Returns the command, arguments, and working directory needed to resume a session in its original CLI tool (e.g., claude --resume)
+// @Tags sessions
+// @Produce json
+// @Param path path string true "Session file path (URL-encoded)"
+// @Success 200 {object} ResumeResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse "Source does not support resume"
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
+// @Failure 500 {object} ErrorResponse
+// @Router /sessions/{path}/resume [get]
+// @Security BearerAuth
+func (s *HTTPServer) handleResumeSession(w http.ResponseWriter, r *http.Request) {
+	path := chi.URLParam(r, "*")
+	if path == "" {
+		writeError(w, http.StatusBadRequest, "missing_path", "Session path is required")
+		return
+	}
+
+	decoded, err := url.PathUnescape(path)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_path", err.Error())
+		return
+	}
+	path = decoded
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+
+	// Resolve the session to get its metadata (source, ID, etc.)
+	ctx := r.Context()
+	_, meta, err := s.registry.ResolveSessionByPath(ctx, path)
+	if err != nil || meta == nil {
+		writeError(w, http.StatusNotFound, "session_not_found", "No session found at path")
+		return
+	}
+
+	resumer, ok := s.registry.GetResumer(meta.Source)
+	if !ok {
+		writeError(w, http.StatusNotFound, "resume_not_supported", "Source does not support session resume")
+		return
+	}
+
+	info, err := resumer.ResumeCommand(*meta)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "resume_failed", err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, ResumeResponse{
+		Command: info.Command,
+		Args:    info.Args,
+		Dir:     info.Dir,
+	})
 }
 
 // OpenInRequest is the request body for the open-in endpoint.

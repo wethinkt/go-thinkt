@@ -45,6 +45,17 @@ definitions:
           $ref: '#/definitions/thinkt.Project'
         type: array
     type: object
+  server.ResumeResponse:
+    properties:
+      args:
+        items:
+          type: string
+        type: array
+      command:
+        type: string
+      dir:
+        type: string
+    type: object
   server.SearchMatch:
     properties:
       line_num:
@@ -104,6 +115,8 @@ definitions:
         type: boolean
       base_path:
         type: string
+      can_resume:
+        type: boolean
       name:
         type: string
     type: object
@@ -798,6 +811,44 @@ paths:
       security:
       - BearerAuth: []
       summary: Get session content
+      tags:
+      - sessions
+  /sessions/{path}/resume:
+    get:
+      description: Returns the command, arguments, and working directory needed to
+        resume a session in its original CLI tool (e.g., claude --resume)
+      parameters:
+      - description: Session file path (URL-encoded)
+        in: path
+        name: path
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.ResumeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing token
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: Source does not support resume
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get resume command for a session
       tags:
       - sessions
   /sources:

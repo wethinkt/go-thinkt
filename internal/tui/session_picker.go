@@ -137,6 +137,7 @@ func (d sessionDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 // ShortHelp returns key bindings for the help bar.
 func (d sessionDelegate) ShortHelp() []key.Binding {
 	return []key.Binding{
+		key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "resume")),
 		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "sources")),
 		key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "search")),
 	}
@@ -222,6 +223,12 @@ func (d sessionDelegate) Render(w io.Writer, m list.Model, index int, item list.
 	}
 }
 
+// ResumeSessionMsg signals that the user wants to resume a session
+// in its original CLI tool.
+type ResumeSessionMsg struct {
+	Session thinkt.SessionMeta
+}
+
 // SessionPickerResult holds the result of the session picker.
 type SessionPickerResult struct {
 	Selected  *thinkt.SessionMeta
@@ -230,18 +237,19 @@ type SessionPickerResult struct {
 
 // SessionPickerModel is a standalone session picker TUI.
 type SessionPickerModel struct {
-	list         list.Model
-	allSessions  []thinkt.SessionMeta // unfiltered sessions
-	sessions     []thinkt.SessionMeta // currently displayed (after filter)
-	result       SessionPickerResult
-	quitting     bool
-	width        int
-	height       int
-	ready        bool
-	standalone   bool // true when run via PickSession(), false when embedded in Shell
-	sourceFilter []thinkt.Source
-	showSources  bool
-	sourcePicker SourcePickerModel
+	list             list.Model
+	allSessions      []thinkt.SessionMeta // unfiltered sessions
+	sessions         []thinkt.SessionMeta // currently displayed (after filter)
+	result           SessionPickerResult
+	quitting         bool
+	width            int
+	height           int
+	ready            bool
+	standalone       bool // true when run via PickSession(), false when embedded in Shell
+	sourceFilter     []thinkt.Source
+	showSources      bool
+	sourcePicker     SourcePickerModel
+	resumableSources map[thinkt.Source]bool // sources that support session resume
 }
 
 type pickerKeyMap struct {
@@ -250,6 +258,7 @@ type pickerKeyMap struct {
 	Quit    key.Binding
 	Sources key.Binding
 	Search  key.Binding // / key for search
+	Resume  key.Binding
 }
 
 func defaultPickerKeyMap() pickerKeyMap {
@@ -273,6 +282,10 @@ func defaultPickerKeyMap() pickerKeyMap {
 		Search: key.NewBinding(
 			key.WithKeys("/"),
 			key.WithHelp("/", "search"),
+		),
+		Resume: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("r", "resume"),
 		),
 	}
 }
@@ -301,6 +314,17 @@ func NewSessionPickerModel(sessions []thinkt.SessionMeta, sourceFilter []thinkt.
 		sessions:     filtered,
 		sourceFilter: sourceFilter,
 	}
+}
+
+// SetResumableSources sets which sources support session resume.
+// When set, the 'r' key is only active for sessions from these sources.
+func (m *SessionPickerModel) SetResumableSources(sources map[thinkt.Source]bool) {
+	m.resumableSources = sources
+}
+
+// SetTitle overrides the list title.
+func (m *SessionPickerModel) SetTitle(title string) {
+	m.list.Title = title
 }
 
 func sessionPickerTitle(count int, sourceFilter []thinkt.Source) string {
@@ -474,6 +498,18 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Signal the shell to open search
 			return m, func() tea.Msg { return OpenSearchMsg{} }
 
+		case key.Matches(msg, keys.Resume):
+			tuilog.Log.Info("SessionPicker.Update: Resume key pressed")
+			if item := m.list.SelectedItem(); item != nil {
+				if si, ok := item.(pickerSessionItem); ok {
+					if m.resumableSources == nil || m.resumableSources[si.meta.Source] {
+						return m, func() tea.Msg { return ResumeSessionMsg{Session: si.meta} }
+					}
+					tuilog.Log.Info("SessionPicker.Update: source not resumable", "source", si.meta.Source)
+				}
+			}
+			return m, nil
+
 		case key.Matches(msg, keys.Enter):
 			tuilog.Log.Info("SessionPicker.Update: Enter key pressed")
 			if item := m.list.SelectedItem(); item != nil {
@@ -528,12 +564,20 @@ func (m SessionPickerModel) Result() SessionPickerResult {
 
 // PickSession runs the session picker and returns the selected session.
 func PickSession(sessions []thinkt.SessionMeta) (*thinkt.SessionMeta, error) {
+	return PickSessionWithTitle(sessions, "")
+}
+
+// PickSessionWithTitle runs the session picker with a custom title and returns the selected session.
+func PickSessionWithTitle(sessions []thinkt.SessionMeta, title string) (*thinkt.SessionMeta, error) {
 	if len(sessions) == 0 {
 		return nil, fmt.Errorf("no sessions available")
 	}
 
 	model := NewSessionPickerModel(sessions, nil)
 	model.standalone = true // Mark as standalone so it returns tea.Quit
+	if title != "" {
+		model.SetTitle(title)
+	}
 	p := tea.NewProgram(model)
 	finalModel, err := p.Run()
 	if err != nil {
