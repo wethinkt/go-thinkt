@@ -1,0 +1,170 @@
+# thinkt — AI Coding Session Explorer
+
+thinkt provides unified access to AI coding assistant session data.
+Supported sources: Claude Code, Kimi Code, Gemini CLI, GitHub Copilot CLI, Codex CLI.
+
+This guide is for LLMs and AI assistants using thinkt programmatically.
+Run: thinkt help llms | pbcopy  (or pipe into your context window)
+
+---
+
+## Data Model
+
+Source (claude | kimi | gemini | copilot | codex)
+  └── Project (directory where the AI assistant was used)
+        └── Session (JSONL conversation file)
+              └── Entry (single message: user | assistant | tool | system)
+                    └── ContentBlock (text | thinking | tool_use | tool_result)
+
+Teams (Claude Code only):
+  Source → Team → Members, Tasks, Messages
+
+---
+
+## CLI Commands (structured output)
+
+All commands below support --json for machine-readable output unless noted.
+
+  thinkt sources list [--json]          List available sources and status
+  thinkt projects list [--json]         List all projects (--source claude to filter)
+  thinkt sessions resolve [--json]      Resolve a session by ID or path
+  thinkt sessions resume <session>      Reopen a session in its original tool
+  thinkt teams [--json]                 List Claude Code teams and members
+  thinkt version [--json]               Version info
+  thinkt serve fingerprint [--json]     Server fingerprint (ports, PID)
+  thinkt theme [--json]                 Current theme
+
+  thinkt prompts extract -f json        Export prompts as structured JSON
+  thinkt sessions list                  List sessions (text output)
+  thinkt sessions view <id> [--raw]     View session content
+
+---
+
+## MCP Server
+
+thinkt exposes session data via Model Context Protocol (MCP).
+
+### Setup
+
+Claude Code:   claude mcp add --transport stdio thinkt -- thinkt serve mcp
+Kimi Code:     kimi mcp add --transport stdio thinkt -- thinkt serve mcp
+Gemini CLI:    gemini mcp add --transport stdio thinkt -- thinkt serve mcp
+
+Claude Desktop / others — add to config JSON:
+  {
+    "mcpServers": {
+      "thinkt": {
+        "command": "thinkt",
+        "args": ["serve", "mcp"]
+      }
+    }
+  }
+
+### MCP Tools
+
+  list_sources
+    Input:  (none)
+    Output: {sources: [{name, available, base_path}]}
+
+  list_projects
+    Input:  {source?: string}
+    Output: {projects: [{id, name, path, session_count, source}]}
+
+  list_sessions
+    Input:  {project_id: string}  (required)
+    Output: {sessions: [{id, path, created_at, modified_at, entry_count, file_size, source}]}
+
+  get_session_metadata
+    Input:  {path: string}  (required, full path to session file)
+    Output: {meta, description, role_counts, entry_summary[], total_entries, total_content_bytes}
+    Note:   Call this first to understand session size before fetching content.
+
+  get_session_entries
+    Input:  {path: string, limit?: 5, offset?: 0, entry_indices?: int[],
+             roles?: string[], max_content_length?: 500, include_thinking?: false}
+    Output: {entries[], has_more, total, returned}
+
+  search_sessions
+    Input:  {query: string, project?: string, source?: string,
+             limit?: 50, limit_per_session?: 2, case_sensitive?: false, regex?: false}
+    Output: {sessions: [{session_id, project_name, source, path, matches}], total_matches}
+    Note:   Requires thinkt-indexer to be installed and sessions indexed.
+
+  get_usage_stats
+    Input:  (none)
+    Output: {total_projects, total_sessions, total_entries, total_tokens, tool_usage}
+
+### MCP Best Practices
+
+  1. Call get_session_metadata first — understand session size before loading content
+  2. Paginate — default limit is 5; use offset to page through
+  3. Filter by role — use roles: ["user"] to get just prompts
+  4. Use entry_indices — fetch specific entries when you know which ones you need
+  5. Control content size — adjust max_content_length (0 = no truncation)
+  6. Thinking blocks — set include_thinking: true only when analyzing reasoning
+
+---
+
+## REST API
+
+Start server:  thinkt serve              (default: http://localhost:8784)
+Base URL:      http://localhost:8784/api/v1
+OpenAPI spec:  http://localhost:8784/swagger/doc.json
+
+### Authentication
+
+Set THINKT_API_TOKEN or use --token flag. Requests require:
+  Authorization: Bearer <token>
+Without a token, the API runs unauthenticated.
+
+### Endpoints
+
+  GET  /sources                           List sources
+  GET  /projects                          List all projects
+  GET  /projects?source=claude            Filter by source
+  GET  /projects/{projectID}/sessions     List sessions (projectID = URL-encoded path)
+  GET  /sessions/{path}?limit=10&offset=0 Get session content (path = URL-encoded)
+  GET  /themes                            List themes
+  GET  /open-in/apps                      List open-in apps
+  POST /open-in                           Open path in app
+
+### Example
+
+  path=$(python3 -c "import urllib.parse; print(urllib.parse.quote('/path/to/session.jsonl', safe=''))")
+  curl -H "Authorization: Bearer $THINKT_API_TOKEN" \
+       "http://localhost:8784/api/v1/sessions/$path?limit=10"
+
+### Response Shape (sessions)
+
+  {
+    "meta": {"id", "full_path", "created_at", "modified_at", "entry_count", "model", "source"},
+    "entries": [{"uuid", "role", "timestamp", "text", "content_blocks", "model", "usage"}],
+    "has_more": true,
+    "total": 42
+  }
+
+---
+
+## Environment Variables
+
+  THINKT_API_TOKEN        Bearer token for REST API authentication
+  THINKT_MCP_TOKEN        Bearer token for MCP server authentication
+  THINKT_MCP_ALLOW_TOOLS  Comma-separated list of allowed MCP tools
+  THINKT_MCP_DENY_TOOLS   Comma-separated list of denied MCP tools
+  THINKT_CORS_ORIGIN      CORS Access-Control-Allow-Origin header
+  THINKT_LOG_FILE         Write debug log to this file path
+  THINKT_PROFILE          Write CPU profile to this file path
+  THINKT_COPILOT_HOME     Override default Copilot CLI home directory
+
+---
+
+## Tips
+
+  - Prefer MCP when available — it is the most direct integration path
+  - Start with metadata — check session size before loading full content
+  - Paginate large sessions — sessions can have hundreds of entries
+  - Filter by role — often you only need user or assistant messages
+  - Use search — search_sessions uses full-text search across all indexed sessions
+  - Session resume — thinkt sessions resume can reopen a session in the original tool
+  - OpenAPI discovery — GET /swagger/doc.json on a running server for full API spec
+  - This output is pipe-friendly — thinkt help llms is designed to be piped into context

@@ -148,6 +148,9 @@ func init() {
 	promptsCmd.AddCommand(infoCmd)
 	promptsCmd.AddCommand(templatesCmd)
 
+	helpCmd.AddCommand(helpLlmsCmd)
+	rootCmd.SetHelpCommand(helpCmd)
+
 	rootCmd.AddCommand(tuiCmd)
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(promptsCmd)
