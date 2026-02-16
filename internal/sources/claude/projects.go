@@ -202,8 +202,7 @@ func ListProjects(baseDir string) ([]Project, error) {
 
 // ListProjectSessions returns session metadata for a project directory.
 // Uses sessions-index.json when available for fast metadata access,
-// falls back to stat-based listing. Sessions missing a FirstPrompt are
-// backfilled by reading the first user message from their JSONL file.
+// falls back to stat-based listing.
 func ListProjectSessions(projectDir string) ([]SessionMeta, error) {
 	var sessions []SessionMeta
 
@@ -225,7 +224,19 @@ func ListProjectSessions(projectDir string) ([]SessionMeta, error) {
 		}
 	}
 
-	// Backfill missing FirstPrompt/Model from JSONL content
+	return sessions, nil
+}
+
+// ListProjectSessionsBackfill is like ListProjectSessions but additionally
+// opens each JSONL file missing a FirstPrompt or Model to extract them.
+// Use this when display-quality metadata is needed and the cost of scanning
+// session files is acceptable.
+func ListProjectSessionsBackfill(projectDir string) ([]SessionMeta, error) {
+	sessions, err := ListProjectSessions(projectDir)
+	if err != nil {
+		return nil, err
+	}
+
 	for i := range sessions {
 		if sessions[i].FullPath != "" && (sessions[i].FirstPrompt == "" || sessions[i].Model == "") {
 			prompt, model := extractSessionHints(sessions[i].FullPath)

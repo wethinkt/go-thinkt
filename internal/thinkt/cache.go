@@ -1,6 +1,7 @@
 package thinkt
 
 import (
+	"sync"
 	"time"
 )
 
@@ -12,6 +13,7 @@ import (
 // When TTL is set (via SetTTL), cached data expires and is transparently
 // refetched on the next access. With TTL=0 (default), data is cached forever.
 type StoreCache struct {
+	mu   sync.RWMutex
 	name string // identifies this cache in log messages
 	ttl  time.Duration
 
@@ -44,6 +46,8 @@ func (c *StoreCache) SetName(name string) {
 // GetProjects returns the cached project list and whether it was cached.
 // Returns not-cached if the TTL has expired.
 func (c *StoreCache) GetProjects() ([]Project, error, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if !c.projectsCached {
 		return nil, nil, false
 	}
@@ -55,6 +59,8 @@ func (c *StoreCache) GetProjects() ([]Project, error, bool) {
 
 // SetProjects stores the project list in the cache.
 func (c *StoreCache) SetProjects(projects []Project, err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.projectsCached = true
 	c.projectsCachedAt = time.Now()
 	c.projects = projects
@@ -64,6 +70,8 @@ func (c *StoreCache) SetProjects(projects []Project, err error) {
 // GetSessions returns the cached session list for a project and whether it was cached.
 // Returns not-cached if the TTL has expired.
 func (c *StoreCache) GetSessions(projectID string) ([]SessionMeta, error, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if c.sessions == nil {
 		return nil, nil, false
 	}
@@ -79,6 +87,8 @@ func (c *StoreCache) GetSessions(projectID string) ([]SessionMeta, error, bool) 
 
 // SetSessions stores the session list for a project in the cache.
 func (c *StoreCache) SetSessions(projectID string, sessions []SessionMeta, err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.sessions == nil {
 		c.sessions = make(map[string]*sessionsCacheEntry)
 	}
@@ -91,6 +101,8 @@ func (c *StoreCache) SetSessions(projectID string, sessions []SessionMeta, err e
 
 // Reset clears all cached data, forcing the next calls to rescan.
 func (c *StoreCache) Reset() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.projectsCached = false
 	c.projects = nil
 	c.projectsErr = nil

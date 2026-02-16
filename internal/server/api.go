@@ -241,6 +241,14 @@ func (s *HTTPServer) handleGetSession(w http.ResponseWriter, r *http.Request) {
 		path = "/" + path
 	}
 
+	// Delegate /sessions/<path>/resume to the resume handler.
+	// Chi's wildcard matches the entire suffix, so the resume route
+	// pattern (/sessions/resume/*) only works when "resume" comes first.
+	if sessionPath, ok := strings.CutSuffix(path, "/resume"); ok {
+		s.doResumeSession(w, r, sessionPath)
+		return
+	}
+
 	// Parse query params
 	limit := 0
 	offset := 0
@@ -349,7 +357,11 @@ func (s *HTTPServer) handleResumeSession(w http.ResponseWriter, r *http.Request)
 		path = "/" + path
 	}
 
-	// Resolve the session to get its metadata (source, ID, etc.)
+	s.doResumeSession(w, r, path)
+}
+
+// doResumeSession resolves a session by path and returns its resume command.
+func (s *HTTPServer) doResumeSession(w http.ResponseWriter, r *http.Request, path string) {
 	ctx := r.Context()
 	_, meta, err := s.registry.ResolveSessionByPath(ctx, path)
 	if err != nil || meta == nil {

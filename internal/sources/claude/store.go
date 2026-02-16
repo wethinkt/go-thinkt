@@ -3,6 +3,7 @@ package claude
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -150,53 +151,81 @@ func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.Se
 
 // GetSessionMeta returns session metadata.
 func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.SessionMeta, error) {
-	// sessionID could be full path or just UUID
-	// Try to find it by listing sessions in the project
-	
-	// If sessionID contains a path separator, extract the project dir
-	var projectDir string
+	// sessionID could be full path or just UUID.
 	if filepath.IsAbs(sessionID) {
-		projectDir = filepath.Dir(sessionID)
-	} else {
-		// Need to search - try to find in all projects
-		projects, _ := s.ListProjects(ctx)
-		for _, p := range projects {
-			// p.ID is the actual directory path, p.Path is the decoded full path
-			sessions, _ := s.ListSessions(ctx, p.ID)
-			for _, sess := range sessions {
-				if sess.ID == sessionID {
-					return &sess, nil
-				}
+		return s.getSessionMetaByPath(sessionID)
+	}
+
+	// UUID-only: search across all projects (uses cache).
+	projects, _ := s.ListProjects(ctx)
+	for _, p := range projects {
+		sessions, _ := s.ListSessions(ctx, p.ID)
+		for _, sess := range sessions {
+			if sess.ID == sessionID {
+				return &sess, nil
 			}
-		}
-		return nil, nil
-	}
-
-	// List sessions in the project directory
-	sessions, err := ListProjectSessions(projectDir)
-	if err != nil {
-		return nil, err
-	}
-
-	ws := s.Workspace()
-	for _, sess := range sessions {
-		if sess.SessionID == sessionID || sess.FullPath == sessionID {
-			return &thinkt.SessionMeta{
-				ID:          sess.SessionID,
-				ProjectPath: projectDir,
-				FullPath:    sess.FullPath,
-				FirstPrompt: sess.FirstPrompt,
-				Summary:     sess.Summary,
-				EntryCount:  sess.MessageCount,
-				CreatedAt:   sess.Created,
-				ModifiedAt:  sess.Modified,
-				GitBranch:   sess.GitBranch,
-				Source:      thinkt.SourceClaude,
-				WorkspaceID: ws.ID,
-			}, nil
 		}
 	}
 	return nil, nil
+}
+
+// getSessionMetaByPath is the fast path for absolute paths. It reads only the
+// sessions-index.json in the parent directory to find the specific session,
+// avoiding the expensive backfill (extractSessionHints) that ListProjectSessions
+// performs on every sibling. If the index doesn't exist, it falls back to a
+// single os.Stat on the file.
+func (s *Store) getSessionMetaByPath(sessionPath string) (*thinkt.SessionMeta, error) {
+	projectDir := filepath.Dir(sessionPath)
+	ws := s.Workspace()
+
+	// Try sessions-index.json for a direct lookup.
+	indexPath := filepath.Join(projectDir, "sessions-index.json")
+	if data, err := os.ReadFile(indexPath); err == nil {
+		var idx sessionsIndex
+		if err := json.Unmarshal(data, &idx); err == nil {
+			for _, e := range idx.Entries {
+				fullPath := e.FullPath
+				if fullPath == "" && e.SessionID != "" {
+					fullPath = filepath.Join(projectDir, e.SessionID+".jsonl")
+				}
+				if fullPath == sessionPath || e.SessionID+".jsonl" == filepath.Base(sessionPath) {
+					created, _ := time.Parse(time.RFC3339, e.CreatedStr)
+					modified, _ := time.Parse(time.RFC3339, e.ModifiedStr)
+					if modified.IsZero() && e.FileMtime > 0 {
+						modified = time.UnixMilli(e.FileMtime)
+					}
+					return &thinkt.SessionMeta{
+						ID:          e.SessionID,
+						ProjectPath: projectDir,
+						FullPath:    fullPath,
+						FirstPrompt: e.FirstPrompt,
+						Summary:     e.Summary,
+						EntryCount:  e.MessageCount,
+						CreatedAt:   created,
+						ModifiedAt:  modified,
+						GitBranch:   e.GitBranch,
+						Source:      thinkt.SourceClaude,
+						WorkspaceID: ws.ID,
+					}, nil
+				}
+			}
+		}
+	}
+
+	// No index or session not in index — stat the file directly.
+	info, err := os.Stat(sessionPath)
+	if err != nil {
+		return nil, nil // not found
+	}
+	sessionID := strings.TrimSuffix(filepath.Base(sessionPath), ".jsonl")
+	return &thinkt.SessionMeta{
+		ID:          sessionID,
+		ProjectPath: projectDir,
+		FullPath:    sessionPath,
+		ModifiedAt:  info.ModTime(),
+		Source:      thinkt.SourceClaude,
+		WorkspaceID: ws.ID,
+	}, nil
 }
 
 // LoadSession loads a complete session.
