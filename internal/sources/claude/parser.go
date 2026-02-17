@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/jsonl"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 // Parser reads Claude Code JSONL trace files.
@@ -20,11 +21,7 @@ type Parser struct {
 
 // NewParser creates a parser from an io.Reader.
 func NewParser(r io.Reader) *Parser {
-	scanner := bufio.NewScanner(r)
-	// Increase buffer size for long lines (some tool results can be large)
-	const maxCapacity = 10 * 1024 * 1024 // 10MB
-	buf := make([]byte, 0, 128*1024)
-	scanner.Buffer(buf, maxCapacity)
+	scanner := thinkt.NewScannerWithMaxCapacityCustom(r, 128*1024, thinkt.MaxLineCapacity)
 
 	return &Parser{
 		scanner: scanner,

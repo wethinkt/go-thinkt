@@ -154,7 +154,7 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 	// sessionID could be full path or just UUID.
 	if filepath.IsAbs(sessionID) {
 		// Validate path is under this store's base directory
-		if !strings.HasPrefix(sessionID, s.baseDir) {
+		if err := thinkt.ValidateSessionPath(sessionID, s.baseDir); err != nil {
 			return nil, nil
 		}
 		return s.getSessionMetaByPath(sessionID)

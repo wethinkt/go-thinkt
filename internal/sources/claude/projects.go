@@ -1,7 +1,6 @@
 package claude
 
 import (
-	"bufio"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -9,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 // Project represents a Claude Code project directory.
@@ -316,10 +317,7 @@ func extractSessionHints(path string) (firstPrompt, model string) {
 	}
 	defer f.Close()
 
-	scanner := bufio.NewScanner(f)
-	// Use a generous buffer - some early lines can be large (system prompts)
-	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, 1*1024*1024) // 1MB max per line
+	scanner := thinkt.NewScannerWithMaxCapacityCustom(f, 64*1024, 1*1024*1024)
 
 	for i := 0; i < 50 && scanner.Scan(); i++ {
 		line := scanner.Bytes()

@@ -20,11 +20,7 @@ type SessionPickerItem struct {
 
 func (i SessionPickerItem) Title() string {
 	if i.Session.FirstPrompt != "" {
-		text := i.Session.FirstPrompt
-		if len(text) > 50 {
-			text = text[:50] + "..."
-		}
-		return text
+		return thinkt.TruncateString(i.Session.FirstPrompt, thinkt.DefaultTruncateLength)
 	}
 	return i.Session.ID[:8]
 }

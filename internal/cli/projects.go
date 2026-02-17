@@ -232,9 +232,7 @@ func (f *ProjectsFormatter) FormatSummary(projects []thinkt.Project, projectSess
 					name = s.ID
 				}
 				// Truncate long first prompts
-				if len(name) > 50 {
-					name = name[:47] + "..."
-				}
+				name = thinkt.TruncateString(name, thinkt.DefaultTruncateLength)
 				var sessModified string
 				if !s.ModifiedAt.IsZero() {
 					sessModified = s.ModifiedAt.Format("2006-01-02 15:04")

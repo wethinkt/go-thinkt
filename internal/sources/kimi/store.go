@@ -250,10 +250,7 @@ func (s *Store) countEntriesAndFirstPrompt(path string) (int, string) {
 					}
 					if err := json.Unmarshal(line, &entry); err == nil {
 						if entry.Role == "user" && entry.Content != "" {
-							firstPrompt = entry.Content
-							if len(firstPrompt) > 50 {
-								firstPrompt = firstPrompt[:50] + "..."
-							}
+							firstPrompt = thinkt.TruncateString(entry.Content, thinkt.DefaultTruncateLength)
 						}
 					}
 				}
@@ -275,10 +272,7 @@ func (s *Store) countEntriesAndFirstPrompt(path string) (int, string) {
 			}
 			if err := json.Unmarshal(line, &entry); err == nil {
 				if entry.Role == "user" && entry.Content != "" {
-					firstPrompt = entry.Content
-					if len(firstPrompt) > 50 {
-						firstPrompt = firstPrompt[:50] + "..."
-					}
+					firstPrompt = thinkt.TruncateString(entry.Content, thinkt.DefaultTruncateLength)
 				}
 			}
 		}
@@ -292,10 +286,10 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 	// Support absolute path lookups for context.jsonl files.
 	if filepath.IsAbs(sessionID) {
 		// Validate path is under this store's base directory
-		if !strings.HasPrefix(sessionID, s.baseDir) {
+		if err := thinkt.ValidateSessionPath(sessionID, s.baseDir); err != nil {
 			return nil, nil
 		}
-		
+
 		sessionDir := filepath.Dir(sessionID)
 		uuid := filepath.Base(sessionDir)
 		hash := filepath.Base(filepath.Dir(sessionDir))

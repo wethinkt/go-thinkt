@@ -1,7 +1,6 @@
 package codex
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"io"
@@ -169,10 +168,10 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 	// Fast path for absolute file path lookups.
 	if filepath.IsAbs(sessionID) {
 		// Validate path is under this store's base directory
-		if !strings.HasPrefix(sessionID, s.baseDir) {
+		if err := thinkt.ValidateSessionPath(sessionID, s.baseDir); err != nil {
 			return nil, nil
 		}
-		
+
 		if _, err := os.Stat(sessionID); os.IsNotExist(err) {
 			return nil, nil
 		}
@@ -311,8 +310,7 @@ func (s *Store) readSessionMeta(path, workspaceID string) (*thinkt.SessionMeta, 
 	}
 	defer f.Close()
 
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+	scanner := thinkt.NewScannerWithMaxCapacityCustom(f, 64*1024, thinkt.MaxScannerCapacity)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {

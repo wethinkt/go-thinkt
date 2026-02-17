@@ -285,13 +285,8 @@ func (s *Store) readSessionMeta(path, projectHash string, size int64, modTime ti
 	}
 
 	// Read first few lines to extract metadata
-	scanner := bufio.NewScanner(f)
-	// Qwen entries can be very large (especially systemPayload with API responses)
-	// Set max buffer size to 10MB to handle large entries
-	const maxCapacity = 10 * 1024 * 1024
-	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, maxCapacity)
-	
+	scanner := thinkt.NewScannerWithMaxCapacity(f)
+
 	lineCount := 0
 	maxLines := 100 // Read first 100 lines to get metadata
 
@@ -325,10 +320,7 @@ func (s *Store) readSessionMeta(path, projectHash string, size int64, modTime ti
 			if err := json.Unmarshal(entry.Message, &msg); err == nil {
 				for _, part := range msg.Parts {
 					if part.Text != "" {
-						meta.FirstPrompt = part.Text
-						if len(meta.FirstPrompt) > 50 {
-							meta.FirstPrompt = meta.FirstPrompt[:47] + "..."
-						}
+						meta.FirstPrompt = thinkt.TruncateString(part.Text, thinkt.DefaultTruncateLength)
 						break
 					}
 				}
@@ -362,12 +354,8 @@ func (s *Store) countEntries(path string) int {
 	defer f.Close()
 
 	count := 0
-	scanner := bufio.NewScanner(f)
-	// Qwen entries can be very large - set max buffer to 10MB
-	const maxCapacity = 10 * 1024 * 1024
-	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, maxCapacity)
-	
+	scanner := thinkt.NewScannerWithMaxCapacity(f)
+
 	for scanner.Scan() {
 		if len(strings.TrimSpace(scanner.Text())) > 0 {
 			count++
@@ -381,10 +369,10 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 	// Fast path: if sessionID is a path
 	if filepath.IsAbs(sessionID) {
 		// Validate path is under this store's base directory
-		if !strings.HasPrefix(sessionID, s.baseDir) {
+		if err := thinkt.ValidateSessionPath(sessionID, s.baseDir); err != nil {
 			return nil, nil
 		}
-		
+
 		info, err := os.Stat(sessionID)
 		if err != nil {
 			return nil, err
@@ -461,12 +449,7 @@ func (s *Store) OpenSession(ctx context.Context, sessionID string) (thinkt.Sessi
 		return nil, err
 	}
 
-	scanner := bufio.NewScanner(f)
-	// Qwen entries can be very large (especially systemPayload with API responses)
-	// Set max buffer size to 10MB to handle large entries
-	const maxCapacity = 10 * 1024 * 1024
-	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, maxCapacity)
+	scanner := thinkt.NewScannerWithMaxCapacity(f)
 
 	return &qwenReader{
 		scanner: scanner,

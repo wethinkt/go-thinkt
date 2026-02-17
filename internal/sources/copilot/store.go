@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -159,10 +158,10 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 	// Support absolute path lookups for API/MCP/TUI path-based entry points.
 	if filepath.IsAbs(sessionID) {
 		// Validate path is under this store's base directory
-		if !strings.HasPrefix(sessionID, s.baseDir) {
+		if err := thinkt.ValidateSessionPath(sessionID, s.baseDir); err != nil {
 			return nil, nil
 		}
-		
+
 		if _, err := os.Stat(sessionID); os.IsNotExist(err) {
 			return nil, nil
 		}

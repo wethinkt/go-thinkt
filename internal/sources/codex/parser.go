@@ -26,9 +26,7 @@ type logLine struct {
 
 // NewParser creates a new Codex parser.
 func NewParser(r io.Reader, sessionID string) *Parser {
-	scanner := bufio.NewScanner(r)
-	// Codex lines may embed large tool outputs and instruction payloads.
-	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+	scanner := thinkt.NewScannerWithMaxCapacityCustom(r, 64*1024, thinkt.MaxScannerCapacity)
 	return &Parser{
 		scanner:   scanner,
 		sessionID: sessionID,

@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -95,8 +94,7 @@ func detectJSONLSessionType(path string) (string, error) {
 	}
 	defer f.Close()
 
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+	scanner := thinkt.NewScannerWithMaxCapacityCustom(f, 64*1024, thinkt.MaxScannerCapacity)
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
