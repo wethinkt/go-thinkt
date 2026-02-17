@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
@@ -47,6 +48,25 @@ func (d *Discoverer) IsAvailable() (bool, error) {
 		return false, nil
 	}
 	return len(projects) > 0, nil
+}
+
+// IsSessionPath reports whether path looks like a Codex session file.
+func IsSessionPath(path string) bool {
+	if filepath.Ext(path) != ".jsonl" {
+		return false
+	}
+	baseDir := (&Discoverer{}).basePath()
+	if baseDir != "" && strings.HasPrefix(filepath.Clean(path), filepath.Clean(baseDir)) {
+		return true
+	}
+	clean := filepath.Clean(path)
+	parts := strings.Split(clean, string(os.PathSeparator))
+	for i := 0; i < len(parts)-1; i++ {
+		if parts[i] == ".codex" && i+1 < len(parts) && parts[i+1] == "sessions" {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *Discoverer) basePath() string {

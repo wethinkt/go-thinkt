@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
@@ -83,6 +84,19 @@ func DefaultDir() (string, error) {
 		return "", err
 	}
 	return filepath.Join(home, ".kimi"), nil
+}
+
+// IsSessionPath reports whether path looks like a Kimi session file.
+func IsSessionPath(path string) bool {
+	base := filepath.Base(path)
+	if base == "context.jsonl" || (strings.HasPrefix(base, "context_sub_") && strings.HasSuffix(base, ".jsonl")) {
+		return true
+	}
+	dir, _ := DefaultDir()
+	if dir != "" && strings.HasPrefix(filepath.Clean(path), filepath.Clean(dir)) {
+		return true
+	}
+	return false
 }
 
 // Factory returns a thinkt.StoreFactory for Kimi.

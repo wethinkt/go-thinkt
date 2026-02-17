@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
@@ -68,6 +69,18 @@ func (d *Discoverer) basePath() string {
 	}
 
 	return claudeDir
+}
+
+// IsSessionPath reports whether path looks like a Claude session file.
+func IsSessionPath(path string) bool {
+	if filepath.Ext(path) != ".jsonl" {
+		return false
+	}
+	baseDir := (&Discoverer{}).basePath()
+	if baseDir != "" && strings.HasPrefix(filepath.Clean(path), filepath.Clean(baseDir)) {
+		return true
+	}
+	return false
 }
 
 // CreateTeamStore creates a TeamStore for Claude Code teams.

@@ -4,6 +4,7 @@ package qwen
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
@@ -35,6 +36,25 @@ func (f *qwenFactory) IsAvailable() (bool, error) {
 		return false, nil
 	}
 	return err == nil, err
+}
+
+// IsSessionPath reports whether path looks like a Qwen session file.
+func IsSessionPath(path string) bool {
+	if filepath.Ext(path) != ".jsonl" {
+		return false
+	}
+	clean := filepath.Clean(path)
+	baseDir := getBaseDir()
+	if baseDir != "" && strings.HasPrefix(clean, filepath.Clean(baseDir)) {
+		return true
+	}
+	parts := strings.Split(clean, string(os.PathSeparator))
+	for i := 0; i < len(parts)-1; i++ {
+		if parts[i] == ".qwen" && i+1 < len(parts) && parts[i+1] == "projects" {
+			return true
+		}
+	}
+	return false
 }
 
 // getBaseDir returns the base directory for Qwen data.

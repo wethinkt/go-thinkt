@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
@@ -65,6 +66,18 @@ func (d *Discoverer) basePath() string {
 	}
 
 	return copilotDir
+}
+
+// IsSessionPath reports whether path looks like a Copilot session file.
+func IsSessionPath(path string) bool {
+	if filepath.Base(path) == "events.jsonl" {
+		return true
+	}
+	baseDir := (&Discoverer{}).basePath()
+	if baseDir != "" && strings.HasPrefix(filepath.Clean(path), filepath.Clean(baseDir)) {
+		return true
+	}
+	return false
 }
 
 // Factory returns a thinkt.StoreFactory for Copilot.

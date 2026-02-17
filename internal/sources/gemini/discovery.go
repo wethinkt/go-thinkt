@@ -3,6 +3,7 @@ package gemini
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
@@ -52,6 +53,18 @@ func (f *Discoverer) IsAvailable() (bool, error) {
 	}
 
 	return len(entries) > 0, nil
+}
+
+// IsSessionPath reports whether path looks like a Gemini session file.
+func IsSessionPath(path string) bool {
+	if filepath.Ext(path) != ".json" {
+		return false
+	}
+	baseDir := (&Discoverer{}).basePath()
+	if baseDir != "" && strings.HasPrefix(filepath.Clean(path), filepath.Clean(baseDir)) {
+		return true
+	}
+	return false
 }
 
 // basePath returns the Gemini base directory.

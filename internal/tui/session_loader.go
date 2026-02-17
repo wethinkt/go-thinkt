@@ -15,6 +15,7 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/sources/copilot"
 	"github.com/wethinkt/go-thinkt/internal/sources/gemini"
 	"github.com/wethinkt/go-thinkt/internal/sources/kimi"
+	"github.com/wethinkt/go-thinkt/internal/sources/qwen"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
@@ -24,16 +25,19 @@ import (
 func OpenLazySession(path string) (thinkt.LazySession, error) {
 	tuilog.Log.Info("OpenLazySession: opening", "path", path)
 	switch {
-	case isKimiSession(path):
+	case kimi.IsSessionPath(path):
 		tuilog.Log.Info("OpenLazySession: detected as kimi session")
 		return openKimiLazySession(path)
-	case isCodexSession(path):
+	case codex.IsSessionPath(path):
 		tuilog.Log.Info("OpenLazySession: detected as codex session")
 		return openCodexLazySession(path)
-	case isCopilotSession(path):
+	case copilot.IsSessionPath(path):
 		tuilog.Log.Info("OpenLazySession: detected as copilot session")
 		return openCopilotLazySession(path)
-	case isGeminiSession(path):
+	case qwen.IsSessionPath(path):
+		tuilog.Log.Info("OpenLazySession: detected as qwen session")
+		return openQwenLazySession(path)
+	case gemini.IsSessionPath(path):
 		tuilog.Log.Info("OpenLazySession: detected as gemini session")
 		return openGeminiLazySession(path)
 	case isJSONLSession(path):
@@ -48,6 +52,9 @@ func OpenLazySession(path string) (thinkt.LazySession, error) {
 		case "codex":
 			tuilog.Log.Info("OpenLazySession: detected as codex session")
 			return openCodexLazySession(path)
+		case "qwen":
+			tuilog.Log.Info("OpenLazySession: detected as qwen session")
+			return openQwenLazySession(path)
 		default:
 			return nil, fmt.Errorf("unsupported jsonl session format: %s", path)
 		}
@@ -77,38 +84,6 @@ func OpenLazySessionWithRegistry(path string, registry *thinkt.StoreRegistry) (t
 	return nil, directErr
 }
 
-// isKimiSession detects if the path is a Kimi session file.
-// Kimi sessions are stored as context.jsonl in ~/.kimi/sessions/{hash}/{uuid}/
-func isKimiSession(path string) bool {
-	base := filepath.Base(path)
-	return base == "context.jsonl" || (strings.HasPrefix(base, "context_sub_") && strings.HasSuffix(base, ".jsonl"))
-}
-
-// isCopilotSession detects Copilot events.jsonl files.
-func isCopilotSession(path string) bool {
-	return filepath.Base(path) == "events.jsonl"
-}
-
-// isCodexSession detects Codex CLI session logs.
-func isCodexSession(path string) bool {
-	if filepath.Ext(path) != ".jsonl" {
-		return false
-	}
-	clean := filepath.Clean(path)
-	parts := strings.Split(clean, string(os.PathSeparator))
-	for i := 0; i < len(parts)-1; i++ {
-		if parts[i] == ".codex" && i+1 < len(parts) && parts[i+1] == "sessions" {
-			return true
-		}
-	}
-	return false
-}
-
-// isGeminiSession detects Gemini chat JSON files.
-func isGeminiSession(path string) bool {
-	return filepath.Ext(path) == ".json"
-}
-
 func isJSONLSession(path string) bool {
 	return filepath.Ext(path) == ".jsonl"
 }
@@ -132,6 +107,11 @@ func detectJSONLSessionType(path string) (string, error) {
 		var obj map[string]any
 		if err := json.Unmarshal([]byte(line), &obj); err != nil {
 			continue
+		}
+
+		// Qwen entries have "sessionId" alongside "type" and "message".
+		if _, hasSessionID := obj["sessionId"]; hasSessionID {
+			return "qwen", nil
 		}
 
 		// Claude JSONL entries include both "type" and "message" on message lines.
@@ -235,6 +215,17 @@ func openGeminiLazySession(path string) (thinkt.LazySession, error) {
 	reader, err := store.OpenSession(context.Background(), path)
 	if err != nil {
 		return nil, fmt.Errorf("open gemini session: %w", err)
+	}
+	return thinkt.NewLazySession(reader)
+}
+
+// openQwenLazySession opens a Qwen session via the source store.
+func openQwenLazySession(path string) (thinkt.LazySession, error) {
+	store := qwen.NewStore("")
+
+	reader, err := store.OpenSession(context.Background(), path)
+	if err != nil {
+		return nil, fmt.Errorf("open qwen session: %w", err)
 	}
 	return thinkt.NewLazySession(reader)
 }
