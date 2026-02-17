@@ -12,5 +12,5 @@ func DefaultApps() []AppConfig {
 			Enabled: checkCommandExists("xdg-open"),
 		},
 	}
-	return append(apps, editorApps()...)
+	return filterAvailable(append(apps, commonApps()...))
 }

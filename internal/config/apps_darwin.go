@@ -28,8 +28,20 @@ func DefaultApps() []AppConfig {
 			Exec:    []string{"open", "-a", "iTerm", "{}"},
 			Enabled: checkAppExists("iTerm"),
 		},
+		{
+			ID:      "xcode",
+			Name:    "Xcode",
+			Exec:    []string{"open", "-a", "Xcode", "{}"},
+			Enabled: checkAppExists("Xcode"),
+		},
+		{
+			ID:      "conductor",
+			Name:    "Conductor",
+			Exec:    []string{"open", "-a", "Conductor", "{}"},
+			Enabled: checkAppExists("Conductor"),
+		},
 	}
-	return append(apps, editorApps()...)
+	return filterAvailable(append(apps, commonApps()...))
 }
 
 // checkAppExists checks if a macOS app exists in /Applications.

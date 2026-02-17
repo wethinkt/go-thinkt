@@ -23,6 +23,12 @@ func DefaultApps() []AppConfig {
 			Exec:    []string{"cmd", "/c", "start", "cmd", "/k", "cd", "/d", "{}"},
 			Enabled: true,
 		},
+		{
+			ID:      "powershell",
+			Name:    "PowerShell",
+			Exec:    []string{"pwsh", "{}"},
+			Enabled: checkCommandExists("pwsh"),
+		},
 	}
-	return append(apps, editorApps()...)
+	return filterAvailable(append(apps, commonApps()...))
 }

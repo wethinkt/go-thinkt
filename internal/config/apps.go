@@ -83,29 +83,17 @@ func (a AppConfig) Launch(validatedPath string) error {
 	return nil
 }
 
-// editorApps returns cross-platform editor app configurations.
-func editorApps() []AppConfig {
-	return []AppConfig{
-		{
-			ID:      "vscode",
-			Name:    "VS Code",
-			Exec:    []string{"code", "{}"},
-			Enabled: checkCommandExists("code"),
-		},
-		{
-			ID:      "cursor",
-			Name:    "Cursor",
-			Exec:    []string{"cursor", "{}"},
-			Enabled: checkCommandExists("cursor"),
-		},
-		{
-			ID:      "zed",
-			Name:    "Zed",
-			Exec:    []string{"zed", "{}"},
-			Enabled: checkCommandExists("zed"),
-		},
+// filterAvailable returns only apps that were probed as available (Enabled == true).
+func filterAvailable(apps []AppConfig) []AppConfig {
+	var available []AppConfig
+	for _, app := range apps {
+		if app.Enabled {
+			available = append(available, app)
+		}
 	}
+	return available
 }
+
 
 // checkCommandExists checks if a command is available in PATH.
 func checkCommandExists(cmd string) bool {

@@ -40,7 +40,12 @@ func Load() (Config, error) {
 
 	data, err := os.ReadFile(configPath)
 	if os.IsNotExist(err) {
-		return Default(), nil
+		cfg := Default()
+		// Persist the initial config with probed apps to disk
+		if saveErr := Save(cfg); saveErr != nil {
+			return cfg, nil // return defaults even if save fails
+		}
+		return cfg, nil
 	} else if err != nil {
 		return Config{}, err
 	}

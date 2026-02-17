@@ -17,6 +17,36 @@ func DefaultApps() []AppConfig {
 			Exec:    []string{"x-terminal-emulator", "{}"},
 			Enabled: checkCommandExists("x-terminal-emulator"),
 		},
+		{
+			ID:      "konsole",
+			Name:    "Konsole",
+			Exec:    []string{"konsole", "{}"},
+			Enabled: checkCommandExists("konsole"),
+		},
+		{
+			ID:      "nautilus",
+			Name:    "Nautilus",
+			Exec:    []string{"nautilus", "{}"},
+			Enabled: checkCommandExists("nautilus"),
+		},
+		{
+			ID:      "dolphin",
+			Name:    "Dolphin",
+			Exec:    []string{"dolphin", "{}"},
+			Enabled: checkCommandExists("dolphin"),
+		},
+		{
+			ID:      "thunar",
+			Name:    "Thunar",
+			Exec:    []string{"thunar", "{}"},
+			Enabled: checkCommandExists("thunar"),
+		},
+		{
+			ID:      "hx",
+			Name:    "Helix",
+			Exec:    []string{"hx", "{}"},
+			Enabled: checkCommandExists("hx"),
+		},
 	}
-	return append(apps, editorApps()...)
+	return filterAvailable(append(apps, commonApps()...))
 }

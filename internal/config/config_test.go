@@ -9,48 +9,69 @@ import (
 func TestDefaultApps(t *testing.T) {
 	apps := DefaultApps()
 
-	if len(apps) == 0 {
-		t.Fatal("DefaultApps returned empty slice")
-	}
-
-	// Each platform should include its file manager and editor apps
-	var expectedID string
-	switch runtime.GOOS {
-	case "darwin":
-		expectedID = "finder"
-	case "linux":
-		expectedID = "files"
-	case "windows":
-		expectedID = "explorer"
-	default:
-		t.Skipf("unsupported GOOS %q", runtime.GOOS)
-	}
-
-	var found bool
+	// DefaultApps only returns apps that are available on this system
+	// so we can't assert specific apps are present, but we can verify
+	// that all returned apps are enabled and well-formed.
 	for _, app := range apps {
-		if app.ID == expectedID {
-			found = true
-			if len(app.Exec) == 0 {
-				t.Errorf("%s app has empty Exec", expectedID)
+		if !app.Enabled {
+			t.Errorf("app %q should be enabled (only available apps should be returned)", app.ID)
+		}
+		if app.ID == "" {
+			t.Error("app has empty ID")
+		}
+		if app.Name == "" {
+			t.Error("app has empty Name")
+		}
+		if len(app.Exec) == 0 {
+			t.Errorf("app %q has empty Exec", app.ID)
+		}
+	}
+
+	// On macOS, Finder should always be available
+	if runtime.GOOS == "darwin" {
+		var found bool
+		for _, app := range apps {
+			if app.ID == "finder" {
+				found = true
+				break
 			}
-			break
+		}
+		if !found {
+			t.Error("finder app should always be available on macOS")
 		}
 	}
-	if !found {
-		t.Errorf("%s app not found in default apps", expectedID)
+}
+
+func TestFilterAvailable(t *testing.T) {
+	input := []AppConfig{
+		{ID: "available", Name: "Available", Exec: []string{"echo"}, Enabled: true},
+		{ID: "unavailable", Name: "Unavailable", Exec: []string{"echo"}, Enabled: false},
+		{ID: "also-available", Name: "Also Available", Exec: []string{"echo"}, Enabled: true},
 	}
 
-	// All platforms should include editor apps (vscode, cursor, zed)
-	editorIDs := map[string]bool{"vscode": false, "cursor": false, "zed": false}
-	for _, app := range apps {
-		if _, ok := editorIDs[app.ID]; ok {
-			editorIDs[app.ID] = true
+	result := filterAvailable(input)
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 available apps, got %d", len(result))
+	}
+	if result[0].ID != "available" || result[1].ID != "also-available" {
+		t.Errorf("unexpected app IDs: %v", result)
+	}
+	for _, app := range result {
+		if !app.Enabled {
+			t.Errorf("filtered app %q should be enabled", app.ID)
 		}
 	}
-	for id, found := range editorIDs {
-		if !found {
-			t.Errorf("editor app %q not found in default apps", id)
-		}
+}
+
+func TestFilterAvailableEmpty(t *testing.T) {
+	input := []AppConfig{
+		{ID: "unavailable", Enabled: false},
+	}
+
+	result := filterAvailable(input)
+	if len(result) != 0 {
+		t.Errorf("expected 0 available apps, got %d", len(result))
 	}
 }
 
