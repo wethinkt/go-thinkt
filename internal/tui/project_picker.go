@@ -479,7 +479,7 @@ func NewProjectPickerModel(projects []thinkt.Project) ProjectPickerModel {
 	l.Title = pickerTitle(sf, sd, countLeaves(roots), nil)
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(true)
-	l.SetFilteringEnabled(true)
+	l.SetFilteringEnabled(false)
 
 	return ProjectPickerModel{
 		list:        l,

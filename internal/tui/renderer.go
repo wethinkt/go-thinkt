@@ -18,7 +18,7 @@ func RenderSession(session *claude.Session, width int) string {
 	contentWidth := max(20, width-4)
 
 	renderer, err := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
+		glamour.WithStylePath("dark"),
 		glamour.WithWordWrap(contentWidth),
 	)
 

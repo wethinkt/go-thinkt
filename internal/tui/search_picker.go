@@ -330,7 +330,7 @@ func NewSearchPickerModel(results []search.SessionResult, query string) SearchPi
 	l.Title = searchPickerTitle(len(results), query)
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(true)
-	l.SetFilteringEnabled(true)
+	l.SetFilteringEnabled(false)
 
 	return SearchPickerModel{
 		list:    l,

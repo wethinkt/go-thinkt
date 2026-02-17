@@ -109,7 +109,7 @@ func NewAppPickerModel(apps []config.AppConfig, targetPath string) AppPickerMode
 
 	l := list.New(items, newAppDelegate(), 0, 0)
 	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(true)
+	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
 	l.SetShowTitle(false)
 	l.SetShowPagination(false)

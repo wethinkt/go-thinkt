@@ -17,7 +17,7 @@ var sharedRendererWidth int
 func getRenderer(width int) *glamour.TermRenderer {
 	if sharedRenderer == nil || sharedRendererWidth != width {
 		r, err := glamour.NewTermRenderer(
-			glamour.WithAutoStyle(),
+			glamour.WithStylePath("dark"),
 			glamour.WithWordWrap(width),
 		)
 		if err == nil {

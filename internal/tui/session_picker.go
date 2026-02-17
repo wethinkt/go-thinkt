@@ -110,12 +110,13 @@ func formatFileSize(size int64) string {
 // Line 2: size, time ago, source, model, ID
 // Line 3: separator
 type sessionDelegate struct {
-	normalStyle   lipgloss.Style
-	selectedStyle lipgloss.Style
-	dimmedStyle   lipgloss.Style
-	mutedStyle    lipgloss.Style
-	cursorStyle   lipgloss.Style
-	sepStyle      lipgloss.Style
+	normalStyle    lipgloss.Style
+	selectedStyle  lipgloss.Style
+	dimmedStyle    lipgloss.Style
+	mutedStyle     lipgloss.Style
+	cursorStyle    lipgloss.Style
+	sepStyle       lipgloss.Style
+	activeSessions map[string]bool // sessionPath -> true
 }
 
 func newSessionDelegate() sessionDelegate {
@@ -169,6 +170,15 @@ func (d sessionDelegate) Render(w io.Writer, m list.Model, index int, item list.
 
 	title := si.sessionTitle(textWidth)
 
+	// Check if session is active
+	isActive := d.activeSessions[meta.FullPath]
+	activeIndicator := ""
+	if isActive {
+		activeIndicator = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#22c55e")).
+			Render("● ")
+	}
+
 	// Build detail parts for line 2
 	var detailParts []string
 	if meta.FileSize > 0 {
@@ -208,16 +218,16 @@ func (d sessionDelegate) Render(w io.Writer, m list.Model, index int, item list.
 
 	// Render based on state
 	if emptyFilter {
-		line1 := d.dimmedStyle.Render(title)
+		line1 := d.dimmedStyle.Render(activeIndicator + title)
 		line2 := d.dimmedStyle.Render(detailStr)
 		fmt.Fprintf(w, "%s\n%s\n%s", line1, line2, "    "+sep) //nolint: errcheck
 	} else if isSelected {
 		marker := d.cursorStyle.Render(">  ")
-		line1 := marker + d.selectedStyle.Render(title)
+		line1 := marker + d.selectedStyle.Render(activeIndicator+title)
 		line2 := "    " + d.mutedStyle.Render(detailStr)
 		fmt.Fprintf(w, "%s\n%s\n%s", line1, line2, "    "+sep) //nolint: errcheck
 	} else {
-		line1 := d.normalStyle.Render(title)
+		line1 := d.normalStyle.Render(activeIndicator + title)
 		line2 := d.normalStyle.Render(d.mutedStyle.Render(detailStr))
 		fmt.Fprintf(w, "%s\n%s\n%s", line1, line2, "    "+sep) //nolint: errcheck
 	}
@@ -250,6 +260,7 @@ type SessionPickerModel struct {
 	showSources      bool
 	sourcePicker     SourcePickerModel
 	resumableSources map[thinkt.Source]bool // sources that support session resume
+	activeSessions   map[string]bool        // sessionPath -> true for active sessions
 }
 
 type pickerKeyMap struct {
@@ -302,11 +313,12 @@ func NewSessionPickerModel(sessions []thinkt.SessionMeta, sourceFilter []thinkt.
 	}
 
 	delegate := newSessionDelegate()
+	delegate.activeSessions = nil // Will be set via SetActiveSessions
 	l := list.New(items, delegate, 0, 0)
 	l.Title = sessionPickerTitle(len(filtered), sourceFilter)
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(true)
-	l.SetFilteringEnabled(true)
+	l.SetFilteringEnabled(false)
 
 	return SessionPickerModel{
 		list:         l,
@@ -320,6 +332,19 @@ func NewSessionPickerModel(sessions []thinkt.SessionMeta, sourceFilter []thinkt.
 // When set, the 'r' key is only active for sessions from these sources.
 func (m *SessionPickerModel) SetResumableSources(sources map[thinkt.Source]bool) {
 	m.resumableSources = sources
+}
+
+// SetActiveSessions marks session paths as currently active.
+// Active sessions show a green indicator in the picker.
+func (m *SessionPickerModel) SetActiveSessions(paths []string) {
+	m.activeSessions = make(map[string]bool, len(paths))
+	for _, p := range paths {
+		m.activeSessions[p] = true
+	}
+	// Update the delegate so it can render indicators
+	d := newSessionDelegate()
+	d.activeSessions = m.activeSessions
+	m.list.SetDelegate(d)
 }
 
 // SetTitle overrides the list title.

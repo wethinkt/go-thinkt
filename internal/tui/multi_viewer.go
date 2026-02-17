@@ -52,6 +52,12 @@ type MultiViewerModel struct {
 	searchQuery   string          // current active search query
 	searchMatches []int           // line numbers (0-indexed) of matches
 	currentMatch  int             // index into searchMatches (-1 = none)
+
+	// Input settling: ignore key events until a real render has occurred.
+	// This prevents stray terminal escape sequences (from Kitty keyboard
+	// protocol queries, cursor position reports, etc.) from being interpreted
+	// as user input during view transitions.
+	inputSettled bool
 }
 
 // multiSessionLoadedMsg is sent when a session has been loaded (initial open).
@@ -64,6 +70,13 @@ type multiSessionLoadedMsg struct {
 // moreContentLoadedMsg is sent when additional content is loaded via LoadMore.
 type moreContentLoadedMsg struct {
 	loaded int
+}
+
+// entriesRenderedMsg is sent when a batch of entries has been rendered in a background goroutine.
+type entriesRenderedMsg struct {
+	origIdx  int      // session index
+	startIdx int      // first entry index in this batch
+	entries  []string // rendered strings
 }
 
 // NewMultiViewerModel creates a new multi-session viewer.
@@ -137,9 +150,9 @@ func (m MultiViewerModel) loadMoreContent() tea.Cmd {
 	}
 }
 
-// renderForViewport renders only enough content to fill the viewport + buffer.
-// It uses cached entry renders and only renders new entries as needed.
-func (m *MultiViewerModel) renderForViewport() {
+// renderForViewport sets up the viewport with current content and kicks off
+// async rendering for entries. The UI shows immediately; entries appear progressively.
+func (m *MultiViewerModel) renderForViewport() tea.Cmd {
 	tuilog.Log.Info("MultiViewer.renderForViewport: starting", "width", m.width, "height", m.height)
 
 	// Build sorted session indices if not already done
@@ -150,22 +163,69 @@ func (m *MultiViewerModel) renderForViewport() {
 	if len(m.sortedSessions) == 0 {
 		m.rendered = m.renderNoSessionContent()
 		m.setViewportContent()
-		return
+		return nil
 	}
 
-	// Calculate target lines: viewport height + buffer
+	// Show what we have so far (may be empty initially)
+	m.rebuildRenderedOutput()
+	m.setViewportContent()
+
+	// Kick off async rendering for the first session that has unrendered entries
+	return m.asyncRenderNextBatch()
+}
+
+// asyncRenderNextBatch returns a tea.Cmd that renders a batch of entries in a goroutine.
+// Returns nil if there are no more entries to render up to the current target.
+func (m *MultiViewerModel) asyncRenderNextBatch() tea.Cmd {
 	targetLines := m.height + m.renderBuffer
 	if targetLines < 50 {
-		targetLines = 50 // Minimum
+		targetLines = 50
 	}
 
-	// Render entries until we have enough lines
-	m.renderUntilLines(targetLines)
+	if m.totalLines >= targetLines {
+		return nil // already have enough
+	}
 
-	// Build final output from displayed entries
-	m.rebuildRenderedOutput()
-	tuilog.Log.Info("MultiViewer.renderForViewport: complete", "totalLines", m.totalLines, "contentLen", len(m.rendered))
-	m.setViewportContent()
+	// Find next session with unrendered entries
+	for _, origIdx := range m.sortedSessions {
+		s := m.sessions[origIdx]
+		if s == nil {
+			continue
+		}
+		entries := s.Entries()
+		displayed := m.displayedEntries[origIdx]
+		if displayed >= len(entries) {
+			continue
+		}
+
+		// Determine batch size: render enough to fill ~1 viewport
+		batchSize := 20 // entries per batch
+		remaining := len(entries) - displayed
+		if remaining < batchSize {
+			batchSize = remaining
+		}
+
+		// Capture values for the goroutine
+		width := m.width - 4
+		filters := m.filters
+		startIdx := displayed
+		entriesToRender := make([]thinkt.Entry, batchSize)
+		copy(entriesToRender, entries[startIdx:startIdx+batchSize])
+		capturedOrigIdx := origIdx
+
+		return func() tea.Msg {
+			rendered := make([]string, batchSize)
+			for i, entry := range entriesToRender {
+				rendered[i] = RenderThinktEntry(&entry, width, &filters)
+			}
+			return entriesRenderedMsg{
+				origIdx:  capturedOrigIdx,
+				startIdx: startIdx,
+				entries:  rendered,
+			}
+		}
+	}
+	return nil
 }
 
 // renderUntilLines renders entries until we have at least targetLines of content.
@@ -333,18 +393,20 @@ func (m *MultiViewerModel) rebuildRenderedOutput() {
 	m.totalLines = strings.Count(m.rendered, "\n") + 1
 }
 
-// invalidateCache clears the rendered entry cache and re-renders the viewport.
-func (m *MultiViewerModel) invalidateCache() {
+// invalidateCache clears the rendered entry cache and starts async re-rendering.
+func (m *MultiViewerModel) invalidateCache() tea.Cmd {
 	m.entryCache = make([][]string, len(m.sessionPaths))
 	m.displayedEntries = make([]int, len(m.sessionPaths))
 	m.totalLines = 0
+	var renderCmd tea.Cmd
 	if m.ready {
-		m.renderForViewport()
+		renderCmd = m.renderForViewport()
 	}
 	// Re-execute search against new rendered content
 	if m.searchQuery != "" {
 		m.executeSearch()
 	}
+	return renderCmd
 }
 
 // setViewportContent sets the viewport content, applying search highlighting if active.
@@ -579,6 +641,37 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+	case entriesRenderedMsg:
+		tuilog.Log.Info("MultiViewer.Update: entriesRenderedMsg", "origIdx", msg.origIdx, "startIdx", msg.startIdx, "count", len(msg.entries))
+		origIdx := msg.origIdx
+		// Append rendered entries to cache
+		if m.entryCache[origIdx] == nil {
+			m.entryCache[origIdx] = make([]string, 0, len(msg.entries))
+		}
+		for i, rendered := range msg.entries {
+			entryIdx := msg.startIdx + i
+			// Only append if this is the next expected entry (avoid duplicates from stale batches)
+			if entryIdx == len(m.entryCache[origIdx]) {
+				m.entryCache[origIdx] = append(m.entryCache[origIdx], rendered)
+				lines := strings.Count(rendered, "\n") + 1
+				m.displayedEntries[origIdx] = entryIdx + 1
+				m.totalLines += lines
+			}
+		}
+		// Rebuild output and update viewport
+		m.rebuildRenderedOutput()
+		m.setViewportContent()
+
+		// Settle input after first render batch
+		if !m.inputSettled {
+			m.inputSettled = true
+		}
+
+		// Queue another batch if we need more
+		if renderCmd := m.asyncRenderNextBatch(); renderCmd != nil {
+			cmds = append(cmds, renderCmd)
+		}
+
 	case multiSessionLoadedMsg:
 		tuilog.Log.Info("MultiViewer.Update: multiSessionLoadedMsg received", "index", msg.index, "hasError", msg.err != nil)
 		if msg.err != nil {
@@ -602,12 +695,14 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.currentIdx = nextIdx
 			cmds = append(cmds, m.loadSessionAt(nextIdx))
 		} else {
-			// All sessions opened, render initial viewport content
+			// All sessions opened, start async rendering
 			m.loadingMore = false
 			m.updateHasMoreData()
 			if m.ready {
-				tuilog.Log.Info("MultiViewer.Update: all sessions opened, rendering", "hasMoreData", m.hasMoreData)
-				m.renderForViewport()
+				tuilog.Log.Info("MultiViewer.Update: all sessions opened, starting async render", "hasMoreData", m.hasMoreData)
+				if renderCmd := m.renderForViewport(); renderCmd != nil {
+					cmds = append(cmds, renderCmd)
+				}
 			} else {
 				tuilog.Log.Info("MultiViewer.Update: all sessions opened but viewport not ready yet")
 			}
@@ -639,8 +734,10 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Render if sessions already loaded
 			if m.allSessionsAttempted() && m.loadedCount > 0 {
-				tuilog.Log.Info("MultiViewer.Update: viewport ready, rendering loaded sessions")
-				m.renderForViewport()
+				tuilog.Log.Info("MultiViewer.Update: viewport ready, starting async render")
+				if renderCmd := m.renderForViewport(); renderCmd != nil {
+					cmds = append(cmds, renderCmd)
+				}
 			}
 		} else {
 			m.viewport.SetWidth(m.width - 2)
@@ -648,6 +745,24 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
+		// Don't process key input until the view has settled. During view
+		// transitions, stray terminal responses (e.g. Kitty keyboard protocol
+		// queries, cursor position reports) can arrive as key events — a split
+		// CSI sequence like \x1b[2;11R can have the \x1b parsed as Escape
+		// triggering Back, or "/" triggering search with junk filling the bar.
+		// Only allow ctrl+c (unambiguous, never part of escape sequences).
+		if !m.inputSettled {
+			if msg.String() == "ctrl+c" {
+				for _, s := range m.sessions {
+					if s != nil {
+						s.Close()
+					}
+				}
+				return m, tea.Quit
+			}
+			return m, nil
+		}
+
 		if m.searchMode {
 			switch msg.String() {
 			case "enter":
@@ -738,19 +853,29 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.GotoBottom()
 		case key.Matches(msg, m.keys.ToggleInput):
 			m.filters.Input = !m.filters.Input
-			m.invalidateCache()
+			if c := m.invalidateCache(); c != nil {
+				cmds = append(cmds, c)
+			}
 		case key.Matches(msg, m.keys.ToggleOutput):
 			m.filters.Output = !m.filters.Output
-			m.invalidateCache()
+			if c := m.invalidateCache(); c != nil {
+				cmds = append(cmds, c)
+			}
 		case key.Matches(msg, m.keys.ToggleTools):
 			m.filters.Tools = !m.filters.Tools
-			m.invalidateCache()
+			if c := m.invalidateCache(); c != nil {
+				cmds = append(cmds, c)
+			}
 		case key.Matches(msg, m.keys.ToggleThinking):
 			m.filters.Thinking = !m.filters.Thinking
-			m.invalidateCache()
+			if c := m.invalidateCache(); c != nil {
+				cmds = append(cmds, c)
+			}
 		case key.Matches(msg, m.keys.ToggleOther):
 			m.filters.Other = !m.filters.Other
-			m.invalidateCache()
+			if c := m.invalidateCache(); c != nil {
+				cmds = append(cmds, c)
+			}
 		}
 	}
 
@@ -806,6 +931,7 @@ func (m MultiViewerModel) renderFilterStatus() string {
 	}
 	return strings.Join(parts, " ")
 }
+
 
 // allSessionsAttempted returns true when every session path has either loaded
 // successfully or failed with an error.

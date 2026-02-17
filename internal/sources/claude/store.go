@@ -119,7 +119,7 @@ func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.Se
 		return cached, err
 	}
 
-	sessions, err := ListProjectSessions(projectID)
+	sessions, err := ListProjectSessionsBackfill(projectID)
 	if err != nil {
 		s.cache.SetSessions(projectID, nil, err)
 		return nil, err
