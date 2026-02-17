@@ -15,7 +15,7 @@ func TestTeamStoreListTeams(t *testing.T) {
 	// Create a temp directory structure mimicking ~/.claude/teams/
 	tmpDir := t.TempDir()
 	teamsDir := filepath.Join(tmpDir, "teams", "test-team")
-	os.MkdirAll(teamsDir, 0755)
+	_ = os.MkdirAll(teamsDir, 0755)
 
 	config := teamConfig{
 		Name:          "test-team",
@@ -45,7 +45,7 @@ func TestTeamStoreListTeams(t *testing.T) {
 	}
 
 	data, _ := json.Marshal(config)
-	os.WriteFile(filepath.Join(teamsDir, "config.json"), data, 0644)
+	_ = os.WriteFile(filepath.Join(teamsDir, "config.json"), data, 0644)
 
 	ts := NewTeamStore(tmpDir)
 	ctx := context.Background()
@@ -79,7 +79,7 @@ func TestTeamStoreListTeams(t *testing.T) {
 func TestTeamStoreGetTeamTasks(t *testing.T) {
 	tmpDir := t.TempDir()
 	tasksDir := filepath.Join(tmpDir, "tasks", "test-team")
-	os.MkdirAll(tasksDir, 0755)
+	_ = os.MkdirAll(tasksDir, 0755)
 
 	// Create task files
 	task1 := taskFile{
@@ -92,7 +92,7 @@ func TestTeamStoreGetTeamTasks(t *testing.T) {
 		Blocks:      []string{"2"},
 	}
 	data1, _ := json.Marshal(task1)
-	os.WriteFile(filepath.Join(tasksDir, "1.json"), data1, 0644)
+	_ = os.WriteFile(filepath.Join(tasksDir, "1.json"), data1, 0644)
 
 	task2 := taskFile{
 		ID:          "2",
@@ -102,7 +102,7 @@ func TestTeamStoreGetTeamTasks(t *testing.T) {
 		Metadata:    json.RawMessage(`{"_internal": true}`),
 	}
 	data2, _ := json.Marshal(task2)
-	os.WriteFile(filepath.Join(tasksDir, "2.json"), data2, 0644)
+	_ = os.WriteFile(filepath.Join(tasksDir, "2.json"), data2, 0644)
 
 	ts := NewTeamStore(tmpDir)
 	ctx := context.Background()
@@ -132,7 +132,7 @@ func TestTeamStoreGetTeamTasks(t *testing.T) {
 func TestTeamStoreGetTeamMessages(t *testing.T) {
 	tmpDir := t.TempDir()
 	inboxDir := filepath.Join(tmpDir, "teams", "test-team", "inboxes")
-	os.MkdirAll(inboxDir, 0755)
+	_ = os.MkdirAll(inboxDir, 0755)
 
 	msgs := []inboxMessage{
 		{
@@ -151,7 +151,7 @@ func TestTeamStoreGetTeamMessages(t *testing.T) {
 		},
 	}
 	data, _ := json.Marshal(msgs)
-	os.WriteFile(filepath.Join(inboxDir, "lead.json"), data, 0644)
+	_ = os.WriteFile(filepath.Join(inboxDir, "lead.json"), data, 0644)
 
 	ts := NewTeamStore(tmpDir)
 	ctx := context.Background()
@@ -188,7 +188,7 @@ func TestTeamStoreNoTeamsDir(t *testing.T) {
 // writeSubagentJSONL writes a minimal JSONL subagent file with the given first entry fields.
 func writeSubagentJSONL(t *testing.T, path, slug, sessionID, cwd, promptText string) {
 	t.Helper()
-	os.MkdirAll(filepath.Dir(path), 0755)
+	_ = os.MkdirAll(filepath.Dir(path), 0755)
 
 	entry := map[string]any{
 		"type":      "user",
@@ -341,7 +341,7 @@ func TestListTeamsMerge(t *testing.T) {
 
 	// Create active team config
 	teamsDir := filepath.Join(tmpDir, "teams", "my-team")
-	os.MkdirAll(teamsDir, 0755)
+	_ = os.MkdirAll(teamsDir, 0755)
 	config := teamConfig{
 		Name:          "my-team",
 		CreatedAt:     time.Now().UnixMilli(),
@@ -352,7 +352,7 @@ func TestListTeamsMerge(t *testing.T) {
 		},
 	}
 	data, _ := json.Marshal(config)
-	os.WriteFile(filepath.Join(teamsDir, "config.json"), data, 0644)
+	_ = os.WriteFile(filepath.Join(teamsDir, "config.json"), data, 0644)
 
 	// Create historical subagent for same team name (should be deduped)
 	subDir := filepath.Join(tmpDir, "projects", "proj1", "sess-old", "subagents")

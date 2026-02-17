@@ -31,10 +31,18 @@ var statsCmd = &cobra.Command{
 		}
 
 		// 1. Basic counts
-		db.QueryRow("SELECT count(*) FROM projects").Scan(&stats.TotalProjects)
-		db.QueryRow("SELECT count(*) FROM sessions").Scan(&stats.TotalSessions)
-		db.QueryRow("SELECT count(*) FROM entries").Scan(&stats.TotalEntries)
-		db.QueryRow("SELECT sum(input_tokens + output_tokens) FROM entries").Scan(&stats.TotalTokens)
+		if err := db.QueryRow("SELECT count(*) FROM projects").Scan(&stats.TotalProjects); err != nil {
+			return fmt.Errorf("failed to count projects: %w", err)
+		}
+		if err := db.QueryRow("SELECT count(*) FROM sessions").Scan(&stats.TotalSessions); err != nil {
+			return fmt.Errorf("failed to count sessions: %w", err)
+		}
+		if err := db.QueryRow("SELECT count(*) FROM entries").Scan(&stats.TotalEntries); err != nil {
+			return fmt.Errorf("failed to count entries: %w", err)
+		}
+		if err := db.QueryRow("SELECT sum(input_tokens + output_tokens) FROM entries").Scan(&stats.TotalTokens); err != nil {
+			return fmt.Errorf("failed to sum tokens: %w", err)
+		}
 
 		// 2. Tool usage
 		rows, err := db.Query("SELECT tool_name, count(*) FROM entries WHERE tool_name != '' GROUP BY tool_name ORDER BY count(*) DESC")

@@ -23,7 +23,9 @@ var watchCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to create watcher: %w", err)
 		}
-		defer watcher.Stop()
+		defer func() {
+			_ = watcher.Stop() // Ignore error, cleanup is best-effort
+		}()
 
 		// Register instance for discovery
 		inst := config.Instance{
@@ -34,7 +36,9 @@ var watchCmd = &cobra.Command{
 		if err := config.RegisterInstance(inst); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to register instance: %v\n", err)
 		}
-		defer config.UnregisterInstance(os.Getpid())
+		defer func() {
+			_ = config.UnregisterInstance(os.Getpid()) // Ignore error, cleanup is best-effort
+		}()
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()

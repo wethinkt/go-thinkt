@@ -257,10 +257,10 @@ func (s *HTTPServer) ListenAndServe(ctx context.Context) error {
 	// Graceful shutdown
 	go func() {
 		<-ctx.Done()
-		config.UnregisterInstance(os.Getpid())
+		_ = config.UnregisterInstance(os.Getpid()) // Ignore error, cleanup is best-effort
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		srv.Shutdown(shutdownCtx)
+		_ = srv.Shutdown(shutdownCtx) // Ignore error, shutdown errors are logged by server
 	}()
 
 	fmt.Printf("HTTP server running at http://%s\n", s.Addr())

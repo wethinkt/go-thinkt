@@ -48,7 +48,7 @@ func spaHandler(fsys fs.FS) http.Handler {
 				return
 			}
 			w.Header().Set("Content-Type", "text/html")
-			w.Write(data)
+			_, _ = w.Write(data)
 			return
 		}
 		fileServer.ServeHTTP(w, r)

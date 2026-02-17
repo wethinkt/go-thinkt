@@ -82,7 +82,7 @@ type ErrorResponse struct {
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v) // Ignore encoding error, client connection issues are transient
 }
 
 // writeError writes an error response.
@@ -289,10 +289,14 @@ func (s *HTTPServer) loadSession(ctx context.Context, path string, limit, offset
 	if limit > 0 {
 		// Load only what we need
 		targetBytes := (offset + limit) * 4096 // Rough estimate: 4KB per entry
-		ls.LoadMore(targetBytes)
+		if _, err := ls.LoadMore(targetBytes); err != nil {
+			return nil, err
+		}
 	} else {
 		// Load all
-		ls.LoadAll()
+		if err := ls.LoadAll(); err != nil {
+			return nil, err
+		}
 	}
 
 	entries := ls.Entries()

@@ -27,6 +27,28 @@ jobs:
       - name: Build Main Tool
         run: go build ./cmd/thinkt
 
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+      - name: Run golangci-lint
+        run: golangci-lint run --enable=errcheck --timeout=5m
+
+      - name: Run errcheck (strict)
+        run: |
+          go install github.com/kisielk/errcheck@latest
+          errcheck -blank -asserts ./...
+
   docker:
     runs-on: ubuntu-latest
     needs: test

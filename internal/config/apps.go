@@ -79,7 +79,10 @@ func (a AppConfig) Launch(validatedPath string) error {
 	}
 
 	// Don't wait for the command to finish - it's opening an external app
-	go cmd.Wait()
+	// Run Wait in background to reap the zombie process, ignore errors
+	go func() {
+		_ = cmd.Wait()
+	}()
 	return nil
 }
 

@@ -205,7 +205,10 @@ func TestCopyOnReadStress(t *testing.T) {
 				// INSERT errors are non-fatal for the stress test
 				continue
 			}
-			writer.Exec("CHECKPOINT")
+			if _, err := writer.Exec("CHECKPOINT"); err != nil {
+				// CHECKPOINT errors are non-fatal for the stress test
+				continue
+			}
 			i++
 		}
 	}()

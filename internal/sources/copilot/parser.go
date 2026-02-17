@@ -75,11 +75,11 @@ func (p *Parser) convertEvent(e Event) *thinkt.Entry {
 
 	case EventTypeAssistantMsg:
 		entry.Role = thinkt.RoleAssistant
-		
+
 		// Parse structured data from generic map
 		dataBytes, _ := json.Marshal(e.Data)
 		var msgData AssistantMessageData
-		json.Unmarshal(dataBytes, &msgData)
+		_ = json.Unmarshal(dataBytes, &msgData) // Ignore error, msgData will be zero-valued on failure
 
 		entry.Metadata["message_id"] = msgData.MessageID
 		

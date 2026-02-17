@@ -20,7 +20,7 @@ func createTestJSONL(t *testing.T, lines []string) string {
 	defer f.Close()
 
 	for _, line := range lines {
-		f.WriteString(line + "\n")
+		_, _ = f.WriteString(line + "\n")
 	}
 
 	return path
@@ -160,14 +160,14 @@ func TestReader_Position(t *testing.T) {
 	}
 
 	// Read first line - position should advance
-	reader.ReadLine()
+	_, _ = reader.ReadLine()
 	pos1 := reader.Position()
 	if pos1 == 0 {
 		t.Error("position should advance after ReadLine")
 	}
 
 	// Read second line
-	reader.ReadLine()
+	_, _ = reader.ReadLine()
 	pos2 := reader.Position()
 	if pos2 <= pos1 {
 		t.Errorf("position should increase: pos1=%d, pos2=%d", pos1, pos2)
@@ -189,7 +189,7 @@ func TestReader_Seek(t *testing.T) {
 	defer reader.Close()
 
 	// Read first line and save position
-	reader.ReadLine()
+	_, _ = reader.ReadLine()
 	posAfterFirst := reader.Position()
 
 	// Read second line
@@ -222,7 +222,7 @@ func TestReader_Reset(t *testing.T) {
 	defer reader.Close()
 
 	// Read all lines
-	reader.ReadAll()
+	_, _ = reader.ReadAll()
 	if reader.HasMore() {
 		t.Error("HasMore should be false after ReadAll")
 	}
@@ -293,7 +293,7 @@ func TestReader_Snapshot(t *testing.T) {
 	}
 
 	// Read first line
-	reader.ReadLine()
+	_, _ = reader.ReadLine()
 
 	// Take snapshot
 	snap := reader.Snapshot()
@@ -330,7 +330,7 @@ func TestReader_Progress(t *testing.T) {
 		t.Errorf("initial progress: got %f, want 0", reader.Progress())
 	}
 
-	reader.ReadAll()
+	_, _ = reader.ReadAll()
 
 	if reader.Progress() != 1.0 {
 		t.Errorf("final progress: got %f, want 1.0", reader.Progress())
@@ -348,7 +348,7 @@ func TestReader_EmptyLines(t *testing.T) {
 
 {"id": 3}
 `
-	os.WriteFile(path, []byte(content), 0644)
+	_ = os.WriteFile(path, []byte(content), 0644)
 
 	reader, err := NewReader(path)
 	if err != nil {
@@ -378,7 +378,7 @@ func TestReader_LargeLines(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.jsonl")
-	os.WriteFile(path, append(lineBytes, '\n'), 0644)
+	_ = os.WriteFile(path, append(lineBytes, '\n'), 0644)
 
 	reader, err := NewReader(path)
 	if err != nil {

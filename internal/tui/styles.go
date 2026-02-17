@@ -62,7 +62,10 @@ func GetStyles() *Styles {
 
 // ReloadStyles rebuilds styles from the current theme.
 func ReloadStyles() *Styles {
-	theme.Reload()
+	//nolint:staticcheck // empty branch is intentional - errors are logged by theme package
+	if _, err := theme.Reload(); err != nil {
+		// Ignore error, theme reload is best-effort (no-op on error)
+	}
 	styles = buildStyles(theme.Current())
 	return &styles
 }

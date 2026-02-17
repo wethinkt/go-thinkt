@@ -13,6 +13,7 @@ tasks:
 
   # Things we need to install to do dev work
   dev-deps:
+    deps: [lint:deps]
     cmds:
       - go install "github.com/swaggo/swag/cmd/swag@v1.16.6"
 
@@ -84,9 +85,23 @@ tasks:
       - rm -rf {{.BIN_DIR}}
 
   lint:
-    desc: Run golangci-lint
+    desc: Run golangci-lint with errcheck
     cmds:
-      - golangci-lint run
+      - golangci-lint run --enable=errcheck --timeout=5m
+
+  lint:strict:
+    desc: Run golangci-lint and errcheck (strict mode)
+    deps: [lint]
+    cmds:
+      - |
+        echo "Running errcheck (blank assignments and ignored asserts)..."
+        errcheck -blank -asserts ./...
+
+  lint:deps:
+    desc: Install linting tools
+    cmds:
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - go install github.com/kisielk/errcheck@latest
 
   ###############################################################################
   # MCP Server

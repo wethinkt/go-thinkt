@@ -19,7 +19,7 @@ var versionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		info := version.GetInfo("thinkt")
 		if versionJSON {
-			json.NewEncoder(os.Stdout).Encode(info)
+			_ = json.NewEncoder(os.Stdout).Encode(info) // Ignore encoding error
 			return
 		}
 		fmt.Println(version.String("thinkt"))

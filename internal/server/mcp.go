@@ -444,7 +444,9 @@ func (ms *MCPServer) handleGetSessionMetadata(ctx context.Context, req *mcp.Call
 		}
 	}
 	defer ls.Close()
-	ls.LoadAll()
+	if err := ls.LoadAll(); err != nil {
+		return nil, getSessionMetadataOutput{}, err
+	}
 	entries := ls.Entries()
 	meta := ls.Metadata()
 	excludeSet := make(map[string]bool)
@@ -528,7 +530,9 @@ func (ms *MCPServer) handleGetSessionEntries(ctx context.Context, req *mcp.CallT
 		}
 	}
 	defer ls.Close()
-	ls.LoadAll()
+	if err := ls.LoadAll(); err != nil {
+		return nil, getSessionEntriesOutput{}, err
+	}
 	allEntries := ls.Entries()
 
 	roleFilter := make(map[string]bool)
@@ -703,8 +707,8 @@ func (ms *MCPServer) RunHTTP(ctx context.Context, host string, port int) error {
 
 	go func() {
 		<-ctx.Done()
-		config.UnregisterInstance(os.Getpid())
-		srv.Shutdown(context.Background())
+		_ = config.UnregisterInstance(os.Getpid()) // Ignore error, cleanup is best-effort
+		_ = srv.Shutdown(context.Background()) // Ignore error, shutdown errors are logged by server
 	}()
 	return srv.Serve(ln)
 }

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -134,7 +135,7 @@ func TestMCPAuthenticator_Middleware(t *testing.T) {
 	// Create a simple handler that returns 200
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
 	})
 
 	// Wrap with auth middleware
@@ -217,7 +218,7 @@ func TestStdioAuthProvider(t *testing.T) {
 		t.Error("IsAuthenticated() should be false when env not set")
 	}
 
-	ctx, err := provider.AuthenticateContext(nil)
+	ctx, err := provider.AuthenticateContext(context.TODO())
 	if err != nil {
 		t.Errorf("AuthenticateContext() error = %v", err)
 	}

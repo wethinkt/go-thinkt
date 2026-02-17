@@ -30,8 +30,8 @@ func writeJSONL(t *testing.T, path string, lines []map[string]any) {
 
 	for _, line := range lines {
 		data, _ := json.Marshal(line)
-		f.Write(data)
-		f.WriteString("\n")
+		_, _ = f.Write(data)
+		_, _ = f.WriteString("\n")
 	}
 }
 
@@ -53,8 +53,8 @@ func TestWorkspace(t *testing.T) {
 
 	// Test with device_id
 	deviceID := "test-device-id-12345"
-	os.WriteFile(filepath.Join(tmpDir, "device_id"), []byte(deviceID), 0600)
-	
+	_ = os.WriteFile(filepath.Join(tmpDir, "device_id"), []byte(deviceID), 0600)
+
 	ws = store.Workspace()
 	if ws.ID != deviceID {
 		t.Errorf("expected ID %q, got %q", deviceID, ws.ID)
@@ -84,7 +84,7 @@ func TestListProjectsWithSessions(t *testing.T) {
 	projectPath := "/Users/test/myproject"
 	hash := workDirHash(projectPath)
 	sessionDir := filepath.Join(tmpDir, "sessions", hash, "session-123")
-	os.MkdirAll(sessionDir, 0755)
+	_ = os.MkdirAll(sessionDir, 0755)
 
 	// Create context.jsonl
 	writeJSONL(t, filepath.Join(sessionDir, "context.jsonl"), []map[string]any{
@@ -99,7 +99,7 @@ func TestListProjectsWithSessions(t *testing.T) {
 	}
 	kimiJSONPath := filepath.Join(tmpDir, "kimi.json")
 	data, _ := json.Marshal(kimiJSON)
-	os.WriteFile(kimiJSONPath, data, 0644)
+	_ = os.WriteFile(kimiJSONPath, data, 0644)
 
 	projects, err := store.ListProjects(ctx)
 	if err != nil {
@@ -135,7 +135,7 @@ func TestListSessions(t *testing.T) {
 	// Create multiple sessions
 	for _, sessionID := range []string{"session-1", "session-2"} {
 		sessionDir := filepath.Join(tmpDir, "sessions", hash, sessionID)
-		os.MkdirAll(sessionDir, 0755)
+		_ = os.MkdirAll(sessionDir, 0755)
 		writeJSONL(t, filepath.Join(sessionDir, "context.jsonl"), []map[string]any{
 			{"role": "user", "content": "Hello from " + sessionID},
 		})
@@ -160,7 +160,7 @@ func TestSessionChunkCount(t *testing.T) {
 
 	// Create chunked session
 	sessionDir := filepath.Join(tmpDir, "sessions", hash, "chunked-session")
-	os.MkdirAll(sessionDir, 0755)
+	_ = os.MkdirAll(sessionDir, 0755)
 
 	// Main context file
 	writeJSONL(t, filepath.Join(sessionDir, "context.jsonl"), []map[string]any{
@@ -196,7 +196,7 @@ func TestOpenSession(t *testing.T) {
 	hash := workDirHash(projectPath)
 	sessionID := "test-session"
 	sessionDir := filepath.Join(tmpDir, "sessions", hash, sessionID)
-	os.MkdirAll(sessionDir, 0755)
+	_ = os.MkdirAll(sessionDir, 0755)
 
 	writeJSONL(t, filepath.Join(sessionDir, "context.jsonl"), []map[string]any{
 		{"role": "user", "content": "Hello"},
@@ -251,7 +251,7 @@ func TestOpenChunkedSession(t *testing.T) {
 	hash := workDirHash(projectPath)
 	sessionID := "chunked-session"
 	sessionDir := filepath.Join(tmpDir, "sessions", hash, sessionID)
-	os.MkdirAll(sessionDir, 0755)
+	_ = os.MkdirAll(sessionDir, 0755)
 
 	// Create chunked files
 	writeJSONL(t, filepath.Join(sessionDir, "context.jsonl"), []map[string]any{
@@ -434,7 +434,7 @@ func TestFirstPromptExtraction(t *testing.T) {
 	projectPath := "/Users/test/myproject"
 	hash := workDirHash(projectPath)
 	sessionDir := filepath.Join(tmpDir, "sessions", hash, "session-1")
-	os.MkdirAll(sessionDir, 0755)
+	_ = os.MkdirAll(sessionDir, 0755)
 
 	// Create session with multiple entries
 	writeJSONL(t, filepath.Join(sessionDir, "context.jsonl"), []map[string]any{
@@ -463,7 +463,7 @@ func TestLoadSession(t *testing.T) {
 	hash := workDirHash(projectPath)
 	sessionID := "full-session"
 	sessionDir := filepath.Join(tmpDir, "sessions", hash, sessionID)
-	os.MkdirAll(sessionDir, 0755)
+	_ = os.MkdirAll(sessionDir, 0755)
 
 	writeJSONL(t, filepath.Join(sessionDir, "context.jsonl"), []map[string]any{
 		{"role": "user", "content": "Hello"},

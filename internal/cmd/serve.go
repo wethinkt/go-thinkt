@@ -371,7 +371,7 @@ func runServeMCP(cmd *cobra.Command, args []string) error {
 				// Kill indexer when we exit
 				defer func() {
 					tuilog.Log.Info("Stopping indexer sidecar")
-					indexerCmd.Process.Kill()
+					_ = indexerCmd.Process.Kill() // Ignore error, process is being terminated
 				}()
 			}
 		}
@@ -472,5 +472,5 @@ func openBrowser(url string) {
 		fmt.Printf("Please open %s in your browser\n", url)
 		return
 	}
-	cmd.Start()
+	_ = cmd.Start() // Ignore error, browser opening is best-effort
 }

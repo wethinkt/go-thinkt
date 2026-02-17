@@ -88,7 +88,7 @@ func (l *Logger) log(level string, msg string, keyvals ...any) {
 	}
 
 	fmt.Fprintln(l.file, line)
-	l.file.Sync() // Ensure log is written immediately
+	_ = l.file.Sync() // Ensure log is written immediately (ignore error for performance)
 }
 
 // Debug logs a debug message with optional key-value pairs.

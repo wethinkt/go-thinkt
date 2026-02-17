@@ -87,7 +87,7 @@ func ListInstances() ([]Instance, error) {
 	live := cleanStale(instances)
 	// Write back cleaned list if we removed any stale entries
 	if len(live) != len(instances) {
-		writeInstances(path, live)
+		_ = writeInstances(path, live) // Ignore error, stale cleanup is best-effort
 	}
 
 	return live, nil

@@ -174,7 +174,7 @@ func TestAPIAuthenticator_Middleware(t *testing.T) {
 	// Create a simple handler that returns 200
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
 	})
 
 	// Wrap with auth middleware
