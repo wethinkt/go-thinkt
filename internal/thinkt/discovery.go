@@ -171,8 +171,3 @@ func (f *FileSystemFactory) IsAvailable() (bool, error) {
 
 	return len(projects) > 0, nil
 }
-
-// DefaultDiscovery creates a Discovery with all built-in factories.
-func DefaultDiscovery() *Discovery {
-	return NewDiscovery()
-}

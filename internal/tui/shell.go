@@ -11,11 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
-	"github.com/wethinkt/go-thinkt/internal/sources/claude"
-	"github.com/wethinkt/go-thinkt/internal/sources/codex"
-	"github.com/wethinkt/go-thinkt/internal/sources/copilot"
-	"github.com/wethinkt/go-thinkt/internal/sources/gemini"
-	"github.com/wethinkt/go-thinkt/internal/sources/kimi"
+	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
@@ -596,13 +592,7 @@ func loadSourcesCmd(registry *thinkt.StoreRegistry) tea.Cmd {
 	return func() tea.Msg {
 		tuilog.Log.Info("Shell: loading sources")
 
-		discovery := thinkt.NewDiscovery(
-			kimi.Factory(),
-			claude.Factory(),
-			gemini.Factory(),
-			copilot.Factory(),
-			codex.Factory(),
-		)
+		discovery := thinkt.NewDiscovery(sources.AllFactories()...)
 
 		ctx := context.Background()
 		discovered, err := discovery.Discover(ctx)

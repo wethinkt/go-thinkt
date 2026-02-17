@@ -4,26 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/wethinkt/go-thinkt/internal/sources/claude"
-	"github.com/wethinkt/go-thinkt/internal/sources/codex"
-	"github.com/wethinkt/go-thinkt/internal/sources/copilot"
-	"github.com/wethinkt/go-thinkt/internal/sources/gemini"
-	"github.com/wethinkt/go-thinkt/internal/sources/kimi"
-	"github.com/wethinkt/go-thinkt/internal/sources/qwen"
+	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 // CreateSourceRegistry creates a registry with all discovered sources.
 func CreateSourceRegistry() *thinkt.StoreRegistry {
-	// Create discovery with all source factories
-	discovery := thinkt.NewDiscovery(
-		kimi.Factory(),
-		claude.Factory(),
-		gemini.Factory(),
-		copilot.Factory(),
-		codex.Factory(),
-		qwen.Factory(),
-	)
+	discovery := thinkt.NewDiscovery(sources.AllFactories()...)
 
 	ctx := context.Background()
 	registry, err := discovery.Discover(ctx)

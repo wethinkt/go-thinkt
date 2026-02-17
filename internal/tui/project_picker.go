@@ -767,15 +767,8 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
-			allSources := []thinkt.Source{
-				thinkt.SourceClaude,
-				thinkt.SourceKimi,
-				thinkt.SourceGemini,
-				thinkt.SourceCopilot,
-				thinkt.SourceCodex,
-			}
 			var options []SourceOption
-			for _, s := range allSources {
+			for _, s := range thinkt.AllSources {
 				options = append(options, SourceOption{
 					Source:   s,
 					Enabled:  seen[s],

@@ -23,6 +23,17 @@ const (
 	SourceQwen    Source = "qwen"
 )
 
+// AllSources is the canonical list of all known sources (excluding thinkt).
+// Add new sources here when adding support for a new AI coding tool.
+var AllSources = []Source{
+	SourceClaude,
+	SourceKimi,
+	SourceGemini,
+	SourceCopilot,
+	SourceCodex,
+	SourceQwen,
+}
+
 func (s Source) String() string {
 	switch s {
 	case SourceThinkt:

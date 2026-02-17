@@ -321,14 +321,6 @@ func PickSources(options []SourceOption) ([]thinkt.Source, error) {
 
 // SourceOptionsFromRegistry builds SourceOption list from a registry.
 func SourceOptionsFromRegistry(registry *thinkt.StoreRegistry, selected []thinkt.Source) []SourceOption {
-	allSources := []thinkt.Source{
-		thinkt.SourceClaude,
-		thinkt.SourceKimi,
-		thinkt.SourceGemini,
-		thinkt.SourceCopilot,
-		thinkt.SourceCodex,
-	}
-
 	registered := make(map[thinkt.Source]bool)
 	for _, s := range registry.Sources() {
 		registered[s] = true
@@ -340,7 +332,7 @@ func SourceOptionsFromRegistry(registry *thinkt.StoreRegistry, selected []thinkt
 	}
 
 	var options []SourceOption
-	for _, s := range allSources {
+	for _, s := range thinkt.AllSources {
 		options = append(options, SourceOption{
 			Source:   s,
 			Enabled:  registered[s],
