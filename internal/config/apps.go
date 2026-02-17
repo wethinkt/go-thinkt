@@ -95,6 +95,41 @@ func filterAvailable(apps []AppConfig) []AppConfig {
 }
 
 
+// validateApps validates loaded apps against the hardcoded trusted list.
+// Only apps with IDs matching defaults are kept. The Exec field is always
+// taken from the trusted list (never from disk) to prevent command injection
+// via config file tampering. The user's Enabled preference is preserved.
+// If the loaded list is nil or empty, defaults are returned.
+func validateApps(loaded []AppConfig) []AppConfig {
+	if len(loaded) == 0 {
+		return DefaultApps()
+	}
+
+	// Build lookup of trusted apps by ID, using the hardcoded Exec.
+	trusted := DefaultApps()
+	trustedByID := make(map[string]AppConfig, len(trusted))
+	for _, app := range trusted {
+		trustedByID[app.ID] = app
+	}
+
+	// Build lookup of user's enabled preferences by ID.
+	userEnabled := make(map[string]bool, len(loaded))
+	for _, app := range loaded {
+		userEnabled[app.ID] = app.Enabled
+	}
+
+	// Rebuild the list: use trusted Exec, but apply user's Enabled preference.
+	var validated []AppConfig
+	for _, app := range trusted {
+		if enabled, exists := userEnabled[app.ID]; exists {
+			app.Enabled = enabled
+		}
+		validated = append(validated, app)
+	}
+
+	return validated
+}
+
 // checkCommandExists checks if a command is available in PATH.
 func checkCommandExists(cmd string) bool {
 	_, err := exec.LookPath(cmd)

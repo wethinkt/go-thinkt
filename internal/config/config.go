@@ -59,10 +59,11 @@ func Load() (Config, error) {
 		config.Theme = "dark"
 	}
 
-	// Initialize default apps if not set
-	if config.AllowedApps == nil {
-		config.AllowedApps = DefaultApps()
-	}
+	// Validate apps against the trusted list.
+	// Only apps with IDs matching the hardcoded defaults are kept.
+	// The Exec command is always taken from the trusted list (never from disk).
+	// The user's Enabled preference from the config file is preserved.
+	config.AllowedApps = validateApps(config.AllowedApps)
 
 	return config, nil
 }
@@ -93,5 +94,5 @@ func Save(config Config) error {
 		return err
 	}
 
-	return os.WriteFile(configPath, data, 0644)
+	return os.WriteFile(configPath, data, 0600)
 }

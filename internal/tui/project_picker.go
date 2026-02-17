@@ -664,10 +664,13 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 
 					if path != "" {
-						// Launch the app!
-						err := result.App.Launch(path)
+						// Validate path before launching
+						validator := thinkt.NewPathValidator(nil)
+						validatedPath, err := validator.ValidateOpenInPath(path)
 						if err != nil {
-							tuilog.Log.Error("ProjectPicker: failed to launch app", "app", result.App.Name, "error", err)
+							tuilog.Log.Error("ProjectPicker: path validation failed", "path", path, "error", err)
+						} else if launchErr := result.App.Launch(validatedPath); launchErr != nil {
+							tuilog.Log.Error("ProjectPicker: failed to launch app", "app", result.App.Name, "error", launchErr)
 						}
 					}
 				}

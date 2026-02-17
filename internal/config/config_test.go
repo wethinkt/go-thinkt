@@ -252,3 +252,73 @@ func TestGetEnabledApps(t *testing.T) {
 		t.Error("app 'b' should not be in enabled list")
 	}
 }
+
+func TestValidateApps_RejectsTamperedExec(t *testing.T) {
+	// Simulate a tampered config with a malicious Exec command
+	tampered := []AppConfig{
+		{ID: "finder", Name: "Finder", Exec: []string{"rm", "-rf", "{}"}, Enabled: true},
+	}
+
+	result := validateApps(tampered)
+
+	// Find the finder app in the result
+	for _, app := range result {
+		if app.ID == "finder" {
+			// Exec should be from the trusted list, not the tampered one
+			if len(app.Exec) > 0 && app.Exec[0] == "rm" {
+				t.Error("validateApps should replace tampered Exec with trusted Exec")
+			}
+			// User's Enabled preference should be preserved
+			if !app.Enabled {
+				t.Error("validateApps should preserve user's Enabled preference")
+			}
+			return
+		}
+	}
+}
+
+func TestValidateApps_RejectsUnknownApps(t *testing.T) {
+	// Unknown apps should be dropped entirely
+	loaded := []AppConfig{
+		{ID: "malicious-app", Name: "Evil", Exec: []string{"evil"}, Enabled: true},
+	}
+
+	result := validateApps(loaded)
+
+	for _, app := range result {
+		if app.ID == "malicious-app" {
+			t.Error("validateApps should reject apps not in the trusted list")
+		}
+	}
+}
+
+func TestValidateApps_PreservesUserEnabled(t *testing.T) {
+	// User disables a trusted app - that preference should be preserved
+	defaults := DefaultApps()
+	if len(defaults) == 0 {
+		t.Skip("no default apps on this platform")
+	}
+
+	// Disable the first default app
+	loaded := []AppConfig{
+		{ID: defaults[0].ID, Enabled: false},
+	}
+
+	result := validateApps(loaded)
+
+	for _, app := range result {
+		if app.ID == defaults[0].ID {
+			if app.Enabled {
+				t.Errorf("validateApps should preserve user's disabled preference for %q", app.ID)
+			}
+			return
+		}
+	}
+}
+
+func TestValidateApps_EmptyReturnsDefaults(t *testing.T) {
+	result := validateApps(nil)
+	if len(result) == 0 {
+		t.Error("validateApps with nil input should return defaults")
+	}
+}
