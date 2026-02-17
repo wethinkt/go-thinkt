@@ -433,6 +433,7 @@ definitions:
     - copilot
     - gemini
     - kimi
+    - qwen
     type: string
     x-enum-varnames:
     - SourceThinkt
@@ -441,6 +442,7 @@ definitions:
     - SourceCopilot
     - SourceGemini
     - SourceKimi
+    - SourceQwen
   thinkt.Team:
     properties:
       created_at:

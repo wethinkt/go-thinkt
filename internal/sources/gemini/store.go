@@ -260,11 +260,16 @@ func (s *Store) readSessionMeta(path, projectID string, size int64, modTime time
 func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.SessionMeta, error) {
 	// Fast path: if sessionID is a path
 	if filepath.IsAbs(sessionID) {
+		// Validate path is under this store's base directory
+		if !strings.HasPrefix(sessionID, s.baseDir) {
+			return nil, nil
+		}
+		
 		info, err := os.Stat(sessionID)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		// Extract project hash from path
 		parts := strings.Split(sessionID, string(os.PathSeparator))
 		projectID := ""
@@ -274,7 +279,7 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 				break
 			}
 		}
-		
+
 		ws := s.Workspace()
 		return s.readSessionMeta(sessionID, projectID, info.Size(), info.ModTime(), ws.ID)
 	}

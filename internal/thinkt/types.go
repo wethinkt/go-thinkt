@@ -20,6 +20,7 @@ const (
 	SourceCopilot Source = "copilot"
 	SourceGemini  Source = "gemini"
 	SourceKimi    Source = "kimi"
+	SourceQwen    Source = "qwen"
 )
 
 func (s Source) String() string {
@@ -36,6 +37,8 @@ func (s Source) String() string {
 		return "kimi"
 	case SourceGemini:
 		return "gemini"
+	case SourceQwen:
+		return "qwen"
 	case "":
 		return "unknown"
 	default:
@@ -57,6 +60,8 @@ func (s Source) DisplayName() string {
 		return "Kimi Code"
 	case SourceGemini:
 		return "Gemini CLI"
+	case SourceQwen:
+		return "Qwen Code"
 	case "":
 		return "unknown source"
 	default:
@@ -78,6 +83,8 @@ func (s Source) Description() string {
 		return "Kimi Code sessions (~/.kimi)"
 	case SourceGemini:
 		return "Gemini CLI sessions"
+	case SourceQwen:
+		return "Qwen Code sessions (~/.qwen)"
 	case "":
 		return "unknown source"
 	default:

@@ -28,6 +28,7 @@ var (
 	sessionViewAll     bool
 	sessionViewRaw     bool // --raw flag for undecorated output
 	sessionResolveJSON bool
+	sessionJSON        bool // --json flag for JSON output
 )
 
 var sessionsCmd = &cobra.Command{
@@ -43,7 +44,7 @@ Project selection:
   - -p/--project <path>: use specified project
   - --pick: force picker even if in a project directory
 
-Use --source to filter by source (e.g. claude, kimi, gemini, copilot, codex).
+Use --source to filter by source (e.g. claude, kimi, gemini, copilot, codex, qwen).
 
 Examples:
   thinkt sessions                   # Interactive viewer (same as view)
@@ -72,7 +73,9 @@ Examples:
   thinkt sessions list              # Auto-detect from cwd or picker
   thinkt sessions list --pick       # Force project picker
   thinkt sessions list -p ./myproject
-  thinkt sessions list --source kimi`,
+  thinkt sessions list --source kimi
+  thinkt sessions list --source qwen
+  thinkt sessions list --json       # JSON output`,
 	RunE: runSessionsList,
 }
 
@@ -220,6 +223,11 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 
 	// If still no project (no match or forcing picker), show project picker
 	if sessionProject == "" {
+		// --json implies non-interactive mode; never show TUI
+		if sessionJSON {
+			return fmt.Errorf("no project detected\n\nUse -p <path> to specify a project, or run from within a project directory\nOr use 'thinkt sessions' (without --json) for interactive mode")
+		}
+
 		projects, err := GetProjectsFromSources(registry, sessionSources)
 		if err != nil {
 			return err
@@ -264,6 +272,11 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 	}
 
 	formatter := cli.NewSessionsFormatter(os.Stdout)
+	
+	if sessionJSON {
+		return formatter.FormatJSON(sessions)
+	}
+	
 	return formatter.FormatList(sessions)
 }
 

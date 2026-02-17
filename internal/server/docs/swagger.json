@@ -1367,7 +1367,8 @@
                 "codex",
                 "copilot",
                 "gemini",
-                "kimi"
+                "kimi",
+                "qwen"
             ],
             "x-enum-varnames": [
                 "SourceThinkt",
@@ -1375,7 +1376,8 @@
                 "SourceCodex",
                 "SourceCopilot",
                 "SourceGemini",
-                "SourceKimi"
+                "SourceKimi",
+                "SourceQwen"
             ]
         },
         "thinkt.Team": {

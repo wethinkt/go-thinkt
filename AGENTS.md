@@ -13,13 +13,14 @@ Released under the MIT license, see [LICENSE.txt](./LICENSE.txt).
 ### Multi-Source Design
 
 The tool supports multiple AI coding assistants via a `Store` interface:
-- **Claude Code** (`~/.claude`) - Primary source
-- **Kimi Code** (`~/.kimi`) - Secondary source
-- **Gemini CLI** (`~/.gemini`) - Tertiary source
-- **GitHub Copilot** (`~/.copilot`) - Quaternary source
-- **Codex CLI** (`~/.codex`) - Quinary source
+- **Claude Code** (`~/.claude`)
+- **Kimi Code** (`~/.kimi`)
+- **Gemini CLI** (`~/.gemini`)
+- **GitHub Copilot** (`~/.copilot`)
+- **Codex CLI** (`~/.codex`)
+- **Qwen Code** (`~/.qwen`)
 
-Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot|codex` flags to filter.
+Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot|codex|qwen` flags to filter.
 
 ### Key Packages
 
@@ -33,6 +34,7 @@ Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot|codex` fla
 | `internal/sources/gemini` | Gemini CLI storage implementation |
 | `internal/sources/copilot` | Copilot storage implementation |
 | `internal/sources/codex` | Codex CLI storage implementation |
+| `internal/sources/qwen` | Qwen Code storage implementation |
 | `internal/tui` | BubbleTea terminal UI (shell, pickers, viewer, theme builder) |
 | `internal/server` | HTTP REST API, teams API, indexer API, and MCP server |
 | `internal/server/web` | Full webapp submodule ([thinkt-web](https://github.com/wethinkt/thinkt-web), `dist` branch) |
@@ -188,6 +190,7 @@ The fingerprint is normalized to a consistent UUID format (lowercase, 8-4-4-4-12
 | `THINKT_GEMINI_HOME` | Gemini CLI data directory | `~/.gemini` |
 | `THINKT_COPILOT_HOME` | Copilot data directory | `~/.copilot` |
 | `THINKT_CODEX_HOME` | Codex CLI data directory | `~/.codex` |
+| `THINKT_QWEN_HOME` | Qwen Code data directory | `~/.qwen` |
 | `THINKT_API_TOKEN` | Bearer token for API server authentication | (none) |
 | `THINKT_MCP_TOKEN` | Bearer token for MCP server authentication | (none) |
 | `THINKT_PROFILE` | Write CPU profiling to this file path | (disabled) |

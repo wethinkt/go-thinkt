@@ -291,6 +291,11 @@ func (s *Store) countEntriesAndFirstPrompt(path string) (int, string) {
 func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.SessionMeta, error) {
 	// Support absolute path lookups for context.jsonl files.
 	if filepath.IsAbs(sessionID) {
+		// Validate path is under this store's base directory
+		if !strings.HasPrefix(sessionID, s.baseDir) {
+			return nil, nil
+		}
+		
 		sessionDir := filepath.Dir(sessionID)
 		uuid := filepath.Base(sessionDir)
 		hash := filepath.Base(filepath.Dir(sessionDir))

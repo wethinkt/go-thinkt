@@ -30,7 +30,7 @@ var (
 var projectsCmd = &cobra.Command{
 	Use:   "projects",
 	Short: "Manage and view projects",
-	Long: `Manage and view projects from available sources (Kimi, Claude, Gemini, etc.).
+	Long: `Manage and view projects from available sources (Kimi, Claude, Gemini, Copilot, Codex, Qwen).
 
 By default, this command launches the interactive project browser (TUI).
 Use subcommands to list, summarize, or manage projects via CLI.
@@ -55,7 +55,7 @@ This allows you to navigate projects and select sessions to view.`,
 var projectsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List projects from all sources",
-	Long: `List all projects from available sources (Kimi, Claude, Gemini, etc.).
+	Long: `List all projects from available sources (Kimi, Claude, Gemini, Copilot, Codex, Qwen).
 
 By default, shows detailed columns (path, source, sessions, modified time).
 Use --short for a compact list of project paths only.
@@ -65,7 +65,8 @@ Examples:
   thinkt projects list                 # Detailed columns
   thinkt projects list --short         # Paths only, one per line
   thinkt projects list --json          # JSON output
-  thinkt projects list --source kimi   # Only Kimi projects`,
+  thinkt projects list --source kimi   # Only Kimi projects
+  thinkt projects list --source qwen   # Only Qwen projects`,
 	RunE: runProjectsList,
 }
 
@@ -114,7 +115,7 @@ Examples:
 
 func init() {
 	// Root flags (persistent across all subcommands)
-	projectsCmd.PersistentFlags().StringArrayVarP(&projectSources, "source", "s", nil, "source to include (kimi|claude|gemini|copilot|codex, can be specified multiple times, default: all)")
+	projectsCmd.PersistentFlags().StringArrayVarP(&projectSources, "source", "s", nil, "source to include (kimi|claude|gemini|copilot|codex|qwen, can be specified multiple times, default: all)")
 
 	// List command flags
 	projectsListCmd.Flags().BoolVar(&shortFormat, "short", false, "show project paths only")

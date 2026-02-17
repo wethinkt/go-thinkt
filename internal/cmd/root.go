@@ -122,7 +122,7 @@ func init() {
 	// - -p <path>: use specified path
 	sessionsCmd.PersistentFlags().StringVarP(&sessionProject, "project", "p", "", "project path (auto-detects from cwd if not set)")
 	sessionsCmd.PersistentFlags().BoolVar(&sessionForcePicker, "pick", false, "force project picker even if in a known project directory")
-	sessionsCmd.PersistentFlags().StringArrayVarP(&sessionSources, "source", "s", nil, "filter by source (claude|kimi|gemini|copilot|codex, can be specified multiple times)")
+	sessionsCmd.PersistentFlags().StringArrayVarP(&sessionSources, "source", "s", nil, "filter by source (claude|kimi|gemini|copilot|codex|qwen, can be specified multiple times)")
 	sessionsCmd.PersistentFlags().StringVar(&logPath, "log", "", "write debug log to file")
 	sessionsSummaryCmd.Flags().StringVar(&sessionTemplate, "template", "", "custom Go text/template for output")
 	sessionsSummaryCmd.Flags().StringVar(&sessionSortBy, "sort", "time", "sort by: name, time")
@@ -142,6 +142,7 @@ func init() {
 	sessionsCmd.AddCommand(sessionsViewCmd)
 	sessionsCmd.AddCommand(sessionsResumeCmd)
 	sessionsCmd.AddCommand(sessionsResolveCmd)
+	sessionsListCmd.Flags().BoolVar(&sessionJSON, "json", false, "output sessions as JSON")
 	sessionsResolveCmd.Flags().BoolVar(&sessionResolveJSON, "json", false, "output resolved session metadata as JSON")
 	promptsCmd.AddCommand(extractCmd)
 	promptsCmd.AddCommand(listCmd)

@@ -3,6 +3,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -138,6 +139,12 @@ func (f *SessionsFormatter) FormatList(sessions []thinkt.SessionMeta) error {
 		fmt.Fprintln(f.w, s.FullPath)
 	}
 	return nil
+}
+
+// FormatJSON outputs sessions as JSON.
+func (f *SessionsFormatter) FormatJSON(sessions []thinkt.SessionMeta) error {
+	encoder := json.NewEncoder(f.w)
+	return encoder.Encode(sessions)
 }
 
 // SessionSummaryData is the template data for session summary.

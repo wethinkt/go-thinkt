@@ -28,9 +28,17 @@ Examples:
 var sourcesListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List available session sources",
-	Long: `List all session sources (Kimi, Claude, etc.) and their availability.
+	Long: `List all session sources and their availability.
 
-Shows which sources have session data available on this machine.`,
+Shows which sources have session data available on this machine.
+
+Sources include:
+  - Kimi Code (~/.kimi)
+  - Claude Code (~/.claude)
+  - Gemini CLI (~/.gemini)
+  - GitHub Copilot (~/.copilot)
+  - Codex CLI (~/.codex)
+  - Qwen Code (~/.qwen)`,
 	RunE: runSourcesList,
 }
 
@@ -61,6 +69,7 @@ func runSourcesList(cmd *cobra.Command, args []string) error {
 		fmt.Println("  - Gemini CLI: ~/.gemini/")
 		fmt.Println("  - Copilot CLI: ~/.copilot/")
 		fmt.Println("  - Codex CLI: ~/.codex/")
+		fmt.Println("  - Qwen Code: ~/.qwen/")
 		return nil
 	}
 

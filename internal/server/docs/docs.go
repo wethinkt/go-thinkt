@@ -1375,7 +1375,8 @@ const docTemplate = `{
                 "codex",
                 "copilot",
                 "gemini",
-                "kimi"
+                "kimi",
+                "qwen"
             ],
             "x-enum-varnames": [
                 "SourceThinkt",
@@ -1383,7 +1384,8 @@ const docTemplate = `{
                 "SourceCodex",
                 "SourceCopilot",
                 "SourceGemini",
-                "SourceKimi"
+                "SourceKimi",
+                "SourceQwen"
             ]
         },
         "thinkt.Team": {

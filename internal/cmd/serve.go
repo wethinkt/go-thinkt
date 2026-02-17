@@ -142,7 +142,7 @@ If no system identifier is available, a fingerprint is generated and cached
 in ~/.thinkt/machine_id for consistency across restarts.
 
 This fingerprint can be used to correlate sessions across different AI coding
-assistant sources (Kimi, Claude, Gemini, Copilot) on the same machine.
+assistant sources (Kimi, Claude, Gemini, Copilot, Codex, Qwen) on the same machine.
 
 Examples:
   thinkt serve fingerprint            # Display fingerprint

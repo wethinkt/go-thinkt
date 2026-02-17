@@ -168,6 +168,11 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 
 	// Fast path for absolute file path lookups.
 	if filepath.IsAbs(sessionID) {
+		// Validate path is under this store's base directory
+		if !strings.HasPrefix(sessionID, s.baseDir) {
+			return nil, nil
+		}
+		
 		if _, err := os.Stat(sessionID); os.IsNotExist(err) {
 			return nil, nil
 		}

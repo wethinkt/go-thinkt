@@ -9,6 +9,7 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/sources/copilot"
 	"github.com/wethinkt/go-thinkt/internal/sources/gemini"
 	"github.com/wethinkt/go-thinkt/internal/sources/kimi"
+	"github.com/wethinkt/go-thinkt/internal/sources/qwen"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
@@ -21,6 +22,7 @@ func CreateSourceRegistry() *thinkt.StoreRegistry {
 		gemini.Factory(),
 		copilot.Factory(),
 		codex.Factory(),
+		qwen.Factory(),
 	)
 
 	ctx := context.Background()
@@ -49,7 +51,7 @@ func GetProjectsFromSources(registry *thinkt.StoreRegistry, sources []string) ([
 		source := thinkt.Source(sourceName)
 		store, ok := registry.Get(source)
 		if !ok {
-			return nil, fmt.Errorf("unknown source: %s (available: claude, kimi, gemini, copilot, codex)", sourceName)
+			return nil, fmt.Errorf("unknown source: %s (available: claude, kimi, gemini, copilot, codex, qwen)", sourceName)
 		}
 
 		projects, err := store.ListProjects(ctx)
@@ -77,7 +79,7 @@ func GetSessionsForProject(registry *thinkt.StoreRegistry, projectID string, sou
 			source := thinkt.Source(sourceName)
 			store, ok := registry.Get(source)
 			if !ok {
-				return nil, fmt.Errorf("unknown source: %s (available: claude, kimi, gemini, copilot, codex)", sourceName)
+				return nil, fmt.Errorf("unknown source: %s (available: claude, kimi, gemini, copilot, codex, qwen)", sourceName)
 			}
 			stores = append(stores, store)
 		}
