@@ -232,16 +232,10 @@ func (s *HTTPServer) handleGetSession(w http.ResponseWriter, r *http.Request) {
 	// Chi's wildcard matches the entire suffix, so the resume route
 	// pattern (/sessions/resume/*) only works when "resume" comes first.
 	if sessionPath, ok := strings.CutSuffix(path, "/resume"); ok {
-		info, err := s.resolveResumeInfo(r.Context(), sessionPath)
-		if err != nil {
-			writeResumeError(w, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, ResumeResponse{
-			Command: info.Command,
-			Args:    info.Args,
-			Dir:     info.Dir,
-		})
+		// Rewrite the wildcard so handleResumeSession sees the session path.
+		rctx := chi.RouteContext(r.Context())
+		rctx.URLParams.Values[len(rctx.URLParams.Values)-1] = sessionPath
+		s.handleResumeSession(w, r)
 		return
 	}
 

@@ -51,8 +51,8 @@ func (a AppConfig) BuildCommand(path string) (string, []string) {
 
 	hasPlaceholder := false
 	for _, arg := range a.Exec[1:] {
-		if arg == "{}" {
-			args = append(args, path)
+		if strings.Contains(arg, "{}") {
+			args = append(args, strings.ReplaceAll(arg, "{}", path))
 			hasPlaceholder = true
 		} else {
 			args = append(args, arg)

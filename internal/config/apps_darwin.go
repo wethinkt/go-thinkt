@@ -42,6 +42,34 @@ func DefaultApps() []AppConfig {
 			Exec:    []string{"open", "-a", "Conductor", "{}"},
 			Enabled: checkAppExists("Conductor"),
 		},
+		{
+			ID:      "ghostty",
+			Name:    "Ghostty",
+			Exec:    []string{"open", "-a", "Ghostty", "{}"},
+			ExecRun: []string{"open", "-a", "Ghostty", "--args", "-e", "sh", "-c", "{}"},
+			Enabled: checkAppExists("Ghostty"),
+		},
+		{
+			ID:      "kitty",
+			Name:    "Kitty",
+			Exec:    []string{"open", "-a", "kitty", "{}"},
+			ExecRun: []string{"open", "-a", "kitty", "--args", "sh", "-c", "{}"},
+			Enabled: checkAppExists("kitty"),
+		},
+		{
+			ID:      "wezterm",
+			Name:    "WezTerm",
+			Exec:    []string{"open", "-a", "WezTerm", "{}"},
+			ExecRun: []string{"open", "-a", "WezTerm", "--args", "start", "--", "sh", "-c", "{}"},
+			Enabled: checkAppExists("WezTerm"),
+		},
+		{
+			ID:      "alacritty",
+			Name:    "Alacritty",
+			Exec:    []string{"open", "-a", "Alacritty", "{}"},
+			ExecRun: []string{"open", "-a", "Alacritty", "--args", "-e", "sh", "-c", "{}"},
+			Enabled: checkAppExists("Alacritty"),
+		},
 	}
 	return filterAvailable(append(apps, commonApps()...))
 }
