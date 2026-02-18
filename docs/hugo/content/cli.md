@@ -266,6 +266,29 @@ thinkt-indexer watch
 
 ---
 
+## Apps
+
+Manage the apps available for "open in" actions and the default terminal:
+
+```bash
+thinkt apps                           # List all apps with status
+thinkt apps list                      # Same as above
+thinkt apps list --json               # JSON output (includes terminal capability)
+thinkt apps enable <id>               # Enable an app
+thinkt apps enable                    # Interactive picker for disabled apps
+thinkt apps disable <id>              # Disable an app
+thinkt apps disable                   # Interactive picker for enabled apps
+thinkt apps get-terminal              # Show the default terminal app
+thinkt apps set-terminal <id>         # Set the default terminal
+thinkt apps set-terminal              # Interactive picker for terminal apps
+```
+
+Apps with terminal capability (those that can run shell commands) are shown in the `TERMINAL` column. Only terminal-capable apps can be set as the default terminal. The default terminal is used by the REST API to spawn resume commands.
+
+**Reference:** [thinkt apps](/command/thinkt_apps)
+
+---
+
 ## Theming
 
 Customize the TUI appearance:

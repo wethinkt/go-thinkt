@@ -50,6 +50,7 @@ Right now much of the implementation is in package `internal`, but we will event
 - **Web Interface**: Full webapp for visual trace exploration via `thinkt serve`
 - **Lite Webapp**: Lightweight debug interface with i18n (EN/ES/中文), connection status, and "open-in" buttons
 - **Themes**: Customizable color themes with interactive theme builder
+- **App Management**: Configure open-in apps and default terminal via `thinkt apps`
 
 ## Installation
 
@@ -158,6 +159,9 @@ thinkt tui --log /tmp/thinkt-debug.log
 | `thinkt serve mcp` | Start MCP server |
 | `thinkt serve token` | Generate secure authentication token |
 | `thinkt serve fingerprint` | Display machine fingerprint for workspace correlation |
+| `thinkt apps` | List configured open-in apps |
+| `thinkt apps enable/disable` | Enable or disable an app |
+| `thinkt apps set-terminal` | Set the default terminal app |
 | `thinkt theme` | Display current theme |
 | `thinkt theme builder` | Interactive theme editor |
 
@@ -300,7 +304,7 @@ Authorization: Bearer thinkt_20260205_...
 ## Cross-Platform Support
 
 thinkt runs on macOS, Linux, and Windows. Platform-specific behavior is handled automatically:
-- **Default apps**: Finder/Terminal/iTerm (macOS), xdg-open/x-terminal-emulator (Linux), Explorer/Windows Terminal/cmd (Windows), plus VS Code/Cursor/Zed on all platforms
+- **Default apps**: Finder/Terminal/iTerm (macOS), xdg-open/x-terminal-emulator (Linux), Explorer/Windows Terminal/cmd (Windows), plus VS Code/Cursor/Zed on all platforms. Manage with `thinkt apps`
 - **Machine fingerprint**: IOPlatformUUID (macOS), `/etc/machine-id` (Linux), registry MachineGuid (Windows)
 - **Browser opening**: `open` (macOS), `xdg-open` (Linux), `rundll32` (Windows)
 

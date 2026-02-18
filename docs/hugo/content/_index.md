@@ -42,6 +42,7 @@ thinkt sessions view
 - **Agent Teams** - Inspect multi-agent teams (Claude Code), including members, tasks, and messages
 - **Prompt Extraction** - Extract user prompts in markdown, JSON, or plain text
 - **Themes** - Customizable color themes with interactive theme builder
+- **App Management** - Configure open-in apps and default terminal via `thinkt apps`
 
 - [**REST API**](/rest-api) - Programmatic access with OpenAPI/Swagger documentation
 - [**Web Interface**](/rest-api#server-modes) - Full webapp for visual trace exploration via `thinkt serve`

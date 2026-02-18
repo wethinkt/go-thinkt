@@ -72,6 +72,8 @@ MCP provides direct tool access for AI assistants.
 thinkt projects                     # List projects
 thinkt sessions list -p <path>      # List sessions
 thinkt sessions view                # View session content
+thinkt apps                         # List open-in apps and terminal capability
+thinkt apps set-terminal            # Set default terminal for resume
 ```
 
 ### 3. REST API

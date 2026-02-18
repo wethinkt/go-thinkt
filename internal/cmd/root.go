@@ -217,6 +217,11 @@ func init() {
 	serveLiteCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
 	serveLiteCmd.Flags().DurationVar(&serveLiteTTL, "ttl", 60*time.Second, "cache TTL for refreshing source data (0 to cache forever)")
 
+	// Apps subcommands
+	appsCmd.AddCommand(appsListCmd, appsEnableCmd, appsDisableCmd, appsGetTermCmd, appsSetTermCmd)
+	appsCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "output as JSON")
+	rootCmd.AddCommand(appsCmd)
+
 	// Sources subcommands
 	sourcesCmd.AddCommand(sourcesListCmd)
 	sourcesCmd.AddCommand(sourcesStatusCmd)
