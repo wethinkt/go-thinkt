@@ -13,15 +13,23 @@ import (
 
 // Parser reads Codex session JSONL entries from an io.Reader.
 type Parser struct {
-	scanner   *bufio.Scanner
-	sessionID string
-	lineNo    int
+	scanner      *bufio.Scanner
+	sessionID    string
+	lineNo       int
+	pendingEvent *parsedEntry
+	queued       *parsedEntry
 }
 
 type logLine struct {
 	Timestamp string          `json:"timestamp"`
 	Type      string          `json:"type"`
 	Payload   json.RawMessage `json:"payload"`
+}
+
+type parsedEntry struct {
+	entry     *thinkt.Entry
+	kind      string
+	fromEvent bool
 }
 
 // NewParser creates a new Codex parser.
@@ -35,6 +43,12 @@ func NewParser(r io.Reader, sessionID string) *Parser {
 
 // NextEntry reads the next convertible entry from the JSONL stream.
 func (p *Parser) NextEntry() (*thinkt.Entry, error) {
+	if p.queued != nil {
+		out := p.queued.entry
+		p.queued = nil
+		return out, nil
+	}
+
 	for p.scanner.Scan() {
 		p.lineNo++
 		line := strings.TrimSpace(p.scanner.Text())
@@ -42,10 +56,38 @@ func (p *Parser) NextEntry() (*thinkt.Entry, error) {
 			continue
 		}
 
-		entry := p.convertLine([]byte(line))
-		if entry != nil {
-			return entry, nil
+		parsed := p.convertLine([]byte(line))
+		if parsed == nil || parsed.entry == nil {
+			continue
 		}
+
+		if p.pendingEvent == nil {
+			if isEventMessageCandidate(parsed) {
+				p.pendingEvent = parsed
+				continue
+			}
+			return parsed.entry, nil
+		}
+
+		if isDuplicateEventResponsePair(p.pendingEvent, parsed) {
+			p.pendingEvent = nil
+			return parsed.entry, nil
+		}
+
+		out := p.pendingEvent.entry
+		p.pendingEvent = nil
+		if isEventMessageCandidate(parsed) {
+			p.pendingEvent = parsed
+		} else {
+			p.queued = parsed
+		}
+		return out, nil
+	}
+
+	if p.pendingEvent != nil {
+		out := p.pendingEvent.entry
+		p.pendingEvent = nil
+		return out, nil
 	}
 
 	if err := p.scanner.Err(); err != nil {
@@ -54,7 +96,7 @@ func (p *Parser) NextEntry() (*thinkt.Entry, error) {
 	return nil, io.EOF
 }
 
-func (p *Parser) convertLine(line []byte) *thinkt.Entry {
+func (p *Parser) convertLine(line []byte) *parsedEntry {
 	var l logLine
 	if err := json.Unmarshal(line, &l); err != nil {
 		return nil
@@ -71,7 +113,7 @@ func (p *Parser) convertLine(line []byte) *thinkt.Entry {
 	}
 }
 
-func (p *Parser) convertEventMsg(raw json.RawMessage, timestamp time.Time) *thinkt.Entry {
+func (p *Parser) convertEventMsg(raw json.RawMessage, timestamp time.Time) *parsedEntry {
 	var payload map[string]any
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		return nil
@@ -84,13 +126,21 @@ func (p *Parser) convertEventMsg(raw json.RawMessage, timestamp time.Time) *thin
 		if text == "" {
 			return nil
 		}
-		return p.newEntry(thinkt.RoleUser, timestamp, eventType, text)
+		return &parsedEntry{
+			entry:     p.newEntry(thinkt.RoleUser, timestamp, eventType, text),
+			kind:      eventType,
+			fromEvent: true,
+		}
 	case "agent_message":
 		text := readString(payload, "message")
 		if text == "" {
 			return nil
 		}
-		return p.newEntry(thinkt.RoleAssistant, timestamp, eventType, text)
+		return &parsedEntry{
+			entry:     p.newEntry(thinkt.RoleAssistant, timestamp, eventType, text),
+			kind:      eventType,
+			fromEvent: true,
+		}
 	case "agent_reasoning":
 		thinking := readString(payload, "text")
 		if thinking == "" {
@@ -98,13 +148,13 @@ func (p *Parser) convertEventMsg(raw json.RawMessage, timestamp time.Time) *thin
 		}
 		e := p.newEntry(thinkt.RoleAssistant, timestamp, eventType, "")
 		e.ContentBlocks = []thinkt.ContentBlock{{Type: "thinking", Thinking: thinking}}
-		return e
+		return &parsedEntry{entry: e, kind: eventType, fromEvent: true}
 	default:
 		return nil
 	}
 }
 
-func (p *Parser) convertResponseItem(raw json.RawMessage, timestamp time.Time) *thinkt.Entry {
+func (p *Parser) convertResponseItem(raw json.RawMessage, timestamp time.Time) *parsedEntry {
 	var payload map[string]any
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		return nil
@@ -118,7 +168,11 @@ func (p *Parser) convertResponseItem(raw json.RawMessage, timestamp time.Time) *
 		if text == "" {
 			return nil
 		}
-		return p.newEntry(role, timestamp, itemType, text)
+		return &parsedEntry{
+			entry:     p.newEntry(role, timestamp, itemType, text),
+			kind:      itemType,
+			fromEvent: false,
+		}
 
 	case "reasoning":
 		thinking := extractReasoningText(payload)
@@ -127,7 +181,7 @@ func (p *Parser) convertResponseItem(raw json.RawMessage, timestamp time.Time) *
 		}
 		e := p.newEntry(thinkt.RoleAssistant, timestamp, itemType, "")
 		e.ContentBlocks = []thinkt.ContentBlock{{Type: "thinking", Thinking: thinking}}
-		return e
+		return &parsedEntry{entry: e, kind: itemType, fromEvent: false}
 
 	case "function_call", "custom_tool_call":
 		callID := readString(payload, "call_id")
@@ -143,7 +197,7 @@ func (p *Parser) convertResponseItem(raw json.RawMessage, timestamp time.Time) *
 			ToolName:  toolName,
 			ToolInput: parseToolInput(payload),
 		}}
-		return e
+		return &parsedEntry{entry: e, kind: itemType, fromEvent: false}
 
 	case "function_call_output", "custom_tool_call_output":
 		callID := readString(payload, "call_id")
@@ -158,11 +212,66 @@ func (p *Parser) convertResponseItem(raw json.RawMessage, timestamp time.Time) *
 			ToolUseID:  callID,
 			ToolResult: output,
 		}}
-		return e
+		return &parsedEntry{entry: e, kind: itemType, fromEvent: false}
 
 	default:
 		return nil
 	}
+}
+
+func isEventMessageCandidate(p *parsedEntry) bool {
+	if p == nil || !p.fromEvent || p.entry == nil {
+		return false
+	}
+	switch p.kind {
+	case "user_message", "agent_message", "agent_reasoning":
+		return comparableEntryText(p.entry) != ""
+	default:
+		return false
+	}
+}
+
+func isDuplicateEventResponsePair(event, current *parsedEntry) bool {
+	if !isEventMessageCandidate(event) || current == nil || current.entry == nil {
+		return false
+	}
+	if current.fromEvent {
+		return false
+	}
+	if event.entry.Role != current.entry.Role {
+		return false
+	}
+	eventText := comparableEntryText(event.entry)
+	currentText := comparableEntryText(current.entry)
+	if eventText == "" || currentText == "" || eventText != currentText {
+		return false
+	}
+
+	switch event.kind {
+	case "user_message", "agent_message":
+		return current.kind == "message"
+	case "agent_reasoning":
+		return current.kind == "reasoning"
+	default:
+		return false
+	}
+}
+
+func comparableEntryText(entry *thinkt.Entry) string {
+	if entry == nil {
+		return ""
+	}
+	if text := strings.TrimSpace(entry.Text); text != "" {
+		return text
+	}
+	for _, block := range entry.ContentBlocks {
+		if block.Type == "thinking" {
+			if text := strings.TrimSpace(block.Thinking); text != "" {
+				return text
+			}
+		}
+	}
+	return ""
 }
 
 func (p *Parser) newEntry(role thinkt.Role, timestamp time.Time, kind, text string) *thinkt.Entry {
