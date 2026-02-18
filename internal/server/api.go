@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -221,31 +222,26 @@ func (s *HTTPServer) findSessionsForProject(ctx context.Context, projectID strin
 // @Router /sessions/{path} [get]
 // @Security BearerAuth
 func (s *HTTPServer) handleGetSession(w http.ResponseWriter, r *http.Request) {
-	// Get the path after /sessions/
-	path := chi.URLParam(r, "*")
-	if path == "" {
+	path, err := extractWildcardPath(r)
+	if err != nil {
 		writeError(w, http.StatusBadRequest, "missing_path", "Session path is required")
 		return
-	}
-
-	// URL decode
-	decoded, err := url.PathUnescape(path)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_path", err.Error())
-		return
-	}
-	path = decoded
-
-	// Ensure path starts with /
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
 	}
 
 	// Delegate /sessions/<path>/resume to the resume handler.
 	// Chi's wildcard matches the entire suffix, so the resume route
 	// pattern (/sessions/resume/*) only works when "resume" comes first.
 	if sessionPath, ok := strings.CutSuffix(path, "/resume"); ok {
-		s.doResumeSession(w, r, sessionPath)
+		info, err := s.resolveResumeInfo(r.Context(), sessionPath)
+		if err != nil {
+			writeResumeError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, ResumeResponse{
+			Command: info.Command,
+			Args:    info.Args,
+			Dir:     info.Dir,
+		})
 		return
 	}
 
@@ -331,12 +327,49 @@ type ResumeResponse struct {
 	Dir     string   `json:"dir,omitempty"`
 }
 
-// handleResumeSession returns the command to resume a session in its original CLI tool.
-// @Summary Get resume command for a session
-// @Description Returns the command, arguments, and working directory needed to resume a session in its original CLI tool (e.g., claude --resume)
+// extractWildcardPath extracts and normalises a session path from a chi wildcard route param.
+func extractWildcardPath(r *http.Request) (string, error) {
+	path := chi.URLParam(r, "*")
+	if path == "" {
+		return "", fmt.Errorf("missing_path")
+	}
+	decoded, err := url.PathUnescape(path)
+	if err != nil {
+		return "", err
+	}
+	if !strings.HasPrefix(decoded, "/") {
+		decoded = "/" + decoded
+	}
+	return decoded, nil
+}
+
+// resolveResumeInfo resolves a session path to its ResumeInfo.
+func (s *HTTPServer) resolveResumeInfo(ctx context.Context, path string) (*thinkt.ResumeInfo, error) {
+	_, meta, err := s.registry.ResolveSessionByPath(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("session_not_found: %w", err)
+	}
+	if meta == nil {
+		return nil, fmt.Errorf("session_not_found")
+	}
+
+	resumer, ok := s.registry.GetResumer(meta.Source)
+	if !ok {
+		return nil, fmt.Errorf("resume_not_supported")
+	}
+
+	return resumer.ResumeCommand(*meta)
+}
+
+// handleResumeSession returns the command to resume a session, or executes it
+// in a terminal when action=exec is set.
+// @Summary Get or execute resume command for a session
+// @Description Returns the command, arguments, and working directory needed to resume a session.
+// @Description With ?action=exec, spawns the command in the configured terminal instead.
 // @Tags sessions
 // @Produce json
 // @Param path path string true "Session file path (URL-encoded)"
+// @Param action query string false "Set to 'exec' to spawn the command in a terminal"
 // @Success 200 {object} ResumeResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse "Source does not support resume"
@@ -345,43 +378,27 @@ type ResumeResponse struct {
 // @Router /sessions/{path}/resume [get]
 // @Security BearerAuth
 func (s *HTTPServer) handleResumeSession(w http.ResponseWriter, r *http.Request) {
-	path := chi.URLParam(r, "*")
-	if path == "" {
+	path, err := extractWildcardPath(r)
+	if err != nil {
 		writeError(w, http.StatusBadRequest, "missing_path", "Session path is required")
 		return
 	}
 
-	decoded, err := url.PathUnescape(path)
+	info, err := s.resolveResumeInfo(r.Context(), path)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_path", err.Error())
-		return
-	}
-	path = decoded
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
-	}
-
-	s.doResumeSession(w, r, path)
-}
-
-// doResumeSession resolves a session by path and returns its resume command.
-func (s *HTTPServer) doResumeSession(w http.ResponseWriter, r *http.Request, path string) {
-	ctx := r.Context()
-	_, meta, err := s.registry.ResolveSessionByPath(ctx, path)
-	if err != nil || meta == nil {
-		writeError(w, http.StatusNotFound, "session_not_found", "No session found at path")
+		writeResumeError(w, err)
 		return
 	}
 
-	resumer, ok := s.registry.GetResumer(meta.Source)
-	if !ok {
-		writeError(w, http.StatusNotFound, "resume_not_supported", "Source does not support session resume")
-		return
-	}
-
-	info, err := resumer.ResumeCommand(*meta)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "resume_failed", err.Error())
+	if r.URL.Query().Get("action") == "exec" {
+		if err := spawnInTerminal(info); err != nil {
+			writeError(w, http.StatusInternalServerError, "exec_failed", err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, OpenInResponse{
+			Success: true,
+			Message: "Resumed session in terminal",
+		})
 		return
 	}
 
@@ -390,6 +407,43 @@ func (s *HTTPServer) doResumeSession(w http.ResponseWriter, r *http.Request, pat
 		Args:    info.Args,
 		Dir:     info.Dir,
 	})
+}
+
+// writeResumeError maps resolveResumeInfo errors to appropriate HTTP responses.
+func writeResumeError(w http.ResponseWriter, err error) {
+	msg := err.Error()
+	switch {
+	case strings.HasPrefix(msg, "session_not_found"):
+		writeError(w, http.StatusNotFound, "session_not_found", "No session found at path")
+	case strings.HasPrefix(msg, "resume_not_supported"):
+		writeError(w, http.StatusNotFound, "resume_not_supported", "Source does not support session resume")
+	default:
+		writeError(w, http.StatusInternalServerError, "resume_failed", msg)
+	}
+}
+
+// spawnInTerminal opens the configured terminal app and runs the resume command.
+func spawnInTerminal(info *thinkt.ResumeInfo) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	app := cfg.GetTerminalApp()
+	if app == nil {
+		return fmt.Errorf("no terminal app configured or available")
+	}
+
+	shellCmd := strings.Join(info.Args, " ")
+	if info.Dir != "" {
+		shellCmd = fmt.Sprintf("cd %s && %s", quoteShell(info.Dir), shellCmd)
+	}
+
+	return app.LaunchCommand(shellCmd)
+}
+
+func quoteShell(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }
 
 // OpenInRequest is the request body for the open-in endpoint.

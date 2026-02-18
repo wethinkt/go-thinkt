@@ -10,6 +10,7 @@ import (
 // Config holds the thinkt configuration.
 type Config struct {
 	Theme       string      `json:"theme"`                  // Name of the active theme
+	Terminal    string      `json:"terminal,omitempty"`     // App ID for default terminal (e.g., "ghostty", "kitty")
 	AllowedApps []AppConfig `json:"allowed_apps,omitempty"` // Apps allowed for open-in
 }
 

@@ -57,24 +57,28 @@ func commonApps() []AppConfig {
 			ID:      "ghostty",
 			Name:    "Ghostty",
 			Exec:    []string{"ghostty", "{}"},
+			ExecRun: []string{"ghostty", "-e", "sh", "-c", "{}"},
 			Enabled: checkCommandExists("ghostty"),
 		},
 		{
 			ID:      "kitty",
 			Name:    "Kitty",
 			Exec:    []string{"kitty", "{}"},
+			ExecRun: []string{"kitty", "sh", "-c", "{}"},
 			Enabled: checkCommandExists("kitty"),
 		},
 		{
 			ID:      "wezterm",
 			Name:    "WezTerm",
 			Exec:    []string{"wezterm", "{}"},
+			ExecRun: []string{"wezterm", "start", "--", "sh", "-c", "{}"},
 			Enabled: checkCommandExists("wezterm"),
 		},
 		{
 			ID:      "alacritty",
 			Name:    "Alacritty",
 			Exec:    []string{"alacritty", "{}"},
+			ExecRun: []string{"alacritty", "-e", "sh", "-c", "{}"},
 			Enabled: checkCommandExists("alacritty"),
 		},
 	}

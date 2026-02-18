@@ -386,14 +386,14 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns the command, arguments, and working directory needed to resume a session in its original CLI tool (e.g., claude --resume)",
+                "description": "Returns the command, arguments, and working directory needed to resume a session.\nWith ?action=exec, spawns the command in the configured terminal instead.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "sessions"
                 ],
-                "summary": "Get resume command for a session",
+                "summary": "Get or execute resume command for a session",
                 "parameters": [
                     {
                         "type": "string",
@@ -401,6 +401,12 @@ const docTemplate = `{
                         "name": "path",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Set to 'exec' to spawn the command in a terminal",
+                        "name": "action",
+                        "in": "query"
                     }
                 ],
                 "responses": {

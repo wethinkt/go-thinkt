@@ -328,6 +328,7 @@ func (ls *LazySession) Metadata() thinkt.SessionMeta {
 		FullPath:   ls.Path,
 		GitBranch:  ls.Branch,
 		Model:      ls.Model,
+		Source:     thinkt.SourceClaude,
 		CreatedAt:  ls.StartTime,
 		ModifiedAt: ls.StartTime,
 		EntryCount: len(ls.entries),

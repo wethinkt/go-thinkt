@@ -20,12 +20,14 @@ func DefaultApps() []AppConfig {
 			ID:      "terminal",
 			Name:    "Terminal",
 			Exec:    []string{"open", "-a", "Terminal", "{}"},
+			ExecRun: []string{"osascript", "-e", "tell application \"Terminal\"\nactivate\ndo script \"{}\"\nend tell"},
 			Enabled: true,
 		},
 		{
 			ID:      "iterm",
 			Name:    "iTerm",
 			Exec:    []string{"open", "-a", "iTerm", "{}"},
+			ExecRun: []string{"osascript", "-e", "tell application \"iTerm2\"\nactivate\ncreate window with default profile command \"{}\"\nend tell"},
 			Enabled: checkAppExists("iTerm"),
 		},
 		{

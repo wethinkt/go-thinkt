@@ -15,12 +15,14 @@ func DefaultApps() []AppConfig {
 			ID:      "terminal",
 			Name:    "Terminal",
 			Exec:    []string{"x-terminal-emulator", "{}"},
+			ExecRun: []string{"x-terminal-emulator", "-e", "sh", "-c", "{}"},
 			Enabled: checkCommandExists("x-terminal-emulator"),
 		},
 		{
 			ID:      "konsole",
 			Name:    "Konsole",
 			Exec:    []string{"konsole", "{}"},
+			ExecRun: []string{"konsole", "-e", "sh", "-c", "{}"},
 			Enabled: checkCommandExists("konsole"),
 		},
 		{

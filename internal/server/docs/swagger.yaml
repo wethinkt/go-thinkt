@@ -817,13 +817,18 @@ paths:
       - sessions
   /sessions/{path}/resume:
     get:
-      description: Returns the command, arguments, and working directory needed to
-        resume a session in its original CLI tool (e.g., claude --resume)
+      description: |-
+        Returns the command, arguments, and working directory needed to resume a session.
+        With ?action=exec, spawns the command in the configured terminal instead.
       parameters:
       - description: Session file path (URL-encoded)
         in: path
         name: path
         required: true
+        type: string
+      - description: Set to 'exec' to spawn the command in a terminal
+        in: query
+        name: action
         type: string
       produces:
       - application/json
@@ -850,7 +855,7 @@ paths:
             $ref: '#/definitions/server.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Get resume command for a session
+      summary: Get or execute resume command for a session
       tags:
       - sessions
   /sources:

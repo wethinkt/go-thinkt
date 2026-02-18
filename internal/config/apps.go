@@ -3,14 +3,16 @@ package config
 import (
 	"os"
 	"os/exec"
+	"strings"
 )
 
 // AppConfig defines a launchable application for the open-in feature.
 type AppConfig struct {
-	ID      string   `json:"id"`             // Short identifier (e.g., "finder", "vscode")
-	Name    string   `json:"name"`           // Display name (e.g., "Finder", "VS Code")
-	Exec    []string `json:"exec,omitempty"` // Command and args; {} is replaced with path
-	Enabled bool     `json:"enabled"`        // Whether this app is enabled
+	ID      string   `json:"id"`                  // Short identifier (e.g., "finder", "vscode")
+	Name    string   `json:"name"`                // Display name (e.g., "Finder", "VS Code")
+	Exec    []string `json:"exec,omitempty"`      // Command and args; {} is replaced with path
+	ExecRun []string `json:"exec_run,omitempty"`  // Command to run a shell command in this app; {} is replaced inline
+	Enabled bool     `json:"enabled"`             // Whether this app is enabled
 }
 
 // AppInfo is the public API representation of an app (excludes Exec).
@@ -86,6 +88,42 @@ func (a AppConfig) Launch(validatedPath string) error {
 	return nil
 }
 
+// BuildRunCommand returns the command and args for running a shell command in this app.
+// Unlike BuildCommand, {} is replaced inline within args (not just as a standalone arg),
+// allowing patterns like ["osascript", "-e", "tell app \"Terminal\" to do script \"{}\""].
+func (a AppConfig) BuildRunCommand(shellCmd string) (string, []string) {
+	if len(a.ExecRun) == 0 {
+		return "", nil
+	}
+
+	cmd := a.ExecRun[0]
+	args := make([]string, 0, len(a.ExecRun)-1)
+	for _, arg := range a.ExecRun[1:] {
+		args = append(args, strings.ReplaceAll(arg, "{}", shellCmd))
+	}
+
+	return cmd, args
+}
+
+// LaunchCommand executes a shell command inside this application (e.g., run a command in a terminal).
+// It uses the ExecRun pattern rather than Exec.
+func (a AppConfig) LaunchCommand(shellCmd string) error {
+	cmdName, args := a.BuildRunCommand(shellCmd)
+	if cmdName == "" {
+		return os.ErrInvalid
+	}
+
+	cmd := exec.Command(cmdName, args...)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	go func() {
+		_ = cmd.Wait()
+	}()
+	return nil
+}
+
 // filterAvailable returns only apps that were probed as available (Enabled == true).
 func filterAvailable(apps []AppConfig) []AppConfig {
 	var available []AppConfig
@@ -147,6 +185,15 @@ func (c Config) GetApp(id string) *AppConfig {
 		}
 	}
 	return nil
+}
+
+// GetTerminalApp returns the configured terminal app, falling back to the "terminal" app ID.
+func (c Config) GetTerminalApp() *AppConfig {
+	id := c.Terminal
+	if id == "" {
+		id = "terminal"
+	}
+	return c.GetApp(id)
 }
 
 // GetEnabledApps returns all enabled apps as public API info.
