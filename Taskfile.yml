@@ -69,7 +69,6 @@ tasks:
 
   go-tidy:
     desc: Tidy Go modules
-    deps: [server:swag-v2]
     cmds:
       - go mod tidy
 
@@ -128,7 +127,12 @@ tasks:
   server:swag-v2:
     dir: ./internal/server
     cmds:
-      - swag init --parseDependency --parseDepth 2 -o ./docs -g ./api.go
+      - |
+        if command -v swag >/dev/null 2>&1; then
+          swag init --parseDependency --parseDepth 2 -o ./docs -g ./api.go
+        else
+          go run github.com/swaggo/swag/cmd/swag@v1.16.6 init --parseDependency --parseDepth 2 -o ./docs -g ./api.go
+        fi
     sources:
       - "**/*.go"
     generates:
