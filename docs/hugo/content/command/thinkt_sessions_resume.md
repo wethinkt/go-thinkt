@@ -1,37 +1,36 @@
 ---
-title: "thinkt sessions delete"
+title: "thinkt sessions resume"
 ---
 
-## thinkt sessions delete
+## thinkt sessions resume
 
-Delete a session
+Resume a session in its original CLI tool
 
 ### Synopsis
 
-Delete a session file from a known source.
+Resume a session in its original CLI tool (e.g., claude --resume).
+
+If no session is specified, shows an interactive picker.
+Only sources that support resume (e.g., Claude Code, Kimi Code) are available.
 
 The session can be specified as:
   - Full path to a known session file
   - Session ID (requires -p/--project)
   - Filename (requires -p/--project)
 
-Before deletion, shows session info and prompts for confirmation.
-Use --force to skip the confirmation.
-
 Examples:
-  thinkt sessions delete /full/path/to/session
-  thinkt sessions delete -p ./myproject abc123
-  thinkt sessions delete -p ./myproject --force abc123
+  thinkt sessions resume                   # Interactive picker
+  thinkt sessions resume -p ./myproject abc123
+  thinkt sessions resume /full/path/to/session.jsonl
 
 ```
-thinkt sessions delete <session> [flags]
+thinkt sessions resume [session] [flags]
 ```
 
 ### Options
 
 ```
-  -f, --force   skip confirmation prompt
-  -h, --help    help for delete
+  -h, --help   help for resume
 ```
 
 ### Options inherited from parent commands

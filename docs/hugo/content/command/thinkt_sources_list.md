@@ -8,9 +8,17 @@ List available session sources
 
 ### Synopsis
 
-List all session sources (Kimi, Claude, etc.) and their availability.
+List all session sources and their availability.
 
 Shows which sources have session data available on this machine.
+
+Sources include:
+  - Kimi Code (~/.kimi)
+  - Claude Code (~/.claude)
+  - Gemini CLI (~/.gemini)
+  - GitHub Copilot (~/.copilot)
+  - Codex CLI (~/.codex)
+  - Qwen Code (~/.qwen)
 
 ```
 thinkt sources list [flags]

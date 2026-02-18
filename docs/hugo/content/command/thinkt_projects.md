@@ -8,7 +8,7 @@ Manage and view projects
 
 ### Synopsis
 
-Manage and view projects from available sources (Kimi, Claude, Gemini, etc.).
+Manage and view projects from available sources (Kimi, Claude, Gemini, Copilot, Codex, Qwen).
 
 By default, this command launches the interactive project browser (TUI).
 Use subcommands to list, summarize, or manage projects via CLI.
@@ -28,7 +28,7 @@ thinkt projects [flags]
 
 ```
   -h, --help                 help for projects
-  -s, --source stringArray   source to include (kimi|claude|gemini|copilot|codex, can be specified multiple times, default: all)
+  -s, --source stringArray   source to include (kimi|claude|gemini|copilot|codex|qwen, can be specified multiple times, default: all)
 ```
 
 ### Options inherited from parent commands

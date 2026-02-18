@@ -18,7 +18,7 @@ Project selection:
   - -p/--project <path>: use specified project
   - --pick: force picker even if in a project directory
 
-Use --source to filter by source (e.g. claude, kimi, gemini, copilot, codex).
+Use --source to filter by source (e.g. claude, kimi, gemini, copilot, codex, qwen).
 
 Examples:
   thinkt sessions                   # Interactive viewer (same as view)
@@ -39,10 +39,11 @@ thinkt sessions [flags]
 ```
   -a, --all                  view all sessions in time order
   -h, --help                 help for sessions
+      --log string           write debug log to file
       --pick                 force project picker even if in a known project directory
   -p, --project string       project path (auto-detects from cwd if not set)
       --raw                  output raw text without decoration/rendering
-  -s, --source stringArray   filter by source (claude|kimi|gemini|copilot|codex, can be specified multiple times)
+  -s, --source stringArray   filter by source (claude|kimi|gemini|copilot|codex|qwen, can be specified multiple times)
 ```
 
 ### Options inherited from parent commands
@@ -58,6 +59,7 @@ thinkt sessions [flags]
 * [thinkt sessions delete](thinkt_sessions_delete.md)	 - Delete a session
 * [thinkt sessions list](thinkt_sessions_list.md)	 - List sessions (auto-detects project from cwd)
 * [thinkt sessions resolve](thinkt_sessions_resolve.md)	 - Resolve a session query to its canonical path
+* [thinkt sessions resume](thinkt_sessions_resume.md)	 - Resume a session in its original CLI tool
 * [thinkt sessions summary](thinkt_sessions_summary.md)	 - Show detailed session summary
 * [thinkt sessions view](thinkt_sessions_view.md)	 - View a session in the terminal (interactive picker)
 

@@ -21,6 +21,8 @@ Examples:
   thinkt sessions list --pick       # Force project picker
   thinkt sessions list -p ./myproject
   thinkt sessions list --source kimi
+  thinkt sessions list --source qwen
+  thinkt sessions list --json       # JSON output
 
 ```
 thinkt sessions list [flags]
@@ -30,14 +32,16 @@ thinkt sessions list [flags]
 
 ```
   -h, --help   help for list
+      --json   output sessions as JSON
 ```
 
 ### Options inherited from parent commands
 
 ```
+      --log string           write debug log to file
       --pick                 force project picker even if in a known project directory
   -p, --project string       project path (auto-detects from cwd if not set)
-  -s, --source stringArray   filter by source (claude|kimi|gemini|copilot|codex, can be specified multiple times)
+  -s, --source stringArray   filter by source (claude|kimi|gemini|copilot|codex|qwen, can be specified multiple times)
   -v, --verbose              verbose output
 ```
 
