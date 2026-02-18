@@ -2,6 +2,8 @@ version: "3"
 
 vars:
   BIN_DIR: ./bin
+  SWAG_VERSION: v1.16.6
+  GORELEASER_CROSS_VERSION: v1.25.6
 
 tasks:
   ###############################################################################
@@ -15,7 +17,7 @@ tasks:
   dev-deps:
     deps: [lint:deps]
     cmds:
-      - go install "github.com/swaggo/swag/cmd/swag@v1.16.6"
+      - go install "github.com/swaggo/swag/cmd/swag@{{.SWAG_VERSION}}"
 
   submodules:
     desc: "Ensure git submodules are checked out"
@@ -132,7 +134,7 @@ tasks:
         if command -v swag >/dev/null 2>&1; then
           swag init --parseDependency --parseDepth 2 -o ./docs -g ./api.go
         else
-          go run github.com/swaggo/swag/cmd/swag@v1.16.6 init --parseDependency --parseDepth 2 -o ./docs -g ./api.go
+          go run github.com/swaggo/swag/cmd/swag@{{.SWAG_VERSION}} init --parseDependency --parseDepth 2 -o ./docs -g ./api.go
         fi
     sources:
       - "**/*.go"
@@ -164,7 +166,7 @@ tasks:
         docker run --rm \
           -v $(pwd):/go/src/github.com/wethinkt/go-thinkt \
           -w /go/src/github.com/wethinkt/go-thinkt \
-          ghcr.io/goreleaser/goreleaser-cross:v1.25.6 \
+          ghcr.io/goreleaser/goreleaser-cross:{{.GORELEASER_CROSS_VERSION}} \
           build --snapshot --clean
 
   ###############################################################################
