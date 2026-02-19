@@ -1,0 +1,63 @@
+{
+  "name": "dracula",
+  "description": "Imported from dracula iTerm2 color scheme",
+  "accent": "#d6acff",
+  "border_active": "#d6acff",
+  "border_inactive": "#6272a4",
+  "text_primary": {
+    "fg": "#f8f8f2"
+  },
+  "text_secondary": {
+    "fg": "#6272a4"
+  },
+  "text_muted": {
+    "fg": "#4b5578"
+  },
+  "user_block": {
+    "fg": "#f8f8f2",
+    "bg": "#3e3a53"
+  },
+  "assistant_block": {
+    "fg": "#f8f8f2",
+    "bg": "#2e4940"
+  },
+  "thinking_block": {
+    "fg": "#fad2e5",
+    "bg": "#423347",
+    "italic": true
+  },
+  "tool_call_block": {
+    "fg": "#f6f9d3",
+    "bg": "#404340"
+  },
+  "tool_result_block": {
+    "fg": "#d7f3f5",
+    "bg": "#34414e"
+  },
+  "user_label": {
+    "fg": "#bd93f9",
+    "bold": true
+  },
+  "assistant_label": {
+    "fg": "#50fa7b",
+    "bold": true
+  },
+  "thinking_label": {
+    "fg": "#ff79c6",
+    "bold": true
+  },
+  "tool_label": {
+    "fg": "#f1fa8c",
+    "bold": true
+  },
+  "confirm_prompt": {
+    "fg": "#f8f8f2"
+  },
+  "confirm_selected": {
+    "fg": "#000000",
+    "bg": "#d6acff"
+  },
+  "confirm_unselected": {
+    "fg": "#4b5578"
+  }
+}

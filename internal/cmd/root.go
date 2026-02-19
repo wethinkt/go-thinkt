@@ -168,12 +168,17 @@ func init() {
 	teamsCmd.PersistentFlags().BoolVar(&teamsFilterInactive, "inactive", false, "show only inactive (historical) teams")
 
 	// Theme subcommands
+	themeCmd.AddCommand(themeShowCmd)
 	themeCmd.AddCommand(themeListCmd)
 	themeCmd.AddCommand(themeSetCmd)
+	themeCmd.AddCommand(themeBrowseCmd)
 	themeCmd.AddCommand(themeBuilderCmd)
+	themeCmd.AddCommand(themeImportCmd)
+	themeImportCmd.Flags().StringVar(&themeImportName, "name", "", "theme name (default: derived from filename)")
 
-	// Theme command flags
-	themeCmd.Flags().BoolVar(&outputJSON, "json", false, "output theme as JSON")
+	// Theme data output flags
+	themeShowCmd.Flags().BoolVar(&outputJSON, "json", false, "output theme as JSON")
+	themeListCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
 
 	// Serve command flags shared across subcommands
 	serveCmd.PersistentFlags().StringVar(&serveCORSOrigin, "cors-origin", "", "CORS Access-Control-Allow-Origin (default \"*\", env: THINKT_CORS_ORIGIN)")

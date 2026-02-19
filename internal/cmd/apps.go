@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
 var appsCmd = &cobra.Command{
@@ -338,12 +339,21 @@ func newAppPickModel(apps []config.AppConfig, title string, activeID string) app
 		items[i] = appPickItem{app: app, marker: marker}
 	}
 
+	t := theme.Current()
 	delegate := list.NewDefaultDelegate()
+	delegate.Styles.NormalTitle = delegate.Styles.NormalTitle.
+		Foreground(lipgloss.Color(t.TextPrimary.Fg))
+	delegate.Styles.NormalDesc = delegate.Styles.NormalDesc.
+		Foreground(lipgloss.Color(t.TextSecondary.Fg))
 	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.
-		Foreground(lipgloss.Color("#9d7aff")).
+		Foreground(lipgloss.Color(t.GetAccent())).
 		Bold(true)
 	delegate.Styles.SelectedDesc = delegate.Styles.SelectedDesc.
-		Foreground(lipgloss.Color("#666666"))
+		Foreground(lipgloss.Color(t.TextMuted.Fg))
+	delegate.Styles.DimmedTitle = delegate.Styles.DimmedTitle.
+		Foreground(lipgloss.Color(t.TextMuted.Fg))
+	delegate.Styles.DimmedDesc = delegate.Styles.DimmedDesc.
+		Foreground(lipgloss.Color(t.TextMuted.Fg))
 
 	l := list.New(items, delegate, 40, min(len(items)*3+6, 20))
 	l.SetShowTitle(true)

@@ -1,0 +1,63 @@
+{
+  "name": "tokyo-night",
+  "description": "Imported from tokyo-night iTerm2 color scheme",
+  "accent": "#7aa2f7",
+  "border_active": "#7aa2f7",
+  "border_inactive": "#414868",
+  "text_primary": {
+    "fg": "#c0caf5"
+  },
+  "text_secondary": {
+    "fg": "#414868"
+  },
+  "text_muted": {
+    "fg": "#31364e"
+  },
+  "user_block": {
+    "fg": "#c0caf5",
+    "bg": "#282f45"
+  },
+  "assistant_block": {
+    "fg": "#c0caf5",
+    "bg": "#2e3630"
+  },
+  "thinking_block": {
+    "fg": "#bfbcf6",
+    "bg": "#2d2a3f",
+    "italic": true
+  },
+  "tool_call_block": {
+    "fg": "#cac2cb",
+    "bg": "#322d2e"
+  },
+  "tool_result_block": {
+    "fg": "#accbf8",
+    "bg": "#263140"
+  },
+  "user_label": {
+    "fg": "#7aa2f7",
+    "bold": true
+  },
+  "assistant_label": {
+    "fg": "#9ece6a",
+    "bold": true
+  },
+  "thinking_label": {
+    "fg": "#bb9af7",
+    "bold": true
+  },
+  "tool_label": {
+    "fg": "#e0af68",
+    "bold": true
+  },
+  "confirm_prompt": {
+    "fg": "#c0caf5"
+  },
+  "confirm_selected": {
+    "fg": "#000000",
+    "bg": "#7aa2f7"
+  },
+  "confirm_unselected": {
+    "fg": "#31364e"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "name": "catppuccin-latte",
+  "description": "Imported from catppuccin-latte iTerm2 color scheme",
+  "accent": "#456e00",
+  "border_active": "#456e00",
+  "border_inactive": "#6c6f85",
+  "text_primary": {
+    "fg": "#4c4f69"
+  },
+  "text_secondary": {
+    "fg": "#6c6f85"
+  },
+  "text_muted": {
+    "fg": "#a0a3b2"
+  },
+  "user_block": {
+    "fg": "#4c4f69",
+    "bg": "#d0dcf5"
+  },
+  "assistant_block": {
+    "fg": "#4c4f69",
+    "bg": "#d5e5d7"
+  },
+  "thinking_block": {
+    "fg": "#7b5b86",
+    "bg": "#eee2f0",
+    "italic": true
+  },
+  "tool_call_block": {
+    "fg": "#786252",
+    "bg": "#ede5db"
+  },
+  "tool_result_block": {
+    "fg": "#3c6377",
+    "bg": "#d5e6ea"
+  },
+  "user_label": {
+    "fg": "#1e66f5",
+    "bold": true
+  },
+  "assistant_label": {
+    "fg": "#40a02b",
+    "bold": true
+  },
+  "thinking_label": {
+    "fg": "#ea76cb",
+    "bold": true
+  },
+  "tool_label": {
+    "fg": "#df8e1d",
+    "bold": true
+  },
+  "confirm_prompt": {
+    "fg": "#4c4f69"
+  },
+  "confirm_selected": {
+    "fg": "#ffffff",
+    "bg": "#456e00"
+  },
+  "confirm_unselected": {
+    "fg": "#a0a3b2"
+  }
+}

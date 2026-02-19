@@ -1,0 +1,63 @@
+{
+  "name": "gruvbox-light",
+  "description": "Imported from gruvbox-light iTerm2 color scheme",
+  "accent": "#076678",
+  "border_active": "#076678",
+  "border_inactive": "#928374",
+  "text_primary": {
+    "fg": "#3c3836"
+  },
+  "text_secondary": {
+    "fg": "#928374"
+  },
+  "text_muted": {
+    "fg": "#bcaf95"
+  },
+  "user_block": {
+    "fg": "#3c3836",
+    "bg": "#e0e1be"
+  },
+  "assistant_block": {
+    "fg": "#3c3836",
+    "bg": "#ece4ad"
+  },
+  "thinking_block": {
+    "fg": "#5f454e",
+    "bg": "#f2e0bf",
+    "italic": true
+  },
+  "tool_call_block": {
+    "fg": "#6b5530",
+    "bg": "#f7e6b3"
+  },
+  "tool_result_block": {
+    "fg": "#495646",
+    "bg": "#e9e7bc"
+  },
+  "user_label": {
+    "fg": "#458588",
+    "bold": true
+  },
+  "assistant_label": {
+    "fg": "#98971a",
+    "bold": true
+  },
+  "thinking_label": {
+    "fg": "#b16286",
+    "bold": true
+  },
+  "tool_label": {
+    "fg": "#d79921",
+    "bold": true
+  },
+  "confirm_prompt": {
+    "fg": "#3c3836"
+  },
+  "confirm_selected": {
+    "fg": "#ffffff",
+    "bg": "#076678"
+  },
+  "confirm_unselected": {
+    "fg": "#bcaf95"
+  }
+}

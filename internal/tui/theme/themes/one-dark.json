@@ -1,0 +1,63 @@
+{
+  "name": "one-dark",
+  "description": "Imported from one-dark iTerm2 color scheme",
+  "accent": "#61afef",
+  "border_active": "#61afef",
+  "border_inactive": "#767676",
+  "text_primary": {
+    "fg": "#abb2bf"
+  },
+  "text_secondary": {
+    "fg": "#767676"
+  },
+  "text_muted": {
+    "fg": "#545658"
+  },
+  "user_block": {
+    "fg": "#abb2bf",
+    "bg": "#2b3a48"
+  },
+  "assistant_block": {
+    "fg": "#abb2bf",
+    "bg": "#333d37"
+  },
+  "thinking_block": {
+    "fg": "#b3a1c8",
+    "bg": "#352f40",
+    "italic": true
+  },
+  "tool_call_block": {
+    "fg": "#bcb6ab",
+    "bg": "#393835"
+  },
+  "tool_result_block": {
+    "fg": "#92b3c0",
+    "bg": "#27363d"
+  },
+  "user_label": {
+    "fg": "#61afef",
+    "bold": true
+  },
+  "assistant_label": {
+    "fg": "#98c379",
+    "bold": true
+  },
+  "thinking_label": {
+    "fg": "#c678dd",
+    "bold": true
+  },
+  "tool_label": {
+    "fg": "#e5c07b",
+    "bold": true
+  },
+  "confirm_prompt": {
+    "fg": "#abb2bf"
+  },
+  "confirm_selected": {
+    "fg": "#000000",
+    "bg": "#61afef"
+  },
+  "confirm_unselected": {
+    "fg": "#545658"
+  }
+}

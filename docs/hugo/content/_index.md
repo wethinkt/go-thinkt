@@ -41,7 +41,7 @@ thinkt sessions view
 - **Multi-Source Support** - Auto-discovers Claude Code, Kimi Code, Gemini CLI, Copilot CLI, and Codex CLI sessions
 - **Agent Teams** - Inspect multi-agent teams (Claude Code), including members, tasks, and messages
 - **Prompt Extraction** - Extract user prompts in markdown, JSON, or plain text
-- **Themes** - Customizable color themes with interactive theme builder
+- [**Themes**](/themes) - 14 built-in color schemes (Dracula, Nord, Catppuccin, etc.) with interactive browser and iTerm2 import
 - **App Management** - Configure open-in apps and default terminal via `thinkt apps`
 
 - [**REST API**](/rest-api) - Programmatic access with OpenAPI/Swagger documentation

@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -14,22 +16,39 @@ import (
 // Theme command
 var themeCmd = &cobra.Command{
 	Use:   "theme",
-	Short: "Display and manage TUI theme settings",
-	Long: `Display the current TUI theme with styled samples.
+	Short: "Browse and manage TUI themes",
+	Long: `Browse and manage TUI themes.
+
+Running without a subcommand launches the interactive theme browser.
 
 The theme controls colors for conversation blocks, labels, borders,
 and other UI elements. Themes are stored in ~/.thinkt/themes/.
 
-Built-in themes: dark, light
-User themes can be added to ~/.thinkt/themes/
+Examples:
+  thinkt theme               # Browse themes interactively
+  thinkt theme show          # Show current theme with samples
+  thinkt theme show --json   # Output theme as JSON
+  thinkt theme list          # List all available themes
+  thinkt theme set dracula   # Switch to a theme
+  thinkt theme builder       # Interactive theme builder
+  thinkt theme import f.itermcolors  # Import iTerm2 color scheme`,
+	RunE: runThemeBrowse,
+}
+
+var themeShowCmd = &cobra.Command{
+	Use:   "show [name]",
+	Short: "Display a theme with styled samples",
+	Long: `Display a theme with styled samples and a conversation preview.
+
+If no name is provided, shows the active theme.
 
 Examples:
-  thinkt theme               # Show current theme with samples
-  thinkt theme --json        # Output theme as JSON
-  thinkt theme list          # List all available themes
-  thinkt theme set light     # Switch to light theme
-  thinkt theme builder       # Interactive theme builder`,
-	RunE: runTheme,
+  thinkt theme show            # Show active theme
+  thinkt theme show dracula    # Show the dracula theme
+  thinkt theme show --json     # Output active theme as JSON`,
+	Args:         cobra.MaximumNArgs(1),
+	RunE:         runThemeShow,
+	SilenceUsage: true,
 }
 
 var themeListCmd = &cobra.Command{
@@ -74,12 +93,21 @@ Examples:
 	RunE: runThemeBuilder,
 }
 
-// runTheme displays the current theme.
-func runTheme(cmd *cobra.Command, args []string) error {
-	t, err := theme.Load()
-	if err != nil {
-		// Fall back to defaults on error
-		t = theme.DefaultTheme()
+// runThemeShow displays a theme by name, or the active theme if no name given.
+func runThemeShow(cmd *cobra.Command, args []string) error {
+	var t theme.Theme
+	var err error
+
+	if len(args) > 0 {
+		t, err = theme.LoadByName(args[0])
+		if err != nil {
+			return fmt.Errorf("theme %q not found", args[0])
+		}
+	} else {
+		t, err = theme.Load()
+		if err != nil {
+			t = theme.DefaultTheme()
+		}
 	}
 
 	display := cli.NewThemeDisplay(os.Stdout, t)
@@ -93,6 +121,9 @@ func runTheme(cmd *cobra.Command, args []string) error {
 
 // runThemeList lists all available themes.
 func runThemeList(cmd *cobra.Command, args []string) error {
+	if outputJSON {
+		return cli.ListThemesJSON(os.Stdout)
+	}
 	return cli.ListThemes(os.Stdout)
 }
 
@@ -105,6 +136,75 @@ func runThemeSet(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Theme set to: %s\n", name)
+	return nil
+}
+
+var themeBrowseCmd = &cobra.Command{
+	Use:   "browse",
+	Short: "Browse and preview themes interactively",
+	Long: `Browse available themes with a live preview.
+
+Navigate themes with arrow keys or j/k, see a live preview of each theme,
+and activate one with Enter.
+
+Key bindings:
+  ↑/↓ or j/k   Navigate themes
+  enter         Activate the highlighted theme
+  e             Edit the highlighted theme in the builder
+  n             Create a new theme in the builder
+  q/esc         Quit without changing`,
+	RunE: runThemeBrowse,
+}
+
+func runThemeBrowse(cmd *cobra.Command, args []string) error {
+	return tui.RunThemeBrowser()
+}
+
+var themeImportName string
+
+var themeImportCmd = &cobra.Command{
+	Use:   "import <file.itermcolors>",
+	Short: "Import an iTerm2 color scheme as a theme",
+	Long: `Import an iTerm2 .itermcolors file and convert it to a thinkt theme.
+
+The imported theme is saved to ~/.thinkt/themes/ and can be activated
+with 'thinkt theme set'.
+
+Examples:
+  thinkt theme import ~/Downloads/Dracula.itermcolors
+  thinkt theme import scheme.itermcolors --name my-theme`,
+	Args: cobra.ExactArgs(1),
+	RunE: runThemeImport,
+}
+
+func runThemeImport(cmd *cobra.Command, args []string) error {
+	path := args[0]
+
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("open file: %w", err)
+	}
+	defer f.Close()
+
+	name := themeImportName
+	if name == "" {
+		// Derive name from filename
+		base := filepath.Base(path)
+		name = strings.TrimSuffix(base, filepath.Ext(base))
+		name = strings.ToLower(strings.ReplaceAll(name, " ", "-"))
+	}
+
+	t, err := theme.ImportIterm(f, name)
+	if err != nil {
+		return fmt.Errorf("import: %w", err)
+	}
+
+	if err := theme.Save(name, t); err != nil {
+		return fmt.Errorf("save theme: %w", err)
+	}
+
+	fmt.Printf("Theme %q imported successfully.\n", name)
+	fmt.Printf("Activate it with: thinkt theme set %s\n", name)
 	return nil
 }
 

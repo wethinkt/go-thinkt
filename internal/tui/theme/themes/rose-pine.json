@@ -1,0 +1,63 @@
+{
+  "name": "rose-pine",
+  "description": "Imported from rose-pine iTerm2 color scheme",
+  "accent": "#9ccfd8",
+  "border_active": "#9ccfd8",
+  "border_inactive": "#6e6a86",
+  "text_primary": {
+    "fg": "#e0def4"
+  },
+  "text_secondary": {
+    "fg": "#6e6a86"
+  },
+  "text_muted": {
+    "fg": "#4c495f"
+  },
+  "user_block": {
+    "fg": "#e0def4",
+    "bg": "#2d333f"
+  },
+  "assistant_block": {
+    "fg": "#e0def4",
+    "bg": "#1d2534"
+  },
+  "thinking_block": {
+    "fg": "#d8cef0",
+    "bg": "#2e283b",
+    "italic": true
+  },
+  "tool_call_block": {
+    "fg": "#e7d5ce",
+    "bg": "#342b2e"
+  },
+  "tool_result_block": {
+    "fg": "#e3d4e3",
+    "bg": "#322b36"
+  },
+  "user_label": {
+    "fg": "#9ccfd8",
+    "bold": true
+  },
+  "assistant_label": {
+    "fg": "#31748f",
+    "bold": true
+  },
+  "thinking_label": {
+    "fg": "#c4a7e7",
+    "bold": true
+  },
+  "tool_label": {
+    "fg": "#f6c177",
+    "bold": true
+  },
+  "confirm_prompt": {
+    "fg": "#e0def4"
+  },
+  "confirm_selected": {
+    "fg": "#000000",
+    "bg": "#9ccfd8"
+  },
+  "confirm_unselected": {
+    "fg": "#4c495f"
+  }
+}

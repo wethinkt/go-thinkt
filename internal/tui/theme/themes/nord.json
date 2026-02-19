@@ -1,0 +1,63 @@
+{
+  "name": "nord",
+  "description": "Imported from nord iTerm2 color scheme",
+  "accent": "#81a1c1",
+  "border_active": "#81a1c1",
+  "border_inactive": "#4c566a",
+  "text_primary": {
+    "fg": "#d8dee9"
+  },
+  "text_secondary": {
+    "fg": "#4c566a"
+  },
+  "text_muted": {
+    "fg": "#404859"
+  },
+  "user_block": {
+    "fg": "#d8dee9",
+    "bg": "#3a4453"
+  },
+  "assistant_block": {
+    "fg": "#d8dee9",
+    "bg": "#40494b"
+  },
+  "thinking_block": {
+    "fg": "#cdc6d7",
+    "bg": "#3e3f4d",
+    "italic": true
+  },
+  "tool_call_block": {
+    "fg": "#ded8cd",
+    "bg": "#454649"
+  },
+  "tool_result_block": {
+    "fg": "#c0d5e2",
+    "bg": "#394551"
+  },
+  "user_label": {
+    "fg": "#81a1c1",
+    "bold": true
+  },
+  "assistant_label": {
+    "fg": "#a3be8c",
+    "bold": true
+  },
+  "thinking_label": {
+    "fg": "#b48ead",
+    "bold": true
+  },
+  "tool_label": {
+    "fg": "#ebcb8b",
+    "bold": true
+  },
+  "confirm_prompt": {
+    "fg": "#d8dee9"
+  },
+  "confirm_selected": {
+    "fg": "#000000",
+    "bg": "#81a1c1"
+  },
+  "confirm_unselected": {
+    "fg": "#404859"
+  }
+}

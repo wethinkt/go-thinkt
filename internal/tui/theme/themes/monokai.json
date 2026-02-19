@@ -1,0 +1,63 @@
+{
+  "name": "monokai",
+  "description": "Imported from monokai iTerm2 color scheme",
+  "accent": "#9d65ff",
+  "border_active": "#9d65ff",
+  "border_inactive": "#625e4c",
+  "text_primary": {
+    "fg": "#c4c5b5"
+  },
+  "text_secondary": {
+    "fg": "#625e4c"
+  },
+  "text_muted": {
+    "fg": "#454338"
+  },
+  "user_block": {
+    "fg": "#c4c5b5",
+    "bg": "#2e253c"
+  },
+  "assistant_block": {
+    "fg": "#c4c5b5",
+    "bg": "#2d381c"
+  },
+  "thinking_block": {
+    "fg": "#d28a9b",
+    "bg": "#341722",
+    "italic": true
+  },
+  "tool_call_block": {
+    "fg": "#d4b286",
+    "bg": "#35271a"
+  },
+  "tool_result_block": {
+    "fg": "#a4c9c5",
+    "bg": "#213033"
+  },
+  "user_label": {
+    "fg": "#9d65ff",
+    "bold": true
+  },
+  "assistant_label": {
+    "fg": "#98e024",
+    "bold": true
+  },
+  "thinking_label": {
+    "fg": "#f4005f",
+    "bold": true
+  },
+  "tool_label": {
+    "fg": "#fa8419",
+    "bold": true
+  },
+  "confirm_prompt": {
+    "fg": "#c4c5b5"
+  },
+  "confirm_selected": {
+    "fg": "#000000",
+    "bg": "#9d65ff"
+  },
+  "confirm_unselected": {
+    "fg": "#454338"
+  }
+}

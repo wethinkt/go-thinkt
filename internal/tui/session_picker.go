@@ -175,7 +175,7 @@ func (d sessionDelegate) Render(w io.Writer, m list.Model, index int, item list.
 	activeIndicator := ""
 	if isActive {
 		activeIndicator = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#22c55e")).
+			Foreground(lipgloss.Color(theme.Current().GetAccent())).
 			Render("● ")
 	}
 

@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
 // SessionPickerItem represents a selectable session in the picker.
@@ -51,12 +52,21 @@ func newSessionPickerModel(sessions []SessionPickerItem) sessionPickerModel {
 		items[i] = s
 	}
 
+	t := theme.Current()
 	delegate := list.NewDefaultDelegate()
+	delegate.Styles.NormalTitle = delegate.Styles.NormalTitle.
+		Foreground(lipgloss.Color(t.TextPrimary.Fg))
+	delegate.Styles.NormalDesc = delegate.Styles.NormalDesc.
+		Foreground(lipgloss.Color(t.TextSecondary.Fg))
 	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.
-		Foreground(lipgloss.Color("#9d7aff")).
+		Foreground(lipgloss.Color(t.GetAccent())).
 		Bold(true)
 	delegate.Styles.SelectedDesc = delegate.Styles.SelectedDesc.
-		Foreground(lipgloss.Color("#666666"))
+		Foreground(lipgloss.Color(t.TextMuted.Fg))
+	delegate.Styles.DimmedTitle = delegate.Styles.DimmedTitle.
+		Foreground(lipgloss.Color(t.TextMuted.Fg))
+	delegate.Styles.DimmedDesc = delegate.Styles.DimmedDesc.
+		Foreground(lipgloss.Color(t.TextMuted.Fg))
 
 	l := list.New(items, delegate, 80, 20)
 	l.SetShowTitle(true)

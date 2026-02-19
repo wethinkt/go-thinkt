@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -127,7 +128,98 @@ func (d *ThemeDisplay) Show() error {
 	}
 
 	fmt.Fprintln(d.w)
+
+	// Render conversation preview (same mock data as theme browser)
+	d.renderPreview(t)
+
 	return nil
+}
+
+// renderPreview renders a mock conversation using the theme's styles.
+func (d *ThemeDisplay) renderPreview(t theme.Theme) {
+	categoryStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.GetAccent()))
+	fmt.Fprintf(d.w, "%s\n", categoryStyle.Render("Preview"))
+	fmt.Fprintf(d.w, "%s\n\n", strings.Repeat("─", len("Preview")+2))
+
+	// Color swatches
+	d.renderSwatches(t)
+	fmt.Fprintln(d.w)
+
+	width := 72
+
+	apply := func(s lipgloss.Style, ts theme.Style) lipgloss.Style {
+		if ts.Fg != "" {
+			s = s.Foreground(lipgloss.Color(ts.Fg))
+		}
+		if ts.Bg != "" {
+			s = s.Background(lipgloss.Color(ts.Bg))
+		}
+		if ts.Bold {
+			s = s.Bold(true)
+		}
+		if ts.Italic {
+			s = s.Italic(true)
+		}
+		if ts.Underline {
+			s = s.Underline(true)
+		}
+		return s
+	}
+
+	userLabel := apply(lipgloss.NewStyle(), t.UserLabel)
+	userBlock := apply(lipgloss.NewStyle(), t.UserBlock).Padding(0, 1).Width(width)
+	assistantLabel := apply(lipgloss.NewStyle(), t.AssistantLabel)
+	assistantBlock := apply(lipgloss.NewStyle(), t.AssistantBlock).Padding(0, 1).Width(width)
+	thinkingLabel := apply(lipgloss.NewStyle(), t.ThinkingLabel)
+	thinkingBlock := apply(lipgloss.NewStyle(), t.ThinkingBlock).Padding(0, 1).Width(width)
+	toolLabel := apply(lipgloss.NewStyle(), t.ToolLabel)
+	toolCallBlock := apply(lipgloss.NewStyle(), t.ToolCallBlock).Padding(0, 1).Width(width)
+	toolResultBlock := apply(lipgloss.NewStyle(), t.ToolResultBlock).Padding(0, 1).Width(width)
+
+	// Mock conversation (matches theme.MockEntries)
+	fmt.Fprintln(d.w, userLabel.Render("User"))
+	fmt.Fprintln(d.w, userBlock.Render("Can you help me understand how this code works?"))
+	fmt.Fprintln(d.w)
+	fmt.Fprintln(d.w, thinkingLabel.Render("Thinking"))
+	fmt.Fprintln(d.w, thinkingBlock.Render("Let me analyze the code structure and identify the key components..."))
+	fmt.Fprintln(d.w)
+	fmt.Fprintln(d.w, assistantLabel.Render("Assistant"))
+	fmt.Fprintln(d.w, assistantBlock.Render("I'll explain the code structure. Let me first read the main file to understand the architecture."))
+	fmt.Fprintln(d.w)
+	fmt.Fprintln(d.w, toolLabel.Render("Tool: Read"))
+	fmt.Fprintln(d.w, toolCallBlock.Render("file_path: /src/main.go"))
+	fmt.Fprintln(d.w)
+	fmt.Fprintln(d.w, toolLabel.Render("Tool Result"))
+	fmt.Fprintln(d.w, toolResultBlock.Render("package main\n\nfunc main() {\n    // ...\n}"))
+	fmt.Fprintln(d.w)
+	fmt.Fprintln(d.w, assistantLabel.Render("Assistant"))
+	fmt.Fprintln(d.w, assistantBlock.Render("This is a simple Go application with a main function. The structure follows standard Go conventions."))
+	fmt.Fprintln(d.w)
+}
+
+// renderSwatches renders inline color swatches (same as theme browser).
+func (d *ThemeDisplay) renderSwatches(t theme.Theme) {
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
+	var parts []string
+
+	swatches := []struct {
+		label string
+		color string
+	}{
+		{"accent", t.GetAccent()},
+		{"border", t.GetBorderActive()},
+		{"text", t.TextPrimary.Fg},
+		{"muted", t.TextMuted.Fg},
+	}
+
+	for _, s := range swatches {
+		if s.color != "" {
+			swatch := lipgloss.NewStyle().Background(lipgloss.Color(s.color)).Render("  ")
+			parts = append(parts, mutedStyle.Render(s.label+" ")+swatch)
+		}
+	}
+
+	fmt.Fprintf(d.w, "  %s\n", strings.Join(parts, "  "))
 }
 
 // ShowJSON displays the theme as JSON.
@@ -209,5 +301,45 @@ func ListThemes(w io.Writer) error {
 	fmt.Fprintf(w, "Active theme marked with *\n")
 	fmt.Fprintf(w, "Use 'thinkt theme set <name>' to change theme\n")
 
+	return nil
+}
+
+// ListThemesJSON outputs all available themes as JSON.
+func ListThemesJSON(w io.Writer) error {
+	themes, err := theme.ListAvailable()
+	if err != nil {
+		return err
+	}
+
+	activeName := theme.ActiveName()
+
+	type themeJSON struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Source      string `json:"source"`
+		Active      bool   `json:"active"`
+		Path        string `json:"path,omitempty"`
+	}
+
+	var out []themeJSON
+	for _, t := range themes {
+		source := "built-in"
+		if !t.Embedded {
+			source = "user"
+		}
+		out = append(out, themeJSON{
+			Name:        t.Name,
+			Description: t.Description,
+			Source:      source,
+			Active:      t.Name == activeName,
+			Path:        t.Path,
+		})
+	}
+
+	data, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(w, string(data))
 	return nil
 }

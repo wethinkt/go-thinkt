@@ -291,20 +291,49 @@ Apps with terminal capability (those that can run shell commands) are shown in t
 
 ## Theming
 
-Customize the TUI appearance:
+Customize the TUI appearance with 14 built-in themes or import your own.
+
+### Browse and Switch Themes
 
 ```bash
-thinkt theme                          # Show current theme
-thinkt theme list                     # List available themes
-thinkt theme set light                # Switch theme
-thinkt theme set dark
+thinkt theme                          # Browse themes interactively (default)
+thinkt theme list                     # List all available themes
+thinkt theme set dracula              # Switch to a theme
+thinkt theme show                     # Show current theme with samples
+thinkt theme show --json              # Export theme as JSON
 thinkt theme builder                  # Interactive theme builder
-thinkt theme --json                   # Export theme as JSON
 ```
 
-Built-in themes: `dark`, `light`
+### Built-in Themes
 
-Custom themes can be added to `~/.thinkt/themes/`
+| Theme | Description |
+|-------|-------------|
+| `dark` | Default dark theme |
+| `light` | Light theme for bright terminals |
+| `dracula` | Dracula color scheme |
+| `nord` | Nord color scheme |
+| `gruvbox-dark` | Gruvbox dark variant |
+| `gruvbox-light` | Gruvbox light variant |
+| `catppuccin-mocha` | Catppuccin Mocha (dark) |
+| `catppuccin-latte` | Catppuccin Latte (light) |
+| `solarized-dark` | Solarized dark variant |
+| `solarized-light` | Solarized light variant |
+| `tokyo-night` | Tokyo Night color scheme |
+| `rose-pine` | Rose Pine color scheme |
+| `one-dark` | Atom One Dark color scheme |
+| `monokai` | Monokai color scheme |
+
+### Import iTerm2 Color Schemes
+
+Import any `.itermcolors` file from the [iTerm2-Color-Schemes](https://github.com/mbadolato/iTerm2-Color-Schemes) repository or other sources:
+
+```bash
+thinkt theme import ~/Downloads/Zenburn.itermcolors
+thinkt theme import scheme.itermcolors --name my-theme
+thinkt theme set my-theme
+```
+
+Imported themes are saved to `~/.thinkt/themes/` and can be further customized with `thinkt theme builder`.
 
 **Reference:** [thinkt theme](/command/thinkt_theme)
 

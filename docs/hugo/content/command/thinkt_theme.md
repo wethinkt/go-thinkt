@@ -4,24 +4,27 @@ title: "thinkt theme"
 
 ## thinkt theme
 
-Display and manage TUI theme settings
+Browse and manage TUI themes
 
 ### Synopsis
 
-Display the current TUI theme with styled samples.
+Running without a subcommand launches the interactive theme browser.
 
 The theme controls colors for conversation blocks, labels, borders,
 and other UI elements. Themes are stored in ~/.thinkt/themes/.
 
-Built-in themes: dark, light
-User themes can be added to ~/.thinkt/themes/
+Built-in themes include popular color schemes like Dracula, Nord, Gruvbox,
+Catppuccin, Solarized, Tokyo Night, Rose Pine, One Dark, Monokai, and more.
+User themes can be added to ~/.thinkt/themes/ or imported from iTerm2.
 
 Examples:
-  thinkt theme               # Show current theme with samples
-  thinkt theme --json        # Output theme as JSON
+  thinkt theme               # Browse themes interactively
+  thinkt theme show          # Show current theme with samples
+  thinkt theme show --json   # Output theme as JSON
   thinkt theme list          # List all available themes
-  thinkt theme set light     # Switch to light theme
+  thinkt theme set dracula   # Switch to a theme
   thinkt theme builder       # Interactive theme builder
+  thinkt theme import f.itermcolors  # Import iTerm2 color scheme
 
 ```
 thinkt theme [flags]
@@ -31,7 +34,6 @@ thinkt theme [flags]
 
 ```
   -h, --help   help for theme
-      --json   output theme as JSON
 ```
 
 ### Options inherited from parent commands
@@ -43,7 +45,9 @@ thinkt theme [flags]
 ### SEE ALSO
 
 * [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
+* [thinkt theme browse](thinkt_theme_browse.md)	 - Browse and preview themes interactively
 * [thinkt theme builder](thinkt_theme_builder.md)	 - Launch interactive theme builder
+* [thinkt theme import](thinkt_theme_import.md)	 - Import an iTerm2 color scheme as a theme
 * [thinkt theme list](thinkt_theme_list.md)	 - List all available themes
 * [thinkt theme set](thinkt_theme_set.md)	 - Set the active theme
-
+* [thinkt theme show](thinkt_theme_show.md)	 - Display the current theme with styled samples
