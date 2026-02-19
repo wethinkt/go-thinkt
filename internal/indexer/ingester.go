@@ -59,7 +59,7 @@ func (i *Ingester) IngestProject(ctx context.Context, project thinkt.Project, pI
 
 	for idx, s := range sessions {
 		i.reportProgress(pIdx, pTotal, idx+1, totalSessions, fmt.Sprintf("Indexing %s: %s", project.Name, s.ID))
-		if err := i.IngestSession(ctx, project.ID, s); err != nil {
+		if err := i.IngestSession(ctx, ScopedProjectID(project.Source, project.ID), s); err != nil {
 			// Log error but continue with other sessions
 			fmt.Fprintf(os.Stderr, "\nError ingesting session %s: %v\n", s.ID, err)
 		}
@@ -123,6 +123,7 @@ func (i *Ingester) IngestSession(ctx context.Context, projectID string, meta thi
 }
 
 func (i *Ingester) syncProject(ctx context.Context, p thinkt.Project) error {
+	projectID := ScopedProjectID(p.Source, p.ID)
 	query := `
 		INSERT INTO projects (id, path, name, source, workspace_id)
 		VALUES (?, ?, ?, ?, ?)
@@ -131,7 +132,7 @@ func (i *Ingester) syncProject(ctx context.Context, p thinkt.Project) error {
 			name = excluded.name,
 			source = excluded.source,
 			workspace_id = excluded.workspace_id`
-	_, err := i.db.ExecContext(ctx, query, p.ID, p.Path, p.Name, string(p.Source), p.WorkspaceID)
+	_, err := i.db.ExecContext(ctx, query, projectID, p.Path, p.Name, string(p.Source), p.WorkspaceID)
 	return err
 }
 

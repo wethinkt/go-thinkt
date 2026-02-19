@@ -79,6 +79,27 @@ type ErrorResponse struct {
 	Message string `json:"message,omitempty"`
 }
 
+type ambiguousProjectSessionsError struct {
+	projectID string
+	sources   []thinkt.Source
+}
+
+func (e *ambiguousProjectSessionsError) Error() string {
+	names := make([]string, len(e.sources))
+	for i, src := range e.sources {
+		names[i] = string(src)
+	}
+	return fmt.Sprintf("project ID %q is ambiguous across sources: %s", e.projectID, strings.Join(names, ", "))
+}
+
+type unknownSourceSessionsError struct {
+	source thinkt.Source
+}
+
+func (e *unknownSourceSessionsError) Error() string {
+	return fmt.Sprintf("unknown source %q", e.source)
+}
+
 // writeJSON writes a JSON response.
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -152,38 +173,39 @@ func (s *HTTPServer) handleGetProjects(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, ProjectsResponse{Projects: projects})
 }
 
-// handleGetProjectSessions returns sessions for a project.
-// @Summary List sessions for a project
-// @Description Returns all sessions belonging to a specific project
+// handleGetProjectSessionsBySource returns sessions for a project in a specific source.
+// @Summary List sessions for a project in a source
+// @Description Returns all sessions belonging to a specific project within a specific source
 // @Tags sessions
 // @Produce json
+// @Param source path string true "Source name (e.g., 'claude', 'kimi')"
 // @Param projectID path string true "Project ID (URL-encoded path)"
 // @Success 200 {object} SessionsResponse
 // @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /projects/{projectID}/sessions [get]
+// @Router /projects/{source}/{projectID}/sessions [get]
 // @Security BearerAuth
-func (s *HTTPServer) handleGetProjectSessions(w http.ResponseWriter, r *http.Request) {
-	projectID := chi.URLParam(r, "projectID")
-	if projectID == "" {
-		writeError(w, http.StatusBadRequest, "missing_project_id", "Project ID is required")
+func (s *HTTPServer) handleGetProjectSessionsBySource(w http.ResponseWriter, r *http.Request) {
+	source := strings.TrimSpace(chi.URLParam(r, "source"))
+	if source == "" {
+		writeError(w, http.StatusBadRequest, "missing_source", "Source is required")
 		return
 	}
 
-	// URL decode the project ID (it may contain path characters)
-	decoded, err := url.PathUnescape(projectID)
+	projectID, err := decodeProjectIDParam(chi.URLParam(r, "projectID"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_project_id", err.Error())
 		return
 	}
-	projectID = decoded
 
-	ctx := r.Context()
-
-	// Find sessions across all stores
-	sessions, err := s.findSessionsForProject(ctx, projectID)
+	sessions, err := s.findSessionsForSourceProject(r.Context(), source, projectID)
 	if err != nil {
+		var unknownSourceErr *unknownSourceSessionsError
+		if errors.As(err, &unknownSourceErr) {
+			writeError(w, http.StatusBadRequest, "unknown_source", unknownSourceErr.Error())
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "list_sessions_failed", err.Error())
 		return
 	}
@@ -191,20 +213,100 @@ func (s *HTTPServer) handleGetProjectSessions(w http.ResponseWriter, r *http.Req
 	writeJSON(w, http.StatusOK, SessionsResponse{Sessions: sessions})
 }
 
+// handleGetProjectSessions returns sessions for a project.
+// This endpoint is retained for backward compatibility and supports
+// an optional `source` query parameter to disambiguate project IDs.
+// @Summary List sessions for a project
+// @Description Returns all sessions belonging to a specific project
+// @Tags sessions
+// @Produce json
+// @Param projectID path string true "Project ID (URL-encoded path)"
+// @Param source query string false "Source name (recommended to avoid ambiguous project IDs)"
+// @Success 200 {object} SessionsResponse
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /projects/{projectID}/sessions [get]
+// @Security BearerAuth
+func (s *HTTPServer) handleGetProjectSessions(w http.ResponseWriter, r *http.Request) {
+	projectID, err := decodeProjectIDParam(chi.URLParam(r, "projectID"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_project_id", err.Error())
+		return
+	}
+
+	source := strings.TrimSpace(r.URL.Query().Get("source"))
+
+	var sessions []thinkt.SessionMeta
+	if source != "" {
+		sessions, err = s.findSessionsForSourceProject(r.Context(), source, projectID)
+	} else {
+		sessions, err = s.findSessionsForProject(r.Context(), projectID)
+	}
+	if err != nil {
+		var unknownSourceErr *unknownSourceSessionsError
+		if errors.As(err, &unknownSourceErr) {
+			writeError(w, http.StatusBadRequest, "unknown_source", unknownSourceErr.Error())
+			return
+		}
+		var ambiguousErr *ambiguousProjectSessionsError
+		if errors.As(err, &ambiguousErr) {
+			writeError(w, http.StatusBadRequest, "ambiguous_project_id", ambiguousErr.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "list_sessions_failed", err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, SessionsResponse{Sessions: sessions})
+}
+
+func decodeProjectIDParam(rawProjectID string) (string, error) {
+	if strings.TrimSpace(rawProjectID) == "" {
+		return "", fmt.Errorf("Project ID is required")
+	}
+	projectID, err := url.PathUnescape(rawProjectID)
+	if err != nil {
+		return "", err
+	}
+	return projectID, nil
+}
+
+// findSessionsForSourceProject finds sessions for a project in a specific source.
+func (s *HTTPServer) findSessionsForSourceProject(ctx context.Context, sourceName, projectID string) ([]thinkt.SessionMeta, error) {
+	source := thinkt.Source(strings.ToLower(strings.TrimSpace(sourceName)))
+	store, ok := s.registry.Get(source)
+	if !ok {
+		return nil, &unknownSourceSessionsError{source: source}
+	}
+	return store.ListSessions(ctx, projectID)
+}
+
 // findSessionsForProject finds sessions for a project across all stores.
+// If multiple sources contain the same projectID, it returns an ambiguity error.
 func (s *HTTPServer) findSessionsForProject(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
-	var allSessions []thinkt.SessionMeta
+	var sources []thinkt.Source
+	var matched []thinkt.SessionMeta
 
 	for _, store := range s.registry.All() {
 		sessions, err := store.ListSessions(ctx, projectID)
-		if err != nil {
-			// Skip stores that don't have this project
+		if err != nil || len(sessions) == 0 {
 			continue
 		}
-		allSessions = append(allSessions, sessions...)
+		sources = append(sources, store.Source())
+		if len(matched) == 0 {
+			matched = sessions
+		}
 	}
 
-	return allSessions, nil
+	switch len(sources) {
+	case 0:
+		return []thinkt.SessionMeta{}, nil
+	case 1:
+		return matched, nil
+	default:
+		return nil, &ambiguousProjectSessionsError{projectID: projectID, sources: sources}
+	}
 }
 
 // handleGetSession returns session data.

@@ -104,7 +104,7 @@ func (ms *MCPServer) registerTools() {
 	if ms.isToolAllowed("list_sessions") {
 		mcp.AddTool(ms.server, &mcp.Tool{
 			Name:        "list_sessions",
-			Description: "List sessions for a specific project. Supports pagination (limit/offset) and sorting (newest first).",
+			Description: "List sessions for a specific project and source. Supports pagination (limit/offset) and sorting (newest first).",
 		}, ms.handleListSessions)
 	}
 
@@ -193,6 +193,7 @@ type projectInfo struct {
 
 type listSessionsInput struct {
 	ProjectID string `json:"project_id"`
+	Source    string `json:"source"`
 	Limit     int    `json:"limit,omitempty"`  // Max sessions to return (default: 20)
 	Offset    int    `json:"offset,omitempty"` // Number of sessions to skip
 }
@@ -366,6 +367,14 @@ func (ms *MCPServer) handleListProjects(ctx context.Context, req *mcp.CallToolRe
 }
 
 func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRequest, input listSessionsInput) (*mcp.CallToolResult, listSessionsOutput, error) {
+	if strings.TrimSpace(input.ProjectID) == "" {
+		return nil, listSessionsOutput{}, fmt.Errorf("project_id is required")
+	}
+	source := thinkt.Source(strings.ToLower(strings.TrimSpace(input.Source)))
+	if source == "" {
+		return nil, listSessionsOutput{}, fmt.Errorf("source is required")
+	}
+
 	limit := input.Limit
 	if limit <= 0 {
 		limit = 20
@@ -380,7 +389,7 @@ func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRe
 
 	// 1. Try indexer first for accurate data
 	if path := findIndexerBinary(); path != "" {
-		cmd := exec.Command(path, "sessions", "--json", input.ProjectID)
+		cmd := exec.Command(path, "sessions", "--json", "--source", string(source), input.ProjectID)
 		if output, err := cmd.Output(); err == nil {
 			var indexed []sessionInfo
 			if err := json.Unmarshal(output, &indexed); err == nil {
@@ -400,13 +409,15 @@ func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRe
 	}
 
 	// 2. Fallback to direct source reading
-	var allSessions []thinkt.SessionMeta
-	for _, store := range ms.registry.All() {
-		sessions, err := store.ListSessions(ctx, input.ProjectID)
-		if err == nil {
-			allSessions = append(allSessions, sessions...)
-		}
+	store, ok := ms.registry.Get(source)
+	if !ok {
+		return nil, listSessionsOutput{}, fmt.Errorf("unknown source: %s", source)
 	}
+	allSessions, err := store.ListSessions(ctx, input.ProjectID)
+	if err != nil {
+		return nil, listSessionsOutput{}, err
+	}
+
 	sort.Slice(allSessions, func(i, j int) bool { return allSessions[i].ModifiedAt.After(allSessions[j].ModifiedAt) })
 
 	total = len(allSessions)
@@ -708,7 +719,7 @@ func (ms *MCPServer) RunHTTP(ctx context.Context, host string, port int) error {
 	go func() {
 		<-ctx.Done()
 		_ = config.UnregisterInstance(os.Getpid()) // Ignore error, cleanup is best-effort
-		_ = srv.Shutdown(context.Background()) // Ignore error, shutdown errors are logged by server
+		_ = srv.Shutdown(context.Background())     // Ignore error, shutdown errors are logged by server
 	}()
 	return srv.Serve(ln)
 }

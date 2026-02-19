@@ -20,7 +20,7 @@ type testStore struct {
 	sessions map[string][]thinkt.SessionMeta // projectID -> sessions
 }
 
-func (s *testStore) Source() thinkt.Source    { return s.source }
+func (s *testStore) Source() thinkt.Source { return s.source }
 func (s *testStore) Workspace() thinkt.Workspace {
 	return thinkt.Workspace{ID: "test-ws", Source: s.source, BasePath: "/tmp/test"}
 }
@@ -270,7 +270,7 @@ func TestMCP_ListSessions(t *testing.T) {
 			},
 		},
 	})
-	result := callTool(t, ms, "list_sessions", map[string]any{"project_id": "proj1"})
+	result := callTool(t, ms, "list_sessions", map[string]any{"project_id": "proj1", "source": "claude"})
 
 	var out listSessionsOutput
 	parseToolResult(t, result, &out)
@@ -297,7 +297,7 @@ func TestMCP_ListSessions_Pagination(t *testing.T) {
 		sessions: map[string][]thinkt.SessionMeta{"p": sessions},
 	})
 
-	result := callTool(t, ms, "list_sessions", map[string]any{"project_id": "p", "limit": 2, "offset": 0})
+	result := callTool(t, ms, "list_sessions", map[string]any{"project_id": "p", "source": "claude", "limit": 2, "offset": 0})
 
 	var out listSessionsOutput
 	parseToolResult(t, result, &out)
@@ -315,7 +315,7 @@ func TestMCP_ListSessions_Empty(t *testing.T) {
 		source:   thinkt.SourceClaude,
 		sessions: map[string][]thinkt.SessionMeta{},
 	})
-	result := callTool(t, ms, "list_sessions", map[string]any{"project_id": "nonexistent"})
+	result := callTool(t, ms, "list_sessions", map[string]any{"project_id": "nonexistent", "source": "claude"})
 
 	var out listSessionsOutput
 	parseToolResult(t, result, &out)

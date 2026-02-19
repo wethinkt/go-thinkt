@@ -197,6 +197,71 @@ const docTemplate = `{
                         "name": "projectID",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Source name (recommended to avoid ambiguous project IDs)",
+                        "name": "source",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.SessionsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{source}/{projectID}/sessions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns all sessions belonging to a specific project within a specific source",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "List sessions for a project in a source",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Source name (e.g., 'claude', 'kimi')",
+                        "name": "source",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Project ID (URL-encoded path)",
+                        "name": "projectID",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {

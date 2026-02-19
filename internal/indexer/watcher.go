@@ -174,7 +174,7 @@ func (w *Watcher) handleFileChange(path string) {
 					return
 				}
 				ingester := NewIngester(database, w.registry)
-				if err := ingester.IngestSession(ctx, p.ID, s); err != nil {
+				if err := ingester.IngestSession(ctx, ScopedProjectID(p.Source, p.ID), s); err != nil {
 					log.Printf("Failed to re-index session %s: %v", s.ID, err)
 				}
 				database.Close()

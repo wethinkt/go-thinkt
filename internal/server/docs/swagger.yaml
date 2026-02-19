@@ -692,6 +692,10 @@ paths:
         name: projectID
         required: true
         type: string
+      - description: Source name (recommended to avoid ambiguous project IDs)
+        in: query
+        name: source
+        type: string
       produces:
       - application/json
       responses:
@@ -714,6 +718,45 @@ paths:
       security:
       - BearerAuth: []
       summary: List sessions for a project
+      tags:
+      - sessions
+  /projects/{source}/{projectID}/sessions:
+    get:
+      description: Returns all sessions belonging to a specific project within a specific
+        source
+      parameters:
+      - description: Source name (e.g., 'claude', 'kimi')
+        in: path
+        name: source
+        required: true
+        type: string
+      - description: Project ID (URL-encoded path)
+        in: path
+        name: projectID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.SessionsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing token
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List sessions for a project in a source
       tags:
       - sessions
   /search:
