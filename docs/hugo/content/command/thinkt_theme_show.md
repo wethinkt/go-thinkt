@@ -4,20 +4,21 @@ title: "thinkt theme show"
 
 ## thinkt theme show
 
-Display the current theme with styled samples
+Display a theme with styled samples
 
 ### Synopsis
 
-Display the current TUI theme with styled samples.
+Display a theme with styled samples and a conversation preview.
 
-Shows all theme colors and text styles with example output.
+If no name is provided, shows the active theme.
 
 Examples:
-  thinkt theme show          # Show current theme
-  thinkt theme show --json   # Output theme as JSON
+  thinkt theme show            # Show active theme
+  thinkt theme show dracula    # Show the dracula theme
+  thinkt theme show --json     # Output active theme as JSON
 
 ```
-thinkt theme show [flags]
+thinkt theme show [name] [flags]
 ```
 
 ### Options
@@ -36,3 +37,4 @@ thinkt theme show [flags]
 ### SEE ALSO
 
 * [thinkt theme](thinkt_theme.md)	 - Browse and manage TUI themes
+

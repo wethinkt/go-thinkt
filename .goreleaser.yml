@@ -97,6 +97,12 @@ homebrew_casks:
       zsh: completions/thinkt.zsh
       fish: completions/thinkt.fish
     manpages:
+      - man/man1/thinkt-apps-disable.1
+      - man/man1/thinkt-apps-enable.1
+      - man/man1/thinkt-apps-get-terminal.1
+      - man/man1/thinkt-apps-list.1
+      - man/man1/thinkt-apps-set-terminal.1
+      - man/man1/thinkt-apps.1
       - man/man1/thinkt-completion-bash.1
       - man/man1/thinkt-completion-fish.1
       - man/man1/thinkt-completion-powershell.1
@@ -130,6 +136,7 @@ homebrew_casks:
       - man/man1/thinkt-sessions-delete.1
       - man/man1/thinkt-sessions-list.1
       - man/man1/thinkt-sessions-resolve.1
+      - man/man1/thinkt-sessions-resume.1
       - man/man1/thinkt-sessions-summary.1
       - man/man1/thinkt-sessions-view.1
       - man/man1/thinkt-sessions.1
@@ -138,9 +145,12 @@ homebrew_casks:
       - man/man1/thinkt-sources.1
       - man/man1/thinkt-teams-list.1
       - man/man1/thinkt-teams.1
+      - man/man1/thinkt-theme-browse.1
       - man/man1/thinkt-theme-builder.1
+      - man/man1/thinkt-theme-import.1
       - man/man1/thinkt-theme-list.1
       - man/man1/thinkt-theme-set.1
+      - man/man1/thinkt-theme-show.1
       - man/man1/thinkt-theme.1
       - man/man1/thinkt-tui.1
       - man/man1/thinkt-version.1

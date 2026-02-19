@@ -18,6 +18,7 @@ thinkt theme list [flags]
 
 ```
   -h, --help   help for list
+      --json   output as JSON
 ```
 
 ### Options inherited from parent commands
@@ -28,5 +29,5 @@ thinkt theme list [flags]
 
 ### SEE ALSO
 
-* [thinkt theme](thinkt_theme.md)	 - Display and manage TUI theme settings
+* [thinkt theme](thinkt_theme.md)	 - Browse and manage TUI themes
 

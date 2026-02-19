@@ -50,7 +50,7 @@ thinkt [flags]
 * [thinkt sessions](thinkt_sessions.md)	 - View and manage sessions across all sources
 * [thinkt sources](thinkt_sources.md)	 - Manage and view available session sources
 * [thinkt teams](thinkt_teams.md)	 - List and inspect agent teams
-* [thinkt theme](thinkt_theme.md)	 - Display and manage TUI theme settings
+* [thinkt theme](thinkt_theme.md)	 - Browse and manage TUI themes
 * [thinkt tui](thinkt_tui.md)	 - Launch interactive TUI explorer
 * [thinkt version](thinkt_version.md)	 - Print the version information
 

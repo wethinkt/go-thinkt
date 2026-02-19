@@ -36,5 +36,5 @@ thinkt theme set <name> [flags]
 
 ### SEE ALSO
 
-* [thinkt theme](thinkt_theme.md)	 - Display and manage TUI theme settings
+* [thinkt theme](thinkt_theme.md)	 - Browse and manage TUI themes
 

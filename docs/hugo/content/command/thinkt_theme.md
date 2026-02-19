@@ -8,14 +8,12 @@ Browse and manage TUI themes
 
 ### Synopsis
 
+Browse and manage TUI themes.
+
 Running without a subcommand launches the interactive theme browser.
 
 The theme controls colors for conversation blocks, labels, borders,
 and other UI elements. Themes are stored in ~/.thinkt/themes/.
-
-Built-in themes include popular color schemes like Dracula, Nord, Gruvbox,
-Catppuccin, Solarized, Tokyo Night, Rose Pine, One Dark, Monokai, and more.
-User themes can be added to ~/.thinkt/themes/ or imported from iTerm2.
 
 Examples:
   thinkt theme               # Browse themes interactively
@@ -50,4 +48,5 @@ thinkt theme [flags]
 * [thinkt theme import](thinkt_theme_import.md)	 - Import an iTerm2 color scheme as a theme
 * [thinkt theme list](thinkt_theme_list.md)	 - List all available themes
 * [thinkt theme set](thinkt_theme_set.md)	 - Set the active theme
-* [thinkt theme show](thinkt_theme_show.md)	 - Display the current theme with styled samples
+* [thinkt theme show](thinkt_theme_show.md)	 - Display a theme with styled samples
+

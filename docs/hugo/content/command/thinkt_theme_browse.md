@@ -14,11 +14,11 @@ Navigate themes with arrow keys or j/k, see a live preview of each theme,
 and activate one with Enter.
 
 Key bindings:
-  up/down or j/k   Navigate themes
-  enter             Activate the highlighted theme
-  e                 Edit the highlighted theme in the builder
-  n                 Create a new theme in the builder
-  q/esc             Quit without changing
+  ↑/↓ or j/k   Navigate themes
+  enter         Activate the highlighted theme
+  e             Edit the highlighted theme in the builder
+  n             Create a new theme in the builder
+  q/esc         Quit without changing
 
 ```
 thinkt theme browse [flags]
@@ -38,4 +38,5 @@ thinkt theme browse [flags]
 
 ### SEE ALSO
 
-* [thinkt theme](thinkt_theme.md)	 - Display and manage TUI theme settings
+* [thinkt theme](thinkt_theme.md)	 - Browse and manage TUI themes
+
