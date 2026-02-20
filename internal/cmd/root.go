@@ -195,6 +195,9 @@ func init() {
 	serveCmd.AddCommand(serveStartCmd)
 	serveCmd.AddCommand(serveStopCmd)
 	serveCmd.AddCommand(serveStatusCmd)
+	serveLogsCmd.Flags().IntP("lines", "n", 50, "number of lines to show")
+	serveLogsCmd.Flags().BoolP("follow", "f", false, "follow log output")
+	serveCmd.AddCommand(serveLogsCmd)
 	serveStatusCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
 
 	// Serve token subcommand

@@ -32,6 +32,7 @@ var watchCmd = &cobra.Command{
 		inst := config.Instance{
 			Type:      config.InstanceIndexerWatch,
 			PID:       os.Getpid(),
+			LogPath:   logPath,
 			StartedAt: time.Now(),
 		}
 		if err := config.RegisterInstance(inst); err != nil {

@@ -39,6 +39,7 @@ type Config struct {
 	CORSOrigin    string              // Access-Control-Allow-Origin value (default "*")
 	StaticHandler http.Handler        // if nil, defaults to StaticLiteWebAppHandler()
 	InstanceType  config.InstanceType // instance type for discovery file registration
+	LogPath       string              // path to process log file (for instance registry)
 	httpLogFile   *os.File            // internal: opened log file handle
 }
 
@@ -252,6 +253,7 @@ func (s *HTTPServer) ListenAndServe(ctx context.Context) error {
 		PID:       os.Getpid(),
 		Port:      s.config.Port,
 		Host:      s.config.Host,
+		LogPath:   s.config.LogPath,
 		StartedAt: time.Now(),
 	}
 	if err := config.RegisterInstance(inst); err != nil {

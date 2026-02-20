@@ -27,13 +27,14 @@ import (
 
 // serveStatusJSON is the JSON schema for thinkt serve status --json.
 type serveStatusJSON struct {
-	Running       bool      `json:"running"`
-	PID           int       `json:"pid,omitempty"`
-	Host          string    `json:"host,omitempty"`
-	Port          int       `json:"port,omitempty"`
-	Address       string    `json:"address,omitempty"`
+	Running       bool       `json:"running"`
+	PID           int        `json:"pid,omitempty"`
+	Host          string     `json:"host,omitempty"`
+	Port          int        `json:"port,omitempty"`
+	Address       string     `json:"address,omitempty"`
+	LogPath       string     `json:"log_path,omitempty"`
 	StartedAt     *time.Time `json:"started_at,omitempty"`
-	UptimeSeconds int       `json:"uptime_seconds,omitempty"`
+	UptimeSeconds int        `json:"uptime_seconds,omitempty"`
 }
 
 // Serve command flags
@@ -106,6 +107,34 @@ var serveStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show server status",
 	RunE:  runServeStatus,
+}
+
+var serveLogsCmd = &cobra.Command{
+	Use:   "logs",
+	Short: "View server logs",
+	RunE:  runServeLogs,
+}
+
+func runServeLogs(cmd *cobra.Command, args []string) error {
+	n, _ := cmd.Flags().GetInt("lines")
+	follow, _ := cmd.Flags().GetBool("follow")
+
+	// Try to get log path from running instance
+	logFile := ""
+	if inst := config.FindInstanceByType(config.InstanceServe); inst != nil {
+		logFile = inst.LogPath
+	}
+
+	// Fall back to default
+	if logFile == "" {
+		confDir, err := config.Dir()
+		if err != nil {
+			return err
+		}
+		logFile = filepath.Join(confDir, "serve.log")
+	}
+
+	return tailLogFile(logFile, n, follow)
 }
 
 var webCmd = &cobra.Command{
@@ -228,6 +257,7 @@ func runServeStatus(cmd *cobra.Command, args []string) error {
 			status.PID = inst.PID
 			status.Host = inst.Host
 			status.Port = inst.Port
+			status.LogPath = inst.LogPath
 			status.StartedAt = &inst.StartedAt
 			status.UptimeSeconds = int(time.Since(inst.StartedAt).Seconds())
 			status.Address = fmt.Sprintf("http://%s:%d", inst.Host, inst.Port)
@@ -250,6 +280,9 @@ func runServeStatus(cmd *cobra.Command, args []string) error {
 	fmt.Printf("   Status: Running (PID: %d)\n", inst.PID)
 	fmt.Printf("   Address: http://%s:%d\n", inst.Host, inst.Port)
 	fmt.Printf("   Uptime: %s\n", time.Since(inst.StartedAt).Round(time.Second))
+	if inst.LogPath != "" {
+		fmt.Printf("   Log: %s\n", inst.LogPath)
+	}
 
 	return nil
 }
@@ -364,6 +397,14 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 		staticHandler = server.StaticWebAppHandler()
 	}
 
+	// Resolve log path for instance registry
+	serveLogPath := serveHTTPLog
+	if serveLogPath == "" {
+		if confDir, err := config.Dir(); err == nil {
+			serveLogPath = filepath.Join(confDir, "serve.log")
+		}
+	}
+
 	// HTTP mode: start HTTP server
 	thinktConfig := server.Config{
 		Port:          servePort,
@@ -373,6 +414,7 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 		CORSOrigin:    resolveCORSOrigin(),
 		StaticHandler: staticHandler,
 		InstanceType:  config.InstanceServe,
+		LogPath:       serveLogPath,
 	}
 	defer thinktConfig.Close()
 	srv := server.NewHTTPServerWithAuth(registry, thinktConfig, authConfig)

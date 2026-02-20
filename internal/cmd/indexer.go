@@ -17,6 +17,7 @@ import (
 type indexerStatusJSON struct {
 	Running       bool       `json:"running"`
 	PID           int        `json:"pid,omitempty"`
+	LogPath       string     `json:"log_path,omitempty"`
 	StartedAt     *time.Time `json:"started_at,omitempty"`
 	UptimeSeconds int        `json:"uptime_seconds,omitempty"`
 	Database      string     `json:"database,omitempty"`
@@ -44,6 +45,34 @@ Examples:
   thinkt indexer sync                        # Sync all local sessions to the index
   thinkt indexer search "query"              # Search across all sessions
   thinkt indexer watch                       # Watch and index in real-time (foreground)`,
+}
+
+var indexerLogsCmd = &cobra.Command{
+	Use:   "logs",
+	Short: "View indexer logs",
+	RunE:  runIndexerLogs,
+}
+
+func runIndexerLogs(cmd *cobra.Command, args []string) error {
+	n, _ := cmd.Flags().GetInt("lines")
+	follow, _ := cmd.Flags().GetBool("follow")
+
+	// Try to get log path from running instance
+	logFile := ""
+	if inst := config.FindInstanceByType(config.InstanceIndexerWatch); inst != nil {
+		logFile = inst.LogPath
+	}
+
+	// Fall back to default
+	if logFile == "" {
+		confDir, err := config.Dir()
+		if err != nil {
+			return err
+		}
+		logFile = filepath.Join(confDir, "indexer.log")
+	}
+
+	return tailLogFile(logFile, n, follow)
 }
 
 var indexerStartCmd = &cobra.Command{
@@ -136,6 +165,7 @@ func runIndexerStatus(cmd *cobra.Command, args []string) error {
 		status := indexerStatusJSON{Running: inst != nil}
 		if inst != nil {
 			status.PID = inst.PID
+			status.LogPath = inst.LogPath
 			status.StartedAt = &inst.StartedAt
 			status.UptimeSeconds = int(time.Since(inst.StartedAt).Seconds())
 			dbFile := indexerDBPath
@@ -163,6 +193,10 @@ func runIndexerStatus(cmd *cobra.Command, args []string) error {
 	fmt.Println("● thinkt-indexer.service - DuckDB Session Indexer")
 	fmt.Printf("   Status: Running (PID: %d)\n", inst.PID)
 	fmt.Printf("   Uptime: %s\n", time.Since(inst.StartedAt).Round(time.Second))
+
+	if inst.LogPath != "" {
+		fmt.Printf("   Log: %s\n", inst.LogPath)
+	}
 
 	// Try to find DB path from flags or default
 	dbP := indexerDBPath
@@ -249,6 +283,9 @@ func init() {
 	indexerCmd.AddCommand(indexerStopCmd)
 	indexerStatusCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
 	indexerCmd.AddCommand(indexerStatusCmd)
+	indexerLogsCmd.Flags().IntP("lines", "n", 50, "number of lines to show")
+	indexerLogsCmd.Flags().BoolP("follow", "f", false, "follow log output")
+	indexerCmd.AddCommand(indexerLogsCmd)
 
 	// Create subcommands that forward to thinkt-indexer
 	indexerCmd.AddCommand(makeAutoStartingCommand("sync", "Synchronize all local sessions into the index"))
