@@ -195,6 +195,7 @@ func init() {
 	serveCmd.AddCommand(serveStartCmd)
 	serveCmd.AddCommand(serveStopCmd)
 	serveCmd.AddCommand(serveStatusCmd)
+	serveStatusCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
 
 	// Serve token subcommand
 	serveCmd.AddCommand(serveTokenCmd)

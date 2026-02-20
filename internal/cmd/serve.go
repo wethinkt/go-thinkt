@@ -25,6 +25,17 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
+// serveStatusJSON is the JSON schema for thinkt serve status --json.
+type serveStatusJSON struct {
+	Running       bool      `json:"running"`
+	PID           int       `json:"pid,omitempty"`
+	Host          string    `json:"host,omitempty"`
+	Port          int       `json:"port,omitempty"`
+	Address       string    `json:"address,omitempty"`
+	StartedAt     *time.Time `json:"started_at,omitempty"`
+	UptimeSeconds int       `json:"uptime_seconds,omitempty"`
+}
+
 // Serve command flags
 var (
 	servePort       int
@@ -75,7 +86,8 @@ Examples:
   thinkt serve status             # Check server status
   thinkt serve stop               # Stop background server
   thinkt serve -p 8080            # Start on custom port`,
-	RunE: runServeHTTP,
+	SilenceUsage: true,
+	RunE:         runServeHTTP,
 }
 
 var serveStartCmd = &cobra.Command{
@@ -209,6 +221,25 @@ func runServeStop(cmd *cobra.Command, args []string) error {
 
 func runServeStatus(cmd *cobra.Command, args []string) error {
 	inst := config.FindInstanceByType(config.InstanceServe)
+
+	if outputJSON {
+		status := serveStatusJSON{Running: inst != nil}
+		if inst != nil {
+			status.PID = inst.PID
+			status.Host = inst.Host
+			status.Port = inst.Port
+			status.StartedAt = &inst.StartedAt
+			status.UptimeSeconds = int(time.Since(inst.StartedAt).Seconds())
+			status.Address = fmt.Sprintf("http://%s:%d", inst.Host, inst.Port)
+		}
+		data, err := json.MarshalIndent(status, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(data))
+		return nil
+	}
+
 	if inst == nil {
 		fmt.Println("● thinkt-serve.service - Web Interface & API")
 		fmt.Println("   Status: Not running")

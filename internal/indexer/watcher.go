@@ -84,7 +84,7 @@ func (w *Watcher) watchProject(p thinkt.Project) error {
 		dir := filepath.Dir(realPath)
 
 		// Exclude internal/hidden directories to avoid recursive loops
-		if strings.Contains(dir, ".thinkt") || strings.Contains(dir, ".git") {
+		if hasExcludedDirComponent(dir, []string{".thinkt", ".git"}) {
 			continue
 		}
 		if !watchedDirs[dir] {
@@ -97,6 +97,27 @@ func (w *Watcher) watchProject(p thinkt.Project) error {
 	}
 
 	return nil
+}
+
+// hasExcludedDirComponent checks if any path component matches an excluded directory name.
+// This ensures we exclude hidden directories like .thinkt or .git without matching
+// legitimate paths like "my.thinkt.project".
+func hasExcludedDirComponent(path string, excluded []string) bool {
+	clean := filepath.Clean(path)
+	for {
+		base := filepath.Base(clean)
+		for _, ex := range excluded {
+			if base == ex {
+				return true
+			}
+		}
+		parent := filepath.Dir(clean)
+		if parent == clean {
+			break
+		}
+		clean = parent
+	}
+	return false
 }
 
 func (w *Watcher) watchLoop(ctx context.Context) {

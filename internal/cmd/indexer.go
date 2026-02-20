@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,6 +12,15 @@ import (
 
 	"github.com/wethinkt/go-thinkt/internal/config"
 )
+
+// indexerStatusJSON is the JSON schema for thinkt indexer status --json.
+type indexerStatusJSON struct {
+	Running       bool       `json:"running"`
+	PID           int        `json:"pid,omitempty"`
+	StartedAt     *time.Time `json:"started_at,omitempty"`
+	UptimeSeconds int        `json:"uptime_seconds,omitempty"`
+	Database      string     `json:"database,omitempty"`
+}
 
 var (
 	// Mirror flags from thinkt-indexer for help and completion
@@ -34,6 +44,24 @@ Examples:
   thinkt indexer sync                        # Sync all local sessions to the index
   thinkt indexer search "query"              # Search across all sessions
   thinkt indexer watch                       # Watch and index in real-time (foreground)`,
+}
+
+var indexerStartCmd = &cobra.Command{
+	Use:   "start",
+	Short: "Start indexer in background",
+	RunE:  runIndexerStart,
+}
+
+var indexerStopCmd = &cobra.Command{
+	Use:   "stop",
+	Short: "Stop background indexer",
+	RunE:  runIndexerStop,
+}
+
+var indexerStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show indexer status",
+	RunE:  runIndexerStatus,
 }
 
 func runIndexerStart(cmd *cobra.Command, args []string) error {
@@ -103,6 +131,29 @@ func runIndexerStop(cmd *cobra.Command, args []string) error {
 
 func runIndexerStatus(cmd *cobra.Command, args []string) error {
 	inst := config.FindInstanceByType(config.InstanceIndexerWatch)
+
+	if outputJSON {
+		status := indexerStatusJSON{Running: inst != nil}
+		if inst != nil {
+			status.PID = inst.PID
+			status.StartedAt = &inst.StartedAt
+			status.UptimeSeconds = int(time.Since(inst.StartedAt).Seconds())
+			dbFile := indexerDBPath
+			if dbFile == "" {
+				if confDir, err := config.Dir(); err == nil {
+					dbFile = filepath.Join(confDir, "index.duckdb")
+				}
+			}
+			status.Database = dbFile
+		}
+		data, err := json.MarshalIndent(status, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(data))
+		return nil
+	}
+
 	if inst == nil {
 		fmt.Println("● thinkt-indexer.service - DuckDB Session Indexer")
 		fmt.Println("   Status: Not running")
@@ -194,26 +245,30 @@ func init() {
 	indexerCmd.PersistentFlags().BoolVarP(&indexerVerbose, "verbose", "v", false, "verbose output")
 
 	// Service commands
-	indexerCmd.AddCommand(&cobra.Command{
-		Use:   "start",
-		Short: "Start indexer in background",
-		RunE:  runIndexerStart,
-	})
-	indexerCmd.AddCommand(&cobra.Command{
-		Use:   "stop",
-		Short: "Stop background indexer",
-		RunE:  runIndexerStop,
-	})
-	indexerCmd.AddCommand(&cobra.Command{
-		Use:   "status",
-		Short: "Show indexer status",
-		RunE:  runIndexerStatus,
-	})
+	indexerCmd.AddCommand(indexerStartCmd)
+	indexerCmd.AddCommand(indexerStopCmd)
+	indexerStatusCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
+	indexerCmd.AddCommand(indexerStatusCmd)
 
 	// Create subcommands that forward to thinkt-indexer
 	indexerCmd.AddCommand(makeAutoStartingCommand("sync", "Synchronize all local sessions into the index"))
 	indexerCmd.AddCommand(makeAutoStartingCommand("search", "Search for text across indexed sessions"))
-	indexerCmd.AddCommand(makeForwardingCommand("watch", "Watch session directories for changes and index in real-time"))
+	watchCmd := makeForwardingCommand("watch", "Watch session directories for changes and index in real-time")
+	oldWatchRunE := watchCmd.RunE
+	watchCmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if inst := config.FindInstanceByType(config.InstanceIndexerWatch); inst != nil {
+			dbFile := indexerDBPath
+			if dbFile == "" {
+				confDir, _ := config.Dir()
+				dbFile = filepath.Join(confDir, "index.duckdb")
+			}
+			fmt.Fprintf(os.Stderr, "Warning: a background indexer is already running (PID: %d).\n", inst.PID)
+			fmt.Fprintf(os.Stderr, "Both processes will try to write to the same DuckDB database (%s), which may cause lock errors.\n", dbFile)
+			fmt.Fprintf(os.Stderr, "Stop it first with: thinkt indexer stop\n\n")
+		}
+		return oldWatchRunE(cmd, args)
+	}
+	indexerCmd.AddCommand(watchCmd)
 	indexerCmd.AddCommand(makeForwardingCommand("stats", "Show usage statistics from the index"))
 	indexerCmd.AddCommand(makeForwardingCommand("sessions", "List sessions for a project from the index"))
 	indexerCmd.AddCommand(makeForwardingCommand("version", "Print version information"))
