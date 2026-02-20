@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"errors"
 	"log"
 	"path/filepath"
 	"strings"
@@ -28,6 +29,7 @@ type Watcher struct {
 	done         chan struct{}
 	mu           sync.Mutex
 	sessionIndex map[string]sessionIndexEntry // normalized path -> session info
+	dbPool       *db.LazyPool                 // lazy-close connection pool
 }
 
 // NewWatcher creates a new Watcher instance.
@@ -43,6 +45,7 @@ func NewWatcher(dbPath string, registry *thinkt.StoreRegistry) (*Watcher, error)
 		watcher:      fw,
 		done:         make(chan struct{}),
 		sessionIndex: make(map[string]sessionIndexEntry),
+		dbPool:       db.NewLazyPool(dbPath, 100*time.Millisecond),
 	}, nil
 }
 
@@ -67,7 +70,16 @@ func (w *Watcher) Start(ctx context.Context) error {
 // Stop stops the watcher.
 func (w *Watcher) Stop() error {
 	close(w.done)
-	return w.watcher.Close()
+	err := w.watcher.Close()
+
+	// Close the DB pool
+	if w.dbPool != nil {
+		if poolErr := w.dbPool.Close(); poolErr != nil {
+			err = errors.Join(err, poolErr)
+		}
+	}
+
+	return err
 }
 
 func (w *Watcher) watchProject(p thinkt.Project) error {
@@ -234,12 +246,13 @@ func (w *Watcher) handleFileChange(path string) {
 	log.Printf("File changed, re-indexing: %s", realPath)
 
 	ctx := context.Background()
-	database, err := db.Open(w.dbPath)
+	database, err := w.dbPool.Acquire()
 	if err != nil {
 		log.Printf("Failed to open database: %v", err)
 		return
 	}
-	defer database.Close()
+	// Release schedules lazy close (100ms) instead of immediate close
+	defer w.dbPool.Release()
 
 	ingester := NewIngester(database, w.registry)
 	if err := ingester.IngestSession(ctx, entry.projectID, entry.session); err != nil {
