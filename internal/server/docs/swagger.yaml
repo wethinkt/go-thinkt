@@ -89,6 +89,27 @@ definitions:
       source:
         type: string
     type: object
+  server.SessionMetadataResponse:
+    properties:
+      description:
+        type: string
+      entry_summary:
+        items:
+          $ref: '#/definitions/server.entrySummary'
+        type: array
+      meta:
+        $ref: '#/definitions/server.sessionMetaInfo'
+      returned_summaries:
+        type: integer
+      role_counts:
+        additionalProperties:
+          type: integer
+        type: object
+      total_content_bytes:
+        type: integer
+      total_entries:
+        type: integer
+    type: object
   server.SessionResponse:
     properties:
       entries:
@@ -245,6 +266,42 @@ definitions:
         items:
           $ref: '#/definitions/server.ThemeInfo'
         type: array
+    type: object
+  server.entrySummary:
+    properties:
+      content_length:
+        type: integer
+      has_thinking:
+        type: boolean
+      has_tool_result:
+        type: boolean
+      has_tool_use:
+        type: boolean
+      index:
+        type: integer
+      preview:
+        type: string
+      role:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  server.sessionMetaInfo:
+    properties:
+      created_at:
+        type: string
+      git_branch:
+        type: string
+      id:
+        type: string
+      model:
+        type: string
+      modified_at:
+        type: string
+      path:
+        type: string
+      source:
+        type: string
     type: object
   thinkt.ContentBlock:
     properties:
@@ -663,6 +720,10 @@ paths:
         in: query
         name: source
         type: string
+      - description: Include projects with path_exists=false (default false)
+        in: query
+        name: include_deleted
+        type: boolean
       produces:
       - application/json
       responses:
@@ -670,6 +731,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/server.ProjectsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
         "401":
           description: Unauthorized - invalid or missing token
           schema:
@@ -856,6 +921,65 @@ paths:
       security:
       - BearerAuth: []
       summary: Get session content
+      tags:
+      - sessions
+  /sessions/{path}/metadata:
+    get:
+      description: Returns session metadata, role counts, and entry previews. Set
+        summary_only=true for quick user-message previews.
+      parameters:
+      - description: Session file path (URL-encoded)
+        in: path
+        name: path
+        required: true
+        type: string
+      - description: Maximum summaries/previews to return (default 50; default 5 when
+          summary_only=true)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of summaries/previews to skip
+        in: query
+        name: offset
+        type: integer
+      - collectionFormat: csv
+        description: Roles to exclude (repeat query param or comma-separated). Defaults
+          to checkpoint.
+        in: query
+        items:
+          type: string
+        name: exclude_roles
+        type: array
+      - description: Return lightweight user-message previews only
+        in: query
+        name: summary_only
+        type: boolean
+      - description: 'Summary ordering: index (default) or length'
+        in: query
+        name: sort_by
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.SessionMetadataResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing token
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get session metadata
       tags:
       - sessions
   /sessions/{path}/resume:

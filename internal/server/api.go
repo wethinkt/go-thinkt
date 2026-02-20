@@ -73,6 +73,9 @@ type SessionResponse struct {
 	Total   int                `json:"total,omitempty"`
 }
 
+// SessionMetadataResponse contains metadata-only session details and previews.
+type SessionMetadataResponse = getSessionMetadataOutput
+
 // ErrorResponse represents an API error.
 type ErrorResponse struct {
 	Error   string `json:"error"`
@@ -144,7 +147,9 @@ func (s *HTTPServer) handleGetSources(w http.ResponseWriter, r *http.Request) {
 // @Tags projects
 // @Produce json
 // @Param source query string false "Filter by source (e.g., 'claude', 'kimi')"
+// @Param include_deleted query bool false "Include projects with path_exists=false (default false)"
 // @Success 200 {object} ProjectsResponse
+// @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
 // @Failure 500 {object} ErrorResponse
 // @Router /projects [get]
@@ -152,6 +157,15 @@ func (s *HTTPServer) handleGetSources(w http.ResponseWriter, r *http.Request) {
 func (s *HTTPServer) handleGetProjects(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	sourceFilter := r.URL.Query().Get("source")
+	includeDeleted := false
+	if raw := strings.TrimSpace(r.URL.Query().Get("include_deleted")); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_include_deleted", "include_deleted must be true or false")
+			return
+		}
+		includeDeleted = parsed
+	}
 
 	projects, err := s.registry.ListAllProjects(ctx)
 	if err != nil {
@@ -159,18 +173,18 @@ func (s *HTTPServer) handleGetProjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Filter by source if specified
-	if sourceFilter != "" {
-		filtered := make([]thinkt.Project, 0)
-		for _, p := range projects {
-			if string(p.Source) == sourceFilter {
-				filtered = append(filtered, p)
-			}
+	filtered := make([]thinkt.Project, 0, len(projects))
+	for _, p := range projects {
+		if !includeDeleted && p.Path != "" && !p.PathExists {
+			continue
 		}
-		projects = filtered
+		if sourceFilter != "" && string(p.Source) != sourceFilter {
+			continue
+		}
+		filtered = append(filtered, p)
 	}
 
-	writeJSON(w, http.StatusOK, ProjectsResponse{Projects: projects})
+	writeJSON(w, http.StatusOK, ProjectsResponse{Projects: filtered})
 }
 
 // handleGetProjectSessionsBySource returns sessions for a project in a specific source.
@@ -330,13 +344,20 @@ func (s *HTTPServer) handleGetSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Delegate /sessions/<path>/metadata to the metadata-only handler.
+	// Chi's wildcard matches the entire suffix, so the metadata route
+	// pattern (/sessions/*/metadata) is handled here.
+	if sessionPath, ok := strings.CutSuffix(path, "/metadata"); ok {
+		rewriteWildcardPath(r, sessionPath)
+		s.handleGetSessionMetadata(w, r)
+		return
+	}
+
 	// Delegate /sessions/<path>/resume to the resume handler.
 	// Chi's wildcard matches the entire suffix, so the resume route
 	// pattern (/sessions/resume/*) only works when "resume" comes first.
 	if sessionPath, ok := strings.CutSuffix(path, "/resume"); ok {
-		// Rewrite the wildcard so handleResumeSession sees the session path.
-		rctx := chi.RouteContext(r.Context())
-		rctx.URLParams.Values[len(rctx.URLParams.Values)-1] = sessionPath
+		rewriteWildcardPath(r, sessionPath)
 		s.handleResumeSession(w, r)
 		return
 	}
@@ -360,6 +381,81 @@ func (s *HTTPServer) handleGetSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, session)
+}
+
+// handleGetSessionMetadata returns session metadata and lightweight previews
+// without returning full entry content.
+// @Summary Get session metadata
+// @Description Returns session metadata, role counts, and entry previews. Set summary_only=true for quick user-message previews.
+// @Tags sessions
+// @Produce json
+// @Param path path string true "Session file path (URL-encoded)"
+// @Param limit query int false "Maximum summaries/previews to return (default 50; default 5 when summary_only=true)"
+// @Param offset query int false "Number of summaries/previews to skip"
+// @Param exclude_roles query []string false "Roles to exclude (repeat query param or comma-separated). Defaults to checkpoint."
+// @Param summary_only query bool false "Return lightweight user-message previews only"
+// @Param sort_by query string false "Summary ordering: index (default) or length"
+// @Success 200 {object} SessionMetadataResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
+// @Failure 500 {object} ErrorResponse
+// @Router /sessions/{path}/metadata [get]
+// @Security BearerAuth
+func (s *HTTPServer) handleGetSessionMetadata(w http.ResponseWriter, r *http.Request) {
+	path, err := extractWildcardPath(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "missing_path", "Session path is required")
+		return
+	}
+
+	limit := 0
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_limit", "limit must be an integer")
+			return
+		}
+		limit = parsed
+	}
+
+	offset := 0
+	if raw := r.URL.Query().Get("offset"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_offset", "offset must be an integer")
+			return
+		}
+		offset = parsed
+	}
+
+	summaryOnly := false
+	if raw := strings.TrimSpace(r.URL.Query().Get("summary_only")); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_summary_only", "summary_only must be true or false")
+			return
+		}
+		summaryOnly = parsed
+	}
+
+	excludeRoles := parseListQueryParam(r.URL.Query(), "exclude_roles")
+
+	input := getSessionMetadataInput{
+		Path:         path,
+		Limit:        limit,
+		Offset:       offset,
+		ExcludeRoles: excludeRoles,
+		SummaryOnly:  summaryOnly,
+		SortBy:       strings.TrimSpace(r.URL.Query().Get("sort_by")),
+	}
+
+	output, err := collectSessionMetadata(r.Context(), s.registry, path, input)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "metadata_failed", err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, output)
 }
 
 // loadSession loads a session with optional pagination.
@@ -437,6 +533,35 @@ func extractWildcardPath(r *http.Request) (string, error) {
 		decoded = "/" + decoded
 	}
 	return decoded, nil
+}
+
+func rewriteWildcardPath(r *http.Request, path string) {
+	rctx := chi.RouteContext(r.Context())
+	if rctx == nil || len(rctx.URLParams.Values) == 0 {
+		return
+	}
+	rctx.URLParams.Values[len(rctx.URLParams.Values)-1] = path
+}
+
+func parseListQueryParam(values url.Values, key string) []string {
+	raw := values[key]
+	if len(raw) == 0 {
+		return nil
+	}
+
+	parsed := make([]string, 0, len(raw))
+	for _, item := range raw {
+		for _, piece := range strings.Split(item, ",") {
+			value := strings.TrimSpace(piece)
+			if value != "" {
+				parsed = append(parsed, value)
+			}
+		}
+	}
+	if len(parsed) == 0 {
+		return nil
+	}
+	return parsed
 }
 
 // resolveResumeInfo resolves a session path to its ResumeInfo.

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -188,11 +189,13 @@ func TestMCP_ListProjects_Empty(t *testing.T) {
 
 func TestMCP_ListProjects(t *testing.T) {
 	now := time.Now()
+	pathOne := t.TempDir()
+	pathTwo := t.TempDir()
 	ms := newTestMCPServer(&testStore{
 		source: thinkt.SourceClaude,
 		projects: []thinkt.Project{
-			{ID: "p1", Name: "project-one", Path: "/a", SessionCount: 3, Source: thinkt.SourceClaude, LastModified: now.Add(-time.Hour)},
-			{ID: "p2", Name: "project-two", Path: "/b", SessionCount: 1, Source: thinkt.SourceClaude, LastModified: now},
+			{ID: "p1", Name: "project-one", Path: pathOne, SessionCount: 3, Source: thinkt.SourceClaude, LastModified: now.Add(-time.Hour), PathExists: true},
+			{ID: "p2", Name: "project-two", Path: pathTwo, SessionCount: 1, Source: thinkt.SourceClaude, LastModified: now, PathExists: true},
 		},
 	})
 	result := callTool(t, ms, "list_projects", nil)
@@ -213,12 +216,14 @@ func TestMCP_ListProjects(t *testing.T) {
 }
 
 func TestMCP_ListProjects_SourceFilter(t *testing.T) {
+	claudePath := t.TempDir()
+	kimiPath := t.TempDir()
 	ms := newTestMCPServer(
 		&testStore{source: thinkt.SourceClaude, projects: []thinkt.Project{
-			{ID: "c1", Name: "claude-proj", Source: thinkt.SourceClaude},
+			{ID: "c1", Name: "claude-proj", Path: claudePath, Source: thinkt.SourceClaude, PathExists: true},
 		}},
 		&testStore{source: thinkt.SourceKimi, projects: []thinkt.Project{
-			{ID: "k1", Name: "kimi-proj", Source: thinkt.SourceKimi},
+			{ID: "k1", Name: "kimi-proj", Path: kimiPath, Source: thinkt.SourceKimi, PathExists: true},
 		}},
 	)
 	result := callTool(t, ms, "list_projects", map[string]any{"source": "kimi"})
@@ -236,10 +241,15 @@ func TestMCP_ListProjects_SourceFilter(t *testing.T) {
 
 func TestMCP_ListProjects_Pagination(t *testing.T) {
 	projects := make([]thinkt.Project, 5)
+	baseDir := t.TempDir()
 	for i := range projects {
 		projects[i] = thinkt.Project{
 			ID: string(rune('a' + i)), Name: string(rune('a' + i)),
-			Source: thinkt.SourceClaude, LastModified: time.Now().Add(time.Duration(i) * time.Minute),
+			Path:   filepath.Join(baseDir, string(rune('a'+i))),
+			Source: thinkt.SourceClaude, LastModified: time.Now().Add(time.Duration(i) * time.Minute), PathExists: true,
+		}
+		if err := os.MkdirAll(projects[i].Path, 0o755); err != nil {
+			t.Fatalf("failed creating test project path: %v", err)
 		}
 	}
 	ms := newTestMCPServer(&testStore{source: thinkt.SourceClaude, projects: projects})
@@ -254,6 +264,54 @@ func TestMCP_ListProjects_Pagination(t *testing.T) {
 	}
 	if out.Returned != 2 {
 		t.Errorf("expected returned 2, got %d", out.Returned)
+	}
+}
+
+func TestMCP_ListProjects_ExcludesDeletedByDefault(t *testing.T) {
+	now := time.Now()
+	activePath := t.TempDir()
+	deletedPath := filepath.Join(t.TempDir(), "deleted")
+	ms := newTestMCPServer(&testStore{
+		source: thinkt.SourceClaude,
+		projects: []thinkt.Project{
+			{ID: "active", Name: "active", Path: activePath, Source: thinkt.SourceClaude, LastModified: now, PathExists: true},
+			{ID: "deleted", Name: "deleted", Path: deletedPath, Source: thinkt.SourceClaude, LastModified: now.Add(-time.Minute), PathExists: false},
+		},
+	})
+	result := callTool(t, ms, "list_projects", nil)
+
+	var out listProjectsOutput
+	parseToolResult(t, result, &out)
+
+	if out.Total != 1 {
+		t.Fatalf("expected total 1, got %d", out.Total)
+	}
+	if len(out.Projects) != 1 || out.Projects[0].ID != "active" {
+		t.Fatalf("expected only active project, got %+v", out.Projects)
+	}
+}
+
+func TestMCP_ListProjects_IncludeDeleted(t *testing.T) {
+	now := time.Now()
+	activePath := t.TempDir()
+	deletedPath := filepath.Join(t.TempDir(), "deleted")
+	ms := newTestMCPServer(&testStore{
+		source: thinkt.SourceClaude,
+		projects: []thinkt.Project{
+			{ID: "active", Name: "active", Path: activePath, Source: thinkt.SourceClaude, LastModified: now, PathExists: true},
+			{ID: "deleted", Name: "deleted", Path: deletedPath, Source: thinkt.SourceClaude, LastModified: now.Add(-time.Minute), PathExists: false},
+		},
+	})
+	result := callTool(t, ms, "list_projects", map[string]any{"include_deleted": true})
+
+	var out listProjectsOutput
+	parseToolResult(t, result, &out)
+
+	if out.Total != 2 {
+		t.Fatalf("expected total 2, got %d", out.Total)
+	}
+	if out.Returned != 2 {
+		t.Fatalf("expected returned 2, got %d", out.Returned)
 	}
 }
 
@@ -424,8 +482,16 @@ func TestMCP_GetSessionMetadata_SummaryOnly(t *testing.T) {
 	var out getSessionMetadataOutput
 	parseToolResult(t, result, &out)
 
-	if len(out.EntrySummary) != 0 {
-		t.Errorf("expected no entry summaries with summary_only, got %d", len(out.EntrySummary))
+	if len(out.EntrySummary) == 0 {
+		t.Fatalf("expected entry previews with summary_only, got 0")
+	}
+	if out.Returned != len(out.EntrySummary) {
+		t.Fatalf("expected returned=%d, got %d", len(out.EntrySummary), out.Returned)
+	}
+	for _, summary := range out.EntrySummary {
+		if summary.Role != "user" {
+			t.Fatalf("expected only user previews in summary_only mode, got role=%s", summary.Role)
+		}
 	}
 	// Metadata should still be present
 	if out.TotalEntries == 0 {
@@ -675,5 +741,31 @@ func TestTruncateString(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("truncateString(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.want)
 		}
+	}
+}
+
+func TestBuildIndexerSearchArgs_IncludesSourceAndOptions(t *testing.T) {
+	got := buildIndexerSearchArgs(searchSessionsInput{
+		Query:           "DuckDB",
+		Project:         "go-thinkt",
+		Source:          " KIMI ",
+		Limit:           50,
+		LimitPerSession: 2,
+		CaseSensitive:   true,
+		Regex:           true,
+	})
+
+	want := []string{
+		"search", "--json", "DuckDB",
+		"--project", "go-thinkt",
+		"--source", "kimi",
+		"--limit", "50",
+		"--limit-per-session", "2",
+		"--case-sensitive",
+		"--regex",
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected args:\n got=%v\nwant=%v", got, want)
 	}
 }

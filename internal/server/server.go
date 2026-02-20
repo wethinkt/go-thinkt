@@ -194,11 +194,14 @@ func (s *HTTPServer) setupRouter() chi.Router {
 		httpSwagger.URL("/swagger/doc.json"),
 	))
 
-	// Serve embedded webapp for all other routes
+	// Lite webapp at /lite
+	r.Mount("/lite", http.StripPrefix("/lite", StaticLiteWebAppHandler()))
+
+	// Serve full webapp for all other routes
 	if s.config.StaticHandler != nil {
 		r.Handle("/*", s.config.StaticHandler)
 	} else {
-		r.Handle("/*", StaticLiteWebAppHandler())
+		r.Handle("/*", StaticWebAppHandler())
 	}
 
 	return r

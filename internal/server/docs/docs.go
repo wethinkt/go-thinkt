@@ -151,6 +151,12 @@ const docTemplate = `{
                         "description": "Filter by source (e.g., 'claude', 'kimi')",
                         "name": "source",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include projects with path_exists=false (default false)",
+                        "name": "include_deleted",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -158,6 +164,12 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/server.ProjectsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
                         }
                     },
                     "401": {
@@ -421,6 +433,92 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/server.SessionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/{path}/metadata": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns session metadata, role counts, and entry previews. Set summary_only=true for quick user-message previews.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "Get session metadata",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session file path (URL-encoded)",
+                        "name": "path",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum summaries/previews to return (default 50; default 5 when summary_only=true)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of summaries/previews to skip",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "Roles to exclude (repeat query param or comma-separated). Defaults to checkpoint.",
+                        "name": "exclude_roles",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Return lightweight user-message previews only",
+                        "name": "summary_only",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Summary ordering: index (default) or length",
+                        "name": "sort_by",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.SessionMetadataResponse"
                         }
                     },
                     "400": {
@@ -936,6 +1034,38 @@ const docTemplate = `{
                 }
             }
         },
+        "server.SessionMetadataResponse": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "entry_summary": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/server.entrySummary"
+                    }
+                },
+                "meta": {
+                    "$ref": "#/definitions/server.sessionMetaInfo"
+                },
+                "returned_summaries": {
+                    "type": "integer"
+                },
+                "role_counts": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "total_content_bytes": {
+                    "type": "integer"
+                },
+                "total_entries": {
+                    "type": "integer"
+                }
+            }
+        },
         "server.SessionResponse": {
             "type": "object",
             "properties": {
@@ -1182,6 +1312,61 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/server.ThemeInfo"
                     }
+                }
+            }
+        },
+        "server.entrySummary": {
+            "type": "object",
+            "properties": {
+                "content_length": {
+                    "type": "integer"
+                },
+                "has_thinking": {
+                    "type": "boolean"
+                },
+                "has_tool_result": {
+                    "type": "boolean"
+                },
+                "has_tool_use": {
+                    "type": "boolean"
+                },
+                "index": {
+                    "type": "integer"
+                },
+                "preview": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "server.sessionMetaInfo": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "git_branch": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "modified_at": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
                 }
             }
         },

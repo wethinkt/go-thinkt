@@ -96,7 +96,7 @@ func (ms *MCPServer) registerTools() {
 	if ms.isToolAllowed("list_projects") {
 		mcp.AddTool(ms.server, &mcp.Tool{
 			Name:        "list_projects",
-			Description: "List all projects across all sources. Supports pagination (limit/offset) and source filtering. Returns projects sorted by last modified time (newest first) by default.",
+			Description: "List all projects across all sources. Supports pagination (limit/offset), source filtering, and include_deleted to include path_exists=false projects. Returns projects sorted by last modified time (newest first) by default.",
 		}, ms.handleListProjects)
 	}
 
@@ -112,7 +112,7 @@ func (ms *MCPServer) registerTools() {
 	if ms.isToolAllowed("get_session_metadata") {
 		mcp.AddTool(ms.server, &mcp.Tool{
 			Name:        "get_session_metadata",
-			Description: "Get session metadata and entry summaries without loading full content. Default limits to 50 entries and excludes checkpoints. Use offset/limit for pagination, or summary_only for just metadata.",
+			Description: "Get session metadata and entry summaries without loading full content. Default limits to 50 entries and excludes checkpoints. Use offset/limit for pagination, or summary_only for lightweight user-message previews.",
 		}, ms.handleGetSessionMetadata)
 	}
 
@@ -170,9 +170,10 @@ type listSourcesOutput struct {
 }
 
 type listProjectsInput struct {
-	Source string `json:"source,omitempty"` // Filter by source
-	Limit  int    `json:"limit,omitempty"`  // Max projects to return (default: 20)
-	Offset int    `json:"offset,omitempty"` // Number of projects to skip
+	Source         string `json:"source,omitempty"`          // Filter by source
+	IncludeDeleted bool   `json:"include_deleted,omitempty"` // Include projects where path_exists=false (default: false)
+	Limit          int    `json:"limit,omitempty"`           // Max projects to return (default: 20)
+	Offset         int    `json:"offset,omitempty"`          // Number of projects to skip
 }
 
 type listProjectsOutput struct {
@@ -220,7 +221,7 @@ type getSessionMetadataInput struct {
 	Limit        int      `json:"limit,omitempty"`         // Max summaries to return (default: 50)
 	Offset       int      `json:"offset,omitempty"`        // Number of summaries to skip (default: 0)
 	ExcludeRoles []string `json:"exclude_roles,omitempty"` // Filter out specific roles (default: ["checkpoint"])
-	SummaryOnly  bool     `json:"summary_only,omitempty"`  // If true, don't return the entry_summary list
+	SummaryOnly  bool     `json:"summary_only,omitempty"`  // If true, return lightweight user previews in entry_summary (default: first 5)
 	SortBy       string   `json:"sort_by,omitempty"`       // "index" (default) or "length" (largest first)
 }
 
@@ -339,12 +340,20 @@ func (ms *MCPServer) handleListProjects(ctx context.Context, req *mcp.CallToolRe
 	var filtered []thinkt.Project
 	if input.Source != "" {
 		for _, p := range projects {
+			if !input.IncludeDeleted && p.Path != "" && !p.PathExists {
+				continue
+			}
 			if string(p.Source) == input.Source {
 				filtered = append(filtered, p)
 			}
 		}
 	} else {
-		filtered = projects
+		for _, p := range projects {
+			if !input.IncludeDeleted && p.Path != "" && !p.PathExists {
+				continue
+			}
+			filtered = append(filtered, p)
+		}
 	}
 	sort.Slice(filtered, func(i, j int) bool { return filtered[i].LastModified.After(filtered[j].LastModified) })
 	total := len(filtered)
@@ -393,6 +402,11 @@ func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRe
 		if output, err := cmd.Output(); err == nil {
 			var indexed []sessionInfo
 			if err := json.Unmarshal(output, &indexed); err == nil {
+				// If indexer has data, use it. If not, fall back to direct source reads
+				// to avoid stale/empty index responses hiding real sessions.
+				if len(indexed) == 0 {
+					goto fallback
+				}
 				total = len(indexed)
 				if start < total {
 					end := start + limit
@@ -409,6 +423,7 @@ func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRe
 	}
 
 	// 2. Fallback to direct source reading
+fallback:
 	store, ok := ms.registry.Get(source)
 	if !ok {
 		return nil, listSessionsOutput{}, fmt.Errorf("unknown source: %s", source)
@@ -443,20 +458,28 @@ func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRe
 }
 
 func (ms *MCPServer) handleGetSessionMetadata(ctx context.Context, req *mcp.CallToolRequest, input getSessionMetadataInput) (*mcp.CallToolResult, getSessionMetadataOutput, error) {
-	ls, err := ms.registry.OpenLazySessionByPath(ctx, input.Path)
+	output, err := collectSessionMetadata(ctx, ms.registry, input.Path, input)
+	if err != nil {
+		return nil, getSessionMetadataOutput{}, err
+	}
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
+}
+
+func collectSessionMetadata(ctx context.Context, registry *thinkt.StoreRegistry, path string, input getSessionMetadataInput) (getSessionMetadataOutput, error) {
+	ls, err := registry.OpenLazySessionByPath(ctx, path)
 	if err != nil {
 		// Fallback for direct file paths used in tests/manual calls.
 		if !errors.Is(err, os.ErrNotExist) {
-			return nil, getSessionMetadataOutput{}, err
+			return getSessionMetadataOutput{}, err
 		}
-		ls, err = tui.OpenLazySession(input.Path)
+		ls, err = tui.OpenLazySession(path)
 		if err != nil {
-			return nil, getSessionMetadataOutput{}, err
+			return getSessionMetadataOutput{}, err
 		}
 	}
 	defer ls.Close()
 	if err := ls.LoadAll(); err != nil {
-		return nil, getSessionMetadataOutput{}, err
+		return getSessionMetadataOutput{}, err
 	}
 	entries := ls.Entries()
 	meta := ls.Metadata()
@@ -501,7 +524,32 @@ func (ms *MCPServer) handleGetSessionMetadata(ctx context.Context, req *mcp.Call
 		RoleCounts: roleCounts, TotalEntries: len(entries), TotalBytes: totalBytes, Description: description,
 		EntrySummary: []entrySummary{},
 	}
-	if !input.SummaryOnly {
+	if input.SummaryOnly {
+		// summary_only returns lightweight previews focused on user intent by default.
+		userSummaries := make([]entrySummary, 0, len(allSummaries))
+		for _, s := range allSummaries {
+			if s.Role == string(thinkt.RoleUser) {
+				userSummaries = append(userSummaries, s)
+			}
+		}
+
+		limit := input.Limit
+		if limit == 0 {
+			limit = 5
+		}
+		start := input.Offset
+		if start < 0 {
+			start = 0
+		}
+		if start < len(userSummaries) {
+			end := start + limit
+			if end > len(userSummaries) {
+				end = len(userSummaries)
+			}
+			output.EntrySummary = userSummaries[start:end]
+			output.Returned = len(output.EntrySummary)
+		}
+	} else {
 		if input.SortBy == "length" {
 			sort.Slice(allSummaries, func(i, j int) bool { return allSummaries[i].ContentLength > allSummaries[j].ContentLength })
 		}
@@ -522,7 +570,7 @@ func (ms *MCPServer) handleGetSessionMetadata(ctx context.Context, req *mcp.Call
 			output.Returned = len(output.EntrySummary)
 		}
 	}
-	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
+	return output, nil
 }
 
 func (ms *MCPServer) handleGetSessionEntries(ctx context.Context, req *mcp.CallToolRequest, input getSessionEntriesInput) (*mcp.CallToolResult, getSessionEntriesOutput, error) {
@@ -629,9 +677,26 @@ func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallTool
 	if path == "" {
 		return nil, nil, fmt.Errorf("indexer not found")
 	}
+	args := buildIndexerSearchArgs(input)
+	cmd := exec.Command(path, args...)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, nil, err
+	}
+	var res any
+	if err := json.Unmarshal(out, &res); err != nil {
+		return nil, nil, fmt.Errorf("indexer returned invalid JSON: %w", err)
+	}
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(out)}}}, res, nil
+}
+
+func buildIndexerSearchArgs(input searchSessionsInput) []string {
 	args := []string{"search", "--json", input.Query}
 	if input.Project != "" {
 		args = append(args, "--project", input.Project)
+	}
+	if source := strings.TrimSpace(strings.ToLower(input.Source)); source != "" {
+		args = append(args, "--source", source)
 	}
 	if input.Limit > 0 {
 		args = append(args, "--limit", fmt.Sprintf("%d", input.Limit))
@@ -645,16 +710,7 @@ func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallTool
 	if input.Regex {
 		args = append(args, "--regex")
 	}
-	cmd := exec.Command(path, args...)
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, nil, err
-	}
-	var res any
-	if err := json.Unmarshal(out, &res); err != nil {
-		return nil, nil, fmt.Errorf("indexer returned invalid JSON: %w", err)
-	}
-	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(out)}}}, res, nil
+	return args
 }
 
 func (ms *MCPServer) handleGetUsageStats(ctx context.Context, req *mcp.CallToolRequest, _ getUsageStatsInput) (*mcp.CallToolResult, any, error) {
