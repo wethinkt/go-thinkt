@@ -13,13 +13,21 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
+// sessionIndexEntry holds the metadata needed to re-index a session.
+type sessionIndexEntry struct {
+	session   thinkt.SessionMeta
+	projectID string
+	source    thinkt.Source
+}
+
 // Watcher monitors session directories for changes and triggers ingestion.
 type Watcher struct {
-	dbPath   string
-	registry *thinkt.StoreRegistry
-	watcher  *fsnotify.Watcher
-	done     chan struct{}
-	mu       sync.Mutex
+	dbPath       string
+	registry     *thinkt.StoreRegistry
+	watcher      *fsnotify.Watcher
+	done         chan struct{}
+	mu           sync.Mutex
+	sessionIndex map[string]sessionIndexEntry // normalized path -> session info
 }
 
 // NewWatcher creates a new Watcher instance.
@@ -30,10 +38,11 @@ func NewWatcher(dbPath string, registry *thinkt.StoreRegistry) (*Watcher, error)
 	}
 
 	return &Watcher{
-		dbPath:   dbPath,
-		registry: registry,
-		watcher:  fw,
-		done:     make(chan struct{}),
+		dbPath:       dbPath,
+		registry:     registry,
+		watcher:      fw,
+		done:         make(chan struct{}),
+		sessionIndex: make(map[string]sessionIndexEntry),
 	}, nil
 }
 
@@ -62,6 +71,7 @@ func (w *Watcher) Stop() error {
 }
 
 func (w *Watcher) watchProject(p thinkt.Project) error {
+	// Get store and list sessions without lock (I/O operations)
 	store, ok := w.registry.Get(p.Source)
 	if !ok {
 		return nil
@@ -72,8 +82,14 @@ func (w *Watcher) watchProject(p thinkt.Project) error {
 		return err
 	}
 
-	// Track which directories we are watching to avoid duplicates
+	// Prepare index entries and watch directories without holding lock
+	type indexEntry struct {
+		path  string
+		entry sessionIndexEntry
+	}
+	var entries []indexEntry
 	watchedDirs := make(map[string]bool)
+
 	for _, s := range sessions {
 		// Resolve symlinks to get the "real" physical path
 		realPath, err := filepath.EvalSymlinks(s.FullPath)
@@ -87,6 +103,8 @@ func (w *Watcher) watchProject(p thinkt.Project) error {
 		if hasExcludedDirComponent(dir, []string{".thinkt", ".git"}) {
 			continue
 		}
+
+		// Add to fsnotify watcher (outside lock - fsnotify has its own locking)
 		if !watchedDirs[dir] {
 			if err := w.watcher.Add(dir); err != nil {
 				log.Printf("Failed to watch directory %s: %v", dir, err)
@@ -94,7 +112,25 @@ func (w *Watcher) watchProject(p thinkt.Project) error {
 				watchedDirs[dir] = true
 			}
 		}
+
+		entries = append(entries, indexEntry{
+			path: realPath,
+			entry: sessionIndexEntry{
+				session:   s,
+				projectID: ScopedProjectID(p.Source, p.ID),
+				source:    p.Source,
+			},
+		})
 	}
+
+	// Only hold lock when updating the sessionIndex (fast memory operation)
+	func() {
+		w.mu.Lock()
+		defer w.mu.Unlock()
+		for _, e := range entries {
+			w.sessionIndex[e.path] = e.entry
+		}
+	}()
 
 	return nil
 }
@@ -163,44 +199,93 @@ func (w *Watcher) watchLoop(ctx context.Context) {
 }
 
 func (w *Watcher) handleFileChange(path string) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	// Normalize incoming path
+	// Normalize incoming path without lock (syscalls are slow)
 	realPath, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		realPath = path
 	}
 
+	// Look up session under lock using closure pattern — defer ensures
+	// the lock is always released regardless of return paths.
+	entry, ok := func() (sessionIndexEntry, bool) {
+		w.mu.Lock()
+		defer w.mu.Unlock()
+
+		if entry, ok := w.sessionIndex[realPath]; ok {
+			return entry, true
+		}
+
+		// Session not in index — might be a new session. Try to discover it
+		// by scanning the project that owns this file's directory.
+		log.Printf("Session not in index, attempting discovery: %s", realPath)
+		entry, ok := w.discoverSession(realPath)
+		if ok {
+			// Add to index for future lookups
+			w.sessionIndex[realPath] = entry
+		}
+		return entry, ok
+	}()
+
+	if !ok {
+		log.Printf("File changed but no session found for: %s", realPath)
+		return
+	}
+
 	log.Printf("File changed, re-indexing: %s", realPath)
 
 	ctx := context.Background()
-	projects, _ := w.registry.ListAllProjects(ctx)
+	database, err := db.Open(w.dbPath)
+	if err != nil {
+		log.Printf("Failed to open database: %v", err)
+		return
+	}
+	defer database.Close()
 
+	ingester := NewIngester(database, w.registry)
+	if err := ingester.IngestSession(ctx, entry.projectID, entry.session); err != nil {
+		log.Printf("Failed to re-index session %s: %v", entry.session.ID, err)
+	}
+}
+
+// discoverSession attempts to find a session for the given path by scanning
+// projects. This is called when a file change is detected for a path not in
+// the session index (e.g., a newly created session).
+func (w *Watcher) discoverSession(path string) (sessionIndexEntry, bool) {
+	ctx := context.Background()
+	projects, err := w.registry.ListAllProjects(ctx)
+	if err != nil {
+		return sessionIndexEntry{}, false
+	}
+
+	// Optimization: check projects whose path is a prefix of the changed file first
 	for _, p := range projects {
-		store, _ := w.registry.Get(p.Source)
-		sessions, _ := store.ListSessions(ctx, p.ID)
+		if !strings.HasPrefix(path, p.Path) {
+			continue
+		}
+		store, ok := w.registry.Get(p.Source)
+		if !ok {
+			continue
+		}
+
+		sessions, err := store.ListSessions(ctx, p.ID)
+		if err != nil {
+			continue
+		}
 
 		for _, s := range sessions {
-			// Compare normalized paths
-			sRealPath, _ := filepath.EvalSymlinks(s.FullPath)
-			if sRealPath == "" {
+			sRealPath, err := filepath.EvalSymlinks(s.FullPath)
+			if err != nil {
 				sRealPath = s.FullPath
 			}
-
-			if sRealPath == realPath {
-				database, err := db.Open(w.dbPath)
-				if err != nil {
-					log.Printf("Failed to open database: %v", err)
-					return
-				}
-				ingester := NewIngester(database, w.registry)
-				if err := ingester.IngestSession(ctx, ScopedProjectID(p.Source, p.ID), s); err != nil {
-					log.Printf("Failed to re-index session %s: %v", s.ID, err)
-				}
-				database.Close()
-				return
+			if sRealPath == path {
+				return sessionIndexEntry{
+					session:   s,
+					projectID: ScopedProjectID(p.Source, p.ID),
+					source:    p.Source,
+				}, true
 			}
 		}
 	}
+
+	return sessionIndexEntry{}, false
 }
