@@ -7,7 +7,6 @@ import (
 	"runtime/pprof"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -193,6 +192,10 @@ func init() {
 	serveCmd.Flags().StringVar(&serveHTTPLog, "http-log", "", "write HTTP access log to file (default: stdout, unless --quiet)")
 	serveCmd.Flags().StringVar(&serveDev, "dev", "", "dev mode: proxy non-API routes to this URL (e.g. http://localhost:5173)")
 
+	serveCmd.AddCommand(serveStartCmd)
+	serveCmd.AddCommand(serveStopCmd)
+	serveCmd.AddCommand(serveStatusCmd)
+
 	// Serve token subcommand
 	serveCmd.AddCommand(serveTokenCmd)
 
@@ -214,18 +217,20 @@ func init() {
 	// Serve API flags (only apply to main serve command)
 	serveCmd.Flags().StringVar(&apiToken, "token", "", "bearer token for API authentication (default: use THINKT_API_TOKEN env var)")
 
-	// Serve Lite subcommand (has its own port default)
-	serveCmd.AddCommand(serveLiteCmd)
-	serveLiteCmd.Flags().IntVarP(&serveLitePort, "port", "p", server.DefaultPortLite, "server port")
-	serveLiteCmd.Flags().StringVar(&serveHost, "host", "localhost", "server host")
-	serveLiteCmd.Flags().BoolVar(&serveNoOpen, "no-open", false, "don't auto-open browser")
-	serveLiteCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
-	serveLiteCmd.Flags().DurationVar(&serveLiteTTL, "ttl", 60*time.Second, "cache TTL for refreshing source data (0 to cache forever)")
+	// Web command
+	webCmd.AddCommand(webLiteCmd)
+	webCmd.Flags().IntVarP(&servePort, "port", "p", server.DefaultPortServe, "server port")
+	webCmd.Flags().StringVar(&serveHost, "host", "localhost", "server host")
+	webCmd.Flags().BoolVar(&serveNoOpen, "no-open", false, "don't auto-open browser")
+	webLiteCmd.Flags().IntVarP(&servePort, "port", "p", server.DefaultPortServe, "server port")
+	webLiteCmd.Flags().StringVar(&serveHost, "host", "localhost", "server host")
+	webLiteCmd.Flags().BoolVar(&serveNoOpen, "no-open", false, "don't auto-open browser")
 
 	// Apps subcommands
 	appsCmd.AddCommand(appsListCmd, appsEnableCmd, appsDisableCmd, appsGetTermCmd, appsSetTermCmd)
 	appsCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "output as JSON")
 	rootCmd.AddCommand(appsCmd)
+	rootCmd.AddCommand(webCmd)
 
 	// Sources subcommands
 	sourcesCmd.AddCommand(sourcesListCmd)

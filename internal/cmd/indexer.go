@@ -5,8 +5,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/wethinkt/go-thinkt/internal/config"
 )
 
 var (
@@ -25,14 +28,100 @@ search capabilities. This requires the 'thinkt-indexer' binary to be installed
 separately due to its CGO dependencies.
 
 Examples:
+  thinkt indexer start                       # Start indexer in background
+  thinkt indexer status                      # Check indexer status
+  thinkt indexer stop                        # Stop background indexer
   thinkt indexer sync                        # Sync all local sessions to the index
   thinkt indexer search "query"              # Search across all sessions
-  thinkt indexer sync --db /custom/path.db --quiet
-  thinkt indexer search "query" --limit 10
-  thinkt indexer watch                       # Watch and index in real-time
-  thinkt indexer stats --json                # Show usage statistics
+  thinkt indexer watch                       # Watch and index in real-time (foreground)`,
+}
 
-Use 'thinkt indexer <command> --help' for detailed help on each command.`,
+func runIndexerStart(cmd *cobra.Command, args []string) error {
+	path := findIndexerBinary()
+	if path == "" {
+		return fmt.Errorf("the 'thinkt-indexer' binary was not found")
+	}
+
+	// Check if already running
+	if inst := config.FindInstanceByType(config.InstanceIndexerWatch); inst != nil {
+		fmt.Printf("Indexer is already running (PID: %d)\n", inst.PID)
+		return nil
+	}
+
+	fmt.Println("🚀 Starting indexer in background...")
+
+	// Build arguments for indexer
+	indexerArgs := []string{"watch", "--quiet"}
+	if indexerDBPath != "" {
+		indexerArgs = append(indexerArgs, "--db", indexerDBPath)
+	}
+
+	// Determine log path
+	logPath := indexerLogPath
+	if logPath == "" {
+		confDir, _ := config.Dir()
+		logPath = filepath.Join(confDir, "indexer.log")
+	}
+
+	// Ensure log directory exists
+	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
+		return fmt.Errorf("failed to create log directory: %w", err)
+	}
+
+	indexerArgs = append(indexerArgs, "--log", logPath)
+
+	// Run watch in background
+	c := exec.Command(path, indexerArgs...)
+	if err := config.StartBackground(c); err != nil {
+		return fmt.Errorf("failed to start indexer: %w", err)
+	}
+
+	// Wait a moment to see if it crashes immediately
+	time.Sleep(500 * time.Millisecond)
+	if !config.IsProcessAlive(c.Process.Pid) {
+		return fmt.Errorf("indexer started but exited immediately (check %s for errors)", logPath)
+	}
+
+	fmt.Printf("✅ Indexer started (PID: %d). Logging to %s\n", c.Process.Pid, logPath)
+	return nil
+}
+
+func runIndexerStop(cmd *cobra.Command, args []string) error {
+	inst := config.FindInstanceByType(config.InstanceIndexerWatch)
+	if inst == nil {
+		fmt.Println("Indexer is not running.")
+		return nil
+	}
+
+	fmt.Printf("🛑 Stopping indexer (PID: %d)...\n", inst.PID)
+	if err := config.StopInstance(*inst); err != nil {
+		return fmt.Errorf("failed to stop indexer: %w", err)
+	}
+	fmt.Println("✅ Indexer stopped.")
+	return nil
+}
+
+func runIndexerStatus(cmd *cobra.Command, args []string) error {
+	inst := config.FindInstanceByType(config.InstanceIndexerWatch)
+	if inst == nil {
+		fmt.Println("● thinkt-indexer.service - DuckDB Session Indexer")
+		fmt.Println("   Status: Not running")
+		return nil
+	}
+
+	fmt.Println("● thinkt-indexer.service - DuckDB Session Indexer")
+	fmt.Printf("   Status: Running (PID: %d)\n", inst.PID)
+	fmt.Printf("   Uptime: %s\n", time.Since(inst.StartedAt).Round(time.Second))
+
+	// Try to find DB path from flags or default
+	dbP := indexerDBPath
+	if dbP == "" {
+		fmt.Println("   Database: (Standard path)")
+	} else {
+		fmt.Printf("   Database: %s\n", dbP)
+	}
+
+	return nil
 }
 
 // makeForwardingCommand creates a cobra command that forwards to thinkt-indexer
@@ -58,6 +147,24 @@ func makeForwardingCommand(use, short string) *cobra.Command {
 			return c.Run()
 		},
 	}
+}
+
+// makeAutoStartingCommand creates a forwarding command that ensures the indexer is running
+func makeAutoStartingCommand(use, short string) *cobra.Command {
+	fwd := makeForwardingCommand(use, short)
+	oldRunE := fwd.RunE
+	fwd.RunE = func(cmd *cobra.Command, args []string) error {
+		// Check if running
+		inst := config.FindInstanceByType(config.InstanceIndexerWatch)
+		if inst == nil {
+			// Auto-start
+			if err := runIndexerStart(cmd, nil); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to auto-start indexer: %v\n", err)
+			}
+		}
+		return oldRunE(cmd, args)
+	}
+	return fwd
 }
 
 // findIndexerBinary attempts to locate the thinkt-indexer binary.
@@ -86,9 +193,26 @@ func init() {
 	indexerCmd.PersistentFlags().BoolVarP(&indexerQuiet, "quiet", "q", false, "suppress progress output")
 	indexerCmd.PersistentFlags().BoolVarP(&indexerVerbose, "verbose", "v", false, "verbose output")
 
+	// Service commands
+	indexerCmd.AddCommand(&cobra.Command{
+		Use:   "start",
+		Short: "Start indexer in background",
+		RunE:  runIndexerStart,
+	})
+	indexerCmd.AddCommand(&cobra.Command{
+		Use:   "stop",
+		Short: "Stop background indexer",
+		RunE:  runIndexerStop,
+	})
+	indexerCmd.AddCommand(&cobra.Command{
+		Use:   "status",
+		Short: "Show indexer status",
+		RunE:  runIndexerStatus,
+	})
+
 	// Create subcommands that forward to thinkt-indexer
-	indexerCmd.AddCommand(makeForwardingCommand("sync", "Synchronize all local sessions into the index"))
-	indexerCmd.AddCommand(makeForwardingCommand("search", "Search for text across indexed sessions"))
+	indexerCmd.AddCommand(makeAutoStartingCommand("sync", "Synchronize all local sessions into the index"))
+	indexerCmd.AddCommand(makeAutoStartingCommand("search", "Search for text across indexed sessions"))
 	indexerCmd.AddCommand(makeForwardingCommand("watch", "Watch session directories for changes and index in real-time"))
 	indexerCmd.AddCommand(makeForwardingCommand("stats", "Show usage statistics from the index"))
 	indexerCmd.AddCommand(makeForwardingCommand("sessions", "List sessions for a project from the index"))

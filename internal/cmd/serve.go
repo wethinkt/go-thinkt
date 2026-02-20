@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
@@ -28,7 +28,6 @@ import (
 // Serve command flags
 var (
 	servePort       int
-	serveLitePort   int
 	serveHost       string
 	serveNoOpen     bool
 	serveQuiet      bool
@@ -53,11 +52,6 @@ var (
 	serveDev string // Dev proxy URL (e.g. http://localhost:5173)
 )
 
-// Serve lite subcommand flags
-var (
-	serveLiteTTL time.Duration // Cache TTL for long-running lite server
-)
-
 // Serve fingerprint subcommand flags
 var (
 	fingerprintJSON bool // Output as JSON
@@ -71,17 +65,162 @@ var serveCmd = &cobra.Command{
 The server provides:
   - REST API for accessing projects and sessions
   - Web interface for visual trace exploration
+  - MCP (Model Context Protocol) server
 
 All data stays on your machine - nothing is uploaded to external servers.
 
-Use 'thinkt serve mcp' for MCP (Model Context Protocol) server.
-
 Examples:
   thinkt serve                    # Start HTTP server on default port 8784
-  thinkt serve -p 8080            # Start on custom port
-  thinkt serve --no-open          # Don't auto-open browser
-  thinkt serve --dev http://localhost:5173  # Proxy to frontend dev server`,
+  thinkt serve start              # Start in background
+  thinkt serve status             # Check server status
+  thinkt serve stop               # Stop background server
+  thinkt serve -p 8080            # Start on custom port`,
 	RunE: runServeHTTP,
+}
+
+var serveStartCmd = &cobra.Command{
+	Use:   "start",
+	Short: "Start server in background",
+	RunE:  runServeStart,
+}
+
+var serveStopCmd = &cobra.Command{
+	Use:   "stop",
+	Short: "Stop background server",
+	RunE:  runServeStop,
+}
+
+var serveStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show server status",
+	RunE:  runServeStatus,
+}
+
+var webCmd = &cobra.Command{
+	Use:   "web",
+	Short: "Open the web interface in your browser",
+	Long: `Open the thinkt web interface in your default browser.
+If the server is not already running, it will be started in the background.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runWebOpen(false)
+	},
+}
+
+var webLiteCmd = &cobra.Command{
+	Use:   "lite",
+	Short: "Open the lightweight web interface",
+	Long:  `Open the thinkt lite web interface (debugging and development view).`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runWebOpen(true)
+	},
+}
+
+func runWebOpen(isLite bool) error {
+	inst := config.FindInstanceByType(config.InstanceServe)
+	if inst == nil {
+		// Start server in background
+		if err := runServeStart(nil, nil); err != nil {
+			return err
+		}
+		// Wait a bit for it to register
+		for i := 0; i < 20; i++ {
+			time.Sleep(100 * time.Millisecond)
+			inst = config.FindInstanceByType(config.InstanceServe)
+			if inst != nil {
+				break
+			}
+		}
+	}
+
+	if inst == nil {
+		return fmt.Errorf("failed to start or find running server")
+	}
+
+	targetURL := fmt.Sprintf("http://%s:%d", inst.Host, inst.Port)
+	if isLite {
+		targetURL += "/lite"
+	}
+
+	fmt.Printf("🌐 Opening %s in browser...\n", targetURL)
+	openBrowser(targetURL)
+	return nil
+}
+
+func runServeStart(cmd *cobra.Command, args []string) error {
+	// Check if already running
+	if inst := config.FindInstanceByType(config.InstanceServe); inst != nil {
+		fmt.Printf("Server is already running (PID: %d, Address: http://%s:%d)\n", inst.PID, inst.Host, inst.Port)
+		return nil
+	}
+
+	fmt.Println("🚀 Starting server in background...")
+
+	// Build arguments for thinkt serve
+	executable, _ := os.Executable()
+	serveArgs := []string{"serve"}
+	if servePort != 0 {
+		serveArgs = append(serveArgs, "--port", fmt.Sprintf("%d", servePort))
+	}
+	if serveHost != "" {
+		serveArgs = append(serveArgs, "--host", serveHost)
+	}
+	if serveQuiet {
+		serveArgs = append(serveArgs, "--quiet")
+	}
+	// Always use --no-open for background start
+	serveArgs = append(serveArgs, "--no-open")
+
+	// Determine log path
+	logPath := serveHTTPLog
+	if logPath == "" {
+		confDir, _ := config.Dir()
+		logPath = filepath.Join(confDir, "serve.log")
+	}
+
+	// Ensure log directory exists
+	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
+		return fmt.Errorf("failed to create log directory: %w", err)
+	}
+
+	// Run in background
+	c := exec.Command(executable, serveArgs...)
+	if err := config.StartBackground(c); err != nil {
+		return fmt.Errorf("failed to start server: %w", err)
+	}
+
+	fmt.Printf("✅ Server starting (PID: %d). Logging to %s\n", c.Process.Pid, logPath)
+	return nil
+}
+
+func runServeStop(cmd *cobra.Command, args []string) error {
+	inst := config.FindInstanceByType(config.InstanceServe)
+	if inst == nil {
+		fmt.Println("Server is not running.")
+		return nil
+	}
+
+	fmt.Printf("🛑 Stopping server (PID: %d)...\n", inst.PID)
+	if err := config.StopInstance(*inst); err != nil {
+		return fmt.Errorf("failed to stop server: %w", err)
+	}
+	fmt.Println("✅ Server stopped.")
+	return nil
+}
+
+func runServeStatus(cmd *cobra.Command, args []string) error {
+	inst := config.FindInstanceByType(config.InstanceServe)
+	if inst == nil {
+		fmt.Println("● thinkt-serve.service - Web Interface & API")
+		fmt.Println("   Status: Not running")
+		return nil
+	}
+
+	fmt.Println("● thinkt-serve.service - Web Interface & API")
+	fmt.Printf("   Status: Running (PID: %d)\n", inst.PID)
+	fmt.Printf("   Address: http://%s:%d\n", inst.Host, inst.Port)
+	fmt.Printf("   Uptime: %s\n", time.Since(inst.StartedAt).Round(time.Second))
+
+	return nil
 }
 
 var serveMcpCmd = &cobra.Command{
@@ -148,32 +287,6 @@ Examples:
   thinkt serve fingerprint            # Display fingerprint
   thinkt serve fingerprint --json     # Output as JSON`,
 	RunE: runServeFingerprint,
-}
-
-var serveLiteCmd = &cobra.Command{
-	Use:   "lite",
-	Short: "Start lightweight webapp for debugging and development",
-	Long: `Start a lightweight HTTP server with a simple debug interface.
-
-The lite webapp provides:
-  - Overview of available sources and their status
-  - List of all projects with session counts
-  - Quick links to API endpoints and documentation
-
-The --ttl flag controls how long cached data (projects, sessions, teams)
-is considered fresh before being re-read from disk. Default is 60s.
-
-This is useful for developers and debugging. For the full experience,
-use 'thinkt serve' (coming soon) or the TUI with 'thinkt'.
-
-Examples:
-  thinkt serve lite                   # Start lite server on port 8785
-  thinkt serve lite -p 8080           # Start on custom port
-  thinkt serve lite --host 0.0.0.0    # Bind to all interfaces
-  thinkt serve lite --no-open         # Don't auto-open browser
-  thinkt serve lite --ttl 30s         # Refresh cache every 30 seconds
-  thinkt serve lite --ttl 0           # Cache forever (no refresh)`,
-	RunE: runServeLite,
 }
 
 func runServeHTTP(cmd *cobra.Command, args []string) error {
@@ -253,64 +366,6 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 	return srv.ListenAndServe(ctx)
 }
 
-func runServeLite(cmd *cobra.Command, args []string) error {
-	tuilog.Log.Info("Starting Lite HTTP server", "port", serveLitePort, "host", serveHost)
-
-	// Create source registry
-	registry := CreateSourceRegistry()
-	tuilog.Log.Info("Source registry created", "stores", len(registry.All()))
-
-	// Apply cache TTL for long-running server
-	if serveLiteTTL > 0 {
-		registry.SetCacheTTL(serveLiteTTL)
-		fmt.Fprintf(os.Stderr, "Cache TTL: %s (stores=%d, team_stores=%d)\n",
-			serveLiteTTL, len(registry.All()), len(registry.TeamStores()))
-		tuilog.Log.Info("Cache TTL set", "ttl", serveLiteTTL)
-	} else {
-		fmt.Fprintln(os.Stderr, "Cache TTL: disabled (caching forever)")
-	}
-
-	// Create context that cancels on interrupt
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Handle interrupt signal
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt)
-	go func() {
-		<-sigCh
-		tuilog.Log.Info("Received interrupt signal, shutting down")
-		fmt.Fprintln(os.Stderr, "\nShutting down...")
-		cancel()
-	}()
-
-	// HTTP mode: start HTTP server
-	thinktConfig := server.Config{
-		Port:         serveLitePort,
-		Host:         serveHost,
-		Quiet:        serveQuiet,
-		HTTPLog:      serveHTTPLog,
-		CORSOrigin:   resolveCORSOrigin(),
-		InstanceType: config.InstanceServeLite,
-	}
-	defer thinktConfig.Close()
-	srv := server.NewHTTPServer(registry, thinktConfig)
-	for _, ts := range registry.TeamStores() {
-		srv.SetTeamStore(ts)
-	}
-
-	// Auto-open browser if requested
-	if !serveNoOpen {
-		go func() {
-			url := fmt.Sprintf("http://%s", srv.Addr())
-			openBrowser(url)
-		}()
-	}
-
-	// Start server
-	return srv.ListenAndServe(ctx)
-}
-
 func runServeToken(cmd *cobra.Command, args []string) error {
 	token, err := server.GenerateSecureTokenWithPrefix()
 	if err != nil {
@@ -351,7 +406,6 @@ func runServeMCP(cmd *cobra.Command, args []string) error {
 			indexerArgs := []string{"watch", "--quiet"}
 			if logPath != "" {
 				// Derive indexer log path from main log path
-				// e.g. thinkt.log -> thinkt.indexer.log
 				ext := filepath.Ext(logPath)
 				base := strings.TrimSuffix(logPath, ext)
 				indexerLog := base + ".indexer" + ext
@@ -361,17 +415,15 @@ func runServeMCP(cmd *cobra.Command, args []string) error {
 
 			// Run watch in background
 			indexerCmd := exec.Command(indexerPath, indexerArgs...)
-			// Ensure it doesn't interfere with stdio if we are in stdio mode
 			indexerCmd.Stdout = os.Stderr
 			indexerCmd.Stderr = os.Stderr
 
 			if err := indexerCmd.Start(); err != nil {
 				tuilog.Log.Error("failed to start indexer sidecar", "error", err)
 			} else {
-				// Kill indexer when we exit
 				defer func() {
 					tuilog.Log.Info("Stopping indexer sidecar")
-					_ = indexerCmd.Process.Kill() // Ignore error, process is being terminated
+					_ = indexerCmd.Process.Kill()
 				}()
 			}
 		}
@@ -426,12 +478,10 @@ func runServeMCP(cmd *cobra.Command, args []string) error {
 	mcpServer.SetToolFilters(allowTools, denyTools)
 
 	if useStdio {
-		// Stdio transport
 		fmt.Fprintln(os.Stderr, "Starting MCP server on stdio...")
 		tuilog.Log.Info("Running MCP server on stdio")
 		err := mcpServer.RunStdio(ctx)
 		tuilog.Log.Info("MCP server exited", "error", err)
-		// EOF on stdin is normal termination (client disconnected), not an error
 		if err != nil {
 			if errors.Is(err, io.EOF) || strings.Contains(err.Error(), "EOF") {
 				tuilog.Log.Info("EOF received, treating as normal termination")
@@ -442,7 +492,6 @@ func runServeMCP(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// HTTP transport (SSE)
 	tuilog.Log.Info("Running MCP server on HTTP", "host", mcpHost, "port", mcpPort)
 	return mcpServer.RunHTTP(ctx, mcpHost, mcpPort)
 }
@@ -472,5 +521,5 @@ func openBrowser(url string) {
 		fmt.Printf("Please open %s in your browser\n", url)
 		return
 	}
-	_ = cmd.Start() // Ignore error, browser opening is best-effort
+	_ = cmd.Start()
 }

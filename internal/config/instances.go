@@ -4,9 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 )
+
+// StartBackground starts a command in the background, detached from the current terminal.
+func StartBackground(c *exec.Cmd) error {
+	applyPlatformBackgroundFlags(c)
+	return c.Start()
+}
 
 // InstanceType identifies the kind of thinkt process.
 type InstanceType string
@@ -105,6 +112,49 @@ func FindInstanceByPort(port int) *Instance {
 		}
 	}
 	return nil
+}
+
+// FindInstanceByType returns the first instance of the given type, or nil.
+func FindInstanceByType(t InstanceType) *Instance {
+	instances, err := ListInstances()
+	if err != nil {
+		return nil
+	}
+	for _, inst := range instances {
+		if inst.Type == t {
+			return &inst
+		}
+	}
+	return nil
+}
+
+// IsProcessAlive checks whether a process with the given PID exists.
+func IsProcessAlive(pid int) bool {
+	return isProcessAlive(pid)
+}
+
+// StopInstance stops a running instance and unregisters it.
+func StopInstance(inst Instance) error {
+	proc, err := os.FindProcess(inst.PID)
+	if err != nil {
+		return UnregisterInstance(inst.PID)
+	}
+
+	// Try graceful shutdown (SIGTERM)
+	if err := stopProcess(proc); err != nil {
+		// Fallback to Kill if stopProcess fails or isn't enough
+		_ = proc.Kill()
+	}
+
+	// Wait for it to exit (best effort)
+	for i := 0; i < 10; i++ {
+		if !IsProcessAlive(inst.PID) {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	return UnregisterInstance(inst.PID)
 }
 
 func readInstances(path string) ([]Instance, error) {

@@ -10,11 +10,14 @@ thinkt provides a REST API for programmatic access to AI coding session data. Th
 ## Quick Start
 
 ```bash
-# Start the full server (port 8784)
+# Start the server (foreground, port 8784)
 thinkt serve
 
-# Start the lightweight debug server (port 8785)
-thinkt serve lite
+# Start in background
+thinkt serve start
+
+# Open web interface (auto-starts server if needed)
+thinkt web
 
 # Custom port
 thinkt serve -p 8080
@@ -22,14 +25,12 @@ thinkt serve -p 8080
 
 Once running, access the API at `http://localhost:8784/api/v1/` (or your configured port).
 
-## Server Modes
+## Server Management
 
-### Full Server (`thinkt serve`)
-
-The main HTTP server with REST API and full web interface:
+### Starting the Server
 
 ```bash
-thinkt serve                    # Default port 8784
+thinkt serve                    # Foreground (default port 8784)
 thinkt serve -p 8080            # Custom port
 thinkt serve --no-open          # Don't auto-open browser
 thinkt serve --quiet            # Suppress request logging
@@ -44,25 +45,28 @@ thinkt serve --dev http://localhost:5173  # Proxy to frontend dev server
 - Auto-opens browser on startup
 - `--dev` mode for co-developing the frontend (proxies non-API routes to a local dev server)
 
-### Lite Server (`thinkt serve lite`)
-
-A lightweight server for debugging and development:
+### Background Mode
 
 ```bash
-thinkt serve lite               # Default port 8785
-thinkt serve lite -p 8080       # Custom port
-thinkt serve lite --no-open     # Don't auto-open browser
+thinkt serve start              # Start server in background
+thinkt serve status             # Check server status
+thinkt serve stop               # Stop background server
 ```
 
-**Features:**
-- REST API access
-- Lightweight debug interface ([thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite)) showing:
+### Opening the Web Interface
+
+The `thinkt web` command opens the web interface in your browser. If the server isn't already running, it starts it in the background automatically.
+
+```bash
+thinkt web                      # Open web interface (auto-starts server)
+thinkt web lite                 # Open lightweight debug interface
+```
+
+The lite interface ([thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite)) shows:
   - Available sources and status
   - Project list with session counts
   - Quick links to API endpoints
   - Theme preview
-
-**Reference:** [thinkt serve lite](/command/thinkt_serve_lite)
 
 ---
 
@@ -139,16 +143,19 @@ curl http://localhost:8784/api/v1/sources
 #### List Projects
 
 List all projects, optionally filtered by source.
+By default, projects where `path_exists=false` are hidden; set `include_deleted=true` to include them.
 
 ```
 GET /api/v1/projects
 GET /api/v1/projects?source=claude
+GET /api/v1/projects?include_deleted=true
 ```
 
 **Query Parameters:**
 | Name | Type | Description |
 |------|------|-------------|
 | `source` | string | Filter by source (`claude`, `kimi`, `gemini`, `copilot`, `codex`) |
+| `include_deleted` | bool | Include projects where `path_exists` is false (default: false) |
 
 **Response:**
 ```json
@@ -178,6 +185,9 @@ curl "http://localhost:8784/api/v1/projects?source=claude"
 
 # Only Kimi projects
 curl "http://localhost:8784/api/v1/projects?source=kimi"
+
+# Include projects whose paths no longer exist
+curl "http://localhost:8784/api/v1/projects?include_deleted=true"
 ```
 
 ---
@@ -232,6 +242,24 @@ Get session metadata and conversation entries with optional pagination.
 GET /api/v1/sessions/{path}
 GET /api/v1/sessions/{path}?limit=10&offset=0
 ```
+
+#### Get Session Metadata
+
+Get session metadata and lightweight previews without loading full entry payloads.
+
+```
+GET /api/v1/sessions/{path}/metadata
+GET /api/v1/sessions/{path}/metadata?summary_only=true&limit=5
+```
+
+**Query Parameters:**
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `limit` | int | 50 | Maximum summaries/previews to return (default 5 when `summary_only=true`) |
+| `offset` | int | 0 | Number of summaries/previews to skip |
+| `exclude_roles` | string[] | `checkpoint` | Roles to exclude (repeat query param or comma-separated list) |
+| `summary_only` | bool | false | Return lightweight user-message previews only |
+| `sort_by` | string | `index` | Summary ordering (`index` or `length`) |
 
 **Path Parameters:**
 | Name | Type | Description |
@@ -738,7 +766,7 @@ curl -s "http://localhost:8784/api/v1/sessions/$encoded" | \
 
 ## See Also
 
-- [thinkt serve](/command/thinkt_serve) - Full server command reference
-- [thinkt serve lite](/command/thinkt_serve_lite) - Lite server command reference
+- [thinkt serve](/command/thinkt_serve) - Server command reference
+- [thinkt web](/command/thinkt_web) - Web interface command reference
 - [MCP Server](/mcp-server) - Model Context Protocol integration
 - [CLI Guide](/cli) - Command line interface guide

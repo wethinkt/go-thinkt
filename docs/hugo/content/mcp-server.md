@@ -52,11 +52,13 @@ List available trace sources and their availability status.
 ### list_projects
 
 List all projects across all sources, optionally filtered by source.
+By default, projects with `path_exists: false` are hidden unless `include_deleted` is set.
 
 **Parameters:**
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `source` | string | No | Filter by source (e.g., `claude`, `kimi`, `gemini`, `copilot`, `codex`) |
+| `include_deleted` | bool | No | Include projects where `path_exists` is false (default: false) |
 
 **Returns:**
 ```json
@@ -77,12 +79,13 @@ List all projects across all sources, optionally filtered by source.
 
 ### list_sessions
 
-List sessions for a specific project.
+List sessions for a specific project and source.
 
 **Parameters:**
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `project_id` | string | Yes | The project ID to list sessions for |
+| `source` | string | Yes | Source name for project lookup (e.g., `claude`, `kimi`, `codex`, `qwen`) |
 
 **Returns:**
 ```json
@@ -111,6 +114,9 @@ Get session metadata and entry summaries without loading full content. Use this 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `path` | string | Yes | Full path to the session file |
+| `summary_only` | bool | No | Return lightweight user-message previews in `entry_summary` (default preview limit: 5) |
+| `limit` | int | No | Max returned summaries/previews (default: 50, or 5 when `summary_only=true`) |
+| `offset` | int | No | Number of summaries/previews to skip |
 
 **Returns:**
 ```json

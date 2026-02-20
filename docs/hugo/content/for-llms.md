@@ -54,13 +54,13 @@ MCP provides direct tool access for AI assistants.
 | Tool | Purpose | Key Input |
 |------|---------|-----------|
 | `list_sources` | Available sources | none |
-| `list_projects` | All projects | `source?` |
-| `list_sessions` | Sessions for project | `project_id` |
-| `get_session_metadata` | Session overview | `path` |
+| `list_projects` | All projects | `source?`, `include_deleted?` |
+| `list_sessions` | Sessions for project | `project_id`, `source` |
+| `get_session_metadata` | Session overview | `path`, `summary_only?` |
 | `get_session_entries` | Session content | `path`, `limit`, `offset`, `roles`, `include_thinking` |
 
 **Best Practices:**
-1. Call `get_session_metadata` first to understand session size
+1. Call `get_session_metadata` with `summary_only: true` first for quick user-intent previews
 2. Use `roles: ["user"]` to get just prompts
 3. Use `entry_indices` to fetch specific entries
 4. Set `include_thinking: true` only when needed
@@ -72,6 +72,12 @@ MCP provides direct tool access for AI assistants.
 thinkt projects                     # List projects
 thinkt sessions list -p <path>      # List sessions
 thinkt sessions view                # View session content
+thinkt web                          # Open web interface (auto-starts server)
+thinkt web lite                     # Open lightweight debug interface
+thinkt serve                        # Start HTTP server (foreground)
+thinkt serve start                  # Start HTTP server (background)
+thinkt serve status                 # Check server status
+thinkt serve stop                   # Stop background server
 thinkt apps                         # List open-in apps and terminal capability
 thinkt apps set-terminal            # Set default terminal for resume
 ```
@@ -82,9 +88,10 @@ Base: `http://localhost:8784/api/v1`
 
 ```
 GET /sources
-GET /projects
-GET /projects/{id}/sessions
+GET /projects?include_deleted=false
+GET /projects/{source}/{id}/sessions
 GET /sessions/{path}?limit=10&offset=0
+GET /sessions/{path}/metadata?summary_only=true&limit=5
 ```
 
 ### 4. Go Library

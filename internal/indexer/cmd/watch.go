@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -55,9 +56,9 @@ var watchCmd = &cobra.Command{
 			fmt.Println("Watching for changes... Press Ctrl+C to stop.")
 		}
 
-		// Wait for interrupt
+		// Wait for interrupt or termination
 		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 		<-sigChan
 
 		if progress.ShouldShowProgress(quiet, verbose) {
