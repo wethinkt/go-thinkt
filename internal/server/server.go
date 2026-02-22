@@ -40,6 +40,7 @@ type Config struct {
 	LogPath       string              // path to process log file (for instance registry)
 	HTTPLogPath   string              // path to HTTP access log file (for instance registry)
 	Token         string              // resolved auth token (stored in instance registry for discovery)
+	IndexerPID    int                 // PID of sidecar indexer process (0 if none)
 	httpLogFile   *os.File            // internal: opened log file handle
 }
 
@@ -265,6 +266,7 @@ func (s *HTTPServer) ListenAndServe(ctx context.Context) error {
 		LogPath:     s.config.LogPath,
 		HTTPLogPath: s.config.HTTPLogPath,
 		Token:       s.config.Token,
+		IndexerPID:  s.config.IndexerPID,
 		StartedAt:   time.Now(),
 	}
 	if err := config.RegisterInstance(inst); err != nil {

@@ -291,6 +291,14 @@ func runServerStop(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// Stop the indexer sidecar first if the server started one
+	if inst.IndexerPID > 0 && config.IsProcessAlive(inst.IndexerPID) {
+		fmt.Printf("📇 Stopping indexer sidecar (PID: %d)...\n", inst.IndexerPID)
+		if proc, err := os.FindProcess(inst.IndexerPID); err == nil {
+			_ = proc.Kill()
+		}
+	}
+
 	fmt.Printf("🛑 Stopping server (PID: %d)...\n", inst.PID)
 	if err := config.StopInstance(*inst); err != nil {
 		return fmt.Errorf("failed to stop server: %w", err)
@@ -418,16 +426,6 @@ Examples:
 func runServerHTTP(cmd *cobra.Command, args []string) error {
 	tuilog.Log.Info("Starting HTTP server", "port", servePort, "host", serveHost)
 
-	// Start indexer sidecar if not disabled
-	if !serveNoIndexer {
-		if sidecar := startIndexerSidecar(logPath); sidecar != nil {
-			defer func() {
-				tuilog.Log.Info("Stopping indexer sidecar")
-				_ = sidecar.Process.Kill()
-			}()
-		}
-	}
-
 	// Create source registry
 	registry := CreateSourceRegistry()
 	tuilog.Log.Info("Source registry created", "stores", len(registry.All()))
@@ -511,6 +509,19 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 	truncateIfLarge(httpLogPath)
 	truncateIfLarge(appLogPath)
 
+	// Start indexer sidecar if not disabled
+	var indexerPID int
+	if !serveNoIndexer {
+		if sidecar := startIndexerSidecar(appLogPath); sidecar != nil {
+			indexerPID = sidecar.Process.Pid
+			defer func() {
+				tuilog.Log.Info("Stopping indexer sidecar")
+				fmt.Fprintln(os.Stderr, "📇 Indexer sidecar stopped")
+				_ = sidecar.Process.Kill()
+			}()
+		}
+	}
+
 	// HTTP mode: start HTTP server
 	thinktConfig := server.Config{
 		Port:          servePort,
@@ -523,6 +534,7 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 		LogPath:       appLogPath,
 		HTTPLogPath:   httpLogPath,
 		Token:         resolvedToken,
+		IndexerPID:    indexerPID,
 	}
 	defer thinktConfig.Close()
 	srv := server.NewHTTPServerWithAuth(registry, thinktConfig, authConfig)
@@ -591,6 +603,7 @@ func startIndexerSidecar(appLogPath string) *exec.Cmd {
 	// Skip if an indexer is already registered (e.g. via `thinkt indexer start`)
 	if inst := config.FindInstanceByType(config.InstanceIndexerWatch); inst != nil {
 		tuilog.Log.Info("Indexer already running, skipping sidecar", "pid", inst.PID)
+		fmt.Fprintf(os.Stderr, "📇 Indexer already running (PID: %d)\n", inst.PID)
 		return nil
 	}
 
@@ -602,12 +615,18 @@ func startIndexerSidecar(appLogPath string) *exec.Cmd {
 	tuilog.Log.Info("Starting indexer sidecar", "path", indexerPath)
 
 	indexerArgs := []string{"watch", "--quiet"}
+
+	// Derive indexer log path: use the same logs directory as the app log,
+	// falling back to the default ~/.thinkt/logs/ directory.
+	var indexerLog string
 	if appLogPath != "" {
-		ext := filepath.Ext(appLogPath)
-		base := strings.TrimSuffix(appLogPath, ext)
-		indexerLog := base + ".indexer" + ext
+		indexerLog = filepath.Join(filepath.Dir(appLogPath), "indexer.log")
+	} else if confDir, err := config.Dir(); err == nil {
+		indexerLog = filepath.Join(confDir, "logs", "indexer.log")
+	}
+	if indexerLog != "" {
+		_ = os.MkdirAll(filepath.Dir(indexerLog), 0755)
 		indexerArgs = append(indexerArgs, "--log", indexerLog)
-		tuilog.Log.Info("Indexer sidecar logging", "path", indexerLog)
 	}
 
 	cmd := exec.Command(indexerPath, indexerArgs...)
@@ -619,6 +638,8 @@ func startIndexerSidecar(appLogPath string) *exec.Cmd {
 		return nil
 	}
 
+	fmt.Fprintf(os.Stderr, "📇 Indexer sidecar started (PID: %d)\n", cmd.Process.Pid)
+
 	return cmd
 }
 
@@ -628,6 +649,7 @@ func runServerMCP(cmd *cobra.Command, args []string) error {
 		if sidecar := startIndexerSidecar(logPath); sidecar != nil {
 			defer func() {
 				tuilog.Log.Info("Stopping indexer sidecar")
+				fmt.Fprintln(os.Stderr, "📇 Indexer sidecar stopped")
 				_ = sidecar.Process.Kill()
 			}()
 		}

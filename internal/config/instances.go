@@ -33,6 +33,7 @@ type Instance struct {
 	LogPath     string       `json:"log_path,omitempty"`
 	HTTPLogPath string       `json:"http_log_path,omitempty"`
 	Token       string       `json:"token,omitempty"`
+	IndexerPID  int          `json:"indexer_pid,omitempty"`
 	StartedAt time.Time    `json:"started_at"`
 }
 
