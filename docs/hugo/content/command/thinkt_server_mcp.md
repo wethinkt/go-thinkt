@@ -1,8 +1,8 @@
 ---
-title: "thinkt serve mcp"
+title: "thinkt server mcp"
 ---
 
-## thinkt serve mcp
+## thinkt server mcp
 
 Start MCP server for AI tool integration
 
@@ -17,16 +17,16 @@ Authentication:
   For stdio transport: Set THINKT_MCP_TOKEN environment variable
   For HTTP transport: Use --token flag or THINKT_MCP_TOKEN environment variable
   Clients must pass the token in the Authorization header: "Bearer <token>"
-  Generate a secure token with: thinkt serve token
+  Generate a secure token with: thinkt server token
 
 Examples:
-  thinkt serve mcp                          # MCP server on stdio (default)
-  thinkt serve mcp --stdio                  # Explicitly use stdio transport
-  thinkt serve mcp --port 8786              # MCP server over HTTP (default port)
-  thinkt serve mcp --port 8786 --token xyz  # MCP server with authentication
+  thinkt server mcp                          # MCP server on stdio (default)
+  thinkt server mcp --stdio                  # Explicitly use stdio transport
+  thinkt server mcp --port 8786              # MCP server over HTTP (default port)
+  thinkt server mcp --port 8786 --token xyz  # MCP server with authentication
 
 ```
-thinkt serve mcp [flags]
+thinkt server mcp [flags]
 ```
 
 ### Options
@@ -52,5 +52,5 @@ thinkt serve mcp [flags]
 
 ### SEE ALSO
 
-* [thinkt serve](thinkt_serve.md)	 - Start local HTTP server for trace exploration
+* [thinkt server](thinkt_server.md)	 - Manage the local HTTP server for trace exploration
 

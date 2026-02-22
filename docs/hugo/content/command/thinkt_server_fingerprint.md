@@ -1,8 +1,8 @@
 ---
-title: "thinkt serve fingerprint"
+title: "thinkt server fingerprint"
 ---
 
-## thinkt serve fingerprint
+## thinkt server fingerprint
 
 Display the machine fingerprint
 
@@ -22,11 +22,11 @@ This fingerprint can be used to correlate sessions across different AI coding
 assistant sources (Kimi, Claude, Gemini, Copilot, Codex, Qwen) on the same machine.
 
 Examples:
-  thinkt serve fingerprint            # Display fingerprint
-  thinkt serve fingerprint --json     # Output as JSON
+  thinkt server fingerprint            # Display fingerprint
+  thinkt server fingerprint --json     # Output as JSON
 
 ```
-thinkt serve fingerprint [flags]
+thinkt server fingerprint [flags]
 ```
 
 ### Options
@@ -45,5 +45,5 @@ thinkt serve fingerprint [flags]
 
 ### SEE ALSO
 
-* [thinkt serve](thinkt_serve.md)	 - Start local HTTP server for trace exploration
+* [thinkt server](thinkt_server.md)	 - Manage the local HTTP server for trace exploration
 
