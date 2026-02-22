@@ -59,6 +59,16 @@ func Open(path string) (*DB, error) {
 		return nil, fmt.Errorf("failed to initialize schema: %w", err)
 	}
 
+	// Try to load VSS extension for HNSW indexing (optional — not all builds include it).
+	// Must happen before disabling external access since INSTALL requires network/filesystem.
+	if _, err := db.Exec("INSTALL vss; LOAD vss;"); err != nil {
+		// VSS not available — semantic search will use brute-force cosine similarity.
+		// This is fine for small-to-medium datasets.
+	} else {
+		// Enable experimental persistence for HNSW indexes
+		db.Exec("SET hnsw_enable_experimental_persistence = true")
+	}
+
 	// Security hardening: Disable external access to prevent SQL injection attacks
 	// from reading/writing arbitrary files or accessing network resources
 	if _, err := db.Exec("SET enable_external_access=false"); err != nil {

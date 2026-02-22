@@ -54,3 +54,20 @@ CREATE TABLE IF NOT EXISTS entries (
 CREATE INDEX IF NOT EXISTS idx_entries_session ON entries(session_id);
 CREATE INDEX IF NOT EXISTS idx_entries_ts ON entries(timestamp);
 CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id);
+
+-- Embeddings for semantic search (requires VSS extension for HNSW indexing)
+CREATE TABLE IF NOT EXISTS embeddings (
+    id          VARCHAR PRIMARY KEY,    -- "{entry_uuid}_{chunk_index}"
+    session_id  VARCHAR NOT NULL,
+    entry_uuid  VARCHAR NOT NULL,
+    chunk_index INTEGER NOT NULL DEFAULT 0,
+    model       VARCHAR NOT NULL,       -- e.g. "apple-nlcontextual-v1"
+    dim         INTEGER NOT NULL,       -- 512 for Apple's model
+    embedding   FLOAT[512] NOT NULL,
+    text_hash   VARCHAR NOT NULL,       -- SHA-256, detect changes without re-embedding
+    created_at  TIMESTAMP DEFAULT current_timestamp,
+    UNIQUE(entry_uuid, chunk_index, model)
+);
+
+CREATE INDEX IF NOT EXISTS idx_embeddings_session ON embeddings(session_id);
+CREATE INDEX IF NOT EXISTS idx_embeddings_entry ON embeddings(entry_uuid);
