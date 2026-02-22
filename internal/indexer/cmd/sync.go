@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/wethinkt/go-thinkt/internal/cmd"
 	"github.com/wethinkt/go-thinkt/internal/indexer"
+	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 )
 
 var syncCmd = &cobra.Command{
@@ -22,6 +24,7 @@ var syncCmd = &cobra.Command{
 
 		registry := cmd.CreateSourceRegistry()
 		ingester := indexer.NewIngester(database, registry)
+		defer ingester.Close()
 
 		// Initialize progress reporter with TTY detection
 		progress := NewProgressReporter()
@@ -61,11 +64,33 @@ var syncCmd = &cobra.Command{
 			}
 		}
 
+		// Second pass: embed any sessions that need embeddings
+		if ingester.HasEmbedder() {
+			if progress.ShouldShowProgress(quiet, verbose) {
+				ingester.OnEmbedProgress = func(done, total, chunks int, sessionID string, elapsed time.Duration) {
+					sid := sessionID[:min(12, len(sessionID))]
+					if elapsed == 0 {
+						progress.Print(fmt.Sprintf("Embedding [%d/%d] %s...", done, total, sid))
+					} else {
+						progress.Print(fmt.Sprintf("Embedding [%d/%d] %s — %d chunks (%s)", done, total, sid, chunks, elapsed.Round(time.Millisecond)))
+					}
+				}
+			}
+			if err := ingester.EmbedAllSessions(ctx); err != nil {
+				fmt.Fprintf(os.Stderr, "Embedding error: %v\n", err)
+			}
+		}
+
 		if progress.ShouldShowProgress(quiet, verbose) {
 			progress.Finish()
 		}
+
 		if !quiet {
-			fmt.Println("Indexing complete.")
+			if embedding.Available() {
+				fmt.Println("Indexing complete (with embeddings).")
+			} else {
+				fmt.Println("Indexing complete (without embeddings — thinkt-embed-apple not found).")
+			}
 		}
 		return nil
 	},

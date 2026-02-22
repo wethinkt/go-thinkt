@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 )
 
 var (
@@ -23,11 +24,13 @@ var statsCmd = &cobra.Command{
 		defer db.Close()
 
 		var stats struct {
-			TotalProjects int            `json:"total_projects"`
-			TotalSessions int            `json:"total_sessions"`
-			TotalEntries  int            `json:"total_entries"`
-			TotalTokens   int            `json:"total_tokens"`
-			ToolUsage     map[string]int `json:"tool_usage"`
+			TotalProjects   int            `json:"total_projects"`
+			TotalSessions   int            `json:"total_sessions"`
+			TotalEntries    int            `json:"total_entries"`
+			TotalTokens     int            `json:"total_tokens"`
+			TotalEmbeddings int            `json:"total_embeddings"`
+			EmbedderAvail   bool           `json:"embedder_available"`
+			ToolUsage       map[string]int `json:"tool_usage"`
 		}
 
 		// 1. Basic counts
@@ -58,6 +61,10 @@ var statsCmd = &cobra.Command{
 			rows.Close()
 		}
 
+		// Embedding stats
+		db.QueryRow("SELECT count(*) FROM embeddings").Scan(&stats.TotalEmbeddings)
+		stats.EmbedderAvail = embedding.Available()
+
 		if statsJSON {
 			return json.NewEncoder(os.Stdout).Encode(stats)
 		}
@@ -71,6 +78,16 @@ var statsCmd = &cobra.Command{
 		for name, count := range stats.ToolUsage {
 			fmt.Printf("  %-20s %d\n", name, count)
 		}
+
+		// Indexer status
+		fmt.Println("----")
+		fmt.Printf("Database:    %s\n", dbPath)
+		if stats.EmbedderAvail {
+			fmt.Printf("Embedder:    thinkt-embed-apple (available)\n")
+		} else {
+			fmt.Printf("Embedder:    thinkt-embed-apple (not found)\n")
+		}
+		fmt.Printf("Embeddings:  %d\n", stats.TotalEmbeddings)
 
 		return nil
 	},

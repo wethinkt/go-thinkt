@@ -35,6 +35,7 @@ tasks:
     deps:
       - build:thinkt
       - build:indexer
+      - build:embed-apple
 
   build:thinkt:
     desc: Build the thinkt CLI
@@ -73,6 +74,7 @@ tasks:
     generates:
       - "{{.BIN_DIR}}/thinkt-embed-apple"
     cmds:
+      - mkdir -p {{.BIN_DIR}}
       - swiftc -O tools/thinkt-embed-apple/main.swift -o {{.BIN_DIR}}/thinkt-embed-apple
 
   test:

@@ -20,6 +20,10 @@ type Ingester struct {
 	registry    *thinkt.StoreRegistry
 	embedClient *embedding.Client // nil if embedding unavailable
 	OnProgress  func(pIdx, pTotal, sIdx, sTotal int, message string)
+
+	// OnEmbedProgress is called during EmbedAllSessions with progress updates.
+	// chunks is the number of chunks embedded for this session (0 before start).
+	OnEmbedProgress func(done, total, chunks int, sessionID string, elapsed time.Duration)
 }
 
 // NewIngester creates a new Ingester instance.
@@ -32,6 +36,18 @@ func NewIngester(database *db.DB, registry *thinkt.StoreRegistry) *Ingester {
 		db:          database,
 		registry:    registry,
 		embedClient: ec,
+	}
+}
+
+// HasEmbedder returns true if an embedding backend is available.
+func (i *Ingester) HasEmbedder() bool {
+	return i.embedClient != nil
+}
+
+// Close releases resources held by the ingester (e.g., embedding subprocess).
+func (i *Ingester) Close() {
+	if i.embedClient != nil {
+		i.embedClient.Close()
 	}
 }
 
@@ -76,6 +92,7 @@ func (i *Ingester) IngestProject(ctx context.Context, project thinkt.Project, pI
 }
 
 // IngestSession indexes a single session if it has changed since the last sync.
+// This only indexes metadata — call EmbedAllSessions separately for embeddings.
 func (i *Ingester) IngestSession(ctx context.Context, projectID string, meta thinkt.SessionMeta) error {
 	// 1. Check sync state
 	shouldSync, _, err := i.shouldSyncSession(meta)
@@ -105,7 +122,6 @@ func (i *Ingester) IngestSession(ctx context.Context, projectID string, meta thi
 
 	// 3. Ingest entries
 	count := 0
-	var entries []thinkt.Entry
 	for {
 		entry, err := reader.ReadNext()
 		if err == io.EOF {
@@ -115,8 +131,7 @@ func (i *Ingester) IngestSession(ctx context.Context, projectID string, meta thi
 			return fmt.Errorf("error reading entry: %w", err)
 		}
 
-		entries = append(entries, *entry)
-		count++ // Increment before upsert to use as 1-based line number
+		count++
 		if err := i.upsertEntry(ctx, meta.ID, *entry, count); err != nil {
 			return err
 		}
@@ -128,16 +143,120 @@ func (i *Ingester) IngestSession(ctx context.Context, projectID string, meta thi
 	}
 
 	// 5. Update sync state
-	if err := i.updateSyncState(meta, count); err != nil {
+	return i.updateSyncState(meta, count)
+}
+
+// IngestAndEmbedSession indexes a single session and immediately embeds it.
+// Used by the watcher for real-time updates.
+func (i *Ingester) IngestAndEmbedSession(ctx context.Context, projectID string, meta thinkt.SessionMeta) error {
+	if err := i.IngestSession(ctx, projectID, meta); err != nil {
 		return err
 	}
+	if i.embedClient == nil {
+		return nil
+	}
+	_, err := i.embedSessionFromDB(ctx, meta.ID)
+	return err
+}
 
-	// 6. Embed entries (optional — skipped if binary not available)
-	if err := i.embedSession(ctx, meta.ID, entries); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: embedding failed for session %s: %v\n", meta.ID, err)
+// EmbedAllSessions finds sessions with missing embeddings and generates them.
+// This is designed to run as a second pass after indexing.
+func (i *Ingester) EmbedAllSessions(ctx context.Context) error {
+	if i.embedClient == nil {
+		return nil
+	}
+
+	// Find sessions that have entries but no embeddings
+	rows, err := i.db.QueryContext(ctx, `
+		SELECT DISTINCT s.id, s.path
+		FROM sessions s
+		JOIN entries e ON e.session_id = s.id
+		WHERE NOT EXISTS (
+			SELECT 1 FROM embeddings emb WHERE emb.session_id = s.id
+		)
+		ORDER BY s.id`)
+	if err != nil {
+		return fmt.Errorf("query sessions needing embeddings: %w", err)
+	}
+	defer rows.Close()
+
+	type sessionInfo struct {
+		id   string
+		path string
+	}
+	var sessions []sessionInfo
+	for rows.Next() {
+		var s sessionInfo
+		if err := rows.Scan(&s.id, &s.path); err != nil {
+			return fmt.Errorf("scan session: %w", err)
+		}
+		sessions = append(sessions, s)
+	}
+
+	if len(sessions) == 0 {
+		return nil
+	}
+
+	total := len(sessions)
+	for idx, s := range sessions {
+		if i.OnEmbedProgress != nil {
+			i.OnEmbedProgress(idx, total, 0, s.id, 0)
+		}
+		start := time.Now()
+		chunks, err := i.embedSessionFromDB(ctx, s.id)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "\nWarning: embedding failed for session %s: %v\n", s.id, err)
+		}
+		if i.OnEmbedProgress != nil {
+			i.OnEmbedProgress(idx+1, total, chunks, s.id, time.Since(start))
+		}
 	}
 
 	return nil
+}
+
+// embedSessionFromDB reads a session's entries from the source file and embeds them.
+// Returns the number of chunks embedded.
+func (i *Ingester) embedSessionFromDB(ctx context.Context, sessionID string) (int, error) {
+	// Look up session path and source
+	var path, projectID string
+	err := i.db.QueryRowContext(ctx, `
+		SELECT s.path, s.project_id FROM sessions s WHERE s.id = ?`, sessionID).Scan(&path, &projectID)
+	if err != nil {
+		return 0, fmt.Errorf("lookup session %s: %w", sessionID, err)
+	}
+
+	// Determine source from project
+	var source string
+	err = i.db.QueryRowContext(ctx, `SELECT source FROM projects WHERE id = ?`, projectID).Scan(&source)
+	if err != nil {
+		return 0, fmt.Errorf("lookup project %s: %w", projectID, err)
+	}
+
+	store, ok := i.registry.Get(thinkt.Source(source))
+	if !ok {
+		return 0, fmt.Errorf("no store for source %s", source)
+	}
+
+	reader, err := store.OpenSession(ctx, sessionID)
+	if err != nil {
+		return 0, fmt.Errorf("open session %s: %w", sessionID, err)
+	}
+	defer reader.Close()
+
+	var entries []thinkt.Entry
+	for {
+		entry, err := reader.ReadNext()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return 0, fmt.Errorf("read entry: %w", err)
+		}
+		entries = append(entries, *entry)
+	}
+
+	return i.embedSession(ctx, sessionID, entries)
 }
 
 func (i *Ingester) syncProject(ctx context.Context, p thinkt.Project) error {
@@ -196,7 +315,7 @@ func (i *Ingester) upsertEntry(ctx context.Context, sessionID string, entry thin
 
 	query := `
 		INSERT INTO entries (
-			uuid, session_id, timestamp, role, 
+			uuid, session_id, timestamp, role,
 			input_tokens, output_tokens, tool_name, is_error, word_count, thinking_len,
 			line_number
 		)
@@ -244,15 +363,13 @@ func (i *Ingester) updateSyncState(meta thinkt.SessionMeta, lines int) error {
 	return err
 }
 
-// Helper to handle sql.ErrNoRows without direct import if needed,
-// though we already imported database/sql in db/db.go.
 func sqlErrNoRows() error {
 	return db.ErrNoRows
 }
 
-func (i *Ingester) embedSession(ctx context.Context, sessionID string, entries []thinkt.Entry) error {
+func (i *Ingester) embedSession(ctx context.Context, sessionID string, entries []thinkt.Entry) (int, error) {
 	if i.embedClient == nil {
-		return nil
+		return 0, nil
 	}
 
 	// Extract text from entries
@@ -269,14 +386,14 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, entries [
 		})
 	}
 	if len(entryTexts) == 0 {
-		return nil
+		return 0, nil
 	}
 
 	// Prepare chunks and embed
 	requests, mapping := embedding.PrepareEntries(entryTexts, 2000, 200)
 	responses, err := i.embedClient.EmbedBatch(ctx, requests)
 	if err != nil {
-		return fmt.Errorf("embedding failed: %w", err)
+		return 0, fmt.Errorf("embedding failed: %w", err)
 	}
 
 	// Build response lookup
@@ -286,6 +403,7 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, entries [
 	}
 
 	// Store embeddings
+	stored := 0
 	for idx, m := range mapping {
 		id := requests[idx].ID
 		resp, ok := respMap[id]
@@ -302,9 +420,10 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, entries [
 			"apple-nlcontextual-v1", resp.Dim, resp.Embedding, m.TextHash,
 		)
 		if err != nil {
-			return fmt.Errorf("store embedding %s: %w", id, err)
+			return stored, fmt.Errorf("store embedding %s: %w", id, err)
 		}
+		stored++
 	}
 
-	return nil
+	return stored, nil
 }

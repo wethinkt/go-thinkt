@@ -11,6 +11,17 @@
             "args": []
         },
         {
+            "name": "Launch thinkt-indexer",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/thinkt-indexer",
+            "console": "integratedTerminal",
+            "args": [
+                "sync"
+            ]
+        },
+        {
             "name": "Launch thinkt (with logging)",
             "type": "go",
             "request": "launch",

@@ -255,7 +255,8 @@ func (w *Watcher) handleFileChange(path string) {
 	defer w.dbPool.Release()
 
 	ingester := NewIngester(database, w.registry)
-	if err := ingester.IngestSession(ctx, entry.projectID, entry.session); err != nil {
+	defer ingester.Close()
+	if err := ingester.IngestAndEmbedSession(ctx, entry.projectID, entry.session); err != nil {
 		log.Printf("Failed to re-index session %s: %v", entry.session.ID, err)
 	}
 }
