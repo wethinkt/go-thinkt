@@ -82,14 +82,21 @@ The server provides:
 All data stays on your machine - nothing is uploaded to external servers.
 
 Examples:
-  thinkt server                    # Start HTTP server on default port 8784
+  thinkt server                    # Show server status
+  thinkt server run                # Start server in foreground
   thinkt server start              # Start in background
   thinkt server status             # Check server status
   thinkt server stop               # Stop background server
-  thinkt server logs               # View server logs
-  thinkt server -p 8080            # Start on custom port`,
+  thinkt server logs               # View server logs`,
 	SilenceUsage: true,
-	RunE:         runServerHTTP,
+	Args:         cobra.NoArgs,
+	RunE:         runServerStatus,
+}
+
+var serverRunCmd = &cobra.Command{
+	Use:   "run",
+	Short: "Start server in foreground",
+	RunE:  runServerHTTP,
 }
 
 var serverStartCmd = &cobra.Command{
@@ -132,7 +139,7 @@ func runServerLogs(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		logFile = filepath.Join(confDir, "serve.log")
+		logFile = filepath.Join(confDir, "server.log")
 	}
 
 	return tailLogFile(logFile, n, follow)
@@ -197,40 +204,41 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 
 	fmt.Println("🚀 Starting server in background...")
 
-	// Build arguments for thinkt server
+	confDir, err := config.Dir()
+	if err != nil {
+		return fmt.Errorf("failed to get config dir: %w", err)
+	}
+
+	// Ensure config directory exists
+	if err := os.MkdirAll(confDir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	// Build arguments for thinkt server run
 	executable, _ := os.Executable()
-	serveArgs := []string{"server"}
+	runArgs := []string{"server", "run", "--no-open",
+		"--log", filepath.Join(confDir, "server.log"),
+		"--http-log", filepath.Join(confDir, "server.http.log"),
+	}
 	if servePort != 0 {
-		serveArgs = append(serveArgs, "--port", fmt.Sprintf("%d", servePort))
+		runArgs = append(runArgs, "--port", fmt.Sprintf("%d", servePort))
 	}
 	if serveHost != "" {
-		serveArgs = append(serveArgs, "--host", serveHost)
+		runArgs = append(runArgs, "--host", serveHost)
 	}
 	if serveQuiet {
-		serveArgs = append(serveArgs, "--quiet")
-	}
-	// Always use --no-open for background start
-	serveArgs = append(serveArgs, "--no-open")
-
-	// Determine log path
-	logPath := serveHTTPLog
-	if logPath == "" {
-		confDir, _ := config.Dir()
-		logPath = filepath.Join(confDir, "serve.log")
-	}
-
-	// Ensure log directory exists
-	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
-		return fmt.Errorf("failed to create log directory: %w", err)
+		runArgs = append(runArgs, "--quiet")
 	}
 
 	// Run in background
-	c := exec.Command(executable, serveArgs...)
+	c := exec.Command(executable, runArgs...)
 	if err := config.StartBackground(c); err != nil {
 		return fmt.Errorf("failed to start server: %w", err)
 	}
 
-	fmt.Printf("✅ Server starting (PID: %d). Logging to %s\n", c.Process.Pid, logPath)
+	fmt.Printf("✅ Server starting (PID: %d)\n", c.Process.Pid)
+	fmt.Printf("   Log:  %s\n", filepath.Join(confDir, "server.log"))
+	fmt.Printf("   HTTP: %s\n", filepath.Join(confDir, "server.http.log"))
 	return nil
 }
 
@@ -398,24 +406,31 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 		staticHandler = server.StaticWebAppHandler()
 	}
 
-	// Resolve log path for instance registry
-	serveLogPath := serveHTTPLog
-	if serveLogPath == "" {
-		if confDir, err := config.Dir(); err == nil {
-			serveLogPath = filepath.Join(confDir, "serve.log")
-		}
+	// Resolve log paths: use defaults under ~/.thinkt/ when not explicitly set
+	confDir, _ := config.Dir()
+	httpLogPath := serveHTTPLog
+	if httpLogPath == "" && confDir != "" {
+		httpLogPath = filepath.Join(confDir, "server.http.log")
 	}
+	appLogPath := logPath
+	if appLogPath == "" && confDir != "" {
+		appLogPath = filepath.Join(confDir, "server.log")
+	}
+
+	// Truncate logs at startup if they've grown too large
+	truncateIfLarge(httpLogPath)
+	truncateIfLarge(appLogPath)
 
 	// HTTP mode: start HTTP server
 	thinktConfig := server.Config{
 		Port:          servePort,
 		Host:          serveHost,
 		Quiet:         serveQuiet,
-		HTTPLog:       serveHTTPLog,
+		HTTPLog:       httpLogPath,
 		CORSOrigin:    resolveCORSOrigin(),
 		StaticHandler: staticHandler,
 		InstanceType:  config.InstanceServer,
-		LogPath:       serveLogPath,
+		LogPath:       appLogPath,
 	}
 	defer thinktConfig.Close()
 	srv := server.NewHTTPServerWithAuth(registry, thinktConfig, authConfig)

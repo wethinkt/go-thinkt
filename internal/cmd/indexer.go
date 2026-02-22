@@ -127,6 +127,9 @@ func runIndexerStart(cmd *cobra.Command, args []string) error {
 
 	indexerArgs = append(indexerArgs, "--log", logPath)
 
+	// Truncate log at startup if it's grown too large
+	truncateIfLarge(logPath)
+
 	// Run watch in background
 	c := exec.Command(path, indexerArgs...)
 	if err := config.StartBackground(c); err != nil {

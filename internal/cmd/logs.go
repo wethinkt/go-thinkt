@@ -7,6 +7,18 @@ import (
 	"time"
 )
 
+const maxLogSize = 10 * 1024 * 1024 // 10 MB
+
+// truncateIfLarge truncates a log file to zero if it exceeds maxLogSize.
+// This is called at process startup to prevent unbounded log growth.
+func truncateIfLarge(path string) {
+	info, err := os.Stat(path)
+	if err != nil || info.Size() <= maxLogSize {
+		return
+	}
+	_ = os.Truncate(path, 0)
+}
+
 // tailLogFile prints the last n lines from path, optionally following for new content.
 func tailLogFile(path string, n int, follow bool) error {
 	f, err := os.Open(path)

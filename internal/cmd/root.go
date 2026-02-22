@@ -182,16 +182,18 @@ func init() {
 	// Server command flags shared across subcommands
 	serverCmd.PersistentFlags().StringVar(&serveCORSOrigin, "cors-origin", "", "CORS Access-Control-Allow-Origin (default \"*\", env: THINKT_CORS_ORIGIN)")
 
-	// Server command flags (non-persistent; only apply to 'server' itself)
-	// Subcommands that need these define their own (mcp, lite)
-	serverCmd.Flags().IntVarP(&servePort, "port", "p", server.DefaultPortServer, "server port")
-	serverCmd.Flags().StringVar(&serveHost, "host", "localhost", "server host")
-	serverCmd.Flags().BoolVar(&serveNoOpen, "no-open", false, "don't auto-open browser")
-	serverCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
-	serverCmd.Flags().BoolVarP(&serveQuiet, "quiet", "q", false, "suppress HTTP request logging (errors still go to stderr)")
-	serverCmd.Flags().StringVar(&serveHTTPLog, "http-log", "", "write HTTP access log to file (default: stdout, unless --quiet)")
-	serverCmd.Flags().StringVar(&serveDev, "dev", "", "dev mode: proxy non-API routes to this URL (e.g. http://localhost:5173)")
+	// Server run subcommand (foreground server)
+	serverRunCmd.Flags().IntVarP(&servePort, "port", "p", server.DefaultPortServer, "server port")
+	serverRunCmd.Flags().StringVar(&serveHost, "host", "localhost", "server host")
+	serverRunCmd.Flags().BoolVar(&serveNoOpen, "no-open", false, "don't auto-open browser")
+	serverRunCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
+	serverRunCmd.Flags().BoolVarP(&serveQuiet, "quiet", "q", false, "suppress HTTP request logging (errors still go to stderr)")
+	serverRunCmd.Flags().StringVar(&serveHTTPLog, "http-log", "", "write HTTP access log to file (default: stdout, unless --quiet)")
+	serverRunCmd.Flags().StringVar(&serveDev, "dev", "", "dev mode: proxy non-API routes to this URL (e.g. http://localhost:5173)")
+	serverRunCmd.Flags().StringVar(&apiToken, "token", "", "bearer token for API authentication (default: use THINKT_API_TOKEN env var)")
 
+	serverCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
+	serverCmd.AddCommand(serverRunCmd)
 	serverCmd.AddCommand(serverStartCmd)
 	serverCmd.AddCommand(serverStopCmd)
 	serverCmd.AddCommand(serverStatusCmd)
@@ -217,9 +219,6 @@ func init() {
 	serverMcpCmd.Flags().StringSliceVar(&mcpAllowTools, "allow-tools", nil, "explicitly allow only these tools (comma-separated, default: all)")
 	serverMcpCmd.Flags().StringSliceVar(&mcpDenyTools, "deny-tools", nil, "explicitly deny these tools (comma-separated)")
 	serverMcpCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
-
-	// Server API flags (only apply to main server command)
-	serverCmd.Flags().StringVar(&apiToken, "token", "", "bearer token for API authentication (default: use THINKT_API_TOKEN env var)")
 
 	// Web command
 	webCmd.AddCommand(webLiteCmd)
