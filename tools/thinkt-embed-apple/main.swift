@@ -1,6 +1,28 @@
 import Foundation
 import NaturalLanguage
 
+// Handle --help / --version before doing anything expensive
+let args = CommandLine.arguments
+if args.contains("--help") || args.contains("-h") {
+    print("""
+    thinkt-embed-apple — on-device text embeddings via Apple NLContextualEmbedding
+
+    Usage: thinkt-embed-apple [options]
+
+    Reads JSON lines from stdin:   {"id": "entry-uuid", "text": "..."}
+    Writes JSON lines to stdout:   {"id": "entry-uuid", "embedding": [...], "dim": 512}
+
+    Options:
+      --help, -h       Show this help message
+      --version, -v    Show version info
+    """)
+    exit(0)
+}
+if args.contains("--version") || args.contains("-v") {
+    print("thinkt-embed-apple 0.1.0")
+    exit(0)
+}
+
 struct EmbedRequest: Decodable {
     let id: String
     let text: String
