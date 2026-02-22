@@ -143,6 +143,14 @@ func (ms *MCPServer) registerTools() {
 				Description: "Get aggregate usage statistics including total tokens and most used tools.",
 			}, ms.handleGetUsageStats)
 		}
+
+		// semantic_search
+		if ms.isToolAllowed("semantic_search") {
+			mcp.AddTool(ms.server, &mcp.Tool{
+				Name:        "semantic_search",
+				Description: "Search for sessions by meaning using on-device embeddings. Returns sessions ranked by semantic similarity to the query. Requires thinkt-embed-apple and a synced embedding index.",
+			}, ms.handleSemanticSearch)
+		}
 	}
 }
 
@@ -306,6 +314,13 @@ type searchSessionsInput struct {
 	LimitPerSession int    `json:"limit_per_session,omitempty"`
 	CaseSensitive   bool   `json:"case_sensitive,omitempty"`
 	Regex           bool   `json:"regex,omitempty"`
+}
+
+type semanticSearchInput struct {
+	Query   string `json:"query"`
+	Project string `json:"project,omitempty"`
+	Source  string `json:"source,omitempty"`
+	Limit   int    `json:"limit,omitempty"`
 }
 
 type getUsageStatsInput struct{}
@@ -711,6 +726,36 @@ func buildIndexerSearchArgs(input searchSessionsInput) []string {
 		args = append(args, "--regex")
 	}
 	return args
+}
+
+func (ms *MCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallToolRequest, input semanticSearchInput) (*mcp.CallToolResult, any, error) {
+	if strings.TrimSpace(input.Query) == "" {
+		return nil, nil, fmt.Errorf("query is required")
+	}
+	path := findIndexerBinary()
+	if path == "" {
+		return nil, nil, fmt.Errorf("indexer not found")
+	}
+	args := []string{"semantic", "search", "--json", input.Query}
+	if input.Project != "" {
+		args = append(args, "--project", input.Project)
+	}
+	if source := strings.TrimSpace(strings.ToLower(input.Source)); source != "" {
+		args = append(args, "--source", source)
+	}
+	if input.Limit > 0 {
+		args = append(args, "--limit", fmt.Sprintf("%d", input.Limit))
+	}
+	cmd := exec.Command(path, args...)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, nil, fmt.Errorf("semantic search failed: %w", err)
+	}
+	var res any
+	if err := json.Unmarshal(out, &res); err != nil {
+		return nil, nil, fmt.Errorf("indexer returned invalid JSON: %w", err)
+	}
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(out)}}}, res, nil
 }
 
 func (ms *MCPServer) handleGetUsageStats(ctx context.Context, req *mcp.CallToolRequest, _ getUsageStatsInput) (*mcp.CallToolResult, any, error) {
