@@ -65,6 +65,16 @@ tasks:
     cmds:
       - CGO_ENABLED=1 go build -o {{.BIN_DIR}}/thinkt-indexer ./cmd/thinkt-indexer
 
+  build:embed-apple:
+    desc: Build the thinkt-embed-apple Swift CLI (macOS only)
+    platforms: [darwin]
+    sources:
+      - ./tools/thinkt-embed-apple/*.swift
+    generates:
+      - "{{.BIN_DIR}}/thinkt-embed-apple"
+    cmds:
+      - swiftc -O tools/thinkt-embed-apple/main.swift -o {{.BIN_DIR}}/thinkt-embed-apple
+
   test:
     desc: Run tests
     cmds:
