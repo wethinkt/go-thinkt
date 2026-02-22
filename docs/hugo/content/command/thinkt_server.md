@@ -18,12 +18,12 @@ The server provides:
 All data stays on your machine - nothing is uploaded to external servers.
 
 Examples:
-  thinkt server                    # Start HTTP server on default port 8784
+  thinkt server                    # Show server status
+  thinkt server run                # Start server in foreground
   thinkt server start              # Start in background
   thinkt server status             # Check server status
   thinkt server stop               # Stop background server
   thinkt server logs               # View server logs
-  thinkt server -p 8080            # Start on custom port
 
 ```
 thinkt server [flags]
@@ -33,15 +33,8 @@ thinkt server [flags]
 
 ```
       --cors-origin string   CORS Access-Control-Allow-Origin (default "*", env: THINKT_CORS_ORIGIN)
-      --dev string           dev mode: proxy non-API routes to this URL (e.g. http://localhost:5173)
   -h, --help                 help for server
-      --host string          server host (default "localhost")
-      --http-log string      write HTTP access log to file (default: stdout, unless --quiet)
-      --log string           write debug log to file
-      --no-open              don't auto-open browser
-  -p, --port int             server port (default 8784)
-  -q, --quiet                suppress HTTP request logging (errors still go to stderr)
-      --token string         bearer token for API authentication (default: use THINKT_API_TOKEN env var)
+      --json                 output as JSON
 ```
 
 ### Options inherited from parent commands
@@ -56,6 +49,7 @@ thinkt server [flags]
 * [thinkt server fingerprint](thinkt_server_fingerprint.md)	 - Display the machine fingerprint
 * [thinkt server logs](thinkt_server_logs.md)	 - View server logs
 * [thinkt server mcp](thinkt_server_mcp.md)	 - Start MCP server for AI tool integration
+* [thinkt server run](thinkt_server_run.md)	 - Start server in foreground
 * [thinkt server start](thinkt_server_start.md)	 - Start server in background
 * [thinkt server status](thinkt_server_status.md)	 - Show server status
 * [thinkt server stop](thinkt_server_stop.md)	 - Stop background server

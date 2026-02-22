@@ -109,9 +109,13 @@ homebrew_casks:
       - man/man1/thinkt-completion-zsh.1
       - man/man1/thinkt-completion.1
       - man/man1/thinkt-indexer-help.1
+      - man/man1/thinkt-indexer-logs.1
       - man/man1/thinkt-indexer-search.1
       - man/man1/thinkt-indexer-sessions.1
+      - man/man1/thinkt-indexer-start.1
       - man/man1/thinkt-indexer-stats.1
+      - man/man1/thinkt-indexer-status.1
+      - man/man1/thinkt-indexer-stop.1
       - man/man1/thinkt-indexer-sync.1
       - man/man1/thinkt-indexer-version.1
       - man/man1/thinkt-indexer-watch.1
@@ -128,8 +132,12 @@ homebrew_casks:
       - man/man1/thinkt-prompts-templates.1
       - man/man1/thinkt-prompts.1
       - man/man1/thinkt-server-fingerprint.1
-      - man/man1/thinkt-server-lite.1
+      - man/man1/thinkt-server-logs.1
       - man/man1/thinkt-server-mcp.1
+      - man/man1/thinkt-server-run.1
+      - man/man1/thinkt-server-start.1
+      - man/man1/thinkt-server-status.1
+      - man/man1/thinkt-server-stop.1
       - man/man1/thinkt-server-token.1
       - man/man1/thinkt-server.1
       - man/man1/thinkt-sessions-copy.1
@@ -154,6 +162,8 @@ homebrew_casks:
       - man/man1/thinkt-theme.1
       - man/man1/thinkt-tui.1
       - man/man1/thinkt-version.1
+      - man/man1/thinkt-web-lite.1
+      - man/man1/thinkt-web.1
       - man/man1/thinkt.1
 
 dockers:
