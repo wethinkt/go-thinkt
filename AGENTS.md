@@ -129,7 +129,7 @@ thinkt tui --log /tmp/thinkt-debug.log
 
 | Flag | Description |
 |------|-------------|
-| `--port, -p` | Server port (default: 8784 for server, 8785 for lite, 8786 for mcp, 8787 reserved for VS Code extension) |
+| `--port, -p` | Server port (default: 8784 for server, 8786 for mcp, 8787 reserved for VS Code extension) |
 | `--host` | Server host (default: localhost) |
 | `--no-open` | Don't auto-open browser |
 | `--quiet, -q` | Suppress HTTP request logging |
@@ -270,7 +270,7 @@ Two web interfaces are embedded into the binary via git submodules:
 | Submodule | Path | Command | Port | Description |
 |-----------|------|---------|------|-------------|
 | [thinkt-web](https://github.com/wethinkt/thinkt-web) (`dist` branch) | `internal/server/web/` | `thinkt server` / `thinkt web` | 8784 | Full webapp for trace exploration |
-| [thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite) | `internal/server/web-lite/` | `thinkt web lite` | 8785 | Lightweight debug interface |
+| [thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite) | `internal/server/web-lite/` | `thinkt web lite` | 8784 (`/lite/`) | Lightweight debug interface |
 
 ### Submodule Setup
 

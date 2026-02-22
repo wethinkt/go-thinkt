@@ -182,7 +182,7 @@ thinkt server --no-open                # Don't open browser
 thinkt server --quiet                  # Suppress request logging
 thinkt server --dev http://localhost:5173  # Proxy to frontend dev server
 thinkt web                             # Open web interface in browser
-thinkt web lite                        # Lightweight debug interface on port 8785
+thinkt web lite                        # Lightweight debug interface at /lite/
 ```
 
 `thinkt server` starts the HTTP server. `thinkt web` opens it in your browser (auto-starting if needed). `thinkt web lite` provides a lightweight debug view. All data stays on your machine.

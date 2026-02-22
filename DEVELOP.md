@@ -199,7 +199,7 @@ The main `thinkt` binary is pure Go for maximum portability. The indexer require
 | Command | Default Port |
 |---|---|
 | `thinkt server` | 8784 |
-| `thinkt web lite` | 8785 |
+| `thinkt web lite` | 8784 (served at `/lite/`) |
 | `thinkt server mcp --port` | 8786 |
 | thinkt-vscode (reserved) | 8787 |
 

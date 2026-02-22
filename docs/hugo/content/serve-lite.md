@@ -1,27 +1,28 @@
 ---
-title: "Lite Server"
+title: "Lite Interface"
 weight: 12
 ---
 
-# Lite Server
+# Lite Interface
 
 The `thinkt web lite` command opens a lightweight web interface for exploring your AI coding sessions. It provides a quick overview of your sources, projects, and API access without the full TUI experience.
+
+The lite interface is served at `/lite/` on the main server (port 8784 by default).
 
 ![Thinkt Lite Server](/images/serve-lite.jpg)
 
 ## Quick Start
 
 ```bash
-thinkt web lite                # Start on default port 8785
-thinkt web lite -p 8080        # Custom port
+thinkt web lite                # Open lite interface in browser
 thinkt web lite --no-open      # Don't auto-open browser
 ```
 
-The server automatically opens your browser to `http://localhost:8785`.
+If the server is not already running, it will be started in the background.
 
 ## Purpose
 
-The lite server is designed for:
+The lite interface is designed for:
 
 - **Quick inspection** - See all your projects and sources at a glance
 - **API exploration** - Test API endpoints with built-in viewers
@@ -108,86 +109,66 @@ thinkt web lite [flags]
 **Flags:**
 | Flag | Description |
 |------|-------------|
-| `-p, --port int` | Server port (default 8785) |
 | `-h, --help` | Help for lite |
-
-**Inherited flags:**
-| Flag | Description |
-|------|-------------|
-| `--host string` | Server host (default "localhost") |
-| `--http-log string` | Write HTTP access log to file |
-| `--log string` | Write debug log to file |
 | `--no-open` | Don't auto-open browser |
-| `-q, --quiet` | Suppress HTTP request logging |
-| `-v, --verbose` | Verbose output |
 
 ## Examples
 
 ### Basic Usage
 
 ```bash
-# Start lite server
+# Open lite interface
 thinkt web lite
 
-# Opens browser to http://localhost:8785
+# Opens browser to http://localhost:8784/lite/
 ```
 
-### Custom Port
+### Direct Access
 
 ```bash
-thinkt web lite -p 3000
-# Opens browser to http://localhost:3000
-```
-
-### Headless Mode
-
-```bash
-# Start without opening browser (useful for remote access)
-thinkt web lite --no-open --host 0.0.0.0
-
-# Access from another machine at http://your-ip:8785
+# If the server is already running, access directly:
+# http://localhost:8784/lite/
 ```
 
 ### With Logging
 
 ```bash
-# Log HTTP requests to file
-thinkt web lite --http-log access.log
-
-# Enable debug logging
-thinkt web lite --log debug.log --verbose
+# Start server with logging, then open lite
+thinkt server start
+thinkt web lite
+thinkt server http-logs -f    # Follow HTTP access logs
 ```
 
 ## Docker Usage
 
-Run the lite server in Docker:
+Run the server in Docker and access the lite interface:
 
 ```bash
-docker run --rm -p 8785:8785 \
+docker run --rm -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
   -v ~/.codex:/data/.codex:ro \
-  ghcr.io/wethinkt/thinkt web lite --host 0.0.0.0
+  ghcr.io/wethinkt/thinkt server run --host 0.0.0.0 --no-auth
 ```
 
-Access at `http://localhost:8785`.
+Access the lite interface at `http://localhost:8784/lite/`.
 
-## Comparison with Full Server
+## Comparison with Full Web App
 
-| Feature | `serve lite` | `serve` |
-|---------|--------------|---------|
-| Port | 8785 | 8784 |
+| Feature | Lite (`/lite/`) | Full (`/`) |
+|---------|-----------------|------------|
 | REST API | Yes | Yes |
 | Web UI | Lightweight debug interface | Full webapp ([thinkt-web](https://github.com/wethinkt/thinkt-web)) |
 | Swagger docs | Yes | Yes |
 | Purpose | Debugging, quick inspection | Full trace exploration |
 
+Both are served on the same port (8784 by default).
+
 {{< hint info >}}
-**Tip:** For full visual exploration of your AI coding sessions, use `thinkt server` instead. The lite server is designed for quick inspection and API debugging.
+**Tip:** For full visual exploration of your AI coding sessions, use `thinkt web` instead. The lite interface is designed for quick inspection and API debugging.
 {{< /hint >}}
 
 ## See Also
 
-- [thinkt web lite](/command/thinkt_serve_lite) - Command reference
 - [REST API](/rest-api) - API documentation
 - [Docker](/docker) - Running in containers

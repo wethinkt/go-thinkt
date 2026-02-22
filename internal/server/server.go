@@ -24,8 +24,6 @@ import (
 const (
 	// DefaultPortServer is the default port for 'thinkt server' (REST API).
 	DefaultPortServer = 8784
-	// DefaultPortLite is the default port for 'thinkt server lite'.
-	DefaultPortLite = 8785
 	// DefaultPortMCP is the default port for 'thinkt server mcp' over HTTP.
 	DefaultPortMCP = 8786
 )

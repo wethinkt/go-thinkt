@@ -172,17 +172,17 @@ docker run --rm -p 8784:8784 \
   ghcr.io/wethinkt/thinkt server --host 0.0.0.0 --quiet
 ```
 
-### Lite Server (Debug Interface)
+### Lite Interface (Debug)
 
-Start the lightweight debug server:
+The lite debug interface is served at `/lite/` on the main server:
 
 ```bash
-docker run --rm -p 8785:8785 \
+docker run --rm -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
-  ghcr.io/wethinkt/thinkt web lite --host 0.0.0.0
+  ghcr.io/wethinkt/thinkt server run --host 0.0.0.0 --no-auth
 ```
 
-Access at `http://localhost:8785`
+Access at `http://localhost:8784/lite/`
 
 ### MCP Server (HTTP Mode)
 

@@ -252,7 +252,7 @@ thinkt server stop                 # Stop background server
 | Command | Port | Description |
 |---------|------|-------------|
 | `thinkt server` | 8784 | Full web interface and REST API |
-| `thinkt web lite` | 8785 | Lightweight debug webapp |
+| `thinkt web lite` | 8784 | Lightweight debug webapp (served at `/lite/`) |
 | `thinkt server mcp --port` | 8786 | MCP server over HTTP |
 | [VS Code extension](https://github.com/wethinkt/thinkt-vscode) | 8787 | Reserved for embedded server |
 
