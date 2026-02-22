@@ -268,6 +268,9 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 	if serveNoAuth {
 		runArgs = append(runArgs, "--no-auth")
 	}
+	if serveNoIndexer {
+		runArgs = append(runArgs, "--no-indexer")
+	}
 
 	// Run in background
 	c := exec.Command(executable, runArgs...)
@@ -414,6 +417,16 @@ Examples:
 
 func runServerHTTP(cmd *cobra.Command, args []string) error {
 	tuilog.Log.Info("Starting HTTP server", "port", servePort, "host", serveHost)
+
+	// Start indexer sidecar if not disabled
+	if !serveNoIndexer {
+		if sidecar := startIndexerSidecar(logPath); sidecar != nil {
+			defer func() {
+				tuilog.Log.Info("Stopping indexer sidecar")
+				_ = sidecar.Process.Kill()
+			}()
+		}
+	}
 
 	// Create source registry
 	registry := CreateSourceRegistry()
