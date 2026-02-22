@@ -69,7 +69,7 @@ func runIndexerLogs(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		logFile = filepath.Join(confDir, "indexer.log")
+		logFile = filepath.Join(confDir, "logs", "indexer.log")
 	}
 
 	return tailLogFile(logFile, n, follow)
@@ -117,7 +117,7 @@ func runIndexerStart(cmd *cobra.Command, args []string) error {
 	logPath := indexerLogPath
 	if logPath == "" {
 		confDir, _ := config.Dir()
-		logPath = filepath.Join(confDir, "indexer.log")
+		logPath = filepath.Join(confDir, "logs", "indexer.log")
 	}
 
 	// Ensure log directory exists

@@ -191,16 +191,25 @@ func init() {
 	serverRunCmd.Flags().StringVar(&serveHTTPLog, "http-log", "", "write HTTP access log to file (default: stdout, unless --quiet)")
 	serverRunCmd.Flags().StringVar(&serveDev, "dev", "", "dev mode: proxy non-API routes to this URL (e.g. http://localhost:5173)")
 	serverRunCmd.Flags().StringVar(&apiToken, "token", "", "bearer token for API authentication (default: use THINKT_API_TOKEN env var)")
+	serverRunCmd.Flags().BoolVar(&serveNoAuth, "no-auth", false, "disable authentication (allow unauthenticated access)")
 
-	serverCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
-	serverCmd.AddCommand(serverRunCmd)
+	serverStartCmd.Flags().BoolVar(&serveNoAuth, "no-auth", false, "disable authentication (allow unauthenticated access)")
 	serverCmd.AddCommand(serverStartCmd)
+
+	serverCmd.AddCommand(serverRunCmd)
+
 	serverCmd.AddCommand(serverStopCmd)
+
+	serverStatusCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
 	serverCmd.AddCommand(serverStatusCmd)
+
 	serverLogsCmd.Flags().IntP("lines", "n", 50, "number of lines to show")
 	serverLogsCmd.Flags().BoolP("follow", "f", false, "follow log output")
 	serverCmd.AddCommand(serverLogsCmd)
-	serverStatusCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
+
+	serverHTTPLogsCmd.Flags().IntP("lines", "n", 50, "number of lines to show")
+	serverHTTPLogsCmd.Flags().BoolP("follow", "f", false, "follow log output")
+	serverCmd.AddCommand(serverHTTPLogsCmd)
 
 	// Server token subcommand
 	serverCmd.AddCommand(serverTokenCmd)

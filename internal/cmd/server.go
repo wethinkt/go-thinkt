@@ -33,6 +33,7 @@ type serverStatusJSON struct {
 	Port          int        `json:"port,omitempty"`
 	Address       string     `json:"address,omitempty"`
 	LogPath       string     `json:"log_path,omitempty"`
+	HTTPLogPath   string     `json:"http_log_path,omitempty"`
 	StartedAt     *time.Time `json:"started_at,omitempty"`
 	UptimeSeconds int        `json:"uptime_seconds,omitempty"`
 }
@@ -60,8 +61,9 @@ var (
 
 // Serve subcommand flags
 var (
-	apiToken string // Bearer token for API server authentication
-	serveDev string // Dev proxy URL (e.g. http://localhost:5173)
+	apiToken    string // Bearer token for API server authentication
+	serveDev    string // Dev proxy URL (e.g. http://localhost:5173)
+	serveNoAuth bool   // Disable authentication entirely
 )
 
 // Serve fingerprint subcommand flags
@@ -123,6 +125,12 @@ var serverLogsCmd = &cobra.Command{
 	RunE:  runServerLogs,
 }
 
+var serverHTTPLogsCmd = &cobra.Command{
+	Use:   "http-logs",
+	Short: "View HTTP access logs",
+	RunE:  runServerHTTPLogs,
+}
+
 func runServerLogs(cmd *cobra.Command, args []string) error {
 	n, _ := cmd.Flags().GetInt("lines")
 	follow, _ := cmd.Flags().GetBool("follow")
@@ -139,7 +147,29 @@ func runServerLogs(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		logFile = filepath.Join(confDir, "server.log")
+		logFile = filepath.Join(confDir, "logs", "server.log")
+	}
+
+	return tailLogFile(logFile, n, follow)
+}
+
+func runServerHTTPLogs(cmd *cobra.Command, args []string) error {
+	n, _ := cmd.Flags().GetInt("lines")
+	follow, _ := cmd.Flags().GetBool("follow")
+
+	// Try to get log path from running instance
+	logFile := ""
+	if inst := config.FindInstanceByType(config.InstanceServer); inst != nil {
+		logFile = inst.HTTPLogPath
+	}
+
+	// Fall back to default
+	if logFile == "" {
+		confDir, err := config.Dir()
+		if err != nil {
+			return err
+		}
+		logFile = filepath.Join(confDir, "logs", "server.http.log")
 	}
 
 	return tailLogFile(logFile, n, follow)
@@ -150,15 +180,19 @@ var webCmd = &cobra.Command{
 	Short: "Open the web interface in your browser",
 	Long: `Open the thinkt web interface in your default browser.
 If the server is not already running, it will be started in the background.`,
+	Args:         cobra.NoArgs,
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runWebOpen(false)
 	},
 }
 
 var webLiteCmd = &cobra.Command{
-	Use:   "lite",
-	Short: "Open the lightweight web interface",
-	Long:  `Open the thinkt lite web interface (debugging and development view).`,
+	Use:          "lite",
+	Short:        "Open the lightweight web interface",
+	Long:         `Open the thinkt lite web interface (debugging and development view).`,
+	Args:         cobra.NoArgs,
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runWebOpen(true)
 	},
@@ -187,7 +221,10 @@ func runWebOpen(isLite bool) error {
 
 	targetURL := fmt.Sprintf("http://%s:%d", inst.Host, inst.Port)
 	if isLite {
-		targetURL += "/lite"
+		targetURL += "/lite/"
+	}
+	if inst.Token != "" {
+		targetURL += "?token=" + inst.Token
 	}
 
 	fmt.Printf("🌐 Opening %s in browser...\n", targetURL)
@@ -209,16 +246,15 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get config dir: %w", err)
 	}
 
-	// Ensure config directory exists
-	if err := os.MkdirAll(confDir, 0755); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
-	}
-
 	// Build arguments for thinkt server run
 	executable, _ := os.Executable()
+	logsDir := filepath.Join(confDir, "logs")
+	if err := os.MkdirAll(logsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create logs directory: %w", err)
+	}
 	runArgs := []string{"server", "run", "--no-open",
-		"--log", filepath.Join(confDir, "server.log"),
-		"--http-log", filepath.Join(confDir, "server.http.log"),
+		"--log", filepath.Join(logsDir, "server.log"),
+		"--http-log", filepath.Join(logsDir, "server.http.log"),
 	}
 	if servePort != 0 {
 		runArgs = append(runArgs, "--port", fmt.Sprintf("%d", servePort))
@@ -229,6 +265,9 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 	if serveQuiet {
 		runArgs = append(runArgs, "--quiet")
 	}
+	if serveNoAuth {
+		runArgs = append(runArgs, "--no-auth")
+	}
 
 	// Run in background
 	c := exec.Command(executable, runArgs...)
@@ -237,8 +276,8 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("✅ Server starting (PID: %d)\n", c.Process.Pid)
-	fmt.Printf("   Log:  %s\n", filepath.Join(confDir, "server.log"))
-	fmt.Printf("   HTTP: %s\n", filepath.Join(confDir, "server.http.log"))
+	fmt.Printf("   Log:  %s\n", filepath.Join(logsDir, "server.log"))
+	fmt.Printf("   HTTP: %s\n", filepath.Join(logsDir, "server.http.log"))
 	return nil
 }
 
@@ -267,6 +306,7 @@ func runServerStatus(cmd *cobra.Command, args []string) error {
 			status.Host = inst.Host
 			status.Port = inst.Port
 			status.LogPath = inst.LogPath
+			status.HTTPLogPath = inst.HTTPLogPath
 			status.StartedAt = &inst.StartedAt
 			status.UptimeSeconds = int(time.Since(inst.StartedAt).Seconds())
 			status.Address = fmt.Sprintf("http://%s:%d", inst.Host, inst.Port)
@@ -289,8 +329,18 @@ func runServerStatus(cmd *cobra.Command, args []string) error {
 	fmt.Printf("   Status: Running (PID: %d)\n", inst.PID)
 	fmt.Printf("   Address: http://%s:%d\n", inst.Host, inst.Port)
 	fmt.Printf("   Uptime: %s\n", time.Since(inst.StartedAt).Round(time.Second))
+	if inst.Token != "" {
+		if len(inst.Token) > 14 {
+			fmt.Printf("   Token: %s...\n", inst.Token[:14])
+		} else {
+			fmt.Printf("   Token: %s\n", inst.Token)
+		}
+	}
 	if inst.LogPath != "" {
 		fmt.Printf("   Log: %s\n", inst.LogPath)
+	}
+	if inst.HTTPLogPath != "" {
+		fmt.Printf("   HTTP Log: %s\n", inst.HTTPLogPath)
 	}
 
 	return nil
@@ -370,13 +420,40 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 	tuilog.Log.Info("Source registry created", "stores", len(registry.All()))
 
 	// Configure authentication
-	authConfig := server.DefaultAPIAuthConfig()
-	if apiToken != "" {
-		authConfig = server.AuthConfig{
-			Mode:  server.AuthModeToken,
-			Token: apiToken,
-			Realm: "thinkt-api",
+	var authConfig server.AuthConfig
+	if serveNoAuth {
+		authConfig = server.AuthConfig{Mode: server.AuthModeNone, Realm: "thinkt-api"}
+	} else {
+		authConfig = server.DefaultAPIAuthConfig()
+		if apiToken != "" {
+			authConfig = server.AuthConfig{
+				Mode:  server.AuthModeToken,
+				Token: apiToken,
+				Realm: "thinkt-api",
+			}
 		}
+		// Auto-generate token if no auth configured
+		if authConfig.Mode == server.AuthModeNone {
+			token, err := server.GenerateSecureTokenWithPrefix()
+			if err != nil {
+				return fmt.Errorf("failed to generate auth token: %w", err)
+			}
+			authConfig = server.AuthConfig{
+				Mode:  server.AuthModeToken,
+				Token: token,
+				Realm: "thinkt-api",
+			}
+			fmt.Fprintf(os.Stderr, "Auto-generated auth token: %s\n", token)
+		}
+	}
+
+	// Resolve the effective token for instance registry
+	var resolvedToken string
+	switch authConfig.Mode {
+	case server.AuthModeToken:
+		resolvedToken = authConfig.Token
+	case server.AuthModeEnvToken:
+		resolvedToken = os.Getenv(authConfig.EnvVar)
 	}
 
 	// Create context that cancels on interrupt
@@ -406,15 +483,15 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 		staticHandler = server.StaticWebAppHandler()
 	}
 
-	// Resolve log paths: use defaults under ~/.thinkt/ when not explicitly set
+	// Resolve log paths: use defaults under ~/.thinkt/logs/ when not explicitly set
 	confDir, _ := config.Dir()
 	httpLogPath := serveHTTPLog
 	if httpLogPath == "" && confDir != "" {
-		httpLogPath = filepath.Join(confDir, "server.http.log")
+		httpLogPath = filepath.Join(confDir, "logs", "server.http.log")
 	}
 	appLogPath := logPath
 	if appLogPath == "" && confDir != "" {
-		appLogPath = filepath.Join(confDir, "server.log")
+		appLogPath = filepath.Join(confDir, "logs", "server.log")
 	}
 
 	// Truncate logs at startup if they've grown too large
@@ -431,6 +508,8 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 		StaticHandler: staticHandler,
 		InstanceType:  config.InstanceServer,
 		LogPath:       appLogPath,
+		HTTPLogPath:   httpLogPath,
+		Token:         resolvedToken,
 	}
 	defer thinktConfig.Close()
 	srv := server.NewHTTPServerWithAuth(registry, thinktConfig, authConfig)
@@ -456,6 +535,13 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 }
 
 func runServerToken(cmd *cobra.Command, args []string) error {
+	// If a server is running, print its token from the instance registry
+	if inst := config.FindInstanceByType(config.InstanceServer); inst != nil && inst.Token != "" {
+		fmt.Println(inst.Token)
+		return nil
+	}
+
+	// Otherwise generate a new token
 	token, err := server.GenerateSecureTokenWithPrefix()
 	if err != nil {
 		return fmt.Errorf("failed to generate token: %w", err)

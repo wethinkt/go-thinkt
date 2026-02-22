@@ -64,6 +64,14 @@ func (a *BearerAuthenticator) AuthenticateRequest(w http.ResponseWriter, r *http
 
 func (a *BearerAuthenticator) authenticateToken(w http.ResponseWriter, r *http.Request) bool {
 	authHeader := r.Header.Get("Authorization")
+
+	// Fall back to ?token= query param (for browser URL opening)
+	if authHeader == "" {
+		if qToken := r.URL.Query().Get("token"); qToken != "" {
+			authHeader = "Bearer " + qToken
+		}
+	}
+
 	if authHeader == "" {
 		a.writeUnauthorized(w, "Missing Authorization header")
 		return false

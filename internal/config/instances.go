@@ -30,7 +30,9 @@ type Instance struct {
 	PID       int          `json:"pid"`
 	Port      int          `json:"port,omitempty"`
 	Host      string       `json:"host,omitempty"`
-	LogPath   string       `json:"log_path,omitempty"`
+	LogPath     string       `json:"log_path,omitempty"`
+	HTTPLogPath string       `json:"http_log_path,omitempty"`
+	Token       string       `json:"token,omitempty"`
 	StartedAt time.Time    `json:"started_at"`
 }
 

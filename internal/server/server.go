@@ -40,6 +40,8 @@ type Config struct {
 	StaticHandler http.Handler        // if nil, defaults to StaticLiteWebAppHandler()
 	InstanceType  config.InstanceType // instance type for discovery file registration
 	LogPath       string              // path to process log file (for instance registry)
+	HTTPLogPath   string              // path to HTTP access log file (for instance registry)
+	Token         string              // resolved auth token (stored in instance registry for discovery)
 	httpLogFile   *os.File            // internal: opened log file handle
 }
 
@@ -151,16 +153,18 @@ func (s *HTTPServer) setupRouter() chi.Router {
 	r.Use(middleware.RequestID)
 	r.Use(corsMiddleware(s.config.CORSOrigin))
 
-	// Authentication middleware (if enabled)
+	// Log authentication status
 	if s.authenticator.IsEnabled() {
 		tuilog.Log.Info("API server authentication enabled")
-		r.Use(s.authenticator.Middleware)
 	} else {
 		tuilog.Log.Warn("API server running without authentication - use THINKT_API_TOKEN or --token to secure")
 	}
 
-	// API routes
+	// API routes (auth middleware applied here, not globally, so static assets are unprotected)
 	r.Route("/api/v1", func(r chi.Router) {
+		if s.authenticator.IsEnabled() {
+			r.Use(s.authenticator.Middleware)
+		}
 		r.Get("/sources", s.handleGetSources)
 		r.Get("/projects", s.handleGetProjects)
 		r.Get("/projects/{source}/{projectID}/sessions", s.handleGetProjectSessionsBySource)
@@ -195,8 +199,15 @@ func (s *HTTPServer) setupRouter() chi.Router {
 		httpSwagger.URL("/swagger/doc.json"),
 	))
 
-	// Lite webapp at /lite
-	r.Mount("/lite", http.StripPrefix("/lite", StaticLiteWebAppHandler()))
+	// Lite webapp at /lite — redirect /lite to /lite/ so relative URLs resolve correctly
+	r.Get("/lite", func(w http.ResponseWriter, req *http.Request) {
+		target := "/lite/"
+		if req.URL.RawQuery != "" {
+			target += "?" + req.URL.RawQuery
+		}
+		http.Redirect(w, req, target, http.StatusMovedPermanently)
+	})
+	r.Mount("/lite/", http.StripPrefix("/lite", StaticLiteWebAppHandler()))
 
 	// Serve full webapp for all other routes
 	if s.config.StaticHandler != nil {
@@ -249,12 +260,14 @@ func (s *HTTPServer) ListenAndServe(ctx context.Context) error {
 		instType = config.InstanceServer
 	}
 	inst := config.Instance{
-		Type:      instType,
-		PID:       os.Getpid(),
-		Port:      s.config.Port,
-		Host:      s.config.Host,
-		LogPath:   s.config.LogPath,
-		StartedAt: time.Now(),
+		Type:        instType,
+		PID:         os.Getpid(),
+		Port:        s.config.Port,
+		Host:        s.config.Host,
+		LogPath:     s.config.LogPath,
+		HTTPLogPath: s.config.HTTPLogPath,
+		Token:       s.config.Token,
+		StartedAt:   time.Now(),
 	}
 	if err := config.RegisterInstance(inst); err != nil {
 		tuilog.Log.Warn("Failed to register instance", "error", err)
