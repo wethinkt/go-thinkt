@@ -46,6 +46,7 @@ var (
 	serveQuiet      bool
 	serveHTTPLog    string
 	serveCORSOrigin string
+	serveNoIndexer  bool
 )
 
 // Serve mcp subcommand flags
@@ -54,7 +55,6 @@ var (
 	mcpPort       int
 	mcpHost       string
 	mcpToken      string
-	mcpNoIndexer  bool
 	mcpAllowTools []string
 	mcpDenyTools  []string
 )
@@ -571,36 +571,52 @@ func runServerFingerprint(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// startIndexerSidecar starts the indexer as a child process if available and not
+// already running. Returns the exec.Cmd (caller should defer cmd.Process.Kill())
+// or nil if the sidecar was not started.
+func startIndexerSidecar(appLogPath string) *exec.Cmd {
+	// Skip if an indexer is already registered (e.g. via `thinkt indexer start`)
+	if inst := config.FindInstanceByType(config.InstanceIndexerWatch); inst != nil {
+		tuilog.Log.Info("Indexer already running, skipping sidecar", "pid", inst.PID)
+		return nil
+	}
+
+	indexerPath := findIndexerBinary()
+	if indexerPath == "" {
+		return nil
+	}
+
+	tuilog.Log.Info("Starting indexer sidecar", "path", indexerPath)
+
+	indexerArgs := []string{"watch", "--quiet"}
+	if appLogPath != "" {
+		ext := filepath.Ext(appLogPath)
+		base := strings.TrimSuffix(appLogPath, ext)
+		indexerLog := base + ".indexer" + ext
+		indexerArgs = append(indexerArgs, "--log", indexerLog)
+		tuilog.Log.Info("Indexer sidecar logging", "path", indexerLog)
+	}
+
+	cmd := exec.Command(indexerPath, indexerArgs...)
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Start(); err != nil {
+		tuilog.Log.Error("Failed to start indexer sidecar", "error", err)
+		return nil
+	}
+
+	return cmd
+}
+
 func runServerMCP(cmd *cobra.Command, args []string) error {
 	// Start indexer sidecar if not disabled
-	if !mcpNoIndexer {
-		if indexerPath := findIndexerBinary(); indexerPath != "" {
-			tuilog.Log.Info("Starting indexer sidecar", "path", indexerPath)
-
-			// Build arguments for indexer
-			indexerArgs := []string{"watch", "--quiet"}
-			if logPath != "" {
-				// Derive indexer log path from main log path
-				ext := filepath.Ext(logPath)
-				base := strings.TrimSuffix(logPath, ext)
-				indexerLog := base + ".indexer" + ext
-				indexerArgs = append(indexerArgs, "--log", indexerLog)
-				tuilog.Log.Info("Indexer sidecar logging enabled", "path", indexerLog)
-			}
-
-			// Run watch in background
-			indexerCmd := exec.Command(indexerPath, indexerArgs...)
-			indexerCmd.Stdout = os.Stderr
-			indexerCmd.Stderr = os.Stderr
-
-			if err := indexerCmd.Start(); err != nil {
-				tuilog.Log.Error("failed to start indexer sidecar", "error", err)
-			} else {
-				defer func() {
-					tuilog.Log.Info("Stopping indexer sidecar")
-					_ = indexerCmd.Process.Kill()
-				}()
-			}
+	if !serveNoIndexer {
+		if sidecar := startIndexerSidecar(logPath); sidecar != nil {
+			defer func() {
+				tuilog.Log.Info("Stopping indexer sidecar")
+				_ = sidecar.Process.Kill()
+			}()
 		}
 	}
 
