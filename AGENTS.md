@@ -51,11 +51,16 @@ Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot|codex|qwen
 ```
 thinkt
 ├── tui                 # Interactive TUI browser (default)
-├── serve               # HTTP/MCP servers
+├── server              # HTTP/MCP servers
+│   ├── start           # Start server in background
+│   ├── stop            # Stop background server
+│   ├── status          # Show server status
+│   ├── logs            # View server logs
 │   ├── mcp             # MCP server (stdio or HTTP)
-│   ├── lite            # Lightweight debug webapp
 │   ├── token           # Generate secure authentication token
 │   └── fingerprint     # Display machine fingerprint
+├── web                 # Open web interface in browser
+│   └── lite            # Lightweight debug webapp
 ├── sources             # Source management
 │   ├── list
 │   └── status
@@ -114,17 +119,17 @@ The TUI uses a `Shell` with a `NavStack` that manages page navigation:
 
 ### Debug Logging
 
-Use `--log <file>` to write debug logs (available on `thinkt`, `thinkt tui`, and all `serve` subcommands):
+Use `--log <file>` to write debug logs (available on `thinkt`, `thinkt tui`, and all `server` subcommands):
 
 ```bash
 thinkt tui --log /tmp/thinkt-debug.log
 ```
 
-### Serve Command Flags
+### Server Command Flags
 
 | Flag | Description |
 |------|-------------|
-| `--port, -p` | Server port (default: 8784 for serve, 8785 for lite, 8786 for mcp, 8787 reserved for VS Code extension) |
+| `--port, -p` | Server port (default: 8784 for server, 8785 for lite, 8786 for mcp, 8787 reserved for VS Code extension) |
 | `--host` | Server host (default: localhost) |
 | `--no-open` | Don't auto-open browser |
 | `--quiet, -q` | Suppress HTTP request logging |
@@ -139,18 +144,18 @@ Both the REST API server and MCP HTTP server use a unified `BearerAuthenticator`
 
 **Token Generation:**
 ```bash
-thinkt serve token                  # Generates thinkt_YYYYMMDD_<random> format
-thinkt serve token | pbcopy         # Copy to clipboard (macOS)
-thinkt serve token | xclip -sel c   # Copy to clipboard (Linux)
-thinkt serve token | clip           # Copy to clipboard (Windows)
+thinkt server token                  # Generates thinkt_YYYYMMDD_<random> format
+thinkt server token | pbcopy         # Copy to clipboard (macOS)
+thinkt server token | xclip -sel c   # Copy to clipboard (Linux)
+thinkt server token | clip           # Copy to clipboard (Windows)
 ```
 
 ### Machine Fingerprint
 
 Display the unique machine identifier:
 ```bash
-thinkt serve fingerprint              # Human-readable output
-thinkt serve fingerprint --json       # JSON output with source details
+thinkt server fingerprint              # Human-readable output
+thinkt server fingerprint --json       # JSON output with source details
 ```
 
 **Fingerprint Sources (in order of preference):**
@@ -203,9 +208,8 @@ The instance registry (`internal/config/instances.go`) provides cross-process di
 type InstanceType string
 
 const (
-    InstanceServe        InstanceType = "serve"
-    InstanceServeLite    InstanceType = "serve-lite"
-    InstanceServeMCP     InstanceType = "serve-mcp"
+    InstanceServer       InstanceType = "server"
+    InstanceServerMCP    InstanceType = "server-mcp"
     InstanceIndexerWatch InstanceType = "indexer-watch"
 )
 ```
@@ -249,7 +253,7 @@ Teams represent multi-agent coordination (e.g., Claude Code swarms). The `TeamSt
 
 ### Indexer API
 
-The REST API (`thinkt serve`) exposes indexer functionality via `internal/server/indexer_api.go`:
+The REST API (`thinkt server`) exposes indexer functionality via `internal/server/indexer_api.go`:
 
 | Endpoint | Handler | Description |
 |----------|---------|-------------|
@@ -265,8 +269,8 @@ Two web interfaces are embedded into the binary via git submodules:
 
 | Submodule | Path | Command | Port | Description |
 |-----------|------|---------|------|-------------|
-| [thinkt-web](https://github.com/wethinkt/thinkt-web) (`dist` branch) | `internal/server/web/` | `thinkt serve` | 8784 | Full webapp for trace exploration |
-| [thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite) | `internal/server/web-lite/` | `thinkt serve lite` | 8785 | Lightweight debug interface |
+| [thinkt-web](https://github.com/wethinkt/thinkt-web) (`dist` branch) | `internal/server/web/` | `thinkt server` / `thinkt web` | 8784 | Full webapp for trace exploration |
+| [thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite) | `internal/server/web-lite/` | `thinkt web lite` | 8785 | Lightweight debug interface |
 
 ### Submodule Setup
 
@@ -282,7 +286,7 @@ Both webapps are embedded via `//go:embed` directives in `internal/server/static
 - `StaticWebAppHandler()` — serves `web/index.html` + `web/assets/*` (full webapp)
 - `StaticLiteWebAppHandler()` — serves `web-lite/index.html` + `web-lite/static/*` (lite)
 
-The `Config.StaticHandler` field selects which handler to use. `thinkt serve` sets it to `StaticWebAppHandler()`; `thinkt serve lite` leaves it nil (defaults to `StaticLiteWebAppHandler()`). Both use SPA routing — non-file paths fall back to `index.html`.
+The `Config.StaticHandler` field selects which handler to use. `thinkt server` sets it to `StaticWebAppHandler()`. Both use SPA routing — non-file paths fall back to `index.html`.
 
 ### Co-developing thinkt-web
 
@@ -293,7 +297,7 @@ Use `--dev` to proxy non-API routes to a local frontend dev server (e.g. Vite). 
 cd ../thinkt-web && npm run dev     # e.g. starts on localhost:5173
 
 # Terminal 2: run the Go backend with dev proxy
-thinkt serve --dev http://localhost:5173
+thinkt server --dev http://localhost:5173
 ```
 
 All API routes (`/api/*`, `/swagger/*`) are served by Go. Everything else (SPA, assets, HMR websocket) is reverse-proxied to the frontend dev server.
@@ -378,7 +382,7 @@ docker run -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
   -v ~/.codex:/data/.codex:ro \
-  ghcr.io/wethinkt/thinkt:latest serve --host 0.0.0.0
+  ghcr.io/wethinkt/thinkt:latest server --host 0.0.0.0
 ```
 
 ## Development

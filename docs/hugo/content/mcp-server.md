@@ -5,14 +5,14 @@ weight: 10
 
 # MCP Server
 
-The `thinkt serve mcp` command starts a [Model Context Protocol](https://modelcontextprotocol.io) server that exposes your AI coding session data to MCP-compatible clients. This allows AI assistants to query your session history, browse projects, and analyze past conversations.
+The `thinkt server mcp` command starts a [Model Context Protocol](https://modelcontextprotocol.io) server that exposes your AI coding session data to MCP-compatible clients. This allows AI assistants to query your session history, browse projects, and analyze past conversations.
 
 ## Overview
 
 ```bash
-thinkt serve mcp                # MCP server on stdio (default)
-thinkt serve mcp --stdio        # Explicitly use stdio transport
-thinkt serve mcp --port 8786    # MCP server over HTTP (SSE)
+thinkt server mcp                # MCP server on stdio (default)
+thinkt server mcp --stdio        # Explicitly use stdio transport
+thinkt server mcp --port 8786    # MCP server over HTTP (SSE)
 ```
 
 The MCP server supports two transport modes:
@@ -302,7 +302,7 @@ Restart Claude Desktop to load the new MCP server.
 Add `thinkt` to your Claude Code MCP settings via CLI:
 
 ```bash
-claude mcp add --transport stdio thinkt -- thinkt serve mcp
+claude mcp add --transport stdio thinkt -- thinkt server mcp
 claude mcp list
 ```
 
@@ -313,7 +313,7 @@ claude mcp list
 Add `thinkt` to your Claude Code MCP settings via CLI:
 
 ```bash
-kimi mcp add --transport stdio thinkt -- thinkt serve mcp
+kimi mcp add --transport stdio thinkt -- thinkt server mcp
 kimi mcp list
 ```
 
@@ -324,7 +324,7 @@ kimi mcp list
 Add `thinkt` to your Gemini MCP settings via CLI:
 
 ```bash
-gemini mcp add --transport stdio thinkt -- thinkt serve mcp
+gemini mcp add --transport stdio thinkt -- thinkt server mcp
 gemini mcp list
 ```
 
@@ -412,8 +412,8 @@ Edit `%USERPROFILE%\.config\crush\crush.json`:
 For networked deployments or web-based clients, run the MCP server over HTTP:
 
 ```bash
-thinkt serve mcp --port 8786
-thinkt serve mcp --port 8786 --host 0.0.0.0  # Listen on all interfaces
+thinkt server mcp --port 8786
+thinkt server mcp --port 8786 --host 0.0.0.0  # Listen on all interfaces
 ```
 
 The HTTP mode uses Server-Sent Events (SSE) for the MCP transport. Connect your client to `http://localhost:8786` (or your configured host/port).
@@ -432,5 +432,5 @@ The AI assistant will use the thinkt MCP tools to query your session data and pr
 
 ## See Also
 
-- [thinkt serve mcp](/command/thinkt_serve_mcp) - Command reference
+- [thinkt server mcp](/command/thinkt_server_mcp) - Command reference
 - [Model Context Protocol](https://modelcontextprotocol.io) - MCP specification

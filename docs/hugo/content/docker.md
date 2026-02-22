@@ -21,7 +21,7 @@ docker run --rm \
 # Start the web server
 docker run --rm -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
-  ghcr.io/wethinkt/thinkt serve --host 0.0.0.0
+  ghcr.io/wethinkt/thinkt server --host 0.0.0.0
 ```
 
 ## Why Use Docker?
@@ -154,7 +154,7 @@ docker run --rm -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
   -v ~/.codex:/data/.codex:ro \
-  ghcr.io/wethinkt/thinkt serve --host 0.0.0.0
+  ghcr.io/wethinkt/thinkt server --host 0.0.0.0
 ```
 
 Access at `http://localhost:8784`
@@ -164,12 +164,12 @@ Access at `http://localhost:8784`
 # Custom port
 docker run --rm -p 8080:8080 \
   -v ~/.claude:/data/.claude:ro \
-  ghcr.io/wethinkt/thinkt serve --host 0.0.0.0 -p 8080
+  ghcr.io/wethinkt/thinkt server --host 0.0.0.0 -p 8080
 
 # Quiet mode (less logging)
 docker run --rm -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
-  ghcr.io/wethinkt/thinkt serve --host 0.0.0.0 --quiet
+  ghcr.io/wethinkt/thinkt server --host 0.0.0.0 --quiet
 ```
 
 ### Lite Server (Debug Interface)
@@ -179,7 +179,7 @@ Start the lightweight debug server:
 ```bash
 docker run --rm -p 8785:8785 \
   -v ~/.claude:/data/.claude:ro \
-  ghcr.io/wethinkt/thinkt serve lite --host 0.0.0.0
+  ghcr.io/wethinkt/thinkt web lite --host 0.0.0.0
 ```
 
 Access at `http://localhost:8785`
@@ -191,7 +191,7 @@ Start the MCP server over HTTP for networked clients:
 ```bash
 docker run --rm -p 8786:8786 \
   -v ~/.claude:/data/.claude:ro \
-  ghcr.io/wethinkt/thinkt serve mcp --port 8786 --host 0.0.0.0
+  ghcr.io/wethinkt/thinkt server mcp --port 8786 --host 0.0.0.0
 ```
 
 {{< hint warning >}}
@@ -243,7 +243,7 @@ alias thinkt-serve='docker run --rm -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
   -v ~/.codex:/data/.codex:ro \
-  ghcr.io/wethinkt/thinkt serve --host 0.0.0.0'
+  ghcr.io/wethinkt/thinkt server --host 0.0.0.0'
 ```
 
 ---
@@ -369,7 +369,7 @@ If the port is taken, use a different host port:
 # Map container port 8784 to host port 8080
 docker run --rm -p 8080:8784 \
   -v ~/.claude:/data/.claude:ro \
-  ghcr.io/wethinkt/thinkt serve --host 0.0.0.0
+  ghcr.io/wethinkt/thinkt server --host 0.0.0.0
 ```
 
 ---

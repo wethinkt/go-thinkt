@@ -13,7 +13,7 @@ func TestRegisterAndListInstances(t *testing.T) {
 	t.Setenv("HOME", tmpDir)
 
 	inst := Instance{
-		Type:      InstanceServe,
+		Type:      InstanceServer,
 		PID:       os.Getpid(),
 		Port:      8784,
 		Host:      "localhost",
@@ -31,8 +31,8 @@ func TestRegisterAndListInstances(t *testing.T) {
 	if len(instances) != 1 {
 		t.Fatalf("Expected 1 instance, got %d", len(instances))
 	}
-	if instances[0].Type != InstanceServe {
-		t.Fatalf("Expected type %q, got %q", InstanceServe, instances[0].Type)
+	if instances[0].Type != InstanceServer {
+		t.Fatalf("Expected type %q, got %q", InstanceServer, instances[0].Type)
 	}
 	if instances[0].Port != 8784 {
 		t.Fatalf("Expected port 8784, got %d", instances[0].Port)
@@ -44,7 +44,7 @@ func TestUnregisterInstance(t *testing.T) {
 	t.Setenv("HOME", tmpDir)
 
 	inst := Instance{
-		Type:      InstanceServe,
+		Type:      InstanceServer,
 		PID:       os.Getpid(),
 		Port:      8784,
 		Host:      "localhost",
@@ -98,7 +98,7 @@ func TestFindInstanceByPort(t *testing.T) {
 	t.Setenv("HOME", tmpDir)
 
 	inst := Instance{
-		Type:      InstanceServe,
+		Type:      InstanceServer,
 		PID:       os.Getpid(),
 		Port:      8784,
 		Host:      "localhost",
@@ -129,14 +129,14 @@ func TestMultipleInstances(t *testing.T) {
 
 	// Register two instances with the same PID but different types/ports
 	inst1 := Instance{
-		Type:      InstanceServe,
+		Type:      InstanceServer,
 		PID:       os.Getpid(),
 		Port:      8784,
 		Host:      "localhost",
 		StartedAt: time.Now(),
 	}
 	inst2 := Instance{
-		Type:      InstanceServeMCP,
+		Type:      InstanceServerMCP,
 		PID:       os.Getpid(),
 		Port:      8786,
 		Host:      "localhost",
@@ -164,7 +164,7 @@ func TestInstancesFileCreation(t *testing.T) {
 	t.Setenv("HOME", tmpDir)
 
 	inst := Instance{
-		Type:      InstanceServe,
+		Type:      InstanceServer,
 		PID:       os.Getpid(),
 		Port:      8784,
 		StartedAt: time.Now(),

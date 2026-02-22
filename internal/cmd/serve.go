@@ -25,8 +25,8 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
-// serveStatusJSON is the JSON schema for thinkt serve status --json.
-type serveStatusJSON struct {
+// serverStatusJSON is the JSON schema for thinkt server status --json.
+type serverStatusJSON struct {
 	Running       bool       `json:"running"`
 	PID           int        `json:"pid,omitempty"`
 	Host          string     `json:"host,omitempty"`
@@ -69,10 +69,10 @@ var (
 	fingerprintJSON bool // Output as JSON
 )
 
-var serveCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "Start local HTTP server for trace exploration",
-	Long: `Start a local HTTP server for exploring AI conversation traces.
+var serverCmd = &cobra.Command{
+	Use:   "server",
+	Short: "Manage the local HTTP server for trace exploration",
+	Long: `Manage the local HTTP server for exploring AI conversation traces.
 
 The server provides:
   - REST API for accessing projects and sessions
@@ -82,46 +82,47 @@ The server provides:
 All data stays on your machine - nothing is uploaded to external servers.
 
 Examples:
-  thinkt serve                    # Start HTTP server on default port 8784
-  thinkt serve start              # Start in background
-  thinkt serve status             # Check server status
-  thinkt serve stop               # Stop background server
-  thinkt serve -p 8080            # Start on custom port`,
+  thinkt server                    # Start HTTP server on default port 8784
+  thinkt server start              # Start in background
+  thinkt server status             # Check server status
+  thinkt server stop               # Stop background server
+  thinkt server logs               # View server logs
+  thinkt server -p 8080            # Start on custom port`,
 	SilenceUsage: true,
-	RunE:         runServeHTTP,
+	RunE:         runServerHTTP,
 }
 
-var serveStartCmd = &cobra.Command{
+var serverStartCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start server in background",
-	RunE:  runServeStart,
+	RunE:  runServerStart,
 }
 
-var serveStopCmd = &cobra.Command{
+var serverStopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stop background server",
-	RunE:  runServeStop,
+	RunE:  runServerStop,
 }
 
-var serveStatusCmd = &cobra.Command{
+var serverStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show server status",
-	RunE:  runServeStatus,
+	RunE:  runServerStatus,
 }
 
-var serveLogsCmd = &cobra.Command{
+var serverLogsCmd = &cobra.Command{
 	Use:   "logs",
 	Short: "View server logs",
-	RunE:  runServeLogs,
+	RunE:  runServerLogs,
 }
 
-func runServeLogs(cmd *cobra.Command, args []string) error {
+func runServerLogs(cmd *cobra.Command, args []string) error {
 	n, _ := cmd.Flags().GetInt("lines")
 	follow, _ := cmd.Flags().GetBool("follow")
 
 	// Try to get log path from running instance
 	logFile := ""
-	if inst := config.FindInstanceByType(config.InstanceServe); inst != nil {
+	if inst := config.FindInstanceByType(config.InstanceServer); inst != nil {
 		logFile = inst.LogPath
 	}
 
@@ -157,16 +158,16 @@ var webLiteCmd = &cobra.Command{
 }
 
 func runWebOpen(isLite bool) error {
-	inst := config.FindInstanceByType(config.InstanceServe)
+	inst := config.FindInstanceByType(config.InstanceServer)
 	if inst == nil {
 		// Start server in background
-		if err := runServeStart(nil, nil); err != nil {
+		if err := runServerStart(nil, nil); err != nil {
 			return err
 		}
 		// Wait a bit for it to register
 		for i := 0; i < 20; i++ {
 			time.Sleep(100 * time.Millisecond)
-			inst = config.FindInstanceByType(config.InstanceServe)
+			inst = config.FindInstanceByType(config.InstanceServer)
 			if inst != nil {
 				break
 			}
@@ -187,18 +188,18 @@ func runWebOpen(isLite bool) error {
 	return nil
 }
 
-func runServeStart(cmd *cobra.Command, args []string) error {
+func runServerStart(cmd *cobra.Command, args []string) error {
 	// Check if already running
-	if inst := config.FindInstanceByType(config.InstanceServe); inst != nil {
+	if inst := config.FindInstanceByType(config.InstanceServer); inst != nil {
 		fmt.Printf("Server is already running (PID: %d, Address: http://%s:%d)\n", inst.PID, inst.Host, inst.Port)
 		return nil
 	}
 
 	fmt.Println("🚀 Starting server in background...")
 
-	// Build arguments for thinkt serve
+	// Build arguments for thinkt server
 	executable, _ := os.Executable()
-	serveArgs := []string{"serve"}
+	serveArgs := []string{"server"}
 	if servePort != 0 {
 		serveArgs = append(serveArgs, "--port", fmt.Sprintf("%d", servePort))
 	}
@@ -233,8 +234,8 @@ func runServeStart(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runServeStop(cmd *cobra.Command, args []string) error {
-	inst := config.FindInstanceByType(config.InstanceServe)
+func runServerStop(cmd *cobra.Command, args []string) error {
+	inst := config.FindInstanceByType(config.InstanceServer)
 	if inst == nil {
 		fmt.Println("Server is not running.")
 		return nil
@@ -248,11 +249,11 @@ func runServeStop(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runServeStatus(cmd *cobra.Command, args []string) error {
-	inst := config.FindInstanceByType(config.InstanceServe)
+func runServerStatus(cmd *cobra.Command, args []string) error {
+	inst := config.FindInstanceByType(config.InstanceServer)
 
 	if outputJSON {
-		status := serveStatusJSON{Running: inst != nil}
+		status := serverStatusJSON{Running: inst != nil}
 		if inst != nil {
 			status.PID = inst.PID
 			status.Host = inst.Host
@@ -271,12 +272,12 @@ func runServeStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	if inst == nil {
-		fmt.Println("● thinkt-serve.service - Web Interface & API")
+		fmt.Println("● thinkt-server.service - Web Interface & API")
 		fmt.Println("   Status: Not running")
 		return nil
 	}
 
-	fmt.Println("● thinkt-serve.service - Web Interface & API")
+	fmt.Println("● thinkt-server.service - Web Interface & API")
 	fmt.Printf("   Status: Running (PID: %d)\n", inst.PID)
 	fmt.Printf("   Address: http://%s:%d\n", inst.Host, inst.Port)
 	fmt.Printf("   Uptime: %s\n", time.Since(inst.StartedAt).Round(time.Second))
@@ -287,7 +288,7 @@ func runServeStatus(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-var serveMcpCmd = &cobra.Command{
+var serverMcpCmd = &cobra.Command{
 	Use:   "mcp",
 	Short: "Start MCP server for AI tool integration",
 	Long: `Start an MCP (Model Context Protocol) server for AI tool integration.
@@ -299,39 +300,39 @@ Authentication:
   For stdio transport: Set THINKT_MCP_TOKEN environment variable
   For HTTP transport: Use --token flag or THINKT_MCP_TOKEN environment variable
   Clients must pass the token in the Authorization header: "Bearer <token>"
-  Generate a secure token with: thinkt serve token
+  Generate a secure token with: thinkt server token
 
 Examples:
-  thinkt serve mcp                          # MCP server on stdio (default)
-  thinkt serve mcp --stdio                  # Explicitly use stdio transport
-  thinkt serve mcp --port 8786              # MCP server over HTTP (default port)
-  thinkt serve mcp --port 8786 --token xyz  # MCP server with authentication`,
-	RunE: runServeMCP,
+  thinkt server mcp                          # MCP server on stdio (default)
+  thinkt server mcp --stdio                  # Explicitly use stdio transport
+  thinkt server mcp --port 8786              # MCP server over HTTP (default port)
+  thinkt server mcp --port 8786 --token xyz  # MCP server with authentication`,
+	RunE: runServerMCP,
 }
 
-var serveTokenCmd = &cobra.Command{
+var serverTokenCmd = &cobra.Command{
 	Use:   "token",
 	Short: "Generate a secure authentication token",
 	Long: `Generate a cryptographically secure random token for API/MCP authentication.
 
 The token can be used with:
-  - thinkt serve --token <token>      # Secure the REST API
-  - thinkt serve mcp --token <token>  # Secure the MCP server
-  - THINKT_MCP_TOKEN env var          # Same as above
+  - thinkt server --token <token>      # Secure the REST API
+  - thinkt server mcp --token <token>  # Secure the MCP server
+  - THINKT_MCP_TOKEN env var           # Same as above
 
 The token format is: thinkt_YYYYMMDD_<random>
 
 Examples:
-  thinkt serve token                  # Generate and print a token
-  thinkt serve token | pbcopy         # Copy to clipboard (macOS)
-  thinkt serve token | xclip -sel c   # Copy to clipboard (Linux)
-  thinkt serve token | clip           # Copy to clipboard (Windows)
-  export THINKT_MCP_TOKEN=$(thinkt serve token)
-  thinkt serve mcp --port 8786        # Uses token from env`,
-	RunE: runServeToken,
+  thinkt server token                  # Generate and print a token
+  thinkt server token | pbcopy         # Copy to clipboard (macOS)
+  thinkt server token | xclip -sel c   # Copy to clipboard (Linux)
+  thinkt server token | clip           # Copy to clipboard (Windows)
+  export THINKT_MCP_TOKEN=$(thinkt server token)
+  thinkt server mcp --port 8786        # Uses token from env`,
+	RunE: runServerToken,
 }
 
-var serveFingerprintCmd = &cobra.Command{
+var serverFingerprintCmd = &cobra.Command{
 	Use:   "fingerprint",
 	Short: "Display the machine fingerprint",
 	Long: `Display the unique machine fingerprint used to identify this workspace.
@@ -348,12 +349,12 @@ This fingerprint can be used to correlate sessions across different AI coding
 assistant sources (Kimi, Claude, Gemini, Copilot, Codex, Qwen) on the same machine.
 
 Examples:
-  thinkt serve fingerprint            # Display fingerprint
-  thinkt serve fingerprint --json     # Output as JSON`,
-	RunE: runServeFingerprint,
+  thinkt server fingerprint            # Display fingerprint
+  thinkt server fingerprint --json     # Output as JSON`,
+	RunE: runServerFingerprint,
 }
 
-func runServeHTTP(cmd *cobra.Command, args []string) error {
+func runServerHTTP(cmd *cobra.Command, args []string) error {
 	tuilog.Log.Info("Starting HTTP server", "port", servePort, "host", serveHost)
 
 	// Create source registry
@@ -413,7 +414,7 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 		HTTPLog:       serveHTTPLog,
 		CORSOrigin:    resolveCORSOrigin(),
 		StaticHandler: staticHandler,
-		InstanceType:  config.InstanceServe,
+		InstanceType:  config.InstanceServer,
 		LogPath:       serveLogPath,
 	}
 	defer thinktConfig.Close()
@@ -439,7 +440,7 @@ func runServeHTTP(cmd *cobra.Command, args []string) error {
 	return srv.ListenAndServe(ctx)
 }
 
-func runServeToken(cmd *cobra.Command, args []string) error {
+func runServerToken(cmd *cobra.Command, args []string) error {
 	token, err := server.GenerateSecureTokenWithPrefix()
 	if err != nil {
 		return fmt.Errorf("failed to generate token: %w", err)
@@ -448,7 +449,7 @@ func runServeToken(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runServeFingerprint(cmd *cobra.Command, args []string) error {
+func runServerFingerprint(cmd *cobra.Command, args []string) error {
 	info, err := fingerprint.Get()
 	if err != nil {
 		return fmt.Errorf("failed to get fingerprint: %w", err)
@@ -469,7 +470,7 @@ func runServeFingerprint(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runServeMCP(cmd *cobra.Command, args []string) error {
+func runServerMCP(cmd *cobra.Command, args []string) error {
 	// Start indexer sidecar if not disabled
 	if !mcpNoIndexer {
 		if indexerPath := findIndexerBinary(); indexerPath != "" {

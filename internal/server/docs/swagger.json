@@ -1,7 +1,7 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "API for exploring AI conversation traces from Claude Code, Kimi Code, and other sources.\n\n## Authentication\n\nThe API supports Bearer token authentication. When `THINKT_API_TOKEN` environment variable\nis set or `--token` flag is provided, all requests must include the token in the\nAuthorization header:\n\nAuthorization: Bearer \u003ctoken\u003e\n\nGenerate a secure token with: `thinkt serve token`\n",
+        "description": "API for exploring AI conversation traces from Claude Code, Kimi Code, and other sources.\n\n## Authentication\n\nThe API supports Bearer token authentication. When `THINKT_API_TOKEN` environment variable\nis set or `--token` flag is provided, all requests must include the token in the\nAuthorization header:\n\nAuthorization: Bearer \u003ctoken\u003e\n\nGenerate a secure token with: `thinkt server token`\n",
         "title": "Thinkt API",
         "contact": {},
         "version": "1.0"

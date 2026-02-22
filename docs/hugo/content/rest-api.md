@@ -11,16 +11,16 @@ thinkt provides a REST API for programmatic access to AI coding session data. Th
 
 ```bash
 # Start the server (foreground, port 8784)
-thinkt serve
+thinkt server
 
 # Start in background
-thinkt serve start
+thinkt server start
 
 # Open web interface (auto-starts server if needed)
 thinkt web
 
 # Custom port
-thinkt serve -p 8080
+thinkt server -p 8080
 ```
 
 Once running, access the API at `http://localhost:8784/api/v1/` (or your configured port).
@@ -30,12 +30,12 @@ Once running, access the API at `http://localhost:8784/api/v1/` (or your configu
 ### Starting the Server
 
 ```bash
-thinkt serve                    # Foreground (default port 8784)
-thinkt serve -p 8080            # Custom port
-thinkt serve --no-open          # Don't auto-open browser
-thinkt serve --quiet            # Suppress request logging
-thinkt serve --http-log access.log  # Log requests to file
-thinkt serve --dev http://localhost:5173  # Proxy to frontend dev server
+thinkt server                    # Foreground (default port 8784)
+thinkt server -p 8080            # Custom port
+thinkt server --no-open          # Don't auto-open browser
+thinkt server --quiet            # Suppress request logging
+thinkt server --http-log access.log  # Log requests to file
+thinkt server --dev http://localhost:5173  # Proxy to frontend dev server
 ```
 
 **Features:**
@@ -48,9 +48,9 @@ thinkt serve --dev http://localhost:5173  # Proxy to frontend dev server
 ### Background Mode
 
 ```bash
-thinkt serve start              # Start server in background
-thinkt serve status             # Check server status
-thinkt serve stop               # Stop background server
+thinkt server start              # Start server in background
+thinkt server status             # Check server status
+thinkt server stop               # Stop background server
 ```
 
 ### Opening the Web Interface
@@ -681,7 +681,7 @@ Both the REST API server and MCP server support Bearer token authentication.
 ### Generate a Token
 
 ```bash
-thinkt serve token
+thinkt server token
 # Output: thinkt_20260205_cd3bf36d6e1fc71e9bf033a7131f77cb
 ```
 
@@ -689,11 +689,11 @@ thinkt serve token
 
 ```bash
 # Environment variable
-export THINKT_API_TOKEN=$(thinkt serve token)
-thinkt serve
+export THINKT_API_TOKEN=$(thinkt server token)
+thinkt server
 
 # Command-line flag
-thinkt serve --token thinkt_20260205_...
+thinkt server --token thinkt_20260205_...
 
 # Client request
 curl -H "Authorization: Bearer thinkt_20260205_..." http://localhost:8784/api/v1/sources
@@ -766,7 +766,7 @@ curl -s "http://localhost:8784/api/v1/sessions/$encoded" | \
 
 ## See Also
 
-- [thinkt serve](/command/thinkt_serve) - Server command reference
+- [thinkt server](/command/thinkt_server) - Server command reference
 - [thinkt web](/command/thinkt_web) - Web interface command reference
 - [MCP Server](/mcp-server) - Model Context Protocol integration
 - [CLI Guide](/cli) - Command line interface guide

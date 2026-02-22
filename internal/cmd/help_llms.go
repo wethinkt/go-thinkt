@@ -13,7 +13,7 @@ var helpCmd = &cobra.Command{
 	Short: "Help topics for thinkt",
 	Long:  "Help about any command, or 'thinkt help llms' for AI assistant usage guide.",
 	// When run without a recognized subcommand, look up the target in
-	// rootCmd's command tree (so "thinkt help serve" still works) or
+	// rootCmd's command tree (so "thinkt help server" still works) or
 	// fall back to the default root help.
 	DisableFlagParsing: true,
 	RunE: func(cmd *cobra.Command, args []string) error {

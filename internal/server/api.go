@@ -31,7 +31,7 @@ import (
 // @description
 // @description     Authorization: Bearer <token>
 // @description
-// @description Generate a secure token with: `thinkt serve token`
+// @description Generate a secure token with: `thinkt server token`
 // @description
 // @securityDefinitions.apikey BearerAuth
 // @in header

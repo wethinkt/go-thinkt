@@ -632,7 +632,7 @@ info:
 
     Authorization: Bearer <token>
 
-    Generate a secure token with: `thinkt serve token`
+    Generate a secure token with: `thinkt server token`
   title: Thinkt API
   version: "1.0"
 paths:

@@ -45,7 +45,7 @@ thinkt sessions view
 - **App Management** - Configure open-in apps and default terminal via `thinkt apps`
 
 - [**REST API**](/rest-api) - Programmatic access with OpenAPI/Swagger documentation
-- [**Web Interface**](/rest-api#server-modes) - Full webapp for visual trace exploration via `thinkt serve`
+- [**Web Interface**](/rest-api#server-modes) - Full webapp for visual trace exploration via `thinkt web`
 - [**Lite Server**](/serve-lite) - Lightweight debug interface for quick inspection
 - [**MCP Server**](/mcp-server) - Expose session data via Model Context Protocol for AI assistants
 - [**Docker**](/docker) - Sandboxed, read-only access via container

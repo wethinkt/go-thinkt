@@ -176,15 +176,16 @@ thinkt prompts templates              # Available output templates
 Start a local web server for visual trace exploration:
 
 ```bash
-thinkt serve                          # Full webapp on port 8784
-thinkt serve -p 8080                  # Custom port
-thinkt serve --no-open                # Don't open browser
-thinkt serve --quiet                  # Suppress request logging
-thinkt serve lite                     # Lightweight debug interface on port 8785
-thinkt serve --dev http://localhost:5173  # Proxy to frontend dev server
+thinkt server                          # Full webapp on port 8784
+thinkt server -p 8080                  # Custom port
+thinkt server --no-open                # Don't open browser
+thinkt server --quiet                  # Suppress request logging
+thinkt server --dev http://localhost:5173  # Proxy to frontend dev server
+thinkt web                             # Open web interface in browser
+thinkt web lite                        # Lightweight debug interface on port 8785
 ```
 
-`thinkt serve` provides the full web interface. `thinkt serve lite` provides a lightweight debug view. Both include the REST API. All data stays on your machine.
+`thinkt server` starts the HTTP server. `thinkt web` opens it in your browser (auto-starting if needed). `thinkt web lite` provides a lightweight debug view. All data stays on your machine.
 
 Use `--dev` to co-develop the [thinkt-web](https://github.com/wethinkt/thinkt-web) frontend: run the frontend dev server (e.g. `npm run dev` in the thinkt-web repo), then start the Go backend with `--dev` pointing to it. API routes are served by Go; everything else is proxied to the frontend with full hot reload support.
 
@@ -193,13 +194,13 @@ Use `--dev` to co-develop the [thinkt-web](https://github.com/wethinkt/thinkt-we
 Start an MCP server for AI tool integration:
 
 ```bash
-thinkt serve mcp                      # stdio (for Claude Desktop)
-thinkt serve mcp --port 8786          # HTTP/SSE transport
+thinkt server mcp                      # stdio (for Claude Desktop)
+thinkt server mcp --port 8786          # HTTP/SSE transport
 ```
 
 See the [MCP Server Guide](/mcp-server) for configuration details.
 
-**Reference:** [thinkt serve](/command/thinkt_serve)
+**Reference:** [thinkt server](/command/thinkt_server)
 
 ### Agent Teams
 
@@ -220,8 +221,8 @@ thinkt teams list --inactive      # Only inactive teams
 Display the unique machine identifier for workspace correlation:
 
 ```bash
-thinkt serve fingerprint              # Human-readable output
-thinkt serve fingerprint --json       # JSON output
+thinkt server fingerprint              # Human-readable output
+thinkt server fingerprint --json       # JSON output
 ```
 
 The fingerprint is derived from platform-specific system identifiers:

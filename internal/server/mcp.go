@@ -762,7 +762,7 @@ func (ms *MCPServer) RunHTTP(ctx context.Context, host string, port int) error {
 
 	// Register instance for discovery
 	inst := config.Instance{
-		Type:      config.InstanceServeMCP,
+		Type:      config.InstanceServerMCP,
 		PID:       os.Getpid(),
 		Port:      port,
 		Host:      host,

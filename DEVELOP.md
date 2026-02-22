@@ -8,8 +8,8 @@
 |---|---|---|
 | [go-thinkt](https://github.com/wethinkt/go-thinkt) | Go | Core CLI, TUI, REST API, and MCP server |
 | [ts-thinkt](https://github.com/wethinkt/ts-thinkt) | TypeScript | Shared library — types, JSONL parsers, API client |
-| [thinkt-web](https://github.com/wethinkt/thinkt-web) | TypeScript | Full web application, served by `thinkt serve` |
-| [thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite) | HTML/CSS/JS | Lightweight dashboard, served by `thinkt serve lite` |
+| [thinkt-web](https://github.com/wethinkt/thinkt-web) | TypeScript | Full web application, served by `thinkt server` |
+| [thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite) | HTML/CSS/JS | Lightweight dashboard, served by `thinkt web lite` |
 | [thinkt-vscode](https://github.com/wethinkt/thinkt-vscode) | TypeScript | VS Code extension for exploring LLM conversations |
 | [homebrew-tap](https://github.com/wethinkt/homebrew-tap) | — | Homebrew tap for `brew install` distribution |
 
@@ -155,7 +155,7 @@ task release:test       # goreleaser snapshot build
 Lives in a separate repo. The `dist` branch is embedded as a git submodule at `internal/server/web/`.
 
 To develop:
-1. Run `thinkt serve` on port 8784 (the API server)
+1. Run `thinkt server` on port 8784 (the API server)
 2. In the `thinkt-web` repo: `npm run dev` (runs on port 7434, proxies `/api` to 8784)
 3. Build with `npm run build`, push to the `dist` branch
 4. Update the submodule ref in go-thinkt
@@ -164,7 +164,7 @@ To develop:
 
 Vanilla HTML/CSS/JS — no build tools. Submodule at `internal/server/web-lite/`.
 
-Edit files directly, rebuild `thinkt`, and run `thinkt serve lite` to test.
+Edit files directly, rebuild `thinkt`, and run `thinkt web lite` to test.
 
 ### Embedding
 
@@ -198,9 +198,9 @@ The main `thinkt` binary is pure Go for maximum portability. The indexer require
 
 | Command | Default Port |
 |---|---|
-| `thinkt serve` | 8784 |
-| `thinkt serve lite` | 8785 |
-| `thinkt serve mcp --port` | 8786 |
+| `thinkt server` | 8784 |
+| `thinkt web lite` | 8785 |
+| `thinkt server mcp --port` | 8786 |
 | thinkt-vscode (reserved) | 8787 |
 
 ## Release

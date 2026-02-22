@@ -127,11 +127,11 @@ homebrew_casks:
       - man/man1/thinkt-prompts-list.1
       - man/man1/thinkt-prompts-templates.1
       - man/man1/thinkt-prompts.1
-      - man/man1/thinkt-serve-fingerprint.1
-      - man/man1/thinkt-serve-lite.1
-      - man/man1/thinkt-serve-mcp.1
-      - man/man1/thinkt-serve-token.1
-      - man/man1/thinkt-serve.1
+      - man/man1/thinkt-server-fingerprint.1
+      - man/man1/thinkt-server-lite.1
+      - man/man1/thinkt-server-mcp.1
+      - man/man1/thinkt-server-token.1
+      - man/man1/thinkt-server.1
       - man/man1/thinkt-sessions-copy.1
       - man/man1/thinkt-sessions-delete.1
       - man/man1/thinkt-sessions-list.1

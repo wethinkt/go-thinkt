@@ -113,15 +113,15 @@ tasks:
     desc: "Extracts the schema from the stdio server"
     deps: [build]
     cmds:
-      - printf '{"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"jsonrpc":"2.0","id":1}\n{"method":"tools/list","params":{},"jsonrpc":"2.0","id":2}\n' | ./bin/thinkt serve mcp {{.CLI_ARGS}} 2>/dev/null
-      - printf '{"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"jsonrpc":"2.0","id":1}\n{"method":"resources/list","params":{},"jsonrpc":"2.0","id":2}\n' | ./bin/thinkt serve mcp {{.CLI_ARGS}} 2>/dev/null
+      - printf '{"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"jsonrpc":"2.0","id":1}\n{"method":"tools/list","params":{},"jsonrpc":"2.0","id":2}\n' | ./bin/thinkt server mcp {{.CLI_ARGS}} 2>/dev/null
+      - printf '{"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"jsonrpc":"2.0","id":1}\n{"method":"resources/list","params":{},"jsonrpc":"2.0","id":2}\n' | ./bin/thinkt server mcp {{.CLI_ARGS}} 2>/dev/null
 
   mcp:stdio-schema-test:
     desc: "Extracts the schema from the stdio server without error suppression"
     deps: [build]
     cmds:
-      - printf '{"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"jsonrpc":"2.0","id":1}\n{"method":"tools/list","params":{},"jsonrpc":"2.0","id":2}\n' | ./bin/thinkt serve mcp {{.CLI_ARGS}}
-      - printf '{"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"jsonrpc":"2.0","id":1}\n{"method":"resources/list","params":{},"jsonrpc":"2.0","id":2}\n' | ./bin/thinkt serve mcp {{.CLI_ARGS}}
+      - printf '{"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"jsonrpc":"2.0","id":1}\n{"method":"tools/list","params":{},"jsonrpc":"2.0","id":2}\n' | ./bin/thinkt server mcp {{.CLI_ARGS}}
+      - printf '{"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"jsonrpc":"2.0","id":1}\n{"method":"resources/list","params":{},"jsonrpc":"2.0","id":2}\n' | ./bin/thinkt server mcp {{.CLI_ARGS}}
 
   ###############################################################################
   # OpenAPI 2.0 Swagger

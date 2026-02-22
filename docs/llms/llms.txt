@@ -31,7 +31,7 @@ All commands below support --json for machine-readable output unless noted.
   thinkt sessions resume <session>      Reopen a session in its original tool
   thinkt teams [--json]                 List Claude Code teams and members
   thinkt version [--json]               Version info
-  thinkt serve fingerprint [--json]     Server fingerprint (ports, PID)
+  thinkt server fingerprint [--json]     Server fingerprint (ports, PID)
   thinkt theme [--json]                 Current theme
 
   thinkt prompts extract -f json        Export prompts as structured JSON
@@ -46,16 +46,16 @@ thinkt exposes session data via Model Context Protocol (MCP).
 
 ### Setup
 
-Claude Code:   claude mcp add --transport stdio thinkt -- thinkt serve mcp
-Kimi Code:     kimi mcp add --transport stdio thinkt -- thinkt serve mcp
-Gemini CLI:    gemini mcp add --transport stdio thinkt -- thinkt serve mcp
+Claude Code:   claude mcp add --transport stdio thinkt -- thinkt server mcp
+Kimi Code:     kimi mcp add --transport stdio thinkt -- thinkt server mcp
+Gemini CLI:    gemini mcp add --transport stdio thinkt -- thinkt server mcp
 
 Claude Desktop / others — add to config JSON:
   {
     "mcpServers": {
       "thinkt": {
         "command": "thinkt",
-        "args": ["serve", "mcp"]
+        "args": ["server", "mcp"]
       }
     }
   }
@@ -107,7 +107,7 @@ Claude Desktop / others — add to config JSON:
 
 ## REST API
 
-Start server:  thinkt serve              (default: http://localhost:8784)
+Start server:  thinkt server              (default: http://localhost:8784)
 Base URL:      http://localhost:8784/api/v1
 OpenAPI spec:  http://localhost:8784/swagger/doc.json
 

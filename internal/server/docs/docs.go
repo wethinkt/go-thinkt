@@ -1829,7 +1829,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "",
 	Schemes:          []string{},
 	Title:            "Thinkt API",
-	Description:      "API for exploring AI conversation traces from Claude Code, Kimi Code, and other sources.\n\n## Authentication\n\nThe API supports Bearer token authentication. When `THINKT_API_TOKEN` environment variable\nis set or `--token` flag is provided, all requests must include the token in the\nAuthorization header:\n\nAuthorization: Bearer <token>\n\nGenerate a secure token with: `thinkt serve token`\n",
+	Description:      "API for exploring AI conversation traces from Claude Code, Kimi Code, and other sources.\n\n## Authentication\n\nThe API supports Bearer token authentication. When `THINKT_API_TOKEN` environment variable\nis set or `--token` flag is provided, all requests must include the token in the\nAuthorization header:\n\nAuthorization: Bearer <token>\n\nGenerate a secure token with: `thinkt server token`\n",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

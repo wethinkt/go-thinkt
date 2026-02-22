@@ -19,9 +19,8 @@ func StartBackground(c *exec.Cmd) error {
 type InstanceType string
 
 const (
-	InstanceServe        InstanceType = "serve"
-	InstanceServeLite    InstanceType = "serve-lite"
-	InstanceServeMCP     InstanceType = "serve-mcp"
+	InstanceServer       InstanceType = "server"
+	InstanceServerMCP    InstanceType = "server-mcp"
 	InstanceIndexerWatch InstanceType = "indexer-watch"
 )
 
@@ -191,4 +190,3 @@ func cleanStale(instances []Instance) []Instance {
 	}
 	return live
 }
-

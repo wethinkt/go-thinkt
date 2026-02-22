@@ -74,10 +74,10 @@ thinkt sessions list -p <path>      # List sessions
 thinkt sessions view                # View session content
 thinkt web                          # Open web interface (auto-starts server)
 thinkt web lite                     # Open lightweight debug interface
-thinkt serve                        # Start HTTP server (foreground)
-thinkt serve start                  # Start HTTP server (background)
-thinkt serve status                 # Check server status
-thinkt serve stop                   # Stop background server
+thinkt server                        # Start HTTP server (foreground)
+thinkt server start                  # Start HTTP server (background)
+thinkt server status                 # Check server status
+thinkt server stop                   # Stop background server
 thinkt apps                         # List open-in apps and terminal capability
 thinkt apps set-terminal            # Set default terminal for resume
 ```

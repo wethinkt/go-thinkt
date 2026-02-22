@@ -47,7 +47,7 @@ Right now much of the implementation is in package `internal`, but we will event
 - **Prompt Extraction**: Generate timestamped logs of user prompts in markdown, JSON, or plain text
 - **MCP Server**: Model Context Protocol integration for use with AI assistants
 - **REST API**: HTTP server for programmatic access
-- **Web Interface**: Full webapp for visual trace exploration via `thinkt serve`
+- **Web Interface**: Full webapp for visual trace exploration via `thinkt web`
 - **Lite Webapp**: Lightweight debug interface with i18n (EN/ES/中文), connection status, and "open-in" buttons
 - **Themes**: Customizable color themes with interactive theme builder
 - **App Management**: Configure open-in apps and default terminal via `thinkt apps`
@@ -90,7 +90,7 @@ docker run -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
   -v ~/.codex:/data/.codex:ro \
-  ghcr.io/wethinkt/thinkt:latest serve --host 0.0.0.0
+  ghcr.io/wethinkt/thinkt:latest server --host 0.0.0.0
 
 # Run any command
 docker run \
@@ -124,11 +124,11 @@ thinkt sessions resolve -p ./myproject <session-id>
 # List agent teams
 thinkt teams
 
-# Start the lite webapp
-thinkt serve lite
+# Open the web interface
+thinkt web
 
 # Start HTTP server without opening browser
-thinkt serve --no-open
+thinkt server --no-open
 
 # Debug logging
 thinkt tui --log /tmp/thinkt-debug.log
@@ -154,11 +154,14 @@ thinkt tui --log /tmp/thinkt-debug.log
 | `thinkt teams` | List agent teams (Claude Code) |
 | `thinkt teams list` | Same as above |
 | `thinkt prompts extract` | Extract prompts to markdown/JSON |
-| `thinkt serve` | Start web interface and REST API (port 8784) |
-| `thinkt serve lite` | Start lightweight debug webapp (port 8785) |
-| `thinkt serve mcp` | Start MCP server |
-| `thinkt serve token` | Generate secure authentication token |
-| `thinkt serve fingerprint` | Display machine fingerprint for workspace correlation |
+| `thinkt server` | Start web interface and REST API (port 8784) |
+| `thinkt server start/stop/status` | Manage background server |
+| `thinkt server logs` | View server logs |
+| `thinkt server mcp` | Start MCP server |
+| `thinkt server token` | Generate secure authentication token |
+| `thinkt server fingerprint` | Display machine fingerprint for workspace correlation |
+| `thinkt web` | Open web interface in browser |
+| `thinkt web lite` | Open lightweight debug webapp |
 | `thinkt apps` | List configured open-in apps |
 | `thinkt apps enable/disable` | Enable or disable an app |
 | `thinkt apps set-terminal` | Set the default terminal app |
@@ -228,37 +231,41 @@ The interactive TUI uses a navigation stack. ESC goes back to the previous scree
 | `esc` | Back to session picker |
 | `q` / `ctrl+c` | Quit |
 
-## Serve Options
+## Server Options
 
 ```bash
 # Control HTTP logging
-thinkt serve --quiet              # Suppress HTTP logs
-thinkt serve --http-log file.log  # Log to file
-thinkt serve --no-open            # Don't auto-open browser
+thinkt server --quiet              # Suppress HTTP logs
+thinkt server --http-log file.log  # Log to file
+thinkt server --no-open            # Don't auto-open browser
 
-# These also work with serve lite
-thinkt serve lite --quiet --no-open
+# Background management
+thinkt server start                # Start in background
+thinkt server status               # Check server status
+thinkt server logs                 # View server logs
+thinkt server logs -f              # Follow logs
+thinkt server stop                 # Stop background server
 ```
 
 ## Default Ports
 
 | Command | Port | Description |
 |---------|------|-------------|
-| `thinkt serve` | 8784 | Full web interface and REST API |
-| `thinkt serve lite` | 8785 | Lightweight debug webapp |
-| `thinkt serve mcp --port` | 8786 | MCP server over HTTP |
+| `thinkt server` | 8784 | Full web interface and REST API |
+| `thinkt web lite` | 8785 | Lightweight debug webapp |
+| `thinkt server mcp --port` | 8786 | MCP server over HTTP |
 | [VS Code extension](https://github.com/wethinkt/thinkt-vscode) | 8787 | Reserved for embedded server |
 
 Use `-p` or `--port` to override the default port for any server.
 
 ## Authentication
 
-Both the REST API server (`thinkt serve`) and MCP server (`thinkt serve mcp`) support Bearer token authentication to protect access to your conversation data.
+Both the REST API server (`thinkt server`) and MCP server (`thinkt server mcp`) support Bearer token authentication to protect access to your conversation data.
 
 ### Generate a Token
 
 ```bash
-thinkt serve token
+thinkt server token
 # Output: thinkt_20260205_cd3bf36d6e1fc71e9bf033a7131f77cb
 ```
 
@@ -266,11 +273,11 @@ thinkt serve token
 
 ```bash
 # Using environment variable
-export THINKT_API_TOKEN=$(thinkt serve token)
-thinkt serve
+export THINKT_API_TOKEN=$(thinkt server token)
+thinkt server
 
 # Using command-line flag
-thinkt serve --token thinkt_20260205_...
+thinkt server --token thinkt_20260205_...
 
 # Client request
 curl -H "Authorization: Bearer thinkt_20260205_..." http://localhost:8784/api/v1/sources
@@ -282,18 +289,18 @@ For stdio transport (default), authentication uses environment variables:
 
 ```bash
 # Claude Desktop configuration with authentication
-export THINKT_MCP_TOKEN=$(thinkt serve token)
+export THINKT_MCP_TOKEN=$(thinkt server token)
 ```
 
 For HTTP transport:
 
 ```bash
 # Using environment variable
-export THINKT_MCP_TOKEN=$(thinkt serve token)
-thinkt serve mcp --port 8786
+export THINKT_MCP_TOKEN=$(thinkt server token)
+thinkt server mcp --port 8786
 
 # Using command-line flag
-thinkt serve mcp --port 8786 --token thinkt_20260205_...
+thinkt server mcp --port 8786 --token thinkt_20260205_...
 ```
 
 Clients must pass the token in the `Authorization` header:
@@ -310,23 +317,23 @@ thinkt runs on macOS, Linux, and Windows. Platform-specific behavior is handled 
 
 ## Machine Fingerprint
 
-Use `thinkt serve fingerprint` to display a unique machine identifier. This fingerprint is derived from system identifiers (e.g., hardware UUID on macOS, `/etc/machine-id` on Linux, MachineGuid on Windows) and can be used to correlate sessions across different AI coding assistant sources on the same machine.
+Use `thinkt server fingerprint` to display a unique machine identifier. This fingerprint is derived from system identifiers (e.g., hardware UUID on macOS, `/etc/machine-id` on Linux, MachineGuid on Windows) and can be used to correlate sessions across different AI coding assistant sources on the same machine.
 
 ```bash
 # Display fingerprint
-thinkt serve fingerprint
+thinkt server fingerprint
 
 # JSON output
-thinkt serve fingerprint --json
+thinkt server fingerprint --json
 ```
 
 The fingerprint is normalized to a consistent UUID format across all platforms.
 
 ## Lite Webapp Features
 
-For full trace exploration, use `thinkt serve` which provides the full web interface on port 8784.
+For full trace exploration, use `thinkt server` which provides the full web interface on port 8784.
 
-The lightweight webapp (`thinkt serve lite`) provides a quick debug interface:
+The lightweight webapp (`thinkt web lite`) provides a quick debug interface:
 
 - **Internationalization**: English, Spanish, and Chinese (auto-detected)
 - **Connection Status**: Real-time indicator showing server connectivity
@@ -336,15 +343,15 @@ The lightweight webapp (`thinkt serve lite`) provides a quick debug interface:
 
 ## REST API
 
-The `thinkt serve` command provides a REST API for programmatic access:
+The `thinkt server` command provides a REST API for programmatic access:
 
 ```bash
 # Start the server
-thinkt serve
+thinkt server
 
 # With authentication
-export THINKT_API_TOKEN=$(thinkt serve token)
-thinkt serve
+export THINKT_API_TOKEN=$(thinkt server token)
+thinkt server
 ```
 
 ### API Endpoints
@@ -372,7 +379,7 @@ Use `thinkt` as an MCP server for AI assistants like Claude Desktop:
   "mcpServers": {
     "thinkt": {
       "command": "thinkt",
-      "args": ["serve", "mcp"],
+      "args": ["server", "mcp"],
       "env": {
         "THINKT_MCP_TOKEN": "your-secure-token-here"
       }
@@ -383,7 +390,7 @@ Use `thinkt` as an MCP server for AI assistants like Claude Desktop:
 
 Generate a secure token with:
 ```bash
-thinkt serve token
+thinkt server token
 ```
 
 Available MCP tools:

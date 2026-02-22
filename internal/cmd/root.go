@@ -152,7 +152,7 @@ func init() {
 	rootCmd.SetHelpCommand(helpCmd)
 
 	rootCmd.AddCommand(tuiCmd)
-	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(serverCmd)
 	rootCmd.AddCommand(promptsCmd)
 	rootCmd.AddCommand(projectsCmd)
 	rootCmd.AddCommand(sessionsCmd)
@@ -179,54 +179,54 @@ func init() {
 	themeShowCmd.Flags().BoolVar(&outputJSON, "json", false, "output theme as JSON")
 	themeListCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
 
-	// Serve command flags shared across subcommands
-	serveCmd.PersistentFlags().StringVar(&serveCORSOrigin, "cors-origin", "", "CORS Access-Control-Allow-Origin (default \"*\", env: THINKT_CORS_ORIGIN)")
+	// Server command flags shared across subcommands
+	serverCmd.PersistentFlags().StringVar(&serveCORSOrigin, "cors-origin", "", "CORS Access-Control-Allow-Origin (default \"*\", env: THINKT_CORS_ORIGIN)")
 
-	// Serve command flags (non-persistent; only apply to 'serve' itself)
+	// Server command flags (non-persistent; only apply to 'server' itself)
 	// Subcommands that need these define their own (mcp, lite)
-	serveCmd.Flags().IntVarP(&servePort, "port", "p", server.DefaultPortServe, "server port")
-	serveCmd.Flags().StringVar(&serveHost, "host", "localhost", "server host")
-	serveCmd.Flags().BoolVar(&serveNoOpen, "no-open", false, "don't auto-open browser")
-	serveCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
-	serveCmd.Flags().BoolVarP(&serveQuiet, "quiet", "q", false, "suppress HTTP request logging (errors still go to stderr)")
-	serveCmd.Flags().StringVar(&serveHTTPLog, "http-log", "", "write HTTP access log to file (default: stdout, unless --quiet)")
-	serveCmd.Flags().StringVar(&serveDev, "dev", "", "dev mode: proxy non-API routes to this URL (e.g. http://localhost:5173)")
+	serverCmd.Flags().IntVarP(&servePort, "port", "p", server.DefaultPortServer, "server port")
+	serverCmd.Flags().StringVar(&serveHost, "host", "localhost", "server host")
+	serverCmd.Flags().BoolVar(&serveNoOpen, "no-open", false, "don't auto-open browser")
+	serverCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
+	serverCmd.Flags().BoolVarP(&serveQuiet, "quiet", "q", false, "suppress HTTP request logging (errors still go to stderr)")
+	serverCmd.Flags().StringVar(&serveHTTPLog, "http-log", "", "write HTTP access log to file (default: stdout, unless --quiet)")
+	serverCmd.Flags().StringVar(&serveDev, "dev", "", "dev mode: proxy non-API routes to this URL (e.g. http://localhost:5173)")
 
-	serveCmd.AddCommand(serveStartCmd)
-	serveCmd.AddCommand(serveStopCmd)
-	serveCmd.AddCommand(serveStatusCmd)
-	serveLogsCmd.Flags().IntP("lines", "n", 50, "number of lines to show")
-	serveLogsCmd.Flags().BoolP("follow", "f", false, "follow log output")
-	serveCmd.AddCommand(serveLogsCmd)
-	serveStatusCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
+	serverCmd.AddCommand(serverStartCmd)
+	serverCmd.AddCommand(serverStopCmd)
+	serverCmd.AddCommand(serverStatusCmd)
+	serverLogsCmd.Flags().IntP("lines", "n", 50, "number of lines to show")
+	serverLogsCmd.Flags().BoolP("follow", "f", false, "follow log output")
+	serverCmd.AddCommand(serverLogsCmd)
+	serverStatusCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
 
-	// Serve token subcommand
-	serveCmd.AddCommand(serveTokenCmd)
+	// Server token subcommand
+	serverCmd.AddCommand(serverTokenCmd)
 
-	// Serve fingerprint subcommand
-	serveCmd.AddCommand(serveFingerprintCmd)
-	serveFingerprintCmd.Flags().BoolVar(&fingerprintJSON, "json", false, "output as JSON")
+	// Server fingerprint subcommand
+	serverCmd.AddCommand(serverFingerprintCmd)
+	serverFingerprintCmd.Flags().BoolVar(&fingerprintJSON, "json", false, "output as JSON")
 
-	// Serve MCP subcommand
-	serveCmd.AddCommand(serveMcpCmd)
-	serveMcpCmd.Flags().BoolVar(&mcpStdio, "stdio", false, "use stdio transport (default if no --port)")
-	serveMcpCmd.Flags().IntVarP(&mcpPort, "port", "p", 0, "run MCP over HTTP on this port")
-	serveMcpCmd.Flags().StringVar(&mcpHost, "host", "localhost", "host to bind MCP HTTP server")
-	serveMcpCmd.Flags().StringVar(&mcpToken, "token", "", "bearer token for HTTP authentication (default: use THINKT_MCP_TOKEN env var)")
-	serveMcpCmd.Flags().BoolVar(&mcpNoIndexer, "no-indexer", false, "don't auto-start the background indexer")
-	serveMcpCmd.Flags().StringSliceVar(&mcpAllowTools, "allow-tools", nil, "explicitly allow only these tools (comma-separated, default: all)")
-	serveMcpCmd.Flags().StringSliceVar(&mcpDenyTools, "deny-tools", nil, "explicitly deny these tools (comma-separated)")
-	serveMcpCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
+	// Server MCP subcommand
+	serverCmd.AddCommand(serverMcpCmd)
+	serverMcpCmd.Flags().BoolVar(&mcpStdio, "stdio", false, "use stdio transport (default if no --port)")
+	serverMcpCmd.Flags().IntVarP(&mcpPort, "port", "p", 0, "run MCP over HTTP on this port")
+	serverMcpCmd.Flags().StringVar(&mcpHost, "host", "localhost", "host to bind MCP HTTP server")
+	serverMcpCmd.Flags().StringVar(&mcpToken, "token", "", "bearer token for HTTP authentication (default: use THINKT_MCP_TOKEN env var)")
+	serverMcpCmd.Flags().BoolVar(&mcpNoIndexer, "no-indexer", false, "don't auto-start the background indexer")
+	serverMcpCmd.Flags().StringSliceVar(&mcpAllowTools, "allow-tools", nil, "explicitly allow only these tools (comma-separated, default: all)")
+	serverMcpCmd.Flags().StringSliceVar(&mcpDenyTools, "deny-tools", nil, "explicitly deny these tools (comma-separated)")
+	serverMcpCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
 
-	// Serve API flags (only apply to main serve command)
-	serveCmd.Flags().StringVar(&apiToken, "token", "", "bearer token for API authentication (default: use THINKT_API_TOKEN env var)")
+	// Server API flags (only apply to main server command)
+	serverCmd.Flags().StringVar(&apiToken, "token", "", "bearer token for API authentication (default: use THINKT_API_TOKEN env var)")
 
 	// Web command
 	webCmd.AddCommand(webLiteCmd)
-	webCmd.Flags().IntVarP(&servePort, "port", "p", server.DefaultPortServe, "server port")
+	webCmd.Flags().IntVarP(&servePort, "port", "p", server.DefaultPortServer, "server port")
 	webCmd.Flags().StringVar(&serveHost, "host", "localhost", "server host")
 	webCmd.Flags().BoolVar(&serveNoOpen, "no-open", false, "don't auto-open browser")
-	webLiteCmd.Flags().IntVarP(&servePort, "port", "p", server.DefaultPortServe, "server port")
+	webLiteCmd.Flags().IntVarP(&servePort, "port", "p", server.DefaultPortServer, "server port")
 	webLiteCmd.Flags().StringVar(&serveHost, "host", "localhost", "server host")
 	webLiteCmd.Flags().BoolVar(&serveNoOpen, "no-open", false, "don't auto-open browser")
 

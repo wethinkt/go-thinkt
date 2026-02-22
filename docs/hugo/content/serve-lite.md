@@ -5,16 +5,16 @@ weight: 12
 
 # Lite Server
 
-The `thinkt serve lite` command starts a lightweight web interface for exploring your AI coding sessions. It provides a quick overview of your sources, projects, and API access without the full TUI experience.
+The `thinkt web lite` command opens a lightweight web interface for exploring your AI coding sessions. It provides a quick overview of your sources, projects, and API access without the full TUI experience.
 
 ![Thinkt Lite Server](/images/serve-lite.jpg)
 
 ## Quick Start
 
 ```bash
-thinkt serve lite                # Start on default port 8785
-thinkt serve lite -p 8080        # Custom port
-thinkt serve lite --no-open      # Don't auto-open browser
+thinkt web lite                # Start on default port 8785
+thinkt web lite -p 8080        # Custom port
+thinkt web lite --no-open      # Don't auto-open browser
 ```
 
 The server automatically opens your browser to `http://localhost:8785`.
@@ -102,7 +102,7 @@ Switch between languages using the top-right selector:
 ## Command Reference
 
 ```bash
-thinkt serve lite [flags]
+thinkt web lite [flags]
 ```
 
 **Flags:**
@@ -127,7 +127,7 @@ thinkt serve lite [flags]
 
 ```bash
 # Start lite server
-thinkt serve lite
+thinkt web lite
 
 # Opens browser to http://localhost:8785
 ```
@@ -135,7 +135,7 @@ thinkt serve lite
 ### Custom Port
 
 ```bash
-thinkt serve lite -p 3000
+thinkt web lite -p 3000
 # Opens browser to http://localhost:3000
 ```
 
@@ -143,7 +143,7 @@ thinkt serve lite -p 3000
 
 ```bash
 # Start without opening browser (useful for remote access)
-thinkt serve lite --no-open --host 0.0.0.0
+thinkt web lite --no-open --host 0.0.0.0
 
 # Access from another machine at http://your-ip:8785
 ```
@@ -152,10 +152,10 @@ thinkt serve lite --no-open --host 0.0.0.0
 
 ```bash
 # Log HTTP requests to file
-thinkt serve lite --http-log access.log
+thinkt web lite --http-log access.log
 
 # Enable debug logging
-thinkt serve lite --log debug.log --verbose
+thinkt web lite --log debug.log --verbose
 ```
 
 ## Docker Usage
@@ -167,7 +167,7 @@ docker run --rm -p 8785:8785 \
   -v ~/.claude:/data/.claude:ro \
   -v ~/.kimi:/data/.kimi:ro \
   -v ~/.codex:/data/.codex:ro \
-  ghcr.io/wethinkt/thinkt serve lite --host 0.0.0.0
+  ghcr.io/wethinkt/thinkt web lite --host 0.0.0.0
 ```
 
 Access at `http://localhost:8785`.
@@ -183,11 +183,11 @@ Access at `http://localhost:8785`.
 | Purpose | Debugging, quick inspection | Full trace exploration |
 
 {{< hint info >}}
-**Tip:** For full visual exploration of your AI coding sessions, use `thinkt serve` instead. The lite server is designed for quick inspection and API debugging.
+**Tip:** For full visual exploration of your AI coding sessions, use `thinkt server` instead. The lite server is designed for quick inspection and API debugging.
 {{< /hint >}}
 
 ## See Also
 
-- [thinkt serve lite](/command/thinkt_serve_lite) - Command reference
+- [thinkt web lite](/command/thinkt_serve_lite) - Command reference
 - [REST API](/rest-api) - API documentation
 - [Docker](/docker) - Running in containers

@@ -1,4 +1,4 @@
-// Package server implements the HTTP and MCP server for thinkt serve.
+// Package server implements the HTTP and MCP server for thinkt.
 package server
 
 import (
@@ -22,11 +22,11 @@ import (
 
 // Default port constants for thinkt servers.
 const (
-	// DefaultPortServe is the default port for 'thinkt serve' (REST API).
-	DefaultPortServe = 8784
-	// DefaultPortLite is the default port for 'thinkt serve lite'.
+	// DefaultPortServer is the default port for 'thinkt server' (REST API).
+	DefaultPortServer = 8784
+	// DefaultPortLite is the default port for 'thinkt server lite'.
 	DefaultPortLite = 8785
-	// DefaultPortMCP is the default port for 'thinkt serve mcp' over HTTP.
+	// DefaultPortMCP is the default port for 'thinkt server mcp' over HTTP.
 	DefaultPortMCP = 8786
 )
 
@@ -46,7 +46,7 @@ type Config struct {
 // DefaultConfig returns a default configuration.
 func DefaultConfig() Config {
 	return Config{
-		Port: DefaultPortServe,
+		Port: DefaultPortServer,
 		Host: "localhost",
 	}
 }
@@ -246,7 +246,7 @@ func (s *HTTPServer) ListenAndServe(ctx context.Context) error {
 	// Register instance for discovery
 	instType := s.config.InstanceType
 	if instType == "" {
-		instType = config.InstanceServe
+		instType = config.InstanceServer
 	}
 	inst := config.Instance{
 		Type:      instType,
