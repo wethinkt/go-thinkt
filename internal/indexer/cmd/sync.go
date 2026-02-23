@@ -21,10 +21,10 @@ var syncCmd = &cobra.Command{
 	RunE: func(cmdObj *cobra.Command, args []string) error {
 		// Try RPC first
 		if rpc.ServerAvailable() {
-			progress := NewProgressReporter()
+			sp := NewSyncProgress()
 			var progressFn func(rpc.Progress)
-			if progress.ShouldShowProgress(quiet, verbose) {
-				var lastSessionDone, lastSessionTotal int // track session-level progress for chunk display
+			if sp.ShouldShowProgress(quiet, verbose) {
+				var lastSessionDone, lastSessionTotal int
 				var sessionStart time.Time
 				progressFn = func(p rpc.Progress) {
 					var data struct {
@@ -46,21 +46,19 @@ var syncCmd = &cobra.Command{
 					}
 					if err := json.Unmarshal(p.Data, &data); err == nil {
 						if data.ProjectTotal > 0 {
-							progress.Print(fmt.Sprintf("[%d/%d] projects | [%d/%d] sessions %s",
-								data.Project, data.ProjectTotal, data.Session, data.SessionTotal, data.Message))
+							sp.RenderIndexing(data.Project, data.ProjectTotal, data.Session, data.SessionTotal, data.Message)
 						} else if data.ChunksTotal > 0 {
 							sid := data.SessionID
 							if len(sid) > 8 {
 								sid = sid[:8]
 							}
-							msg := fmt.Sprintf("[%d/%d] %s chunks %d/%d",
-								lastSessionDone, lastSessionTotal, sid, data.ChunksDone, data.ChunksTotal)
+							detail := fmt.Sprintf("%s · %d/%d chunks", sid, data.ChunksDone, data.ChunksTotal)
 							if data.TokensDone > 0 && !sessionStart.IsZero() {
 								if secs := time.Since(sessionStart).Seconds(); secs > 0 {
-									msg += fmt.Sprintf(" (%.0f tok/s)", float64(data.TokensDone)/secs)
+									detail += fmt.Sprintf("  %.0f tok/s", float64(data.TokensDone)/secs)
 								}
 							}
-							progress.Print(msg)
+							sp.RenderEmbedding(lastSessionDone, lastSessionTotal, detail)
 						} else if data.Total > 0 {
 							lastSessionDone = data.Done
 							lastSessionTotal = data.Total
@@ -70,13 +68,12 @@ var syncCmd = &cobra.Command{
 							}
 							if data.ElapsedMs > 0 {
 								elapsed := time.Duration(data.ElapsedMs) * time.Millisecond
-								progress.Print(fmt.Sprintf("[%d/%d] %s %d chunks (%s)",
-									data.Done, data.Total, sid, data.Chunks, elapsed.Round(time.Millisecond)))
+								detail := fmt.Sprintf("%s · %d chunks (%s)", sid, data.Chunks, elapsed.Round(time.Millisecond))
+								sp.RenderEmbedding(data.Done, data.Total, detail)
 							} else {
-								// "Before" event — session is about to start embedding
 								sessionStart = time.Now()
-								progress.Print(fmt.Sprintf("[%d/%d] %s %d entries",
-									data.Done, data.Total, sid, data.Entries))
+								detail := fmt.Sprintf("%s · %d entries", sid, data.Entries)
+								sp.RenderEmbedding(data.Done, data.Total, detail)
 							}
 						}
 					}
@@ -84,18 +81,18 @@ var syncCmd = &cobra.Command{
 			}
 			resp, err := rpc.Call("sync", rpc.SyncParams{}, progressFn)
 			if err != nil {
-				if progress.ShouldShowProgress(quiet, verbose) {
-					progress.Finish()
+				if sp.ShouldShowProgress(quiet, verbose) {
+					sp.Finish()
 				}
 				fmt.Fprintf(os.Stderr, "RPC sync failed, falling back to inline: %v\n", err)
 			} else if !resp.OK {
-				if progress.ShouldShowProgress(quiet, verbose) {
-					progress.Finish()
+				if sp.ShouldShowProgress(quiet, verbose) {
+					sp.Finish()
 				}
 				return fmt.Errorf("sync: %s", resp.Error)
 			} else {
-				if progress.ShouldShowProgress(quiet, verbose) {
-					progress.Finish()
+				if sp.ShouldShowProgress(quiet, verbose) {
+					sp.Finish()
 				}
 				if !quiet {
 					fmt.Println("Indexing complete (via server).")
@@ -135,13 +132,11 @@ var syncCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "Warning: migration check failed: %v\n", err)
 		}
 
-		// Initialize progress reporter with TTY detection
-		progress := NewProgressReporter()
+		sp := NewSyncProgress()
 
-		if progress.ShouldShowProgress(quiet, verbose) {
+		if sp.ShouldShowProgress(quiet, verbose) {
 			ingester.OnProgress = func(pIdx, pTotal, sIdx, sTotal int, message string) {
-				statusMsg := fmt.Sprintf("Projects [%d/%d] | Sessions [%d/%d] %s", pIdx, pTotal, sIdx, sTotal, message)
-				progress.Print(statusMsg)
+				sp.RenderIndexing(pIdx, pTotal, sIdx, sTotal, message)
 			}
 		}
 
@@ -159,14 +154,12 @@ var syncCmd = &cobra.Command{
 
 		totalProjects := len(projects)
 		for idx, p := range projects {
-			if verbose && !progress.IsTTY() {
-				// Only print per-project info in non-TTY mode when verbose
+			if verbose && !sp.IsTTY() {
 				fmt.Printf("Indexing project: %s (%s)\n", p.Name, p.Path)
 			}
 			if err := ingester.IngestProject(ctx, p, idx+1, totalProjects); err != nil {
-				if progress.IsTTY() {
-					// Clear progress line before printing error
-					progress.Finish()
+				if sp.IsTTY() {
+					sp.Finish()
 				}
 				fmt.Fprintf(os.Stderr, "Error indexing project %s: %v\n", p.Name, err)
 			}
@@ -174,7 +167,7 @@ var syncCmd = &cobra.Command{
 
 		// Second pass: embed any sessions that need embeddings
 		if ingester.HasEmbedder() {
-			if progress.ShouldShowProgress(quiet, verbose) {
+			if sp.ShouldShowProgress(quiet, verbose) {
 				var inlineDone, inlineTotal int
 				var inlineSessionStart time.Time
 				ingester.OnEmbedProgress = func(done, total, chunks, entries int, sessionID, sessionPath string, elapsed time.Duration) {
@@ -183,20 +176,20 @@ var syncCmd = &cobra.Command{
 					sid := sessionID[:min(8, len(sessionID))]
 					if elapsed == 0 {
 						inlineSessionStart = time.Now()
-						progress.Print(fmt.Sprintf("[%d/%d] %s %d entries", done, total, sid, entries))
+						sp.RenderEmbedding(done, total, fmt.Sprintf("%s · %d entries", sid, entries))
 					} else {
-						progress.Print(fmt.Sprintf("[%d/%d] %s %d chunks (%s)", done, total, sid, chunks, elapsed.Round(time.Millisecond)))
+						sp.RenderEmbedding(done, total, fmt.Sprintf("%s · %d chunks (%s)", sid, chunks, elapsed.Round(time.Millisecond)))
 					}
 				}
 				ingester.OnEmbedChunkProgress = func(chunksDone, chunksTotal, tokensDone int, sessionID string) {
 					sid := sessionID[:min(8, len(sessionID))]
-					msg := fmt.Sprintf("[%d/%d] %s chunks %d/%d", inlineDone, inlineTotal, sid, chunksDone, chunksTotal)
+					detail := fmt.Sprintf("%s · %d/%d chunks", sid, chunksDone, chunksTotal)
 					if tokensDone > 0 && !inlineSessionStart.IsZero() {
 						if secs := time.Since(inlineSessionStart).Seconds(); secs > 0 {
-							msg += fmt.Sprintf(" (%.0f tok/s)", float64(tokensDone)/secs)
+							detail += fmt.Sprintf("  %.0f tok/s", float64(tokensDone)/secs)
 						}
 					}
-					progress.Print(msg)
+					sp.RenderEmbedding(inlineDone, inlineTotal, detail)
 				}
 			}
 			if err := ingester.EmbedAllSessions(ctx); err != nil {
@@ -204,8 +197,8 @@ var syncCmd = &cobra.Command{
 			}
 		}
 
-		if progress.ShouldShowProgress(quiet, verbose) {
-			progress.Finish()
+		if sp.ShouldShowProgress(quiet, verbose) {
+			sp.Finish()
 		}
 
 		if !quiet {

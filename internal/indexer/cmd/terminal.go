@@ -3,117 +3,177 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/progress"
+	"charm.land/lipgloss/v2"
 	"golang.org/x/term"
+
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
-// ProgressReporter handles progress display with TTY detection and elapsed time
-type ProgressReporter struct {
+const (
+	barMinWidth     = 10
+	barDefaultWidth = 30
+	// spacing: " %s  %s  %s  %s     %s" → 2+2+2+5 = 11 chars of padding + 1 leading space
+	linePadding = 12
+)
+
+// SyncProgress handles themed progress display for sync operations.
+type SyncProgress struct {
 	startTime time.Time
 	isTTY     bool
+	bar       progress.Model
+
+	// lipgloss styles (from theme)
+	phaseStyle   lipgloss.Style
+	countStyle   lipgloss.Style
+	detailStyle  lipgloss.Style
+	elapsedStyle lipgloss.Style
 }
 
-// NewProgressReporter creates a new progress reporter
-func NewProgressReporter() *ProgressReporter {
+// NewSyncProgress creates a new themed sync progress reporter.
+func NewSyncProgress() *SyncProgress {
 	isTTY := term.IsTerminal(int(os.Stdout.Fd()))
 
-	return &ProgressReporter{
+	t := theme.Current()
+
+	bar := progress.New(
+		progress.WithColors(lipgloss.Color(t.GetAccent())),
+		progress.WithoutPercentage(),
+		progress.WithWidth(30),
+	)
+	bar.EmptyColor = lipgloss.Color(t.TextMuted.Fg)
+
+	return &SyncProgress{
 		startTime: time.Now(),
 		isTTY:     isTTY,
+		bar:       bar,
+		phaseStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(t.GetAccent())).
+			Bold(true),
+		countStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(t.TextPrimary.Fg)),
+		detailStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(t.TextSecondary.Fg)),
+		elapsedStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(t.TextMuted.Fg)),
 	}
 }
 
-// getWidth returns the current terminal width, checking on each call to handle resizes
-func (pr *ProgressReporter) getWidth() int {
-	if !pr.isTTY {
-		return 80 // default for non-TTY
-	}
-
-	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && w > 0 {
-		return w
-	}
-
-	return 80 // fallback default
-}
-
-// ShouldShowProgress returns true if progress should be displayed
-func (pr *ProgressReporter) ShouldShowProgress(quiet, verbose bool) bool {
-	// If quiet is set, never show (takes precedence over verbose)
+// ShouldShowProgress returns true if progress should be displayed.
+func (sp *SyncProgress) ShouldShowProgress(quiet, verbose bool) bool {
 	if quiet {
 		return false
 	}
-	// If verbose is set, always show
 	if verbose {
 		return true
 	}
-	// Otherwise, show only if TTY
-	return pr.isTTY
+	return sp.isTTY
 }
 
-// IsTTY returns whether stdout is a TTY
-func (pr *ProgressReporter) IsTTY() bool {
-	return pr.isTTY
+// IsTTY returns whether stdout is a TTY.
+func (sp *SyncProgress) IsTTY() bool {
+	return sp.isTTY
 }
 
-// FormatProgress formats a progress line with elapsed time on the right if in TTY
-func (pr *ProgressReporter) FormatProgress(message string) string {
-	if !pr.isTTY {
-		// Not a TTY, just return the message without formatting
-		return message
+// getWidth returns the current terminal width.
+func (sp *SyncProgress) getWidth() int {
+	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && w > 0 {
+		return w
 	}
-
-	// Get current terminal width (handles resizes)
-	width := pr.getWidth()
-
-	elapsed := time.Since(pr.startTime)
-	elapsedStr := formatElapsed(elapsed)
-
-	// Calculate available space for the message
-	// Account for the elapsed time string and some padding
-	availableWidth := width - len(elapsedStr) - 3 // 3 for " | "
-
-	if availableWidth < 20 {
-		// Terminal too narrow, just show message
-		return message
-	}
-
-	// Truncate message if needed
-	displayMsg := message
-	if len(message) > availableWidth {
-		displayMsg = message[:availableWidth-3] + "..."
-	}
-
-	// Pad message to push elapsed time to the right
-	padding := width - len(displayMsg) - len(elapsedStr) - 3
-	if padding < 0 {
-		padding = 0
-	}
-
-	return fmt.Sprintf("%s%s | %s", displayMsg, strings.Repeat(" ", padding), elapsedStr)
+	return 80
 }
 
-// Print prints a progress line with carriage return and clear to end of line
-func (pr *ProgressReporter) Print(message string) {
-	if pr.isTTY {
-		// \r moves cursor to start of line
-		// \x1b[K clears from cursor to end of line
-		fmt.Printf("\r\x1b[K%s", pr.FormatProgress(message))
+// renderLine assembles a progress line, dynamically sizing the bar to fit the terminal.
+func (sp *SyncProgress) renderLine(phase, count, detail string, pct float64) {
+	elapsed := formatElapsed(time.Since(sp.startTime))
+
+	// Calculate how much space the non-bar elements need (use plain text lengths for width math)
+	fixedWidth := len(phase) + len(count) + len(detail) + len(elapsed) + linePadding
+	barWidth := sp.getWidth() - fixedWidth
+	if barWidth < barMinWidth {
+		barWidth = barMinWidth
+	} else if barWidth > barDefaultWidth {
+		barWidth = barDefaultWidth
+	}
+
+	sp.bar.SetWidth(barWidth)
+	bar := sp.bar.ViewAs(pct)
+
+	// Now render with styles
+	line := fmt.Sprintf(" %s  %s  %s  %s     %s",
+		sp.phaseStyle.Render(phase),
+		bar,
+		sp.countStyle.Render(count),
+		sp.detailStyle.Render(detail),
+		sp.elapsedStyle.Render(elapsed),
+	)
+	sp.Print(line)
+}
+
+// RenderIndexing renders an indexing progress line.
+func (sp *SyncProgress) RenderIndexing(pIdx, pTotal, sIdx, sTotal int, message string) {
+	if !sp.isTTY {
+		sp.Print(fmt.Sprintf("Projects [%d/%d] | Sessions [%d/%d] %s", pIdx, pTotal, sIdx, sTotal, message))
+		return
+	}
+
+	var pct float64
+	if pTotal > 0 && sTotal > 0 {
+		pct = (float64(pIdx-1) + float64(sIdx)/float64(sTotal)) / float64(pTotal)
+	}
+
+	detail := projectLabel(pIdx, pTotal)
+	if detail != "" {
+		detail += " · " + message
 	} else {
-		// Not a TTY, print with newline
-		fmt.Println(message)
+		detail = message
+	}
+
+	sp.renderLine("Indexing", fmt.Sprintf("%d/%d sessions", sIdx, sTotal), detail, pct)
+}
+
+// RenderEmbedding renders an embedding progress line.
+func (sp *SyncProgress) RenderEmbedding(done, total int, detail string) {
+	if !sp.isTTY {
+		sp.Print(fmt.Sprintf("[%d/%d] %s", done, total, detail))
+		return
+	}
+
+	var pct float64
+	if total > 0 {
+		pct = float64(done) / float64(total)
+	}
+
+	sp.renderLine("Embedding", fmt.Sprintf("%d/%d sessions", done, total), detail, pct)
+}
+
+// Print outputs a progress line, using carriage return + clear on TTY.
+func (sp *SyncProgress) Print(line string) {
+	if sp.isTTY {
+		fmt.Printf("\r\x1b[K%s", line)
+	} else {
+		fmt.Println(line)
 	}
 }
 
-// Finish prints a final newline if in TTY mode
-func (pr *ProgressReporter) Finish() {
-	if pr.isTTY {
+// Finish prints a final newline if in TTY mode.
+func (sp *SyncProgress) Finish() {
+	if sp.isTTY {
 		fmt.Println()
 	}
 }
 
-// formatElapsed formats a duration as elapsed time (e.g., "1m 23s", "45s", "1.2s")
+// projectLabel returns a short label like "proj 2/5" or just the project name context.
+func projectLabel(pIdx, pTotal int) string {
+	if pTotal <= 1 {
+		return ""
+	}
+	return fmt.Sprintf("proj %d/%d", pIdx, pTotal)
+}
+
+// formatElapsed formats a duration as elapsed time (e.g., "1m 23s", "45s", "1.2s").
 func formatElapsed(d time.Duration) string {
 	if d < time.Second {
 		return fmt.Sprintf("%.1fs", d.Seconds())
