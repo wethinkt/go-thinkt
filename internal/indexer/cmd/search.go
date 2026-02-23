@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 )
@@ -36,29 +37,7 @@ Use --list to output results directly to the terminal (useful for scripting).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		queryText := args[0]
 
-		db, err := getReadOnlyDB()
-		if err != nil {
-			return err
-		}
-		defer db.Close()
-
-		opts := search.SearchOptions{
-			Query:           queryText,
-			FilterProject:   searchFilterProject,
-			FilterSource:    searchFilterSource,
-			Limit:           searchLimit,
-			LimitPerSession: searchLimitPerSess,
-			CaseSensitive:   searchCaseSensitive,
-			UseRegex:        searchRegex,
-		}
-
-		svc := search.NewService(db)
-
-		if verbose && !searchJSON && !searchList {
-			fmt.Printf("Searching for %q...\n", queryText)
-		}
-
-		results, totalMatches, err := svc.Search(opts)
+		results, totalMatches, err := doSearch(queryText)
 		if err != nil {
 			return err
 		}
@@ -109,6 +88,57 @@ Use --list to output results directly to the terminal (useful for scripting).`,
 		// User selected a session - view it
 		return tui.RunViewer(selected.Path)
 	},
+}
+
+func doSearch(queryText string) ([]search.SessionResult, int, error) {
+	// Try RPC first
+	if rpc.ServerAvailable() {
+		params := rpc.SearchParams{
+			Query:           queryText,
+			Project:         searchFilterProject,
+			Source:          searchFilterSource,
+			Limit:           searchLimit,
+			LimitPerSession: searchLimitPerSess,
+			CaseSensitive:   searchCaseSensitive,
+			Regex:           searchRegex,
+		}
+		resp, err := rpc.Call("search", params, nil)
+		if err == nil && resp.OK {
+			var data struct {
+				Results      []search.SessionResult `json:"results"`
+				TotalMatches int                    `json:"total_matches"`
+			}
+			if err := json.Unmarshal(resp.Data, &data); err == nil {
+				return data.Results, data.TotalMatches, nil
+			}
+		}
+		// Fall through to inline on RPC failure
+	}
+
+	// Inline fallback
+	db, err := getReadOnlyDB()
+	if err != nil {
+		return nil, 0, err
+	}
+	defer db.Close()
+
+	opts := search.SearchOptions{
+		Query:           queryText,
+		FilterProject:   searchFilterProject,
+		FilterSource:    searchFilterSource,
+		Limit:           searchLimit,
+		LimitPerSession: searchLimitPerSess,
+		CaseSensitive:   searchCaseSensitive,
+		UseRegex:        searchRegex,
+	}
+
+	svc := search.NewService(db)
+
+	if verbose && !searchJSON && !searchList {
+		fmt.Printf("Searching for %q...\n", queryText)
+	}
+
+	return svc.Search(opts)
 }
 
 func init() {

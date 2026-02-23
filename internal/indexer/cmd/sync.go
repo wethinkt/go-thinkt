@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -10,12 +11,62 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/cmd"
 	"github.com/wethinkt/go-thinkt/internal/indexer"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
+	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 )
 
 var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Synchronize all local sessions into the index",
 	RunE: func(cmdObj *cobra.Command, args []string) error {
+		// Try RPC first
+		if rpc.ServerAvailable() {
+			progress := NewProgressReporter()
+			var progressFn func(rpc.Progress)
+			if progress.ShouldShowProgress(quiet, verbose) {
+				progressFn = func(p rpc.Progress) {
+					var data struct {
+						Project      int    `json:"project"`
+						ProjectTotal int    `json:"project_total"`
+						Session      int    `json:"session"`
+						SessionTotal int    `json:"session_total"`
+						Message      string `json:"message"`
+						Done         int    `json:"done"`
+						Total        int    `json:"total"`
+						Chunks       int    `json:"chunks"`
+						SessionID    string `json:"session_id"`
+					}
+					if err := json.Unmarshal(p.Data, &data); err == nil {
+						if data.ProjectTotal > 0 {
+							progress.Print(fmt.Sprintf("Projects [%d/%d] | Sessions [%d/%d] %s",
+								data.Project, data.ProjectTotal, data.Session, data.SessionTotal, data.Message))
+						} else if data.Total > 0 {
+							sid := data.SessionID
+							if len(sid) > 12 {
+								sid = sid[:12]
+							}
+							progress.Print(fmt.Sprintf("Embedding [%d/%d] %s — %d chunks",
+								data.Done, data.Total, sid, data.Chunks))
+						}
+					}
+				}
+			}
+			resp, err := rpc.Call("sync", rpc.SyncParams{}, progressFn)
+			if progress.ShouldShowProgress(quiet, verbose) {
+				progress.Finish()
+			}
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "RPC sync failed, falling back to inline: %v\n", err)
+			} else if !resp.OK {
+				return fmt.Errorf("sync: %s", resp.Error)
+			} else {
+				if !quiet {
+					fmt.Println("Indexing complete (via server).")
+				}
+				return nil
+			}
+		}
+
+		// Inline fallback
 		database, err := getDB()
 		if err != nil {
 			return err

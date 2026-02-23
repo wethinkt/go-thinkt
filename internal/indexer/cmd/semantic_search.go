@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
+	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 )
 
@@ -37,37 +38,7 @@ against stored session embeddings using cosine similarity.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		queryText := args[0]
 
-		// Get embedding for query
-		embedder, err := embedding.NewEmbedder("")
-		if err != nil {
-			return fmt.Errorf("semantic search unavailable: %w", err)
-		}
-		defer embedder.Close()
-
-		vecs, err := embedder.Embed(context.Background(), []string{queryText})
-		if err != nil {
-			return fmt.Errorf("failed to embed query: %w", err)
-		}
-		if len(vecs) == 0 {
-			return fmt.Errorf("embedding returned no results for query")
-		}
-
-		// Search
-		db, err := getReadOnlyDB()
-		if err != nil {
-			return err
-		}
-		defer db.Close()
-
-		svc := search.NewService(db)
-		results, err := svc.SemanticSearch(search.SemanticSearchOptions{
-			QueryEmbedding: vecs[0],
-			Model:          embedding.ModelID,
-			FilterProject:  semFilterProject,
-			FilterSource:   semFilterSource,
-			Limit:          semLimit,
-			MaxDistance:     semMaxDistance,
-		})
+		results, err := doSemanticSearch(queryText)
 		if err != nil {
 			return err
 		}
@@ -102,6 +73,60 @@ against stored session embeddings using cosine similarity.`,
 		}
 		return nil
 	},
+}
+
+func doSemanticSearch(queryText string) ([]search.SemanticResult, error) {
+	// Try RPC first
+	if rpc.ServerAvailable() {
+		params := rpc.SemanticSearchParams{
+			Query:       queryText,
+			Project:     semFilterProject,
+			Source:      semFilterSource,
+			Limit:       semLimit,
+			MaxDistance:  semMaxDistance,
+		}
+		resp, err := rpc.Call("semantic_search", params, nil)
+		if err == nil && resp.OK {
+			var data struct {
+				Results []search.SemanticResult `json:"results"`
+			}
+			if err := json.Unmarshal(resp.Data, &data); err == nil {
+				return data.Results, nil
+			}
+		}
+		// Fall through to inline on RPC failure
+	}
+
+	// Inline fallback: load embedder locally
+	embedder, err := embedding.NewEmbedder("")
+	if err != nil {
+		return nil, fmt.Errorf("semantic search unavailable: %w", err)
+	}
+	defer embedder.Close()
+
+	vecs, err := embedder.Embed(context.Background(), []string{queryText})
+	if err != nil {
+		return nil, fmt.Errorf("failed to embed query: %w", err)
+	}
+	if len(vecs) == 0 {
+		return nil, fmt.Errorf("embedding returned no results for query")
+	}
+
+	db, err := getReadOnlyDB()
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	svc := search.NewService(db)
+	return svc.SemanticSearch(search.SemanticSearchOptions{
+		QueryEmbedding: vecs[0],
+		Model:          embedding.ModelID,
+		FilterProject:  semFilterProject,
+		FilterSource:   semFilterSource,
+		Limit:          semLimit,
+		MaxDistance:     semMaxDistance,
+	})
 }
 
 var semanticStatsCmd = &cobra.Command{

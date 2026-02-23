@@ -294,8 +294,10 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 
 	// 2. Ensure model is downloaded
 	log.Printf("Ensuring embedding model is available...")
+	var lastLog time.Time
 	if err := embedding.EnsureModel(func(downloaded, total int64) {
-		if total > 0 {
+		if total > 0 && time.Since(lastLog) >= time.Second {
+			lastLog = time.Now()
 			pct := float64(downloaded) / float64(total) * 100
 			log.Printf("Downloading model: %.1f%% (%d / %d bytes)", pct, downloaded, total)
 		}
