@@ -12,11 +12,11 @@ import (
 )
 
 func TestEndToEnd_EmbedAndSearch(t *testing.T) {
-	client, err := embedding.NewClient()
+	embedder, err := embedding.NewEmbedder("")
 	if err != nil {
-		t.Skipf("thinkt-embed-apple not available: %v", err)
+		t.Skipf("yzma model not available: %v", err)
 	}
-	defer client.Close()
+	defer embedder.Close()
 
 	dbPath := filepath.Join(t.TempDir(), "test.db")
 	d, err := db.Open(dbPath)
@@ -44,14 +44,14 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 
 	requests, mapping := embedding.PrepareEntries(entryTexts, 2000, 200)
 
-	responses, err := client.EmbedBatch(context.Background(), requests)
+	// Extract texts and embed with yzma
+	texts := make([]string, len(requests))
+	for i, r := range requests {
+		texts[i] = r.Text
+	}
+	vectors, err := embedder.Embed(context.Background(), texts)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	respMap := make(map[string]embedding.EmbedResponse)
-	for _, r := range responses {
-		respMap[r.ID] = r
 	}
 
 	// Set up session/project rows for the join
@@ -63,29 +63,29 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 	}
 
 	for idx, m := range mapping {
+		if idx >= len(vectors) {
+			break
+		}
 		id := requests[idx].ID
-		resp := respMap[id]
 		_, err := d.Exec(`
 			INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
-			VALUES (?, ?, ?, ?, 'qwen3-embedding-0.6b', ?, ?::FLOAT[1024], ?)`,
-			id, m.SessionID, m.EntryUUID, m.ChunkIndex, resp.Dim, resp.Embedding, m.TextHash)
+			VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[1024], ?)`,
+			id, m.SessionID, m.EntryUUID, m.ChunkIndex, embedder.EmbedModelID(), embedder.Dim(), vectors[idx], m.TextHash)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	// Search for "auth timeout" — should find e1 and e2 before e3
-	queryResp, err := client.EmbedBatch(context.Background(), []embedding.EmbedRequest{
-		{ID: "q", Text: "authentication timeout problem"},
-	})
+	queryVecs, err := embedder.Embed(context.Background(), []string{"authentication timeout problem"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	svc := search.NewService(d)
 	results, err := svc.SemanticSearch(search.SemanticSearchOptions{
-		QueryEmbedding: queryResp[0].Embedding,
-		Model:          "qwen3-embedding-0.6b",
+		QueryEmbedding: queryVecs[0],
+		Model:          embedding.ModelID,
 		Limit:          10,
 	})
 	if err != nil {

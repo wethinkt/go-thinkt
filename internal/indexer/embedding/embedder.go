@@ -5,6 +5,12 @@ import (
 	"fmt"
 )
 
+// EmbedRequest holds an ID and text for embedding a chunk.
+type EmbedRequest struct {
+	ID   string
+	Text string
+}
+
 // EntryText holds the extracted text for an entry, ready for embedding.
 type EntryText struct {
 	UUID      string
