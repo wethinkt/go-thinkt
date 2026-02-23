@@ -27,6 +27,7 @@ type Server struct {
 	registry  *AgentRegistry
 	router    chi.Router
 	startedAt time.Time
+	pubsub    *SessionPubSub
 }
 
 // NewServer creates a new collector server. It opens the DuckDB store and
@@ -64,6 +65,7 @@ func NewServer(cfg CollectorConfig) (*Server, error) {
 		store:     store,
 		registry:  NewAgentRegistry(),
 		startedAt: time.Now(),
+		pubsub:    NewSessionPubSub(),
 	}
 	s.router = s.setupRouter()
 	return s, nil

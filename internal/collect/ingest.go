@@ -43,6 +43,8 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.pubsub.Publish(req.SessionID, req.Entries)
+
 	tuilog.Log.Info("Ingested traces",
 		"session_id", req.SessionID,
 		"source", req.Source,
