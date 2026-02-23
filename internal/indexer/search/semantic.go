@@ -39,7 +39,7 @@ func (s *Service) SemanticSearch(opts SemanticSearchOptions) ([]SemanticResult, 
 
 	q := `
 		SELECT emb.session_id, emb.entry_uuid, emb.chunk_index,
-		       (SELECT count(*) FROM embeddings c WHERE c.entry_uuid = emb.entry_uuid AND c.model = emb.model) AS total_chunks,
+		       (SELECT count(*) FROM embeddings c WHERE c.session_id = emb.session_id AND c.entry_uuid = emb.entry_uuid AND c.model = emb.model) AS total_chunks,
 		       array_cosine_distance(emb.embedding, ?::FLOAT[1024]) AS distance,
 		       COALESCE(ent.role, '') AS role,
 		       COALESCE(CAST(ent.timestamp AS VARCHAR), '') AS timestamp,
@@ -50,7 +50,7 @@ func (s *Service) SemanticSearch(opts SemanticSearchOptions) ([]SemanticResult, 
 		       COALESCE(s.path, '') AS session_path,
 		       COALESCE(s.first_prompt, '') AS first_prompt
 		FROM embeddings emb
-		LEFT JOIN entries ent ON emb.entry_uuid = ent.uuid
+		LEFT JOIN entries ent ON emb.session_id = ent.session_id AND emb.entry_uuid = ent.uuid
 		LEFT JOIN sessions s ON emb.session_id = s.id
 		LEFT JOIN projects p ON s.project_id = p.id
 		WHERE emb.model = ?`

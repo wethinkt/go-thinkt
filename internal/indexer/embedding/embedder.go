@@ -15,6 +15,7 @@ type EmbedRequest struct {
 type EntryText struct {
 	UUID      string
 	SessionID string
+	Source    string // used to scope embedding IDs across sources
 	Text      string
 }
 
@@ -42,7 +43,7 @@ func PrepareEntries(entries []EntryText, maxChars, overlap int) ([]EmbedRequest,
 	for _, e := range entries {
 		chunks := ChunkText(e.Text, maxChars, overlap)
 		for i, chunk := range chunks {
-			id := fmt.Sprintf("%s_%d", e.UUID, i)
+			id := fmt.Sprintf("%s:%s:%s_%d", e.Source, e.SessionID, e.UUID, i)
 			requests = append(requests, EmbedRequest{
 				ID:   id,
 				Text: chunk,

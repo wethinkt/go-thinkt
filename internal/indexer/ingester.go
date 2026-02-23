@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/indexer/db"
@@ -74,7 +76,17 @@ func (i *Ingester) reportProgress(pIdx, pTotal, sIdx, sTotal int, message string
 	}
 }
 
+// parsedSession holds the result of reading and parsing a session file.
+// This is the CPU/IO-bound work that can be parallelized.
+type parsedSession struct {
+	meta      thinkt.SessionMeta
+	projectID string
+	entries   []thinkt.Entry
+	err       error
+}
+
 // IngestProject indexes all sessions within a given project.
+// File reads are parallelized across CPU cores; DB writes are serialized.
 func (i *Ingester) IngestProject(ctx context.Context, project thinkt.Project, pIdx, pTotal int) error {
 	// Ensure project exists in DB
 	if err := i.syncProject(ctx, project); err != nil {
@@ -97,24 +109,206 @@ func (i *Ingester) IngestProject(ctx context.Context, project thinkt.Project, pI
 		return nil
 	}
 
-	for idx, s := range sessions {
+	projectID := ScopedProjectID(project.Source, project.ID)
+
+	// Filter to sessions that need syncing.
+	var toSync []thinkt.SessionMeta
+	for _, s := range sessions {
+		shouldSync, _, err := i.shouldSyncSession(s)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "\nError checking session %s: %v\n", s.ID, err)
+			continue
+		}
+		if shouldSync {
+			toSync = append(toSync, s)
+		}
+	}
+
+	if len(toSync) == 0 {
+		i.reportProgress(pIdx, pTotal, totalSessions, totalSessions,
+			fmt.Sprintf("Project %s (up to date)", project.Name))
+		return nil
+	}
+
+	// Phase 1: Parse session files in parallel (CPU/IO-bound).
+	workers := min(runtime.NumCPU(), len(toSync))
+	if workers < 1 {
+		workers = 1
+	}
+
+	parsed := make([]parsedSession, len(toSync))
+	var wg sync.WaitGroup
+	work := make(chan int, len(toSync))
+
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for idx := range work {
+				if ctx.Err() != nil {
+					parsed[idx] = parsedSession{err: ctx.Err()}
+					continue
+				}
+				parsed[idx] = i.parseSession(ctx, store, toSync[idx], projectID)
+			}
+		}()
+	}
+	for idx := range toSync {
+		work <- idx
+	}
+	close(work)
+	wg.Wait()
+
+	// Phase 2: Write to DB serially (DuckDB is single-writer).
+	written := 0
+	for _, p := range parsed {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		i.reportProgress(pIdx, pTotal, idx+1, totalSessions, fmt.Sprintf("Indexing %s: %s", project.Name, s.ID))
-		if err := i.IngestSession(ctx, ScopedProjectID(project.Source, project.ID), s); err != nil {
-			// Log error but continue with other sessions
-			fmt.Fprintf(os.Stderr, "\nError ingesting session %s: %v\n", s.ID, err)
+		if p.err != nil {
+			fmt.Fprintf(os.Stderr, "\nError reading session %s: %v\n", p.meta.ID, p.err)
+			continue
+		}
+
+		written++
+		i.reportProgress(pIdx, pTotal, written, len(toSync),
+			fmt.Sprintf("Indexing %s: %s", project.Name, p.meta.ID))
+
+		if err := i.writeSession(ctx, p); err != nil {
+			fmt.Fprintf(os.Stderr, "\nError ingesting session %s: %v\n", p.meta.ID, err)
 		}
 	}
 
 	return nil
 }
 
+// parseSession reads and parses a session file. Safe to call from multiple goroutines.
+func (i *Ingester) parseSession(ctx context.Context, store thinkt.Store, meta thinkt.SessionMeta, projectID string) parsedSession {
+	reader, err := store.OpenSession(ctx, meta.ID)
+	if err != nil {
+		return parsedSession{meta: meta, projectID: projectID, err: err}
+	}
+	defer reader.Close()
+
+	var entries []thinkt.Entry
+	for {
+		entry, err := reader.ReadNext()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return parsedSession{meta: meta, projectID: projectID, err: fmt.Errorf("read entry: %w", err)}
+		}
+		if entry.UUID == "" {
+			continue
+		}
+		entries = append(entries, *entry)
+	}
+
+	return parsedSession{meta: meta, projectID: projectID, entries: entries}
+}
+
+// writeSession writes a parsed session's entries to the database using a
+// single transaction with a prepared statement for bulk insert performance.
+func (i *Ingester) writeSession(ctx context.Context, p parsedSession) error {
+	tx, err := i.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback() //nolint: errcheck
+
+	// Delete existing entries for this session before re-ingesting
+	if _, err := tx.ExecContext(ctx, "DELETE FROM entries WHERE session_id = ?", p.meta.ID); err != nil {
+		return fmt.Errorf("clear old entries: %w", err)
+	}
+
+	// Prepared statement for bulk insert
+	stmt, err := tx.PrepareContext(ctx, `
+		INSERT INTO entries (
+			session_id, uuid, timestamp, role,
+			input_tokens, output_tokens, tool_name, is_error, word_count, thinking_len,
+			line_number
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (session_id, uuid) DO UPDATE SET
+			timestamp = excluded.timestamp,
+			role = excluded.role,
+			input_tokens = excluded.input_tokens,
+			output_tokens = excluded.output_tokens,
+			tool_name = excluded.tool_name,
+			is_error = excluded.is_error,
+			word_count = excluded.word_count,
+			thinking_len = excluded.thinking_len,
+			line_number = excluded.line_number`)
+	if err != nil {
+		return fmt.Errorf("prepare insert: %w", err)
+	}
+	defer stmt.Close()
+
+	for idx, entry := range p.entries {
+		var inputTokens, outputTokens int
+		if entry.Usage != nil {
+			inputTokens = entry.Usage.InputTokens
+			outputTokens = entry.Usage.OutputTokens
+		}
+
+		var toolName string
+		var isError bool
+		var thinkingLen int
+		for _, b := range entry.ContentBlocks {
+			switch b.Type {
+			case "tool_use":
+				toolName = b.ToolName
+			case "tool_result":
+				isError = b.IsError
+			case "thinking":
+				thinkingLen += len(b.Thinking)
+			}
+		}
+
+		wordCount := len(strings.Fields(entry.Text))
+
+		if _, err := stmt.ExecContext(ctx,
+			p.meta.ID, entry.UUID, entry.Timestamp, string(entry.Role),
+			inputTokens, outputTokens, toolName, isError, wordCount, thinkingLen,
+			idx+1,
+		); err != nil {
+			return fmt.Errorf("insert entry %s: %w", entry.UUID, err)
+		}
+	}
+
+	// Session metadata and sync state within same transaction
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO sessions (id, project_id, path, model, first_prompt, entry_count, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (id) DO UPDATE SET
+			project_id = excluded.project_id,
+			path = excluded.path,
+			model = excluded.model,
+			first_prompt = excluded.first_prompt,
+			entry_count = excluded.entry_count,
+			created_at = excluded.created_at,
+			updated_at = excluded.updated_at`,
+		p.meta.ID, p.projectID, p.meta.FullPath, p.meta.Model, p.meta.FirstPrompt,
+		len(p.entries), p.meta.CreatedAt, p.meta.ModifiedAt,
+	); err != nil {
+		return fmt.Errorf("upsert session meta: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT OR REPLACE INTO sync_state (file_path, last_mod_time, file_size, lines_read, last_synced)
+		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+		p.meta.FullPath, p.meta.ModifiedAt, p.meta.FileSize, len(p.entries),
+	); err != nil {
+		return fmt.Errorf("update sync state: %w", err)
+	}
+
+	return tx.Commit()
+}
+
 // IngestSession indexes a single session if it has changed since the last sync.
 // This only indexes metadata — call EmbedAllSessions separately for embeddings.
 func (i *Ingester) IngestSession(ctx context.Context, projectID string, meta thinkt.SessionMeta) error {
-	// 1. Check sync state
 	shouldSync, _, err := i.shouldSyncSession(meta)
 	if err != nil {
 		return err
@@ -123,50 +317,17 @@ func (i *Ingester) IngestSession(ctx context.Context, projectID string, meta thi
 		return nil
 	}
 
-	// 2. Load and parse the session
 	store, ok := i.registry.Get(meta.Source)
 	if !ok {
 		return fmt.Errorf("no store found for source %s", meta.Source)
 	}
 
-	// Delete existing entries for this session before re-ingesting
-	if _, err := i.db.ExecContext(ctx, "DELETE FROM entries WHERE session_id = ?", meta.ID); err != nil {
-		return fmt.Errorf("failed to clear old entries for session %s: %w", meta.ID, err)
+	p := i.parseSession(ctx, store, meta, projectID)
+	if p.err != nil {
+		return p.err
 	}
 
-	reader, err := store.OpenSession(ctx, meta.ID)
-	if err != nil {
-		return err
-	}
-	defer reader.Close()
-
-	// 3. Ingest entries
-	count := 0
-	for {
-		entry, err := reader.ReadNext()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return fmt.Errorf("error reading entry: %w", err)
-		}
-
-		if entry.UUID == "" {
-			continue // skip entries without UUIDs
-		}
-		count++
-		if err := i.upsertEntry(ctx, meta.ID, *entry, count); err != nil {
-			return err
-		}
-	}
-
-	// 4. Upsert session metadata with final count
-	if err := i.syncSessionMeta(ctx, projectID, meta, count); err != nil {
-		return err
-	}
-
-	// 5. Update sync state
-	return i.updateSyncState(meta, count)
+	return i.writeSession(ctx, p)
 }
 
 // IngestAndEmbedSession indexes a single session and immediately embeds it.
@@ -189,15 +350,20 @@ func (i *Ingester) EmbedAllSessions(ctx context.Context) error {
 		return nil
 	}
 
-	// Find sessions that have entries but no embeddings, with entry counts
+	// Find sessions that need embedding: either no embeddings at all,
+	// or entry count changed since last embed (new entries appended).
 	rows, err := i.db.QueryContext(ctx, `
-		SELECT s.id, s.path, count(e.uuid) as entry_count
+		SELECT s.id, s.path, count(DISTINCT e.uuid) as entry_count
 		FROM sessions s
 		JOIN entries e ON e.session_id = s.id
-		WHERE NOT EXISTS (
-			SELECT 1 FROM embeddings emb WHERE emb.session_id = s.id
-		)
-		GROUP BY s.id, s.path
+		LEFT JOIN (
+			SELECT session_id, count(DISTINCT entry_uuid) as embedded_entries
+			FROM embeddings
+			GROUP BY session_id
+		) emb ON emb.session_id = s.id
+		GROUP BY s.id, s.path, emb.embedded_entries
+		HAVING emb.embedded_entries IS NULL
+		    OR emb.embedded_entries < count(DISTINCT e.uuid)
 		ORDER BY s.id`)
 	if err != nil {
 		return fmt.Errorf("query sessions needing embeddings: %w", err)
@@ -284,7 +450,7 @@ func (i *Ingester) embedSessionFromDB(ctx context.Context, sessionID string) (in
 		entries = append(entries, *entry)
 	}
 
-	return i.embedSession(ctx, sessionID, entries)
+	return i.embedSession(ctx, sessionID, source, entries)
 }
 
 func (i *Ingester) syncProject(ctx context.Context, p thinkt.Project) error {
@@ -298,72 +464,6 @@ func (i *Ingester) syncProject(ctx context.Context, p thinkt.Project) error {
 			source = excluded.source,
 			workspace_id = excluded.workspace_id`
 	_, err := i.db.ExecContext(ctx, query, projectID, p.Path, p.Name, string(p.Source), p.WorkspaceID)
-	return err
-}
-
-func (i *Ingester) syncSessionMeta(ctx context.Context, projectID string, m thinkt.SessionMeta, count int) error {
-	query := `
-		INSERT INTO sessions (id, project_id, path, model, first_prompt, entry_count, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT (id) DO UPDATE SET
-			project_id = excluded.project_id,
-			path = excluded.path,
-			model = excluded.model,
-			first_prompt = excluded.first_prompt,
-			entry_count = excluded.entry_count,
-			created_at = excluded.created_at,
-			updated_at = excluded.updated_at`
-	_, err := i.db.ExecContext(ctx, query, m.ID, projectID, m.FullPath, m.Model, m.FirstPrompt, count, m.CreatedAt, m.ModifiedAt)
-	return err
-}
-
-func (i *Ingester) upsertEntry(ctx context.Context, sessionID string, entry thinkt.Entry, lineNum int) error {
-	// Extract metrics
-	var inputTokens, outputTokens int
-	if entry.Usage != nil {
-		inputTokens = entry.Usage.InputTokens
-		outputTokens = entry.Usage.OutputTokens
-	}
-
-	var toolName string
-	var isError bool
-	var thinkingLen int
-	for _, b := range entry.ContentBlocks {
-		switch b.Type {
-		case "tool_use":
-			toolName = b.ToolName
-		case "tool_result":
-			isError = b.IsError
-		case "thinking":
-			thinkingLen += len(b.Thinking)
-		}
-	}
-
-	wordCount := len(strings.Fields(entry.Text))
-
-	query := `
-		INSERT INTO entries (
-			uuid, session_id, timestamp, role,
-			input_tokens, output_tokens, tool_name, is_error, word_count, thinking_len,
-			line_number
-		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT (uuid) DO UPDATE SET
-			session_id = excluded.session_id,
-			timestamp = excluded.timestamp,
-			role = excluded.role,
-			input_tokens = excluded.input_tokens,
-			output_tokens = excluded.output_tokens,
-			tool_name = excluded.tool_name,
-			is_error = excluded.is_error,
-			word_count = excluded.word_count,
-			thinking_len = excluded.thinking_len,
-			line_number = excluded.line_number`
-	_, err := i.db.ExecContext(ctx, query,
-		entry.UUID, sessionID, entry.Timestamp, string(entry.Role),
-		inputTokens, outputTokens, toolName, isError, wordCount, thinkingLen,
-		lineNum,
-	)
 	return err
 }
 
@@ -383,14 +483,6 @@ func (i *Ingester) shouldSyncSession(meta thinkt.SessionMeta) (bool, time.Time, 
 	return meta.ModifiedAt.After(lastMod) || meta.FileSize != lastSize, lastMod, nil
 }
 
-func (i *Ingester) updateSyncState(meta thinkt.SessionMeta, lines int) error {
-	query := `
-		INSERT OR REPLACE INTO sync_state (file_path, last_mod_time, file_size, lines_read, last_synced)
-		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`
-	_, err := i.db.Exec(query, meta.FullPath, meta.ModifiedAt, meta.FileSize, lines)
-	return err
-}
-
 func sqlErrNoRows() error {
 	return db.ErrNoRows
 }
@@ -399,7 +491,7 @@ func sqlErrNoRows() error {
 // Smaller values give more granular progress updates.
 const embedBatchSize = 16
 
-func (i *Ingester) embedSession(ctx context.Context, sessionID string, entries []thinkt.Entry) (int, error) {
+func (i *Ingester) embedSession(ctx context.Context, sessionID string, source string, entries []thinkt.Entry) (int, error) {
 	if i.embedder == nil {
 		return 0, nil
 	}
@@ -414,6 +506,7 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, entries [
 		entryTexts = append(entryTexts, embedding.EntryText{
 			UUID:      e.UUID,
 			SessionID: sessionID,
+			Source:    source,
 			Text:      text,
 		})
 	}
@@ -423,7 +516,49 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, entries [
 
 	// Prepare chunks
 	requests, mapping := embedding.PrepareEntries(entryTexts, 2000, 200)
-	totalChunks := len(requests)
+
+	// Load existing text hashes for this session to skip unchanged chunks.
+	existingHashes := make(map[string]string) // id -> text_hash
+	rows, err := i.db.QueryContext(ctx, `SELECT id, text_hash FROM embeddings WHERE session_id = ?`, sessionID)
+	if err == nil {
+		for rows.Next() {
+			var id, hash string
+			if err := rows.Scan(&id, &hash); err == nil {
+				existingHashes[id] = hash
+			}
+		}
+		rows.Close()
+	}
+
+	// Filter to only chunks that are new or changed.
+	var newRequests []embedding.EmbedRequest
+	var newMapping []embedding.ChunkMapping
+	newIDs := make(map[string]bool, len(requests))
+	for idx, req := range requests {
+		newIDs[req.ID] = true
+		m := mapping[idx]
+		if existingHash, ok := existingHashes[req.ID]; ok && existingHash == m.TextHash {
+			continue // already embedded with same content
+		}
+		// Delete existing row if it exists (text changed) so INSERT below succeeds.
+		if _, ok := existingHashes[req.ID]; ok {
+			_, _ = i.db.ExecContext(ctx, `DELETE FROM embeddings WHERE id = ?`, req.ID)
+		}
+		newRequests = append(newRequests, req)
+		newMapping = append(newMapping, m)
+	}
+
+	// Clean up stale embeddings (entries removed from session).
+	for id := range existingHashes {
+		if !newIDs[id] {
+			_, _ = i.db.ExecContext(ctx, `DELETE FROM embeddings WHERE id = ?`, id)
+		}
+	}
+
+	totalChunks := len(newRequests)
+	if totalChunks == 0 {
+		return 0, nil
+	}
 
 	// Embed and store in sub-batches for progress visibility and cancellation.
 	stored := 0
@@ -438,7 +573,7 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, entries [
 		// Extract text strings for this sub-batch
 		batchTexts := make([]string, batchEnd-batchStart)
 		for j := batchStart; j < batchEnd; j++ {
-			batchTexts[j-batchStart] = requests[j].Text
+			batchTexts[j-batchStart] = newRequests[j].Text
 		}
 
 		result, err := i.embedder.Embed(ctx, batchTexts)
@@ -450,14 +585,11 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, entries [
 		// Store embeddings
 		for j, vec := range result.Vectors {
 			idx := batchStart + j
-			id := requests[idx].ID
-			m := mapping[idx]
+			id := newRequests[idx].ID
+			m := newMapping[idx]
 			_, err := i.db.ExecContext(ctx, `
 				INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
-				VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[1024], ?)
-				ON CONFLICT (id) DO UPDATE SET
-					embedding = excluded.embedding,
-					text_hash = excluded.text_hash`,
+				VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[1024], ?)`,
 				id, m.SessionID, m.EntryUUID, m.ChunkIndex,
 				i.embedder.EmbedModelID(), i.embedder.Dim(), vec, m.TextHash,
 			)

@@ -32,12 +32,14 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 -- Conversation entries (Metadata only, no private content)
+-- Keyed by (session_id, uuid) since entry UUIDs are only unique within a session
+-- (e.g. Kimi uses short per-session IDs like L1, L2).
 CREATE TABLE IF NOT EXISTS entries (
-    uuid          VARCHAR PRIMARY KEY,
-    session_id    VARCHAR,
+    session_id    VARCHAR NOT NULL,
+    uuid          VARCHAR NOT NULL,
     timestamp     TIMESTAMP,
     role          VARCHAR,
-    
+
     -- Extracted Metrics
     input_tokens  INTEGER,
     output_tokens INTEGER,
@@ -45,9 +47,11 @@ CREATE TABLE IF NOT EXISTS entries (
     is_error      BOOLEAN,
     word_count    INTEGER,
     thinking_len  INTEGER,
-    
+
     -- Reference to source
-    line_number   INTEGER
+    line_number   INTEGER,
+
+    PRIMARY KEY (session_id, uuid)
 );
 
 -- Performance Indexes
@@ -55,9 +59,9 @@ CREATE INDEX IF NOT EXISTS idx_entries_session ON entries(session_id);
 CREATE INDEX IF NOT EXISTS idx_entries_ts ON entries(timestamp);
 CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id);
 
--- Embeddings for semantic search (requires VSS extension for HNSW indexing)
+-- Embeddings for semantic search
 CREATE TABLE IF NOT EXISTS embeddings (
-    id          VARCHAR PRIMARY KEY,    -- "{entry_uuid}_{chunk_index}"
+    id          VARCHAR PRIMARY KEY,    -- "{source}:{session_id}:{entry_uuid}_{chunk_index}"
     session_id  VARCHAR NOT NULL,
     entry_uuid  VARCHAR NOT NULL,
     chunk_index INTEGER NOT NULL DEFAULT 0,
@@ -66,8 +70,8 @@ CREATE TABLE IF NOT EXISTS embeddings (
     embedding   FLOAT[1024] NOT NULL,
     text_hash   VARCHAR NOT NULL,       -- SHA-256, detect changes without re-embedding
     created_at  TIMESTAMP DEFAULT current_timestamp,
-    UNIQUE(entry_uuid, chunk_index, model)
+    UNIQUE(session_id, entry_uuid, chunk_index, model)
 );
 
 CREATE INDEX IF NOT EXISTS idx_embeddings_session ON embeddings(session_id);
-CREATE INDEX IF NOT EXISTS idx_embeddings_entry ON embeddings(entry_uuid);
+CREATE INDEX IF NOT EXISTS idx_embeddings_entry ON embeddings(session_id, entry_uuid);

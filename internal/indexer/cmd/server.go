@@ -296,10 +296,7 @@ func (s *indexerServer) HandleSemanticSearch(ctx context.Context, params rpc.Sem
 	if limit <= 0 {
 		limit = 20
 	}
-	maxDist := params.MaxDistance
-	if maxDist <= 0 {
-		maxDist = 0.5
-	}
+	maxDist := params.MaxDistance // 0 means no threshold
 
 	results, err := svc.SemanticSearch(search.SemanticSearchOptions{
 		QueryEmbedding: result.Vectors[0],
