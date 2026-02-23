@@ -114,6 +114,10 @@ type TraceStore interface {
 	QueryEntries(ctx context.Context, sessionID string, limit, offset int) ([]IngestEntry, error)
 	// SearchTraces searches collected traces by text query.
 	SearchTraces(ctx context.Context, query string, limit int) ([]SessionSummary, error)
+	// RecordSessionActivity records a session lifecycle event.
+	RecordSessionActivity(ctx context.Context, event SessionActivityEvent) error
+	// QueryActiveSessions returns sessions that are currently active.
+	QueryActiveSessions(ctx context.Context) ([]SessionSummary, error)
 	// GetUsageStats returns aggregate collector usage statistics.
 	GetUsageStats(ctx context.Context) (*CollectorStats, error)
 	// Close shuts down the store and releases resources.
@@ -125,18 +129,31 @@ type SessionFilter struct {
 	Source      string `json:"source,omitempty"`
 	ProjectPath string `json:"project_path,omitempty"`
 	InstanceID  string `json:"instance_id,omitempty"`
+	ActiveOnly  bool   `json:"active_only,omitempty"` // Only return sessions with status "active"
 	Limit       int    `json:"limit,omitempty"`
 	Offset      int    `json:"offset,omitempty"`
 }
 
 // SessionSummary is a summary of a collected session.
 type SessionSummary struct {
-	ID          string    `json:"id"`
-	ProjectPath string    `json:"project_path"`
-	Source      string    `json:"source"`
+	ID           string    `json:"id"`
+	ProjectPath  string    `json:"project_path"`
+	Source       string    `json:"source"`
+	InstanceID   string    `json:"instance_id"`
+	Model        string    `json:"model"`
+	EntryCount   int       `json:"entry_count"`
+	FirstSeen    time.Time `json:"first_seen"`
+	LastUpdated  time.Time `json:"last_updated"`
+	Status       string    `json:"status,omitempty"`        // "active", "ended", "unknown"
+	LastActivity time.Time `json:"last_activity,omitempty"` // Most recent activity event time
+}
+
+// SessionActivityEvent is sent by exporters to report session lifecycle changes.
+type SessionActivityEvent struct {
 	InstanceID  string    `json:"instance_id"`
-	Model       string    `json:"model"`
-	EntryCount  int       `json:"entry_count"`
-	FirstSeen   time.Time `json:"first_seen"`
-	LastUpdated time.Time `json:"last_updated"`
+	Source      string    `json:"source"`
+	ProjectPath string    `json:"project_path"`
+	SessionID   string    `json:"session_id"`
+	Event       string    `json:"event"` // "session_start", "session_active", "session_end"
+	Timestamp   time.Time `json:"timestamp"`
 }

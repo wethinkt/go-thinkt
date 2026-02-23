@@ -10,8 +10,6 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/duckdb/duckdb-go/v2"
-
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -24,7 +22,9 @@ CREATE TABLE IF NOT EXISTS collected_sessions (
     model VARCHAR,
     entry_count INTEGER DEFAULT 0,
     first_seen TIMESTAMP,
-    last_updated TIMESTAMP
+    last_updated TIMESTAMP,
+    status VARCHAR DEFAULT 'unknown',
+    last_activity TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS collected_entries (
@@ -53,6 +53,15 @@ CREATE TABLE IF NOT EXISTS collected_agents (
     trace_count BIGINT DEFAULT 0,
     project VARCHAR,
     metadata VARCHAR
+);
+
+CREATE TABLE IF NOT EXISTS session_activity (
+    session_id VARCHAR NOT NULL,
+    instance_id VARCHAR,
+    source VARCHAR,
+    project_path VARCHAR,
+    event VARCHAR NOT NULL,
+    timestamp TIMESTAMP NOT NULL
 );
 `
 
@@ -355,6 +364,67 @@ func (s *DuckDBStore) SearchTraces(ctx context.Context, query string, limit int)
 		if err := rows.Scan(&ss.ID, &ss.ProjectPath, &ss.Source, &ss.InstanceID,
 			&ss.Model, &ss.EntryCount, &ss.FirstSeen, &ss.LastUpdated); err != nil {
 			return nil, fmt.Errorf("scan search result: %w", err)
+		}
+		sessions = append(sessions, ss)
+	}
+	return sessions, rows.Err()
+}
+
+// RecordSessionActivity records a session lifecycle event.
+func (s *DuckDBStore) RecordSessionActivity(ctx context.Context, event SessionActivityEvent) error {
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO session_activity (session_id, instance_id, source, project_path, event, timestamp)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, event.SessionID, event.InstanceID, event.Source, event.ProjectPath, event.Event, event.Timestamp)
+	if err != nil {
+		return fmt.Errorf("record session activity: %w", err)
+	}
+
+	// Also update the collected_sessions status if the session exists
+	status := "unknown"
+	switch event.Event {
+	case "session_start", "session_active":
+		status = "active"
+	case "session_end":
+		status = "ended"
+	}
+
+	_, _ = s.db.ExecContext(ctx, `
+		UPDATE collected_sessions SET status = ?, last_activity = ? WHERE id = ?
+	`, status, event.Timestamp, event.SessionID)
+
+	return nil
+}
+
+// QueryActiveSessions returns sessions that are currently active based on
+// the most recent activity event per session.
+func (s *DuckDBStore) QueryActiveSessions(ctx context.Context) ([]SessionSummary, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		WITH latest_events AS (
+			SELECT session_id, event, timestamp,
+				ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY timestamp DESC) as rn
+			FROM session_activity
+		)
+		SELECT cs.id, cs.project_path, cs.source, cs.instance_id, cs.model,
+			cs.entry_count, cs.first_seen, cs.last_updated,
+			COALESCE(cs.status, 'unknown'), COALESCE(cs.last_activity, cs.last_updated)
+		FROM collected_sessions cs
+		JOIN latest_events le ON le.session_id = cs.id AND le.rn = 1
+		WHERE le.event IN ('session_start', 'session_active')
+		ORDER BY le.timestamp DESC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("query active sessions: %w", err)
+	}
+	defer rows.Close()
+
+	var sessions []SessionSummary
+	for rows.Next() {
+		var ss SessionSummary
+		if err := rows.Scan(&ss.ID, &ss.ProjectPath, &ss.Source, &ss.InstanceID,
+			&ss.Model, &ss.EntryCount, &ss.FirstSeen, &ss.LastUpdated,
+			&ss.Status, &ss.LastActivity); err != nil {
+			return nil, fmt.Errorf("scan active session: %w", err)
 		}
 		sessions = append(sessions, ss)
 	}

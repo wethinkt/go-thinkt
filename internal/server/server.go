@@ -100,12 +100,13 @@ func (c *Config) Close() {
 
 // HTTPServer serves the REST API.
 type HTTPServer struct {
-	registry      *thinkt.StoreRegistry
-	teamStore     thinkt.TeamStore
-	router        chi.Router
-	config        Config
-	pathValidator *thinkt.PathValidator
-	authenticator *BearerAuthenticator
+	registry       *thinkt.StoreRegistry
+	teamStore      thinkt.TeamStore
+	activeDetector *thinkt.ActiveSessionDetector
+	router         chi.Router
+	config         Config
+	pathValidator  *thinkt.PathValidator
+	authenticator  *BearerAuthenticator
 	startedAt     time.Time
 }
 
@@ -117,10 +118,11 @@ func NewHTTPServer(registry *thinkt.StoreRegistry, config Config) *HTTPServer {
 // NewHTTPServerWithAuth creates a new HTTP server with authentication.
 func NewHTTPServerWithAuth(registry *thinkt.StoreRegistry, config Config, authConfig AuthConfig) *HTTPServer {
 	s := &HTTPServer{
-		registry:      registry,
-		config:        config,
-		pathValidator: thinkt.NewPathValidator(registry),
-		authenticator: NewBearerAuthenticator(authConfig),
+		registry:       registry,
+		activeDetector: thinkt.NewActiveSessionDetector(registry),
+		config:         config,
+		pathValidator:  thinkt.NewPathValidator(registry),
+		authenticator:  NewBearerAuthenticator(authConfig),
 	}
 	s.router = s.setupRouter()
 	return s
@@ -179,6 +181,9 @@ func (s *HTTPServer) setupRouter() chi.Router {
 		// Open-in endpoints
 		r.Post("/open-in", s.handleOpenIn)
 		r.Get("/open-in/apps", s.handleGetAllowedApps)
+
+		// Active sessions endpoint
+		r.Get("/sessions/active", s.handleGetActiveSessions)
 
 		// Themes endpoint
 		r.Get("/themes", s.handleGetThemes)

@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     path          VARCHAR,
     model         VARCHAR,
     first_prompt  TEXT,
+    summary       TEXT,
     entry_count   INTEGER,
     created_at    TIMESTAMP,
     updated_at    TIMESTAMP

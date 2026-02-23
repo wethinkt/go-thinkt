@@ -191,6 +191,22 @@ func init() {
 	rootCmd.AddCommand(makeIndexerAlias("semantic", "Search sessions by meaning using on-device embeddings"))
 	rootCmd.AddCommand(makeIndexerAlias("embeddings", "Manage embedding model, storage, and sync"))
 	rootCmd.AddCommand(teamsCmd)
+	// Collect command flags
+	rootCmd.AddCommand(collectCmd)
+	collectCmd.Flags().IntVarP(&collectPort, "port", "p", 4318, "collector port")
+	collectCmd.Flags().StringVar(&collectHost, "host", "localhost", "collector host")
+	collectCmd.Flags().StringVar(&collectStorage, "storage", "", "DuckDB storage path")
+	collectCmd.Flags().StringVar(&collectToken, "token", "", "bearer token for authentication")
+	collectCmd.Flags().BoolVarP(&collectQuiet, "quiet", "q", false, "suppress non-error output")
+
+	// Export command flags
+	rootCmd.AddCommand(exportCmd)
+	exportCmd.Flags().StringVar(&exportCollectorURL, "collector-url", "", "collector URL (default: auto-discover)")
+	exportCmd.Flags().StringVar(&exportAPIKey, "api-key", "", "API key for collector authentication")
+	exportCmd.Flags().StringVar(&exportSource, "source", "", "filter by source (claude, kimi, etc.)")
+	exportCmd.Flags().BoolVar(&exportForward, "forward", false, "continuous watch mode")
+	exportCmd.Flags().BoolVar(&exportFlush, "flush", false, "flush the disk buffer")
+	exportCmd.Flags().BoolVarP(&exportQuiet, "quiet", "q", false, "suppress non-error output")
 	teamsCmd.AddCommand(teamsListCmd)
 	teamsCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "output as JSON")
 	teamsCmd.PersistentFlags().BoolVar(&teamsFilterActive, "active", false, "show only active teams")

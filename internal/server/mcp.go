@@ -22,11 +22,12 @@ import (
 
 // MCPServer wraps an MCP server for thinkt.
 type MCPServer struct {
-	server        *mcp.Server
-	registry      *thinkt.StoreRegistry
-	authenticator *BearerAuthenticator
-	allowTools    map[string]bool
-	denyTools     map[string]bool
+	server         *mcp.Server
+	registry       *thinkt.StoreRegistry
+	activeDetector *thinkt.ActiveSessionDetector
+	authenticator  *BearerAuthenticator
+	allowTools     map[string]bool
+	denyTools      map[string]bool
 }
 
 // NewMCPServer creates a new MCP server with thinkt tools.
@@ -43,9 +44,10 @@ func NewMCPServerWithAuth(registry *thinkt.StoreRegistry, authConfig AuthConfig)
 	}, nil)
 
 	ms := &MCPServer{
-		server:        server,
-		registry:      registry,
-		authenticator: NewBearerAuthenticator(authConfig),
+		server:         server,
+		registry:       registry,
+		activeDetector: thinkt.NewActiveSessionDetector(registry),
+		authenticator:  NewBearerAuthenticator(authConfig),
 	}
 
 	return ms
@@ -122,6 +124,17 @@ func (ms *MCPServer) registerTools() {
 		}, ms.handleGetSessionEntries)
 	}
 
+	// list_active_sessions
+	if ms.isToolAllowed("list_active_sessions") {
+		mcp.AddTool(ms.server, &mcp.Tool{
+			Name:        "list_active_sessions",
+			Description: "List currently active AI coding sessions detected on the local machine via IDE lock files and file modification times.",
+		}, ms.handleListActiveSessions)
+	}
+
+	// Register indexer tools if binary is available
+	if indexerPath := findIndexerBinary(); indexerPath != "" {
+		tuilog.Log.Info("NewMCPServer: thinkt-indexer found, checking tool permissions", "path", indexerPath)
 	// Register indexer tools (they call the indexer server via RPC at runtime)
 	// search_sessions
 	if ms.isToolAllowed("search_sessions") {
@@ -286,6 +299,24 @@ type toolResultInfo struct {
 	ToolUseID string `json:"tool_use_id"`
 	Result    string `json:"result,omitempty"`
 	IsError   bool   `json:"is_error,omitempty"`
+}
+
+type listActiveSessionsInput struct{}
+
+type listActiveSessionsOutput struct {
+	Sessions []activeSessionInfo `json:"sessions"`
+	Count    int                 `json:"count"`
+}
+
+type activeSessionInfo struct {
+	Source      string `json:"source"`
+	ProjectPath string `json:"project_path"`
+	SessionID   string `json:"session_id"`
+	SessionPath string `json:"session_path"`
+	Method      string `json:"method"`
+	IDE         string `json:"ide,omitempty"`
+	PID         int    `json:"pid,omitempty"`
+	DetectedAt  string `json:"detected_at"`
 }
 
 type searchSessionsInput struct {
@@ -653,6 +684,32 @@ func (ms *MCPServer) handleGetSessionEntries(ctx context.Context, req *mcp.CallT
 	output := getSessionEntriesOutput{
 		Entries: result, Total: len(allEntries), Returned: len(result), HasMore: hasMore,
 	}
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
+}
+
+func (ms *MCPServer) handleListActiveSessions(ctx context.Context, req *mcp.CallToolRequest, _ listActiveSessionsInput) (*mcp.CallToolResult, listActiveSessionsOutput, error) {
+	sessions, err := ms.activeDetector.Detect(ctx)
+	if err != nil {
+		return nil, listActiveSessionsOutput{}, err
+	}
+
+	infos := make([]activeSessionInfo, len(sessions))
+	for i, s := range sessions {
+		infos[i] = activeSessionInfo{
+			Source:      string(s.Source),
+			ProjectPath: s.ProjectPath,
+			SessionID:   s.SessionID,
+			SessionPath: s.SessionPath,
+			Method:      s.Method,
+			IDE:         s.IDE,
+			PID:         s.PID,
+		}
+		if !s.DetectedAt.IsZero() {
+			infos[i].DetectedAt = s.DetectedAt.Format(time.RFC3339)
+		}
+	}
+
+	output := listActiveSessionsOutput{Sessions: infos, Count: len(infos)}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
 }
 

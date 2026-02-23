@@ -231,6 +231,34 @@ func writeError(w http.ResponseWriter, status int, err string, msg string) {
 	writeJSON(w, status, ErrorResponse{Error: err, Message: msg})
 }
 
+// ActiveSessionsResponse lists currently active sessions.
+type ActiveSessionsResponse struct {
+	Sessions []thinkt.ActiveSession `json:"sessions"`
+}
+
+// handleGetActiveSessions returns currently active sessions detected locally.
+// @Summary List active sessions
+// @Description Returns sessions detected as currently active via IDE lock files and file mtime heuristics
+// @Tags sessions
+// @Produce json
+// @Success 200 {object} ActiveSessionsResponse
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
+// @Failure 500 {object} ErrorResponse
+// @Router /sessions/active [get]
+func (s *HTTPServer) handleGetActiveSessions(w http.ResponseWriter, r *http.Request) {
+	sessions, err := s.activeDetector.Detect(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "detect_active_failed", err.Error())
+		return
+	}
+
+	if sessions == nil {
+		sessions = []thinkt.ActiveSession{}
+	}
+
+	writeJSON(w, http.StatusOK, ActiveSessionsResponse{Sessions: sessions})
+}
+
 // handleGetSources returns available trace sources.
 // @Summary List available trace sources
 // @Description Returns all configured trace sources (e.g., Claude Code, Kimi Code)

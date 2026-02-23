@@ -465,6 +465,38 @@
                 }
             }
         },
+        "/sessions/active": {
+            "get": {
+                "description": "Returns sessions detected as currently active via IDE lock files and file mtime heuristics",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "List active sessions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.ActiveSessionsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/semantic-search": {
             "get": {
                 "security": [
@@ -1187,6 +1219,17 @@
                 }
             }
         },
+        "server.ActiveSessionsResponse": {
+            "type": "object",
+            "properties": {
+                "sessions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/thinkt.ActiveSession"
+                    }
+                }
+            }
+        },
         "i18n.LangInfo": {
             "type": "object",
             "properties": {
@@ -1857,6 +1900,38 @@
                     "items": {
                         "$ref": "#/definitions/server.ThemeInfo"
                     }
+                }
+            }
+        },
+        "thinkt.ActiveSession": {
+            "type": "object",
+            "properties": {
+                "detected_at": {
+                    "type": "string"
+                },
+                "ide": {
+                    "description": "e.g. \"Visual Studio Code\" (ide_lock only)",
+                    "type": "string"
+                },
+                "method": {
+                    "description": "\"ide_lock\", \"mtime\"",
+                    "type": "string"
+                },
+                "pid": {
+                    "description": "process ID (ide_lock only)",
+                    "type": "integer"
+                },
+                "project_path": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "session_path": {
+                    "type": "string"
+                },
+                "source": {
+                    "$ref": "#/definitions/thinkt.Source"
                 }
             }
         },

@@ -95,6 +95,8 @@ func (s *Server) setupRouter() chi.Router {
 		r.Get("/traces/stats", s.handleGetUsageStats)
 		r.Post("/agents/register", s.handleRegisterAgent)
 		r.Get("/agents", s.handleListAgents)
+		r.Post("/sessions/activity", s.handleSessionActivity)
+		r.Get("/sessions/active", s.handleActiveSessions)
 		r.Get("/collector/health", s.handleHealth)
 	})
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
@@ -123,6 +124,63 @@ func (s *Server) handleGetUsageStats(w http.ResponseWriter, r *http.Request) {
 	stats.ActiveAgents = active
 
 	writeJSON(w, http.StatusOK, stats)
+}
+
+// handleSessionActivity processes POST /v1/sessions/activity requests from exporters.
+func (s *Server) handleSessionActivity(w http.ResponseWriter, r *http.Request) {
+	var event SessionActivityEvent
+	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "Failed to parse request body")
+		return
+	}
+
+	if event.SessionID == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "session_id is required")
+		return
+	}
+	if event.Event == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "event is required")
+		return
+	}
+
+	validEvents := map[string]bool{"session_start": true, "session_active": true, "session_end": true}
+	if !validEvents[event.Event] {
+		writeError(w, http.StatusBadRequest, "validation_error", "event must be session_start, session_active, or session_end")
+		return
+	}
+
+	if event.Timestamp.IsZero() {
+		event.Timestamp = time.Now()
+	}
+
+	if err := s.store.RecordSessionActivity(r.Context(), event); err != nil {
+		tuilog.Log.Error("Failed to record session activity",
+			"session_id", event.SessionID, "event", event.Event, "error", err)
+		writeError(w, http.StatusInternalServerError, "activity_error", "Failed to record session activity")
+		return
+	}
+
+	tuilog.Log.Info("Session activity recorded",
+		"session_id", event.SessionID, "event", event.Event,
+		"source", event.Source)
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// handleActiveSessions handles GET /v1/sessions/active.
+func (s *Server) handleActiveSessions(w http.ResponseWriter, r *http.Request) {
+	sessions, err := s.store.QueryActiveSessions(r.Context())
+	if err != nil {
+		tuilog.Log.Error("Failed to query active sessions", "error", err)
+		writeError(w, http.StatusInternalServerError, "query_error", "Failed to query active sessions")
+		return
+	}
+
+	if sessions == nil {
+		sessions = []SessionSummary{}
+	}
+
+	writeJSON(w, http.StatusOK, sessions)
 }
 
 // handleHealth returns a health check response.

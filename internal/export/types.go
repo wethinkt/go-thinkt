@@ -90,6 +90,16 @@ type ExporterStats struct {
 	Watching        []string
 }
 
+// SessionActivityEvent is sent to the collector to report session lifecycle changes.
+type SessionActivityEvent struct {
+	InstanceID  string    `json:"instance_id"`
+	Source      string    `json:"source"`
+	ProjectPath string    `json:"project_path"`
+	SessionID   string    `json:"session_id"`
+	Event       string    `json:"event"` // "session_start", "session_active", "session_end"
+	Timestamp   time.Time `json:"timestamp"`
+}
+
 // CollectorEndpoint holds a discovered collector URL and its origin.
 type CollectorEndpoint struct {
 	URL    string `json:"url"`

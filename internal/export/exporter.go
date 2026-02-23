@@ -15,6 +15,9 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
+// Default timeout for considering a session inactive.
+const sessionInactiveTimeout = 5 * time.Minute
+
 // Exporter watches local session files and ships trace entries to a remote collector.
 // It handles batching, buffering, and retry logic.
 type Exporter struct {
@@ -32,6 +35,10 @@ type Exporter struct {
 	// Tracks file read offsets so we only ship new entries
 	offsets   map[string]int64
 	offsetsMu sync.Mutex
+
+	// Session activity tracking
+	sessionActivity   map[string]time.Time // sessionPath -> lastWriteTime
+	sessionActivityMu sync.Mutex
 }
 
 // New creates a new Exporter with the given configuration.
@@ -53,9 +60,10 @@ func New(cfg ExporterConfig) (*Exporter, error) {
 	}
 
 	return &Exporter{
-		cfg:     cfg,
-		buffer:  buf,
-		offsets: make(map[string]int64),
+		cfg:             cfg,
+		buffer:          buf,
+		offsets:         make(map[string]int64),
+		sessionActivity: make(map[string]time.Time),
 	}, nil
 }
 
@@ -87,6 +95,9 @@ func (e *Exporter) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("start file watcher: %w", err)
 	}
+
+	// Start session activity sweep goroutine
+	go e.sweepInactiveSessions(ctx)
 
 	// Periodic buffer drain
 	drainTicker := time.NewTicker(e.cfg.FlushInterval)
@@ -206,7 +217,104 @@ func (e *Exporter) resolveCollector() (*CollectorEndpoint, error) {
 
 func (e *Exporter) handleFileEvent(ctx context.Context, event FileEvent) {
 	tuilog.Log.Debug("Processing file event", "path", event.Path, "type", event.EventType)
+
+	// Track session activity
+	e.recordSessionWrite(ctx, event.Path, event.Source)
+
 	e.processFile(ctx, event.Path, event.Source)
+}
+
+// recordSessionWrite updates session activity tracking and emits lifecycle events.
+func (e *Exporter) recordSessionWrite(ctx context.Context, path, source string) {
+	now := time.Now()
+
+	e.sessionActivityMu.Lock()
+	_, existed := e.sessionActivity[path]
+	e.sessionActivity[path] = now
+	e.sessionActivityMu.Unlock()
+
+	sessionID := sessionIDFromPath(path)
+
+	if !existed {
+		// New session detected
+		e.emitSessionEvent(ctx, SessionActivityEvent{
+			Source:    source,
+			SessionID: sessionID,
+			Event:     "session_start",
+			Timestamp: now,
+		})
+	} else {
+		e.emitSessionEvent(ctx, SessionActivityEvent{
+			Source:    source,
+			SessionID: sessionID,
+			Event:     "session_active",
+			Timestamp: now,
+		})
+	}
+}
+
+// sweepInactiveSessions periodically checks for sessions that haven't been
+// written to recently and emits session_end events.
+func (e *Exporter) sweepInactiveSessions(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			e.doSweep(ctx)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (e *Exporter) doSweep(ctx context.Context) {
+	now := time.Now()
+	cutoff := now.Add(-sessionInactiveTimeout)
+
+	e.sessionActivityMu.Lock()
+	var ended []string
+	for path, lastWrite := range e.sessionActivity {
+		if lastWrite.Before(cutoff) {
+			ended = append(ended, path)
+		}
+	}
+	for _, path := range ended {
+		delete(e.sessionActivity, path)
+	}
+	e.sessionActivityMu.Unlock()
+
+	for _, path := range ended {
+		sessionID := sessionIDFromPath(path)
+		source := detectSource(path)
+		e.emitSessionEvent(ctx, SessionActivityEvent{
+			Source:    source,
+			SessionID: sessionID,
+			Event:     "session_end",
+			Timestamp: now,
+		})
+	}
+}
+
+// emitSessionEvent sends a session activity event to the collector.
+func (e *Exporter) emitSessionEvent(ctx context.Context, event SessionActivityEvent) {
+	if e.shipper == nil {
+		return
+	}
+	if err := e.shipper.ShipSessionActivity(ctx, event); err != nil {
+		tuilog.Log.Debug("Failed to ship session activity", "event", event.Event, "error", err)
+	}
+}
+
+// sessionIDFromPath extracts the session ID from a file path.
+func sessionIDFromPath(path string) string {
+	base := filepath.Base(path)
+	ext := filepath.Ext(base)
+	if ext != "" {
+		return base[:len(base)-len(ext)]
+	}
+	return base
 }
 
 // processFile reads new entries from a JSONL file and ships them in batches.

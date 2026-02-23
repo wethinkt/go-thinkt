@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
@@ -114,6 +115,38 @@ func (s *Shipper) Ship(ctx context.Context, payload TracePayload) (*ShipResult, 
 		Duration:   time.Since(start),
 	}
 	return result, lastErr
+}
+
+// ShipSessionActivity sends a session activity event to the collector.
+func (s *Shipper) ShipSessionActivity(ctx context.Context, event SessionActivityEvent) error {
+	body, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal session activity: %w", err)
+	}
+
+	// Derive the activity endpoint from the collector URL (replace /v1/traces with /v1/sessions/activity)
+	activityURL := strings.TrimSuffix(s.collectorURL, "/traces") + "/sessions/activity"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, activityURL, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("create activity request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if s.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+s.apiKey)
+	}
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("ship session activity: %w", err)
+	}
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("activity endpoint returned %d", resp.StatusCode)
+	}
+	return nil
 }
 
 // Ping checks if the collector is reachable by sending a GET to the collector URL.

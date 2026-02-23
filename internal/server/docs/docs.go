@@ -473,133 +473,25 @@ const docTemplate = `{
                 }
             }
         },
-        "/semantic-search": {
+        "/sessions/active": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Search for sessions by meaning using on-device embeddings. Returns sessions ranked by semantic similarity. Requires the indexer with a synced embedding index.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "indexer"
-                ],
-                "summary": "Semantic search across indexed sessions",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Natural language search query",
-                        "name": "q",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter by project name (substring match)",
-                        "name": "project",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter by source (claude, kimi, gemini, copilot, codex, qwen), case-insensitive",
-                        "name": "source",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Maximum number of results (default 20)",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "number",
-                        "description": "Cosine distance threshold (0-2, lower is more similar)",
-                        "name": "max_distance",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Apply diversity scoring to return results from different sessions",
-                        "name": "diversity",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/server.SemanticSearchResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request - missing query",
-                        "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized - invalid or missing token",
-                        "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable - indexer not found",
-                        "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/sessions/resolve": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Resolves an absolute session file path to its canonical project and session metadata.\nUse this for deep-link synchronization: given a session path, immediately know\nwhich project and source it belongs to without scanning all projects/sessions.",
+                "description": "Returns sessions detected as currently active via IDE lock files and file mtime heuristics",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "sessions"
                 ],
-                "summary": "Resolve session ownership",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Absolute session file path",
-                        "name": "path",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
+                "summary": "List active sessions",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/server.SessionResolveResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Missing or invalid path",
-                        "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/server.ActiveSessionsResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized - invalid or missing token",
-                        "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Session not found or not in any registered source",
                         "schema": {
                             "$ref": "#/definitions/server.ErrorResponse"
                         }
@@ -1192,6 +1084,17 @@ const docTemplate = `{
                 },
                 "terminal": {
                     "type": "boolean"
+                }
+            }
+        },
+        "server.ActiveSessionsResponse": {
+            "type": "object",
+            "properties": {
+                "sessions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/thinkt.ActiveSession"
+                    }
                 }
             }
         },
@@ -1865,6 +1768,38 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/server.ThemeInfo"
                     }
+                }
+            }
+        },
+        "thinkt.ActiveSession": {
+            "type": "object",
+            "properties": {
+                "detected_at": {
+                    "type": "string"
+                },
+                "ide": {
+                    "description": "e.g. \"Visual Studio Code\" (ide_lock only)",
+                    "type": "string"
+                },
+                "method": {
+                    "description": "\"ide_lock\", \"mtime\"",
+                    "type": "string"
+                },
+                "pid": {
+                    "description": "process ID (ide_lock only)",
+                    "type": "integer"
+                },
+                "project_path": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "session_path": {
+                    "type": "string"
+                },
+                "source": {
+                    "$ref": "#/definitions/thinkt.Source"
                 }
             }
         },

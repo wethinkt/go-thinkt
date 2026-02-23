@@ -119,6 +119,13 @@ definitions:
       source:
         type: string
     type: object
+  server.ActiveSessionsResponse:
+    properties:
+      sessions:
+        items:
+          $ref: '#/definitions/thinkt.ActiveSession'
+        type: array
+    type: object
   server.AllowedAppsResponse:
     properties:
       apps:
@@ -444,6 +451,28 @@ definitions:
         items:
           $ref: '#/definitions/server.ThemeInfo'
         type: array
+    type: object
+  thinkt.ActiveSession:
+    properties:
+      detected_at:
+        type: string
+      ide:
+        description: e.g. "Visual Studio Code" (ide_lock only)
+        type: string
+      method:
+        description: '"ide_lock", "mtime"'
+        type: string
+      pid:
+        description: process ID (ide_lock only)
+        type: integer
+      project_path:
+        type: string
+      session_id:
+        type: string
+      session_path:
+        type: string
+      source:
+        $ref: '#/definitions/thinkt.Source'
     type: object
   server.entrySummary:
     properties:
@@ -1400,6 +1429,28 @@ paths:
       security:
       - BearerAuth: []
       summary: Resolve session ownership
+      tags:
+      - sessions
+  /sessions/active:
+    get:
+      description: Returns sessions detected as currently active via IDE lock files
+        and file mtime heuristics
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.ActiveSessionsResponse'
+        "401":
+          description: Unauthorized - invalid or missing token
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: List active sessions
       tags:
       - sessions
   /sources:
