@@ -74,7 +74,7 @@ func TestStalePIDCleanup(t *testing.T) {
 
 	// Register an instance with a PID that doesn't exist
 	inst := Instance{
-		Type:      InstanceIndexerWatch,
+		Type:      InstanceIndexerServer,
 		PID:       999999999, // almost certainly not a real PID
 		StartedAt: time.Now(),
 	}

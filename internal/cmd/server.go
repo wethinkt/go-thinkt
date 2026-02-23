@@ -601,7 +601,7 @@ func runServerFingerprint(cmd *cobra.Command, args []string) error {
 // or nil if the sidecar was not started.
 func startIndexerSidecar(appLogPath string) *exec.Cmd {
 	// Skip if an indexer is already registered (e.g. via `thinkt indexer start`)
-	if inst := config.FindInstanceByType(config.InstanceIndexerWatch); inst != nil {
+	if inst := config.FindInstanceByType(config.InstanceIndexerServer); inst != nil {
 		tuilog.Log.Info("Indexer already running, skipping sidecar", "pid", inst.PID)
 		fmt.Fprintf(os.Stderr, "📇 Indexer already running (PID: %d)\n", inst.PID)
 		return nil
@@ -614,7 +614,7 @@ func startIndexerSidecar(appLogPath string) *exec.Cmd {
 
 	tuilog.Log.Info("Starting indexer sidecar", "path", indexerPath)
 
-	indexerArgs := []string{"watch", "--quiet"}
+	indexerArgs := []string{"server", "--quiet"}
 
 	// Derive indexer log path: use the same logs directory as the app log,
 	// falling back to the default ~/.thinkt/logs/ directory.

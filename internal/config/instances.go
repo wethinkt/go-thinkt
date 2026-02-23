@@ -21,7 +21,7 @@ type InstanceType string
 const (
 	InstanceServer       InstanceType = "server"
 	InstanceServerMCP    InstanceType = "server-mcp"
-	InstanceIndexerWatch InstanceType = "indexer-watch"
+	InstanceIndexerServer InstanceType = "indexer-server"
 )
 
 // Instance represents a running thinkt process.

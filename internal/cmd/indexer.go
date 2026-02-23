@@ -44,7 +44,7 @@ Examples:
   thinkt indexer stop                        # Stop background indexer
   thinkt indexer sync                        # Sync all local sessions to the index
   thinkt indexer search "query"              # Search across all sessions
-  thinkt indexer watch                       # Watch and index in real-time (foreground)`,
+  thinkt indexer server                      # Run indexer server (foreground)`,
 }
 
 var indexerLogsCmd = &cobra.Command{
@@ -59,7 +59,7 @@ func runIndexerLogs(cmd *cobra.Command, args []string) error {
 
 	// Try to get log path from running instance
 	logFile := ""
-	if inst := config.FindInstanceByType(config.InstanceIndexerWatch); inst != nil {
+	if inst := config.FindInstanceByType(config.InstanceIndexerServer); inst != nil {
 		logFile = inst.LogPath
 	}
 
@@ -100,7 +100,7 @@ func runIndexerStart(cmd *cobra.Command, args []string) error {
 	}
 
 	// Check if already running
-	if inst := config.FindInstanceByType(config.InstanceIndexerWatch); inst != nil {
+	if inst := config.FindInstanceByType(config.InstanceIndexerServer); inst != nil {
 		fmt.Printf("Indexer is already running (PID: %d)\n", inst.PID)
 		return nil
 	}
@@ -108,7 +108,7 @@ func runIndexerStart(cmd *cobra.Command, args []string) error {
 	fmt.Println("🚀 Starting indexer in background...")
 
 	// Build arguments for indexer
-	indexerArgs := []string{"watch", "--quiet"}
+	indexerArgs := []string{"server", "--quiet"}
 	if indexerDBPath != "" {
 		indexerArgs = append(indexerArgs, "--db", indexerDBPath)
 	}
@@ -147,7 +147,7 @@ func runIndexerStart(cmd *cobra.Command, args []string) error {
 }
 
 func runIndexerStop(cmd *cobra.Command, args []string) error {
-	inst := config.FindInstanceByType(config.InstanceIndexerWatch)
+	inst := config.FindInstanceByType(config.InstanceIndexerServer)
 	if inst == nil {
 		fmt.Println("Indexer is not running.")
 		return nil
@@ -162,7 +162,7 @@ func runIndexerStop(cmd *cobra.Command, args []string) error {
 }
 
 func runIndexerStatus(cmd *cobra.Command, args []string) error {
-	inst := config.FindInstanceByType(config.InstanceIndexerWatch)
+	inst := config.FindInstanceByType(config.InstanceIndexerServer)
 
 	if outputJSON {
 		status := indexerStatusJSON{Running: inst != nil}
@@ -243,7 +243,7 @@ func makeAutoStartingCommand(use, short string) *cobra.Command {
 	oldRunE := fwd.RunE
 	fwd.RunE = func(cmd *cobra.Command, args []string) error {
 		// Check if running
-		inst := config.FindInstanceByType(config.InstanceIndexerWatch)
+		inst := config.FindInstanceByType(config.InstanceIndexerServer)
 		if inst == nil {
 			// Auto-start
 			if err := runIndexerStart(cmd, nil); err != nil {
@@ -296,7 +296,7 @@ func init() {
 	watchCmd := makeForwardingCommand("watch", "Watch session directories for changes and index in real-time")
 	oldWatchRunE := watchCmd.RunE
 	watchCmd.RunE = func(cmd *cobra.Command, args []string) error {
-		if inst := config.FindInstanceByType(config.InstanceIndexerWatch); inst != nil {
+		if inst := config.FindInstanceByType(config.InstanceIndexerServer); inst != nil {
 			dbFile := indexerDBPath
 			if dbFile == "" {
 				confDir, _ := config.Dir()
