@@ -1,5 +1,28 @@
 # `go-thinkt` CHANGELOG
 
+## v0.5.1 (2026-02-23)
+
+* **Server and Indexer Lifecycle**
+  - Auto-start indexer sidecar with web server; manage indexer lifetime alongside server
+  - Added `--no-indexer` flag to disable automatic indexer sidecar
+  - Server uses auth tokens by default
+  - Improved server log management
+
+* **Indexer Performance**
+  - Added in-memory session index for O(1) file change lookups instead of O(N) project scanning
+  - Added lazy database pool for file watcher to reduce overhead during bursts of file events
+  - Improved watcher exclusion logic to prevent false positives on paths containing "thinkt" as a substring
+  - Added warning when running `indexer watch` if a background indexer is already active
+
+* **CLI**
+  - Renamed `thinkt serve` commands to `thinkt server`
+  - Added `thinkt server logs` and `thinkt indexer logs` commands
+  - Added `--json` flag to `server status` and `indexer status` for machine-readable output
+  - API updates for LLM ergonomics
+
+* **Docs**
+  - Updated docs for web-lite and server commands
+
 ## v0.5.0 (2026-02-19)
 
 This release includes all changes from `v0.4.1..HEAD`.
