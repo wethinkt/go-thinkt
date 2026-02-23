@@ -35,6 +35,7 @@ func (r *AgentRegistry) Register(reg AgentRegistration) *AgentInfo {
 		info.Hostname = reg.Hostname
 		info.Version = reg.Version
 		info.Project = reg.Project
+		info.MachineID = reg.MachineID
 		info.LastHeartbeat = now
 		info.Status = "active"
 		if reg.Metadata != nil {
@@ -53,6 +54,7 @@ func (r *AgentRegistry) Register(reg AgentRegistration) *AgentInfo {
 		LastHeartbeat: now,
 		Project:       reg.Project,
 		Status:        "active",
+		MachineID:     reg.MachineID,
 		Metadata:      reg.Metadata,
 	}
 	r.agents[reg.InstanceID] = info

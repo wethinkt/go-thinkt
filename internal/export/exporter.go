@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/wethinkt/go-thinkt/internal/fingerprint"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
@@ -39,6 +40,8 @@ type Exporter struct {
 	// Session activity tracking
 	sessionActivity   map[string]time.Time // sessionPath -> lastWriteTime
 	sessionActivityMu sync.Mutex
+
+	machineID string // fingerprint of this machine
 }
 
 // New creates a new Exporter with the given configuration.
@@ -59,11 +62,14 @@ func New(cfg ExporterConfig) (*Exporter, error) {
 		return nil, fmt.Errorf("create disk buffer: %w", err)
 	}
 
+	machineID, _ := fingerprint.GetFingerprint()
+
 	return &Exporter{
 		cfg:             cfg,
 		buffer:          buf,
 		offsets:         make(map[string]int64),
 		sessionActivity: make(map[string]time.Time),
+		machineID:       machineID,
 	}, nil
 }
 
@@ -398,6 +404,7 @@ func (e *Exporter) processFile(ctx context.Context, path, source string) {
 			Source:    source,
 			SessionID: sessionID,
 			Entries:   entries[i:end],
+			MachineID: e.machineID,
 		}
 
 		e.shipOrBuffer(ctx, payload)

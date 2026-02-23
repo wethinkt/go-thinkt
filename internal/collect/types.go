@@ -75,6 +75,7 @@ type AgentRegistration struct {
 	Project    string         `json:"project,omitempty"`
 	Hostname   string         `json:"hostname,omitempty"`
 	Version    string         `json:"version,omitempty"`
+	MachineID  string         `json:"machine_id,omitempty"`
 	Metadata   map[string]any `json:"metadata,omitempty"`
 }
 
@@ -90,6 +91,7 @@ type AgentInfo struct {
 	TraceCount    int64          `json:"trace_count"`
 	Project       string         `json:"project,omitempty"`
 	Status        string         `json:"status"` // "active" or "stale"
+	MachineID     string         `json:"machine_id,omitempty"`
 	Metadata      map[string]any `json:"metadata,omitempty"`
 }
 

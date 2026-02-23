@@ -56,6 +56,7 @@ type TracePayload struct {
 	ProjectPath string        `json:"project_path"`
 	SessionID   string         `json:"session_id"`
 	Entries     []TraceEntry   `json:"entries"`
+	MachineID   string         `json:"machine_id,omitempty"`
 	Metadata    map[string]any `json:"metadata,omitempty"`
 }
 
