@@ -130,7 +130,7 @@ func runIndexerStart(cmd *cobra.Command, args []string) error {
 	// Truncate log at startup if it's grown too large
 	truncateIfLarge(logPath)
 
-	// Run watch in background
+	// Run server in background
 	c := exec.Command(path, indexerArgs...)
 	if err := config.StartBackground(c); err != nil {
 		return fmt.Errorf("failed to start indexer: %w", err)
@@ -218,6 +218,8 @@ func makeForwardingCommand(use, short string) *cobra.Command {
 		Use:                use,
 		Short:              short,
 		DisableFlagParsing: true, // Forward all flags to thinkt-indexer
+		SilenceUsage:       true, // Don't show help on error from thinkt-indexer
+		SilenceErrors:      true, // thinkt-indexer already printed its error
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := findIndexerBinary()
 			if path == "" {
@@ -293,22 +295,6 @@ func init() {
 	// Create subcommands that forward to thinkt-indexer
 	indexerCmd.AddCommand(makeAutoStartingCommand("sync", "Synchronize all local sessions into the index"))
 	indexerCmd.AddCommand(makeAutoStartingCommand("search", "Search for text across indexed sessions"))
-	watchCmd := makeForwardingCommand("watch", "Watch session directories for changes and index in real-time")
-	oldWatchRunE := watchCmd.RunE
-	watchCmd.RunE = func(cmd *cobra.Command, args []string) error {
-		if inst := config.FindInstanceByType(config.InstanceIndexerServer); inst != nil {
-			dbFile := indexerDBPath
-			if dbFile == "" {
-				confDir, _ := config.Dir()
-				dbFile = filepath.Join(confDir, "index.duckdb")
-			}
-			fmt.Fprintf(os.Stderr, "Warning: a background indexer is already running (PID: %d).\n", inst.PID)
-			fmt.Fprintf(os.Stderr, "Both processes will try to write to the same DuckDB database (%s), which may cause lock errors.\n", dbFile)
-			fmt.Fprintf(os.Stderr, "Stop it first with: thinkt indexer stop\n\n")
-		}
-		return oldWatchRunE(cmd, args)
-	}
-	indexerCmd.AddCommand(watchCmd)
 	indexerCmd.AddCommand(makeForwardingCommand("stats", "Show usage statistics from the index"))
 	indexerCmd.AddCommand(makeForwardingCommand("sessions", "List sessions for a project from the index"))
 	indexerCmd.AddCommand(makeForwardingCommand("version", "Print version information"))

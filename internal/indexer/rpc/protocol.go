@@ -59,6 +59,8 @@ type StatusData struct {
 
 // ProgressInfo represents progress for a long-running operation.
 type ProgressInfo struct {
-	Done  int `json:"done"`
-	Total int `json:"total"`
+	Done      int    `json:"done"`
+	Total     int    `json:"total"`
+	SessionID string `json:"session_id,omitempty"`
+	Message   string `json:"message,omitempty"`
 }

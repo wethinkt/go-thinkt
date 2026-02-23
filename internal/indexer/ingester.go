@@ -54,10 +54,7 @@ func (i *Ingester) MigrateEmbeddings(ctx context.Context) error {
 
 	var count int
 	err := i.db.QueryRowContext(ctx, `SELECT count(*) FROM embeddings WHERE model != ?`, i.embedder.EmbedModelID()).Scan(&count)
-	if err != nil {
-		return nil // table may not exist yet
-	}
-	if count == 0 {
+	if err != nil || count == 0 {
 		return nil
 	}
 

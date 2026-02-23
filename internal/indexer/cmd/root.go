@@ -17,9 +17,10 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "thinkt-indexer",
-	Short: "DuckDB-powered indexer for thinkt",
-	Long: `thinkt-indexer provides a specialized tool for indexing and searching 
+	Use:          "thinkt-indexer",
+	Short:        "DuckDB-powered indexer for thinkt",
+	SilenceUsage: true, // Don't show usage on RunE errors
+	Long: `thinkt-indexer provides a specialized tool for indexing and searching
 AI assistant sessions using DuckDB.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if logPath != "" {
@@ -27,8 +28,10 @@ AI assistant sessions using DuckDB.`,
 			if err != nil {
 				return fmt.Errorf("failed to open log file: %w", err)
 			}
-			// Note: file stays open until process exits
+			// Redirect both log output and stderr to the log file.
+			// This captures panics, runtime errors, and fmt.Fprintf(os.Stderr, ...).
 			log.SetOutput(f)
+			os.Stderr = f
 		}
 		return nil
 	},

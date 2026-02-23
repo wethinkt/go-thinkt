@@ -148,7 +148,7 @@ func (ms *MCPServer) registerTools() {
 		if ms.isToolAllowed("semantic_search") {
 			mcp.AddTool(ms.server, &mcp.Tool{
 				Name:        "semantic_search",
-				Description: "Search for sessions by meaning using on-device embeddings. Returns sessions ranked by semantic similarity to the query. Requires thinkt-embed-apple and a synced embedding index.",
+				Description: "Search for sessions by meaning using on-device embeddings. Returns sessions ranked by semantic similarity to the query. Requires the indexer server with a synced embedding index.",
 			}, ms.handleSemanticSearch)
 		}
 	}

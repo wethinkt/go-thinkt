@@ -73,7 +73,10 @@ func (s *indexerServer) HandleSync(ctx context.Context, params rpc.SyncParams, s
 	// Wire up progress reporting
 	ingester.OnProgress = func(pIdx, pTotal, sIdx, sTotal int, message string) {
 		s.stateMu.Lock()
-		s.syncProg = &rpc.ProgressInfo{Done: pIdx, Total: pTotal}
+		s.syncProg = &rpc.ProgressInfo{
+			Done: sIdx, Total: sTotal,
+			Message: fmt.Sprintf("Project %d/%d %s", pIdx, pTotal, message),
+		}
 		s.stateMu.Unlock()
 
 		data, _ := json.Marshal(map[string]any{
@@ -108,7 +111,7 @@ func (s *indexerServer) HandleSync(ctx context.Context, params rpc.SyncParams, s
 		s.setState("embedding")
 		ingester.OnEmbedProgress = func(done, total, chunks int, sessionID string, elapsed time.Duration) {
 			s.stateMu.Lock()
-			s.embedProg = &rpc.ProgressInfo{Done: done, Total: total}
+			s.embedProg = &rpc.ProgressInfo{Done: done, Total: total, SessionID: sessionID}
 			s.stateMu.Unlock()
 
 			data, _ := json.Marshal(map[string]any{

@@ -51,14 +51,26 @@ var syncCmd = &cobra.Command{
 				}
 			}
 			resp, err := rpc.Call("sync", rpc.SyncParams{}, progressFn)
-			if progress.ShouldShowProgress(quiet, verbose) {
-				progress.Finish()
-			}
 			if err != nil {
+				if progress.ShouldShowProgress(quiet, verbose) {
+					progress.Finish()
+				}
 				fmt.Fprintf(os.Stderr, "RPC sync failed, falling back to inline: %v\n", err)
+			} else if !resp.OK && resp.Error == "sync already in progress" {
+				// Attach to the in-progress sync by polling status
+				if err := pollSyncStatus(progress); err != nil {
+					return err
+				}
+				return nil
 			} else if !resp.OK {
+				if progress.ShouldShowProgress(quiet, verbose) {
+					progress.Finish()
+				}
 				return fmt.Errorf("sync: %s", resp.Error)
 			} else {
+				if progress.ShouldShowProgress(quiet, verbose) {
+					progress.Finish()
+				}
 				if !quiet {
 					fmt.Println("Indexing complete (via server).")
 				}
@@ -157,6 +169,78 @@ var syncCmd = &cobra.Command{
 		}
 		return nil
 	},
+}
+
+// pollSyncStatus polls the server's status endpoint until the sync completes,
+// displaying progress along the way. Safe to Ctrl+C — the server keeps syncing.
+func pollSyncStatus(progress *ProgressReporter) error {
+	showProgress := progress.ShouldShowProgress(quiet, verbose)
+	if showProgress {
+		progress.Print("Sync already in progress, attaching...")
+	} else if !quiet {
+		fmt.Println("Sync already in progress on server, waiting...")
+	}
+
+	for {
+		time.Sleep(1 * time.Second)
+
+		resp, err := rpc.Call("status", nil, nil)
+		if err != nil {
+			if showProgress {
+				progress.Finish()
+			}
+			return fmt.Errorf("lost connection to server: %w", err)
+		}
+		if !resp.OK {
+			if showProgress {
+				progress.Finish()
+			}
+			return fmt.Errorf("status: %s", resp.Error)
+		}
+
+		var status rpc.StatusData
+		if err := json.Unmarshal(resp.Data, &status); err != nil {
+			if showProgress {
+				progress.Finish()
+			}
+			return fmt.Errorf("invalid status response: %w", err)
+		}
+
+		if showProgress {
+			switch status.State {
+			case "syncing":
+				if p := status.SyncProgress; p != nil {
+					if p.Message != "" {
+						progress.Print(fmt.Sprintf("Sessions [%d/%d] %s", p.Done, p.Total, p.Message))
+					} else {
+						progress.Print(fmt.Sprintf("Syncing [%d/%d]...", p.Done, p.Total))
+					}
+				} else {
+					progress.Print("Syncing...")
+				}
+			case "embedding":
+				if p := status.EmbedProgress; p != nil {
+					sid := p.SessionID
+					if len(sid) > 12 {
+						sid = sid[:12]
+					}
+					progress.Print(fmt.Sprintf("Embedding [%d/%d] %s...", p.Done, p.Total, sid))
+				} else {
+					progress.Print("Embedding...")
+				}
+			}
+		}
+
+		if status.State == "idle" {
+			if showProgress {
+				progress.Finish()
+			}
+			if !quiet {
+				fmt.Println("Indexing complete (via server).")
+			}
+			return nil
+		}
+	}
 }
 
 func init() {

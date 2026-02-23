@@ -70,7 +70,7 @@ func NewEmbedder(modelPath string) (*Embedder, error) {
 
 	ctxParams := llama.ContextDefaultParams()
 	ctxParams.NCtx = uint32(2048)
-	ctxParams.NBatch = uint32(1024)
+	ctxParams.NBatch = uint32(2048)
 	ctxParams.PoolingType = llama.PoolingTypeLast
 	ctxParams.Embeddings = 1
 
@@ -100,7 +100,10 @@ func NewEmbedder(modelPath string) (*Embedder, error) {
 	}, nil
 }
 
+const maxCtxTokens = 2048
+
 // Embed produces L2-normalized embedding vectors for the given texts.
+// Texts are batched into single decode calls for efficiency.
 // It is safe for concurrent use (calls are serialized internally).
 func (e *Embedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
 	if len(texts) == 0 {
@@ -110,24 +113,62 @@ func (e *Embedder) Embed(_ context.Context, texts []string) ([][]float32, error)
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	results := make([][]float32, len(texts))
+	// Tokenize all texts upfront.
+	var allTokenized []tokenized
 	for i, text := range texts {
-		vec, err := e.embedOne(strings.TrimSpace(text))
-		if err != nil {
-			return nil, fmt.Errorf("embed text %d: %w", i, err)
+		text = strings.TrimSpace(text)
+		if text == "" {
+			continue
 		}
-		normalizeL2(vec)
-		results[i] = vec
+		tokens := llama.Tokenize(e.vocab, text, true, true)
+		if len(tokens) == 0 {
+			continue
+		}
+		if len(tokens) > maxCtxTokens {
+			tokens = tokens[:maxCtxTokens]
+		}
+		allTokenized = append(allTokenized, tokenized{tokens: tokens, index: i})
 	}
+
+	results := make([][]float32, len(texts))
+
+	// Process in batches that fit within the context window.
+	for len(allTokenized) > 0 {
+		// Greedily pack texts into a batch until we'd exceed maxCtxTokens.
+		var batchItems []tokenized
+		totalTokens := 0
+		for _, t := range allTokenized {
+			if totalTokens+len(t.tokens) > maxCtxTokens && len(batchItems) > 0 {
+				break
+			}
+			batchItems = append(batchItems, t)
+			totalTokens += len(t.tokens)
+		}
+		allTokenized = allTokenized[len(batchItems):]
+
+		vecs, err := e.decodeBatch(batchItems)
+		if err != nil {
+			return nil, err
+		}
+		for i, item := range batchItems {
+			normalizeL2(vecs[i])
+			results[item.index] = vecs[i]
+		}
+	}
+
+	// Fill in zero vectors for any empty/skipped texts.
+	for i := range results {
+		if results[i] == nil {
+			results[i] = make([]float32, e.dim)
+		}
+	}
+
 	return results, nil
 }
 
-func (e *Embedder) embedOne(text string) ([]float32, error) {
-	if text == "" {
-		return nil, errors.New("empty text")
-	}
-
-	// Clear memory before each embedding.
+// decodeBatch embeds multiple tokenized texts in a single decode call,
+// using distinct sequence IDs to separate them.
+func (e *Embedder) decodeBatch(items []tokenized) ([][]float32, error) {
 	mem, err := llama.GetMemory(e.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get memory: %w", err)
@@ -136,29 +177,46 @@ func (e *Embedder) embedOne(text string) ([]float32, error) {
 		return nil, fmt.Errorf("clear memory: %w", err)
 	}
 
-	tokens := llama.Tokenize(e.vocab, text, true, true)
-	if len(tokens) == 0 {
-		return nil, errors.New("tokenization produced no tokens")
+	// Process each text sequentially with BatchGetOne + Decode.
+	// BatchInit+Add batching produces zero embeddings (likely a yzma/FFI issue),
+	// so we use the proven single-sequence approach for each text.
+	vecs := make([][]float32, len(items))
+	for i, item := range items {
+		batch := llama.BatchGetOne(item.tokens)
+		if _, err := llama.Decode(e.ctx, batch); err != nil {
+			return nil, fmt.Errorf("decode seq %d: %w", i, err)
+		}
+		if err := llama.Synchronize(e.ctx); err != nil {
+			return nil, fmt.Errorf("synchronize seq %d: %w", i, err)
+		}
+
+		vec, err := llama.GetEmbeddingsSeq(e.ctx, 0, e.dim)
+		if err != nil {
+			return nil, fmt.Errorf("get embeddings seq %d: %w", i, err)
+		}
+		if len(vec) == 0 {
+			return nil, fmt.Errorf("empty embedding for seq %d", i)
+		}
+		vecs[i] = append([]float32(nil), vec...)
+
+		// Clear memory for next text in the batch.
+		if i < len(items)-1 {
+			mem2, err := llama.GetMemory(e.ctx)
+			if err != nil {
+				return nil, fmt.Errorf("get memory: %w", err)
+			}
+			if err := llama.MemoryClear(mem2, true); err != nil {
+				return nil, fmt.Errorf("clear memory: %w", err)
+			}
+		}
 	}
 
-	batch := llama.BatchGetOne(tokens)
-	if _, err := llama.Decode(e.ctx, batch); err != nil {
-		return nil, fmt.Errorf("decode: %w", err)
-	}
-	if err := llama.Synchronize(e.ctx); err != nil {
-		return nil, fmt.Errorf("synchronize: %w", err)
-	}
+	return vecs, nil
+}
 
-	vec, err := llama.GetEmbeddingsSeq(e.ctx, 0, e.dim)
-	if err != nil {
-		return nil, fmt.Errorf("get embeddings: %w", err)
-	}
-	if len(vec) == 0 {
-		return nil, errors.New("empty embedding vector")
-	}
-
-	// Copy — the underlying slice is owned by llama.
-	return append([]float32(nil), vec...), nil
+type tokenized struct {
+	tokens []llama.Token
+	index  int
 }
 
 // Dim returns the embedding dimension.
