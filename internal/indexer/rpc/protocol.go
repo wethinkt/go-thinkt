@@ -39,11 +39,12 @@ type SearchParams struct {
 
 // SemanticSearchParams for the semantic_search method.
 type SemanticSearchParams struct {
-	Query      string  `json:"query"`
-	Project    string  `json:"project,omitempty"`
-	Source     string  `json:"source,omitempty"`
-	Limit      int     `json:"limit,omitempty"`
+	Query       string  `json:"query"`
+	Project     string  `json:"project,omitempty"`
+	Source      string  `json:"source,omitempty"`
+	Limit       int     `json:"limit,omitempty"`
 	MaxDistance float64 `json:"max_distance,omitempty"`
+	Diversity   bool    `json:"diversity,omitempty"`
 }
 
 // StatusData returned by the status method.

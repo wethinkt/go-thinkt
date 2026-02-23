@@ -3,9 +3,11 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -131,6 +133,28 @@ func parseToolResult(t *testing.T, result *mcp.CallToolResult, v any) {
 	if err := json.Unmarshal([]byte(tc.Text), v); err != nil {
 		t.Fatalf("unmarshal result: %v\nraw: %s", err, tc.Text)
 	}
+}
+
+func parseToolError(t *testing.T, result *mcp.CallToolResult) toolErrorOutput {
+	t.Helper()
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if !result.IsError {
+		t.Fatal("expected IsError=true")
+	}
+	if len(result.Content) == 0 {
+		t.Fatal("expected error content")
+	}
+	tc, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+	var out toolErrorOutput
+	if err := json.Unmarshal([]byte(tc.Text), &out); err != nil {
+		t.Fatalf("unmarshal error output: %v\nraw: %s", err, tc.Text)
+	}
+	return out
 }
 
 // --- list_sources ---
@@ -383,6 +407,39 @@ func TestMCP_ListSessions_Empty(t *testing.T) {
 	}
 }
 
+func TestMCP_ListSessions_InvalidSource_ReturnsStructuredError(t *testing.T) {
+	ms := newTestMCPServer(&testStore{source: thinkt.SourceClaude})
+	result := callToolMayError(t, ms, "list_sessions", map[string]any{
+		"project_id": "proj1",
+		"source":     "not-a-source",
+	})
+
+	errOut := parseToolError(t, result)
+	if errOut.Error.Code != "unknown_source" {
+		t.Fatalf("expected unknown_source code, got %q", errOut.Error.Code)
+	}
+}
+
+func TestMCP_ListSessions_InvalidSource_TypedOutputIncludesError(t *testing.T) {
+	ms := newTestMCPServer(&testStore{source: thinkt.SourceClaude})
+	_, out, err := ms.handleListSessions(context.Background(), nil, listSessionsInput{
+		ProjectID: "proj1",
+		Source:    "not-a-source",
+	})
+	if err != nil {
+		t.Fatalf("handleListSessions returned error: %v", err)
+	}
+	if out.Error == nil {
+		t.Fatal("expected typed output error")
+	}
+	if out.Error.Code != "unknown_source" {
+		t.Fatalf("expected unknown_source, got %q", out.Error.Code)
+	}
+	if out.Sessions == nil {
+		t.Fatal("expected non-nil sessions slice")
+	}
+}
+
 // --- Session file helpers ---
 
 // createTestClaudeSession creates a Claude JSONL session file with realistic entries.
@@ -519,9 +576,31 @@ func TestMCP_GetSessionMetadata_Pagination(t *testing.T) {
 func TestMCP_GetSessionMetadata_InvalidPath(t *testing.T) {
 	ms := newTestMCPServer()
 	result := callToolMayError(t, ms, "get_session_metadata", map[string]any{"path": "/nonexistent/file.jsonl"})
-	// Should return an error (either as MCP error or as IsError in result)
-	if result != nil && !result.IsError {
-		t.Error("expected error result for nonexistent path")
+	errOut := parseToolError(t, result)
+	if errOut.Error.Code != "session_metadata_failed" {
+		t.Fatalf("expected session_metadata_failed code, got %q", errOut.Error.Code)
+	}
+}
+
+func TestMCP_GetSessionMetadata_InvalidPath_TypedOutputIncludesError(t *testing.T) {
+	ms := newTestMCPServer()
+	_, out, err := ms.handleGetSessionMetadata(context.Background(), nil, getSessionMetadataInput{
+		Path: "/nonexistent/file.jsonl",
+	})
+	if err != nil {
+		t.Fatalf("handleGetSessionMetadata returned error: %v", err)
+	}
+	if out.Error == nil {
+		t.Fatal("expected typed output error")
+	}
+	if out.Error.Code != "session_metadata_failed" {
+		t.Fatalf("expected session_metadata_failed, got %q", out.Error.Code)
+	}
+	if out.RoleCounts == nil {
+		t.Fatal("expected non-nil role_counts map")
+	}
+	if out.EntrySummary == nil {
+		t.Fatal("expected non-nil entry_summary")
 	}
 }
 
@@ -675,12 +754,31 @@ func TestMCP_GetSessionEntries_Pagination(t *testing.T) {
 	}
 }
 
-func TestMCP_GetSessionEntries_MissingPath(t *testing.T) {
+func TestMCP_GetSessionEntries_EmptyPath(t *testing.T) {
 	ms := newTestMCPServer()
-	result := callToolMayError(t, ms, "get_session_entries", map[string]any{})
-	// Should return an error for missing path
-	if result != nil && !result.IsError {
-		t.Error("expected error result for missing path")
+	result := callToolMayError(t, ms, "get_session_entries", map[string]any{"path": ""})
+	errOut := parseToolError(t, result)
+	if errOut.Error.Code != "missing_path" {
+		t.Fatalf("expected missing_path code, got %q", errOut.Error.Code)
+	}
+}
+
+func TestMCP_GetSessionEntries_EmptyPath_TypedOutputIncludesError(t *testing.T) {
+	ms := newTestMCPServer()
+	_, out, err := ms.handleGetSessionEntries(context.Background(), nil, getSessionEntriesInput{
+		Path: "",
+	})
+	if err != nil {
+		t.Fatalf("handleGetSessionEntries returned error: %v", err)
+	}
+	if out.Error == nil {
+		t.Fatal("expected typed output error")
+	}
+	if out.Error.Code != "missing_path" {
+		t.Fatalf("expected missing_path, got %q", out.Error.Code)
+	}
+	if out.Entries == nil {
+		t.Fatal("expected non-nil entries slice")
 	}
 }
 
@@ -767,5 +865,115 @@ func TestBuildIndexerSearchArgs_IncludesSourceAndOptions(t *testing.T) {
 
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected args:\n got=%v\nwant=%v", got, want)
+	}
+}
+
+func TestToolErrorResult_Structured(t *testing.T) {
+	result, outAny, err := toolErrorResult("invalid_regex", "invalid regular expression", errors.New("exit status 1: unterminated group"))
+	if err != nil {
+		t.Fatalf("toolErrorResult returned error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if !result.IsError {
+		t.Fatal("expected IsError=true")
+	}
+	if len(result.Content) == 0 {
+		t.Fatal("expected error content")
+	}
+	tc, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("expected TextContent, got %T", result.Content[0])
+	}
+
+	var rendered toolErrorOutput
+	if err := json.Unmarshal([]byte(tc.Text), &rendered); err != nil {
+		t.Fatalf("unmarshal rendered error: %v", err)
+	}
+	if rendered.Error.Code != "invalid_regex" {
+		t.Fatalf("unexpected code %q", rendered.Error.Code)
+	}
+	if rendered.Error.Message != "invalid regular expression" {
+		t.Fatalf("unexpected message %q", rendered.Error.Message)
+	}
+	if !strings.Contains(rendered.Error.Details, "unterminated group") {
+		t.Fatalf("unexpected details %q", rendered.Error.Details)
+	}
+
+	out, ok := outAny.(toolErrorOutput)
+	if !ok {
+		t.Fatalf("expected toolErrorOutput type, got %T", outAny)
+	}
+	if out.Error.Code != rendered.Error.Code {
+		t.Fatalf("mismatched output code %q vs %q", out.Error.Code, rendered.Error.Code)
+	}
+}
+
+func TestCombineCmdError(t *testing.T) {
+	base := errors.New("exit status 1")
+	err := combineCmdError(base, []byte("invalid regex syntax"))
+	if err == nil {
+		t.Fatal("expected combined error")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "exit status 1") || !strings.Contains(msg, "invalid regex syntax") {
+		t.Fatalf("unexpected combined error: %q", msg)
+	}
+
+	noOut := combineCmdError(base, nil)
+	if noOut == nil || noOut.Error() != base.Error() {
+		t.Fatalf("expected base error when no output, got %v", noOut)
+	}
+}
+
+func TestNormalizeSemanticResults(t *testing.T) {
+	got := normalizeSemanticResults(nil)
+	if got == nil {
+		t.Fatal("expected empty slice, got nil")
+	}
+	if len(got) != 0 {
+		t.Fatalf("expected empty slice, got %d", len(got))
+	}
+
+	in := []semanticResult{{SessionID: "s1"}}
+	got = normalizeSemanticResults(in)
+	if len(got) != 1 || got[0].SessionID != "s1" {
+		t.Fatalf("unexpected normalized results: %+v", got)
+	}
+}
+
+func TestDecodeSemanticSearchOutput_NullBecomesEmptyArray(t *testing.T) {
+	out, err := decodeSemanticSearchOutput([]byte("null"))
+	if err != nil {
+		t.Fatalf("decodeSemanticSearchOutput returned error: %v", err)
+	}
+	if out.Results == nil {
+		t.Fatal("expected non-nil results slice")
+	}
+	if len(out.Results) != 0 {
+		t.Fatalf("expected zero results, got %d", len(out.Results))
+	}
+
+	encoded, err := json.Marshal(out)
+	if err != nil {
+		t.Fatalf("marshal output: %v", err)
+	}
+	if string(encoded) != `{"results":[]}` {
+		t.Fatalf("unexpected json output: %s", string(encoded))
+	}
+}
+
+func TestDecodeSemanticSearchOutput_WithResults(t *testing.T) {
+	raw := []byte(`[{"session_id":"s1","entry_uuid":"e1","distance":0.25}]`)
+	out, err := decodeSemanticSearchOutput(raw)
+	if err != nil {
+		t.Fatalf("decodeSemanticSearchOutput returned error: %v", err)
+	}
+	if len(out.Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(out.Results))
+	}
+	if out.Results[0].SessionID != "s1" || out.Results[0].EntryUUID != "e1" {
+		t.Fatalf("unexpected decoded result: %+v", out.Results[0])
 	}
 }

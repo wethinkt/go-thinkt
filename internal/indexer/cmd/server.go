@@ -304,7 +304,8 @@ func (s *indexerServer) HandleSemanticSearch(ctx context.Context, params rpc.Sem
 		FilterProject:  params.Project,
 		FilterSource:   params.Source,
 		Limit:          limit,
-		MaxDistance:     maxDist,
+		MaxDistance:    maxDist,
+		Diversity:      params.Diversity,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("semantic search: %w", err)

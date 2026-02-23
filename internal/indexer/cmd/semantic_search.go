@@ -18,9 +18,10 @@ var (
 	semFilterProject string
 	semFilterSource  string
 	semLimit         int
-	semMaxDistance    float64
+	semMaxDistance   float64
 	semJSON          bool
 	semList          bool
+	semDiversity     bool
 )
 
 var semanticCmd = &cobra.Command{
@@ -149,10 +150,11 @@ func doSemanticSearch(queryText string) ([]search.SemanticResult, error) {
 	return svc.SemanticSearch(search.SemanticSearchOptions{
 		QueryEmbedding: result.Vectors[0],
 		Model:          embedding.ModelID,
-		FilterProject:  semFilterProject,
-		FilterSource:   semFilterSource,
-		Limit:          semLimit,
-		MaxDistance:     semMaxDistance,
+		FilterProject: semFilterProject,
+		FilterSource:  semFilterSource,
+		Limit:         semLimit,
+		MaxDistance:   semMaxDistance,
+		Diversity:     semDiversity,
 	})
 }
 
@@ -205,6 +207,7 @@ func init() {
 	semanticSearchCmd.Flags().Float64Var(&semMaxDistance, "max-distance", 0, "Max cosine distance (0 = no threshold)")
 	semanticSearchCmd.Flags().BoolVar(&semList, "list", false, "Output as list instead of TUI (useful for scripting)")
 	semanticSearchCmd.Flags().BoolVar(&semJSON, "json", false, "Output as JSON")
+	semanticSearchCmd.Flags().BoolVar(&semDiversity, "diversity", false, "Enable diversity scoring to get results from different sessions")
 
 	semanticCmd.AddCommand(semanticSearchCmd)
 	semanticCmd.AddCommand(semanticStatsCmd)
