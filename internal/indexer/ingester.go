@@ -45,6 +45,27 @@ func (i *Ingester) HasEmbedder() bool {
 // Note: the embedder lifecycle is owned by the caller, not the ingester.
 func (i *Ingester) Close() {}
 
+// MigrateEmbeddings drops embeddings if the stored model doesn't match the current one.
+// This ensures a clean re-embed when the model changes.
+func (i *Ingester) MigrateEmbeddings(ctx context.Context) error {
+	if i.embedder == nil {
+		return nil
+	}
+
+	var count int
+	err := i.db.QueryRowContext(ctx, `SELECT count(*) FROM embeddings WHERE model != ?`, i.embedder.EmbedModelID()).Scan(&count)
+	if err != nil {
+		return nil // table may not exist yet
+	}
+	if count == 0 {
+		return nil
+	}
+
+	fmt.Fprintf(os.Stderr, "Dropping %d embeddings from old model (will re-embed with %s)\n", count, i.embedder.EmbedModelID())
+	_, err = i.db.ExecContext(ctx, `DELETE FROM embeddings WHERE model != ?`, i.embedder.EmbedModelID())
+	return err
+}
+
 func (i *Ingester) reportProgress(pIdx, pTotal, sIdx, sTotal int, message string) {
 	if i.OnProgress != nil {
 		i.OnProgress(pIdx, pTotal, sIdx, sTotal, message)

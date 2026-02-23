@@ -33,6 +33,12 @@ var syncCmd = &cobra.Command{
 
 		ingester := indexer.NewIngester(database, registry, embedder)
 
+		// Drop old embeddings if model changed
+		ctx := context.Background()
+		if err := ingester.MigrateEmbeddings(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: migration check failed: %v\n", err)
+		}
+
 		// Initialize progress reporter with TTY detection
 		progress := NewProgressReporter()
 
@@ -43,7 +49,6 @@ var syncCmd = &cobra.Command{
 			}
 		}
 
-		ctx := context.Background()
 		projects, err := registry.ListAllProjects(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to list projects: %w", err)
