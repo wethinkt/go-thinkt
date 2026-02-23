@@ -8,6 +8,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.0
 	github.com/BurntSushi/toml v1.6.0
 	github.com/charmbracelet/glamour v0.10.0
+	github.com/coder/websocket v1.8.14
 	github.com/charmbracelet/x/ansi v0.11.6
 	github.com/duckdb/duckdb-go/v2 v2.5.5
 	github.com/fsnotify/fsnotify v1.9.0
@@ -77,7 +78,6 @@ require (
 	github.com/clipperhouse/displaywidth v0.5.0 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
-	github.com/coder/websocket v1.8.14 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
 	github.com/dlclark/regexp2 v1.11.0 // indirect
 	github.com/duckdb/duckdb-go-bindings v0.3.3 // indirect
