@@ -49,7 +49,7 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 	for i, r := range requests {
 		texts[i] = r.Text
 	}
-	vectors, err := embedder.Embed(context.Background(), texts)
+	embedResult, err := embedder.Embed(context.Background(), texts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,28 +63,28 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 	}
 
 	for idx, m := range mapping {
-		if idx >= len(vectors) {
+		if idx >= len(embedResult.Vectors) {
 			break
 		}
 		id := requests[idx].ID
 		_, err := d.Exec(`
 			INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
 			VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[1024], ?)`,
-			id, m.SessionID, m.EntryUUID, m.ChunkIndex, embedder.EmbedModelID(), embedder.Dim(), vectors[idx], m.TextHash)
+			id, m.SessionID, m.EntryUUID, m.ChunkIndex, embedder.EmbedModelID(), embedder.Dim(), embedResult.Vectors[idx], m.TextHash)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	// Search for "auth timeout" — should find e1 and e2 before e3
-	queryVecs, err := embedder.Embed(context.Background(), []string{"authentication timeout problem"})
+	queryResult, err := embedder.Embed(context.Background(), []string{"authentication timeout problem"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	svc := search.NewService(d)
 	results, err := svc.SemanticSearch(search.SemanticSearchOptions{
-		QueryEmbedding: queryVecs[0],
+		QueryEmbedding: queryResult.Vectors[0],
 		Model:          embedding.ModelID,
 		Limit:          10,
 	})

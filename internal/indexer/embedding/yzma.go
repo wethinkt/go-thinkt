@@ -102,12 +102,18 @@ func NewEmbedder(modelPath string) (*Embedder, error) {
 
 const maxCtxTokens = 2048
 
+// EmbedResult holds the output of an Embed call.
+type EmbedResult struct {
+	Vectors     [][]float32
+	TotalTokens int
+}
+
 // Embed produces L2-normalized embedding vectors for the given texts.
 // Texts are batched into single decode calls for efficiency.
 // It is safe for concurrent use (calls are serialized internally).
-func (e *Embedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
+func (e *Embedder) Embed(_ context.Context, texts []string) (*EmbedResult, error) {
 	if len(texts) == 0 {
-		return nil, nil
+		return &EmbedResult{}, nil
 	}
 
 	e.mu.Lock()
@@ -128,6 +134,11 @@ func (e *Embedder) Embed(_ context.Context, texts []string) ([][]float32, error)
 			tokens = tokens[:maxCtxTokens]
 		}
 		allTokenized = append(allTokenized, tokenized{tokens: tokens, index: i})
+	}
+
+	totalTokens := 0
+	for _, t := range allTokenized {
+		totalTokens += len(t.tokens)
 	}
 
 	results := make([][]float32, len(texts))
@@ -163,7 +174,7 @@ func (e *Embedder) Embed(_ context.Context, texts []string) ([][]float32, error)
 		}
 	}
 
-	return results, nil
+	return &EmbedResult{Vectors: results, TotalTokens: totalTokens}, nil
 }
 
 // decodeBatch embeds multiple tokenized texts in a single decode call,

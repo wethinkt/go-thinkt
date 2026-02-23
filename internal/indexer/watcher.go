@@ -32,6 +32,13 @@ type Watcher struct {
 	mu           sync.Mutex
 	sessionIndex map[string]sessionIndexEntry // normalized path -> session info
 	dbPool       *db.LazyPool                 // lazy-close connection pool
+
+	// inFlight tracks sessions currently being re-indexed.
+	// If a session is in-flight and another change comes in, we mark it
+	// dirty so it re-runs after the current ingestion finishes.
+	inFlightMu sync.Mutex
+	inFlight   map[string]bool // session path -> currently processing
+	dirty      map[string]bool // session path -> needs re-run after current finishes
 }
 
 // NewWatcher creates a new Watcher instance.
@@ -49,7 +56,9 @@ func NewWatcher(dbPath string, registry *thinkt.StoreRegistry, embedder *embeddi
 		watcher:      fw,
 		done:         make(chan struct{}),
 		sessionIndex: make(map[string]sessionIndexEntry),
-		dbPool:       db.NewLazyPool(dbPath, 100*time.Millisecond),
+		dbPool:       db.NewLazyPool(dbPath, 5*time.Second),
+		inFlight:     make(map[string]bool),
+		dirty:        make(map[string]bool),
 	}, nil
 }
 
@@ -247,20 +256,54 @@ func (w *Watcher) handleFileChange(path string) {
 		return
 	}
 
-	log.Printf("File changed, re-indexing: %s", realPath)
-
-	ctx := context.Background()
-	database, err := w.dbPool.Acquire()
-	if err != nil {
-		log.Printf("Failed to open database: %v", err)
+	// Serialize re-indexing per session to avoid DuckDB transaction conflicts.
+	// If already in-flight, mark dirty so it re-runs after current finishes.
+	w.inFlightMu.Lock()
+	if w.inFlight[realPath] {
+		w.dirty[realPath] = true
+		w.inFlightMu.Unlock()
 		return
 	}
-	// Release schedules lazy close (100ms) instead of immediate close
-	defer w.dbPool.Release()
+	w.inFlight[realPath] = true
+	w.inFlightMu.Unlock()
 
-	ingester := NewIngester(database, w.registry, w.embedder)
-	if err := ingester.IngestAndEmbedSession(ctx, entry.projectID, entry.session); err != nil {
-		log.Printf("Failed to re-index session %s: %v", entry.session.ID, err)
+	w.reindexSession(realPath, entry)
+}
+
+// reindexSession runs ingestion for the session, then re-runs if the file
+// was modified again during processing.
+func (w *Watcher) reindexSession(realPath string, entry sessionIndexEntry) {
+	defer func() {
+		w.inFlightMu.Lock()
+		delete(w.inFlight, realPath)
+		w.inFlightMu.Unlock()
+	}()
+
+	for {
+		log.Printf("File changed, re-indexing: %s", realPath)
+
+		ctx := context.Background()
+		database, err := w.dbPool.Acquire()
+		if err != nil {
+			log.Printf("Failed to open database: %v", err)
+			return
+		}
+
+		ingester := NewIngester(database, w.registry, w.embedder)
+		if err := ingester.IngestAndEmbedSession(ctx, entry.projectID, entry.session); err != nil {
+			log.Printf("Failed to re-index session %s: %v", entry.session.ID, err)
+		}
+
+		w.dbPool.Release()
+
+		// Check if the file was modified again while we were processing.
+		w.inFlightMu.Lock()
+		if !w.dirty[realPath] {
+			w.inFlightMu.Unlock()
+			return
+		}
+		delete(w.dirty, realPath)
+		w.inFlightMu.Unlock()
 	}
 }
 

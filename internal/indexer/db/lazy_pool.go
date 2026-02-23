@@ -8,9 +8,12 @@ import (
 // LazyPool manages a single database connection with lazy-close behavior.
 // The connection is kept open for a configurable idle timeout to allow
 // reuse during periods of high activity, then automatically closed.
+// It uses reference counting so the connection stays open while any
+// caller is still using it.
 type LazyPool struct {
 	path    string
 	conn    *DB
+	refs    int
 	timer   *time.Timer
 	timeout time.Duration
 	mu      sync.Mutex
@@ -26,8 +29,8 @@ func NewLazyPool(path string, idleTimeout time.Duration) *LazyPool {
 }
 
 // Acquire returns the existing database connection or opens a new one.
-// It cancels any pending close timer. Callers must call Release() when
-// done with the connection to allow lazy cleanup.
+// It cancels any pending close timer and increments the reference count.
+// Callers must call Release() when done with the connection.
 func (p *LazyPool) Acquire() (*DB, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -40,6 +43,7 @@ func (p *LazyPool) Acquire() (*DB, error) {
 
 	// Reuse existing connection
 	if p.conn != nil {
+		p.refs++
 		return p.conn, nil
 	}
 
@@ -49,20 +53,25 @@ func (p *LazyPool) Acquire() (*DB, error) {
 		return nil, err
 	}
 	p.conn = conn
+	p.refs = 1
 	return conn, nil
 }
 
-// Release schedules the database connection to close after the idle timeout.
-// This should be called after Acquire() when the caller is done with the connection.
+// Release decrements the reference count and, when no more holders remain,
+// schedules the connection to close after the idle timeout.
 func (p *LazyPool) Release() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p.conn == nil {
+	if p.refs > 0 {
+		p.refs--
+	}
+
+	if p.refs > 0 || p.conn == nil {
 		return
 	}
 
-	// Cancel any existing timer
+	// No more holders — start idle timer
 	if p.timer != nil {
 		p.timer.Stop()
 	}
@@ -71,7 +80,8 @@ func (p *LazyPool) Release() {
 		p.mu.Lock()
 		defer p.mu.Unlock()
 
-		if p.conn != nil {
+		// Only close if still idle (no new Acquire since timer started)
+		if p.refs == 0 && p.conn != nil {
 			p.conn.Close()
 			p.conn = nil
 		}
@@ -89,6 +99,8 @@ func (p *LazyPool) Close() error {
 		p.timer.Stop()
 		p.timer = nil
 	}
+
+	p.refs = 0
 
 	if p.conn != nil {
 		err := p.conn.Close()

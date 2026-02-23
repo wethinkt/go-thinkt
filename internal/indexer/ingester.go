@@ -22,8 +22,13 @@ type Ingester struct {
 	OnProgress  func(pIdx, pTotal, sIdx, sTotal int, message string)
 
 	// OnEmbedProgress is called during EmbedAllSessions with progress updates.
-	// chunks is the number of chunks embedded for this session (0 before start).
-	OnEmbedProgress func(done, total, chunks int, sessionID string, elapsed time.Duration)
+	// Called before embedding (elapsed=0, chunks=0, entries=entry count) and
+	// after embedding (elapsed>0, chunks=chunks stored, entries=0).
+	OnEmbedProgress func(done, total, chunks, entries int, sessionID, sessionPath string, elapsed time.Duration)
+
+	// OnEmbedChunkProgress is called after each sub-batch of chunks is embedded,
+	// providing within-session progress visibility.
+	OnEmbedChunkProgress func(chunksDone, chunksTotal, tokensDone int, sessionID string)
 }
 
 // NewIngester creates a new Ingester instance.
@@ -93,6 +98,9 @@ func (i *Ingester) IngestProject(ctx context.Context, project thinkt.Project, pI
 	}
 
 	for idx, s := range sessions {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		i.reportProgress(pIdx, pTotal, idx+1, totalSessions, fmt.Sprintf("Indexing %s: %s", project.Name, s.ID))
 		if err := i.IngestSession(ctx, ScopedProjectID(project.Source, project.ID), s); err != nil {
 			// Log error but continue with other sessions
@@ -143,6 +151,9 @@ func (i *Ingester) IngestSession(ctx context.Context, projectID string, meta thi
 			return fmt.Errorf("error reading entry: %w", err)
 		}
 
+		if entry.UUID == "" {
+			continue // skip entries without UUIDs
+		}
 		count++
 		if err := i.upsertEntry(ctx, meta.ID, *entry, count); err != nil {
 			return err
@@ -178,14 +189,15 @@ func (i *Ingester) EmbedAllSessions(ctx context.Context) error {
 		return nil
 	}
 
-	// Find sessions that have entries but no embeddings
+	// Find sessions that have entries but no embeddings, with entry counts
 	rows, err := i.db.QueryContext(ctx, `
-		SELECT DISTINCT s.id, s.path
+		SELECT s.id, s.path, count(e.uuid) as entry_count
 		FROM sessions s
 		JOIN entries e ON e.session_id = s.id
 		WHERE NOT EXISTS (
 			SELECT 1 FROM embeddings emb WHERE emb.session_id = s.id
 		)
+		GROUP BY s.id, s.path
 		ORDER BY s.id`)
 	if err != nil {
 		return fmt.Errorf("query sessions needing embeddings: %w", err)
@@ -193,13 +205,14 @@ func (i *Ingester) EmbedAllSessions(ctx context.Context) error {
 	defer rows.Close()
 
 	type sessionInfo struct {
-		id   string
-		path string
+		id         string
+		path       string
+		entryCount int
 	}
 	var sessions []sessionInfo
 	for rows.Next() {
 		var s sessionInfo
-		if err := rows.Scan(&s.id, &s.path); err != nil {
+		if err := rows.Scan(&s.id, &s.path, &s.entryCount); err != nil {
 			return fmt.Errorf("scan session: %w", err)
 		}
 		sessions = append(sessions, s)
@@ -211,8 +224,11 @@ func (i *Ingester) EmbedAllSessions(ctx context.Context) error {
 
 	total := len(sessions)
 	for idx, s := range sessions {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if i.OnEmbedProgress != nil {
-			i.OnEmbedProgress(idx, total, 0, s.id, 0)
+			i.OnEmbedProgress(idx, total, 0, s.entryCount, s.id, s.path, 0)
 		}
 		start := time.Now()
 		chunks, err := i.embedSessionFromDB(ctx, s.id)
@@ -220,7 +236,7 @@ func (i *Ingester) EmbedAllSessions(ctx context.Context) error {
 			fmt.Fprintf(os.Stderr, "\nWarning: embedding failed for session %s: %v\n", s.id, err)
 		}
 		if i.OnEmbedProgress != nil {
-			i.OnEmbedProgress(idx+1, total, chunks, s.id, time.Since(start))
+			i.OnEmbedProgress(idx+1, total, chunks, 0, s.id, s.path, time.Since(start))
 		}
 	}
 
@@ -379,6 +395,10 @@ func sqlErrNoRows() error {
 	return db.ErrNoRows
 }
 
+// embedBatchSize controls how many chunks are embedded per sub-batch.
+// Smaller values give more granular progress updates.
+const embedBatchSize = 16
+
 func (i *Ingester) embedSession(ctx context.Context, sessionID string, entries []thinkt.Entry) (int, error) {
 	if i.embedder == nil {
 		return 0, nil
@@ -403,38 +423,54 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, entries [
 
 	// Prepare chunks
 	requests, mapping := embedding.PrepareEntries(entryTexts, 2000, 200)
+	totalChunks := len(requests)
 
-	// Extract text strings for the embedder
-	texts := make([]string, len(requests))
-	for idx, r := range requests {
-		texts[idx] = r.Text
-	}
-
-	vectors, err := i.embedder.Embed(ctx, texts)
-	if err != nil {
-		return 0, fmt.Errorf("embedding failed: %w", err)
-	}
-
-	// Store embeddings
+	// Embed and store in sub-batches for progress visibility and cancellation.
 	stored := 0
-	for idx, m := range mapping {
-		if idx >= len(vectors) {
-			break
+	totalTokens := 0
+	for batchStart := 0; batchStart < totalChunks; batchStart += embedBatchSize {
+		if ctx.Err() != nil {
+			return stored, ctx.Err()
 		}
-		id := requests[idx].ID
-		_, err := i.db.ExecContext(ctx, `
-			INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
-			VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[1024], ?)
-			ON CONFLICT (id) DO UPDATE SET
-				embedding = excluded.embedding,
-				text_hash = excluded.text_hash`,
-			id, m.SessionID, m.EntryUUID, m.ChunkIndex,
-			i.embedder.EmbedModelID(), i.embedder.Dim(), vectors[idx], m.TextHash,
-		)
+
+		batchEnd := min(batchStart+embedBatchSize, totalChunks)
+
+		// Extract text strings for this sub-batch
+		batchTexts := make([]string, batchEnd-batchStart)
+		for j := batchStart; j < batchEnd; j++ {
+			batchTexts[j-batchStart] = requests[j].Text
+		}
+
+		result, err := i.embedder.Embed(ctx, batchTexts)
 		if err != nil {
-			return stored, fmt.Errorf("store embedding %s: %w", id, err)
+			return stored, fmt.Errorf("embedding failed: %w", err)
 		}
-		stored++
+		totalTokens += result.TotalTokens
+
+		// Store embeddings
+		for j, vec := range result.Vectors {
+			idx := batchStart + j
+			id := requests[idx].ID
+			m := mapping[idx]
+			_, err := i.db.ExecContext(ctx, `
+				INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
+				VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[1024], ?)
+				ON CONFLICT (id) DO UPDATE SET
+					embedding = excluded.embedding,
+					text_hash = excluded.text_hash`,
+				id, m.SessionID, m.EntryUUID, m.ChunkIndex,
+				i.embedder.EmbedModelID(), i.embedder.Dim(), vec, m.TextHash,
+			)
+			if err != nil {
+				return stored, fmt.Errorf("store embedding %s: %w", id, err)
+			}
+			stored++
+		}
+
+		// Report chunk-level progress
+		if i.OnEmbedChunkProgress != nil {
+			i.OnEmbedChunkProgress(stored, totalChunks, totalTokens, sessionID)
+		}
 	}
 
 	return stored, nil

@@ -104,11 +104,11 @@ func doSemanticSearch(queryText string) ([]search.SemanticResult, error) {
 	}
 	defer embedder.Close()
 
-	vecs, err := embedder.Embed(context.Background(), []string{queryText})
+	result, err := embedder.Embed(context.Background(), []string{queryText})
 	if err != nil {
 		return nil, fmt.Errorf("failed to embed query: %w", err)
 	}
-	if len(vecs) == 0 {
+	if len(result.Vectors) == 0 {
 		return nil, fmt.Errorf("embedding returned no results for query")
 	}
 
@@ -120,7 +120,7 @@ func doSemanticSearch(queryText string) ([]search.SemanticResult, error) {
 
 	svc := search.NewService(db)
 	return svc.SemanticSearch(search.SemanticSearchOptions{
-		QueryEmbedding: vecs[0],
+		QueryEmbedding: result.Vectors[0],
 		Model:          embedding.ModelID,
 		FilterProject:  semFilterProject,
 		FilterSource:   semFilterSource,

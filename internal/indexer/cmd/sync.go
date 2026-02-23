@@ -23,6 +23,8 @@ var syncCmd = &cobra.Command{
 			progress := NewProgressReporter()
 			var progressFn func(rpc.Progress)
 			if progress.ShouldShowProgress(quiet, verbose) {
+				var lastSessionDone, lastSessionTotal int // track session-level progress for chunk display
+				var sessionStart time.Time
 				progressFn = func(p rpc.Progress) {
 					var data struct {
 						Project      int    `json:"project"`
@@ -33,19 +35,48 @@ var syncCmd = &cobra.Command{
 						Done         int    `json:"done"`
 						Total        int    `json:"total"`
 						Chunks       int    `json:"chunks"`
+						Entries      int    `json:"entries"`
+						ChunksDone   int    `json:"chunks_done"`
+						ChunksTotal  int    `json:"chunks_total"`
+						TokensDone   int    `json:"tokens_done"`
 						SessionID    string `json:"session_id"`
+						SessionPath  string `json:"session_path"`
+						ElapsedMs    int64  `json:"elapsed_ms"`
 					}
 					if err := json.Unmarshal(p.Data, &data); err == nil {
 						if data.ProjectTotal > 0 {
-							progress.Print(fmt.Sprintf("Projects [%d/%d] | Sessions [%d/%d] %s",
+							progress.Print(fmt.Sprintf("[%d/%d] projects | [%d/%d] sessions %s",
 								data.Project, data.ProjectTotal, data.Session, data.SessionTotal, data.Message))
-						} else if data.Total > 0 {
+						} else if data.ChunksTotal > 0 {
 							sid := data.SessionID
-							if len(sid) > 12 {
-								sid = sid[:12]
+							if len(sid) > 8 {
+								sid = sid[:8]
 							}
-							progress.Print(fmt.Sprintf("Embedding [%d/%d] %s — %d chunks",
-								data.Done, data.Total, sid, data.Chunks))
+							msg := fmt.Sprintf("[%d/%d] %s chunks %d/%d",
+								lastSessionDone, lastSessionTotal, sid, data.ChunksDone, data.ChunksTotal)
+							if data.TokensDone > 0 && !sessionStart.IsZero() {
+								if secs := time.Since(sessionStart).Seconds(); secs > 0 {
+									msg += fmt.Sprintf(" (%.0f tok/s)", float64(data.TokensDone)/secs)
+								}
+							}
+							progress.Print(msg)
+						} else if data.Total > 0 {
+							lastSessionDone = data.Done
+							lastSessionTotal = data.Total
+							sid := data.SessionID
+							if len(sid) > 8 {
+								sid = sid[:8]
+							}
+							if data.ElapsedMs > 0 {
+								elapsed := time.Duration(data.ElapsedMs) * time.Millisecond
+								progress.Print(fmt.Sprintf("[%d/%d] %s %d chunks (%s)",
+									data.Done, data.Total, sid, data.Chunks, elapsed.Round(time.Millisecond)))
+							} else {
+								// "Before" event — session is about to start embedding
+								sessionStart = time.Now()
+								progress.Print(fmt.Sprintf("[%d/%d] %s %d entries",
+									data.Done, data.Total, sid, data.Entries))
+							}
 						}
 					}
 				}
@@ -56,12 +87,6 @@ var syncCmd = &cobra.Command{
 					progress.Finish()
 				}
 				fmt.Fprintf(os.Stderr, "RPC sync failed, falling back to inline: %v\n", err)
-			} else if !resp.OK && resp.Error == "sync already in progress" {
-				// Attach to the in-progress sync by polling status
-				if err := pollSyncStatus(progress); err != nil {
-					return err
-				}
-				return nil
 			} else if !resp.OK {
 				if progress.ShouldShowProgress(quiet, verbose) {
 					progress.Finish()
@@ -142,13 +167,28 @@ var syncCmd = &cobra.Command{
 		// Second pass: embed any sessions that need embeddings
 		if ingester.HasEmbedder() {
 			if progress.ShouldShowProgress(quiet, verbose) {
-				ingester.OnEmbedProgress = func(done, total, chunks int, sessionID string, elapsed time.Duration) {
-					sid := sessionID[:min(12, len(sessionID))]
+				var inlineDone, inlineTotal int
+				var inlineSessionStart time.Time
+				ingester.OnEmbedProgress = func(done, total, chunks, entries int, sessionID, sessionPath string, elapsed time.Duration) {
+					inlineDone = done
+					inlineTotal = total
+					sid := sessionID[:min(8, len(sessionID))]
 					if elapsed == 0 {
-						progress.Print(fmt.Sprintf("Embedding [%d/%d] %s...", done, total, sid))
+						inlineSessionStart = time.Now()
+						progress.Print(fmt.Sprintf("[%d/%d] %s %d entries", done, total, sid, entries))
 					} else {
-						progress.Print(fmt.Sprintf("Embedding [%d/%d] %s — %d chunks (%s)", done, total, sid, chunks, elapsed.Round(time.Millisecond)))
+						progress.Print(fmt.Sprintf("[%d/%d] %s %d chunks (%s)", done, total, sid, chunks, elapsed.Round(time.Millisecond)))
 					}
+				}
+				ingester.OnEmbedChunkProgress = func(chunksDone, chunksTotal, tokensDone int, sessionID string) {
+					sid := sessionID[:min(8, len(sessionID))]
+					msg := fmt.Sprintf("[%d/%d] %s chunks %d/%d", inlineDone, inlineTotal, sid, chunksDone, chunksTotal)
+					if tokensDone > 0 && !inlineSessionStart.IsZero() {
+						if secs := time.Since(inlineSessionStart).Seconds(); secs > 0 {
+							msg += fmt.Sprintf(" (%.0f tok/s)", float64(tokensDone)/secs)
+						}
+					}
+					progress.Print(msg)
 				}
 			}
 			if err := ingester.EmbedAllSessions(ctx); err != nil {
@@ -169,78 +209,6 @@ var syncCmd = &cobra.Command{
 		}
 		return nil
 	},
-}
-
-// pollSyncStatus polls the server's status endpoint until the sync completes,
-// displaying progress along the way. Safe to Ctrl+C — the server keeps syncing.
-func pollSyncStatus(progress *ProgressReporter) error {
-	showProgress := progress.ShouldShowProgress(quiet, verbose)
-	if showProgress {
-		progress.Print("Sync already in progress, attaching...")
-	} else if !quiet {
-		fmt.Println("Sync already in progress on server, waiting...")
-	}
-
-	for {
-		time.Sleep(1 * time.Second)
-
-		resp, err := rpc.Call("status", nil, nil)
-		if err != nil {
-			if showProgress {
-				progress.Finish()
-			}
-			return fmt.Errorf("lost connection to server: %w", err)
-		}
-		if !resp.OK {
-			if showProgress {
-				progress.Finish()
-			}
-			return fmt.Errorf("status: %s", resp.Error)
-		}
-
-		var status rpc.StatusData
-		if err := json.Unmarshal(resp.Data, &status); err != nil {
-			if showProgress {
-				progress.Finish()
-			}
-			return fmt.Errorf("invalid status response: %w", err)
-		}
-
-		if showProgress {
-			switch status.State {
-			case "syncing":
-				if p := status.SyncProgress; p != nil {
-					if p.Message != "" {
-						progress.Print(fmt.Sprintf("Sessions [%d/%d] %s", p.Done, p.Total, p.Message))
-					} else {
-						progress.Print(fmt.Sprintf("Syncing [%d/%d]...", p.Done, p.Total))
-					}
-				} else {
-					progress.Print("Syncing...")
-				}
-			case "embedding":
-				if p := status.EmbedProgress; p != nil {
-					sid := p.SessionID
-					if len(sid) > 12 {
-						sid = sid[:12]
-					}
-					progress.Print(fmt.Sprintf("Embedding [%d/%d] %s...", p.Done, p.Total, sid))
-				} else {
-					progress.Print("Embedding...")
-				}
-			}
-		}
-
-		if status.State == "idle" {
-			if showProgress {
-				progress.Finish()
-			}
-			if !quiet {
-				fmt.Println("Indexing complete (via server).")
-			}
-			return nil
-		}
-	}
 }
 
 func init() {

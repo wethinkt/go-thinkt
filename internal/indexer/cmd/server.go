@@ -43,8 +43,18 @@ type indexerServer struct {
 	watching  bool
 	startedAt time.Time
 
-	// Sync mutex to prevent concurrent syncs
-	syncMu sync.Mutex
+	// shutdownCtx is cancelled on SIGTERM/SIGINT to abort in-flight work.
+	shutdownCtx    context.Context
+	shutdownCancel context.CancelFunc
+
+	// Sync coordination: one sync runs at a time, but multiple clients
+	// can subscribe to its progress stream.
+	syncMu      sync.Mutex
+	syncSubs    []syncSubscriber // active progress subscribers
+	syncSubsMu  sync.Mutex
+	syncDone    chan struct{} // closed when current sync finishes
+	syncResult  *rpc.Response
+	syncErr     error
 
 	// Status tracking
 	stateMu   sync.RWMutex
@@ -59,11 +69,81 @@ func (s *indexerServer) setState(state string) {
 	s.stateMu.Unlock()
 }
 
+type syncSubscriber struct {
+	id int
+	fn func(rpc.Progress)
+}
+
+// broadcastProgress sends a progress event to all subscribed clients.
+func (s *indexerServer) broadcastProgress(p rpc.Progress) {
+	s.syncSubsMu.Lock()
+	subs := make([]syncSubscriber, len(s.syncSubs))
+	copy(subs, s.syncSubs)
+	s.syncSubsMu.Unlock()
+
+	for _, sub := range subs {
+		sub.fn(p)
+	}
+}
+
+var nextSubID int
+
+// addSyncSubscriber adds a progress listener and returns a removal function.
+func (s *indexerServer) addSyncSubscriber(fn func(rpc.Progress)) func() {
+	s.syncSubsMu.Lock()
+	nextSubID++
+	id := nextSubID
+	s.syncSubs = append(s.syncSubs, syncSubscriber{id: id, fn: fn})
+	s.syncSubsMu.Unlock()
+
+	return func() {
+		s.syncSubsMu.Lock()
+		defer s.syncSubsMu.Unlock()
+		for i, sub := range s.syncSubs {
+			if sub.id == id {
+				s.syncSubs = append(s.syncSubs[:i], s.syncSubs[i+1:]...)
+				break
+			}
+		}
+	}
+}
+
 func (s *indexerServer) HandleSync(ctx context.Context, params rpc.SyncParams, send func(rpc.Progress)) (*rpc.Response, error) {
 	if !s.syncMu.TryLock() {
-		return &rpc.Response{OK: false, Error: "sync already in progress"}, nil
+		// Sync already in progress — subscribe to its progress stream and wait.
+		remove := s.addSyncSubscriber(send)
+		defer remove()
+		<-s.syncDone
+		return s.syncResult, s.syncErr
 	}
 	defer s.syncMu.Unlock()
+
+	// Set up done channel for subscribers to wait on.
+	s.syncDone = make(chan struct{})
+
+	// The initiator is also a subscriber.
+	remove := s.addSyncSubscriber(send)
+
+	// Ensure subscribers see the result and get cleaned up.
+	var syncResp *rpc.Response
+	var syncErr error
+	defer func() {
+		s.syncResult = syncResp
+		s.syncErr = syncErr
+		remove()
+		close(s.syncDone)
+	}()
+
+	// Cancel if either the request context or the server shutdown context is done.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		select {
+		case <-ctx.Done():
+		case <-s.shutdownCtx.Done():
+			cancel()
+		}
+	}()
 
 	s.setState("syncing")
 	defer s.setState("idle")
@@ -84,12 +164,13 @@ func (s *indexerServer) HandleSync(ctx context.Context, params rpc.SyncParams, s
 			"session": sIdx, "session_total": sTotal,
 			"message": message,
 		})
-		send(rpc.Progress{Data: data})
+		s.broadcastProgress(rpc.Progress{Data: data})
 	}
 
 	projects, err := s.registry.ListAllProjects(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("list projects: %w", err)
+		syncErr = fmt.Errorf("list projects: %w", err)
+		return nil, syncErr
 	}
 
 	if params.Force {
@@ -101,6 +182,10 @@ func (s *indexerServer) HandleSync(ctx context.Context, params rpc.SyncParams, s
 
 	totalProjects := len(projects)
 	for idx, p := range projects {
+		if ctx.Err() != nil {
+			log.Printf("Sync cancelled")
+			break
+		}
 		if err := ingester.IngestProject(ctx, p, idx+1, totalProjects); err != nil {
 			log.Printf("Error indexing project %s: %v", p.Name, err)
 		}
@@ -109,16 +194,35 @@ func (s *indexerServer) HandleSync(ctx context.Context, params rpc.SyncParams, s
 	// Second pass: embeddings
 	if ingester.HasEmbedder() {
 		s.setState("embedding")
-		ingester.OnEmbedProgress = func(done, total, chunks int, sessionID string, elapsed time.Duration) {
+		ingester.OnEmbedProgress = func(done, total, chunks, entries int, sessionID, sessionPath string, elapsed time.Duration) {
 			s.stateMu.Lock()
-			s.embedProg = &rpc.ProgressInfo{Done: done, Total: total, SessionID: sessionID}
+			s.embedProg = &rpc.ProgressInfo{Done: done, Total: total, SessionID: sessionID, Entries: entries}
 			s.stateMu.Unlock()
 
 			data, _ := json.Marshal(map[string]any{
 				"done": done, "total": total,
-				"chunks": chunks, "session_id": sessionID,
+				"chunks": chunks, "entries": entries,
+				"session_id":   sessionID,
+				"session_path": sessionPath,
+				"elapsed_ms":   elapsed.Milliseconds(),
 			})
-			send(rpc.Progress{Data: data})
+			s.broadcastProgress(rpc.Progress{Data: data})
+		}
+		ingester.OnEmbedChunkProgress = func(chunksDone, chunksTotal, tokensDone int, sessionID string) {
+			s.stateMu.Lock()
+			if s.embedProg != nil {
+				s.embedProg.ChunksDone = chunksDone
+				s.embedProg.ChunksTotal = chunksTotal
+			}
+			s.stateMu.Unlock()
+
+			data, _ := json.Marshal(map[string]any{
+				"chunks_done":  chunksDone,
+				"chunks_total": chunksTotal,
+				"tokens_done":  tokensDone,
+				"session_id":   sessionID,
+			})
+			s.broadcastProgress(rpc.Progress{Data: data})
 		}
 		if err := ingester.EmbedAllSessions(ctx); err != nil {
 			log.Printf("Embedding error: %v", err)
@@ -134,7 +238,8 @@ func (s *indexerServer) HandleSync(ctx context.Context, params rpc.SyncParams, s
 	result, _ := json.Marshal(map[string]any{
 		"projects": totalProjects,
 	})
-	return &rpc.Response{OK: true, Data: result}, nil
+	syncResp = &rpc.Response{OK: true, Data: result}
+	return syncResp, nil
 }
 
 func (s *indexerServer) HandleSearch(ctx context.Context, params rpc.SearchParams) (*rpc.Response, error) {
@@ -177,11 +282,11 @@ func (s *indexerServer) HandleSemanticSearch(ctx context.Context, params rpc.Sem
 	}
 
 	// Embed the query text
-	vectors, err := s.embedder.Embed(ctx, []string{params.Query})
+	result, err := s.embedder.Embed(ctx, []string{params.Query})
 	if err != nil {
 		return nil, fmt.Errorf("embed query: %w", err)
 	}
-	if len(vectors) == 0 {
+	if len(result.Vectors) == 0 {
 		return nil, fmt.Errorf("embedding produced no vectors")
 	}
 
@@ -197,7 +302,7 @@ func (s *indexerServer) HandleSemanticSearch(ctx context.Context, params rpc.Sem
 	}
 
 	results, err := svc.SemanticSearch(search.SemanticSearchOptions{
-		QueryEmbedding: vectors[0],
+		QueryEmbedding: result.Vectors[0],
 		Model:          s.embedder.EmbedModelID(),
 		FilterProject:  params.Project,
 		FilterSource:   params.Source,
@@ -319,12 +424,17 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 	// 4. Create registry and server struct
 	registry := cmd.CreateSourceRegistry()
 
+	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
+	defer shutdownCancel()
+
 	srv := &indexerServer{
-		db:        database,
-		registry:  registry,
-		embedder:  embedder,
-		startedAt: time.Now(),
-		state:     "idle",
+		db:             database,
+		registry:       registry,
+		embedder:       embedder,
+		startedAt:      time.Now(),
+		state:          "idle",
+		shutdownCtx:    shutdownCtx,
+		shutdownCancel: shutdownCancel,
 	}
 
 	// 5. Migrate embeddings (drop old model embeddings)
@@ -379,7 +489,7 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 	// 9. Run initial sync in background
 	go func() {
 		log.Printf("Starting initial sync...")
-		resp, err := srv.HandleSync(context.Background(), rpc.SyncParams{}, func(rpc.Progress) {})
+		resp, err := srv.HandleSync(shutdownCtx, rpc.SyncParams{}, func(rpc.Progress) {})
 		if err != nil {
 			log.Printf("Initial sync error: %v", err)
 		} else if resp != nil && !resp.OK {
@@ -398,6 +508,7 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	sig := <-sigChan
 	log.Printf("Received signal %v, shutting down...", sig)
+	shutdownCancel() // Cancel in-flight sync/embed operations
 
 	// 11. Shutdown
 	if watcher != nil {

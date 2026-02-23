@@ -35,16 +35,19 @@ func TestEmbedder(t *testing.T) {
 		"Machine learning models convert text into vectors.",
 	}
 
-	vecs, err := e.Embed(context.Background(), texts)
+	result, err := e.Embed(context.Background(), texts)
 	if err != nil {
 		t.Fatalf("Embed: %v", err)
 	}
 
-	if len(vecs) != len(texts) {
-		t.Fatalf("got %d vectors, want %d", len(vecs), len(texts))
+	if len(result.Vectors) != len(texts) {
+		t.Fatalf("got %d vectors, want %d", len(result.Vectors), len(texts))
+	}
+	if result.TotalTokens <= 0 {
+		t.Errorf("TotalTokens = %d, want > 0", result.TotalTokens)
 	}
 
-	for i, vec := range vecs {
+	for i, vec := range result.Vectors {
 		if len(vec) != e.Dim() {
 			t.Errorf("vec[%d] dim = %d, want %d", i, len(vec), e.Dim())
 		}
@@ -60,6 +63,7 @@ func TestEmbedder(t *testing.T) {
 		}
 	}
 
+	vecs := result.Vectors
 	// Sanity: the two different texts should produce different vectors.
 	if len(vecs[0]) > 0 && len(vecs[1]) > 0 && vecs[0][0] == vecs[1][0] {
 		// Not a definitive check, but a basic sanity signal.
@@ -92,13 +96,13 @@ func TestEmbedEmpty(t *testing.T) {
 	}
 	defer e.Close()
 
-	// Empty slice should return nil.
-	vecs, err := e.Embed(context.Background(), nil)
+	// Empty slice should return empty result.
+	result, err := e.Embed(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("Embed(nil): %v", err)
 	}
-	if vecs != nil {
-		t.Errorf("Embed(nil) = %v, want nil", vecs)
+	if len(result.Vectors) != 0 {
+		t.Errorf("Embed(nil).Vectors len = %d, want 0", len(result.Vectors))
 	}
 }
 
