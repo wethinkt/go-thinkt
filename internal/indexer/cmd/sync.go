@@ -23,8 +23,15 @@ var syncCmd = &cobra.Command{
 		defer database.Close()
 
 		registry := cmd.CreateSourceRegistry()
-		ingester := indexer.NewIngester(database, registry)
-		defer ingester.Close()
+
+		// Load yzma embedder if model is available
+		var embedder *embedding.Embedder
+		if e, err := embedding.NewEmbedder(""); err == nil {
+			embedder = e
+			defer e.Close()
+		}
+
+		ingester := indexer.NewIngester(database, registry, embedder)
 
 		// Initialize progress reporter with TTY detection
 		progress := NewProgressReporter()
@@ -86,10 +93,10 @@ var syncCmd = &cobra.Command{
 		}
 
 		if !quiet {
-			if embedding.Available() {
+			if embedder != nil {
 				fmt.Println("Indexing complete (with embeddings).")
 			} else {
-				fmt.Println("Indexing complete (without embeddings — thinkt-embed-apple not found).")
+				fmt.Println("Indexing complete (without embeddings — model not available).")
 			}
 		}
 		return nil

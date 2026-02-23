@@ -16,9 +16,9 @@ import (
 // Ingester handles the process of reading data from thinkt stores
 // and writing it to the DuckDB index.
 type Ingester struct {
-	db          *db.DB
-	registry    *thinkt.StoreRegistry
-	embedClient *embedding.Client // nil if embedding unavailable
+	db       *db.DB
+	registry *thinkt.StoreRegistry
+	embedder *embedding.Embedder // nil if embedding unavailable
 	OnProgress  func(pIdx, pTotal, sIdx, sTotal int, message string)
 
 	// OnEmbedProgress is called during EmbedAllSessions with progress updates.
@@ -27,29 +27,23 @@ type Ingester struct {
 }
 
 // NewIngester creates a new Ingester instance.
-func NewIngester(database *db.DB, registry *thinkt.StoreRegistry) *Ingester {
-	var ec *embedding.Client
-	if embedding.Available() {
-		ec, _ = embedding.NewClient()
-	}
+// The embedder may be nil if embedding is unavailable.
+func NewIngester(database *db.DB, registry *thinkt.StoreRegistry, embedder *embedding.Embedder) *Ingester {
 	return &Ingester{
-		db:          database,
-		registry:    registry,
-		embedClient: ec,
+		db:       database,
+		registry: registry,
+		embedder: embedder,
 	}
 }
 
 // HasEmbedder returns true if an embedding backend is available.
 func (i *Ingester) HasEmbedder() bool {
-	return i.embedClient != nil
+	return i.embedder != nil
 }
 
-// Close releases resources held by the ingester (e.g., embedding subprocess).
-func (i *Ingester) Close() {
-	if i.embedClient != nil {
-		i.embedClient.Close()
-	}
-}
+// Close releases resources held by the ingester.
+// Note: the embedder lifecycle is owned by the caller, not the ingester.
+func (i *Ingester) Close() {}
 
 func (i *Ingester) reportProgress(pIdx, pTotal, sIdx, sTotal int, message string) {
 	if i.OnProgress != nil {
@@ -152,7 +146,7 @@ func (i *Ingester) IngestAndEmbedSession(ctx context.Context, projectID string, 
 	if err := i.IngestSession(ctx, projectID, meta); err != nil {
 		return err
 	}
-	if i.embedClient == nil {
+	if i.embedder == nil {
 		return nil
 	}
 	_, err := i.embedSessionFromDB(ctx, meta.ID)
@@ -162,7 +156,7 @@ func (i *Ingester) IngestAndEmbedSession(ctx context.Context, projectID string, 
 // EmbedAllSessions finds sessions with missing embeddings and generates them.
 // This is designed to run as a second pass after indexing.
 func (i *Ingester) EmbedAllSessions(ctx context.Context) error {
-	if i.embedClient == nil {
+	if i.embedder == nil {
 		return nil
 	}
 
@@ -368,7 +362,7 @@ func sqlErrNoRows() error {
 }
 
 func (i *Ingester) embedSession(ctx context.Context, sessionID string, entries []thinkt.Entry) (int, error) {
-	if i.embedClient == nil {
+	if i.embedder == nil {
 		return 0, nil
 	}
 
@@ -389,27 +383,27 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, entries [
 		return 0, nil
 	}
 
-	// Prepare chunks and embed
+	// Prepare chunks
 	requests, mapping := embedding.PrepareEntries(entryTexts, 2000, 200)
-	responses, err := i.embedClient.EmbedBatch(ctx, requests)
-	if err != nil {
-		return 0, fmt.Errorf("embedding failed: %w", err)
+
+	// Extract text strings for the embedder
+	texts := make([]string, len(requests))
+	for idx, r := range requests {
+		texts[idx] = r.Text
 	}
 
-	// Build response lookup
-	respMap := make(map[string]embedding.EmbedResponse)
-	for _, r := range responses {
-		respMap[r.ID] = r
+	vectors, err := i.embedder.Embed(ctx, texts)
+	if err != nil {
+		return 0, fmt.Errorf("embedding failed: %w", err)
 	}
 
 	// Store embeddings
 	stored := 0
 	for idx, m := range mapping {
-		id := requests[idx].ID
-		resp, ok := respMap[id]
-		if !ok {
-			continue
+		if idx >= len(vectors) {
+			break
 		}
+		id := requests[idx].ID
 		_, err := i.db.ExecContext(ctx, `
 			INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
 			VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[1024], ?)
@@ -417,7 +411,7 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, entries [
 				embedding = excluded.embedding,
 				text_hash = excluded.text_hash`,
 			id, m.SessionID, m.EntryUUID, m.ChunkIndex,
-			"apple-nlcontextual-v1", resp.Dim, resp.Embedding, m.TextHash,
+			i.embedder.EmbedModelID(), i.embedder.Dim(), vectors[idx], m.TextHash,
 		)
 		if err != nil {
 			return stored, fmt.Errorf("store embedding %s: %w", id, err)

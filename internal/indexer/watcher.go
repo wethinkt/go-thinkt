@@ -11,6 +11,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/wethinkt/go-thinkt/internal/indexer/db"
+	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
@@ -25,6 +26,7 @@ type sessionIndexEntry struct {
 type Watcher struct {
 	dbPath       string
 	registry     *thinkt.StoreRegistry
+	embedder     *embedding.Embedder          // shared, owned by caller (e.g. server)
 	watcher      *fsnotify.Watcher
 	done         chan struct{}
 	mu           sync.Mutex
@@ -33,7 +35,8 @@ type Watcher struct {
 }
 
 // NewWatcher creates a new Watcher instance.
-func NewWatcher(dbPath string, registry *thinkt.StoreRegistry) (*Watcher, error) {
+// The embedder may be nil if embedding is unavailable.
+func NewWatcher(dbPath string, registry *thinkt.StoreRegistry, embedder *embedding.Embedder) (*Watcher, error) {
 	fw, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -42,6 +45,7 @@ func NewWatcher(dbPath string, registry *thinkt.StoreRegistry) (*Watcher, error)
 	return &Watcher{
 		dbPath:       dbPath,
 		registry:     registry,
+		embedder:     embedder,
 		watcher:      fw,
 		done:         make(chan struct{}),
 		sessionIndex: make(map[string]sessionIndexEntry),
@@ -254,8 +258,7 @@ func (w *Watcher) handleFileChange(path string) {
 	// Release schedules lazy close (100ms) instead of immediate close
 	defer w.dbPool.Release()
 
-	ingester := NewIngester(database, w.registry)
-	defer ingester.Close()
+	ingester := NewIngester(database, w.registry, w.embedder)
 	if err := ingester.IngestAndEmbedSession(ctx, entry.projectID, entry.session); err != nil {
 		log.Printf("Failed to re-index session %s: %v", entry.session.ID, err)
 	}

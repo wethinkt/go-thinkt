@@ -63,7 +63,10 @@ var statsCmd = &cobra.Command{
 
 		// Embedding stats
 		db.QueryRow("SELECT count(*) FROM embeddings").Scan(&stats.TotalEmbeddings)
-		stats.EmbedderAvail = embedding.Available()
+		modelPath, _ := embedding.DefaultModelPath()
+		if _, statErr := os.Stat(modelPath); statErr == nil {
+			stats.EmbedderAvail = true
+		}
 
 		if statsJSON {
 			return json.NewEncoder(os.Stdout).Encode(stats)

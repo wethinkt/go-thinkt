@@ -29,29 +29,26 @@ var semanticCmd = &cobra.Command{
 var semanticSearchCmd = &cobra.Command{
 	Use:   "search <query>",
 	Short: "Search sessions by meaning using on-device embeddings",
-	Long: `Search for sessions by meaning using Apple's on-device NLContextualEmbedding.
+	Long: `Search for sessions by meaning using on-device embeddings.
 
-Requires thinkt-embed-apple to be installed and in PATH.
-The query is embedded and compared against stored session embeddings
-using cosine similarity.`,
+The query is embedded using the Qwen3-Embedding model and compared
+against stored session embeddings using cosine similarity.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		queryText := args[0]
 
 		// Get embedding for query
-		client, err := embedding.NewClient()
+		embedder, err := embedding.NewEmbedder("")
 		if err != nil {
 			return fmt.Errorf("semantic search unavailable: %w", err)
 		}
-		defer client.Close()
+		defer embedder.Close()
 
-		responses, err := client.EmbedBatch(context.Background(), []embedding.EmbedRequest{
-			{ID: "query", Text: queryText},
-		})
+		vecs, err := embedder.Embed(context.Background(), []string{queryText})
 		if err != nil {
 			return fmt.Errorf("failed to embed query: %w", err)
 		}
-		if len(responses) == 0 {
+		if len(vecs) == 0 {
 			return fmt.Errorf("embedding returned no results for query")
 		}
 
@@ -64,8 +61,8 @@ using cosine similarity.`,
 
 		svc := search.NewService(db)
 		results, err := svc.SemanticSearch(search.SemanticSearchOptions{
-			QueryEmbedding: responses[0].Embedding,
-			Model:          "apple-nlcontextual-v1",
+			QueryEmbedding: vecs[0],
+			Model:          embedding.ModelID,
 			FilterProject:  semFilterProject,
 			FilterSource:   semFilterSource,
 			Limit:          semLimit,
@@ -129,7 +126,7 @@ var semanticStatsCmd = &cobra.Command{
 
 		if totalEmbeddings == 0 {
 			fmt.Println("No embeddings indexed yet.")
-			fmt.Println("Run 'thinkt-indexer sync' with thinkt-embed-apple in PATH to generate embeddings.")
+			fmt.Println("Run 'thinkt-indexer sync' to generate embeddings.")
 			return nil
 		}
 
@@ -137,11 +134,12 @@ var semanticStatsCmd = &cobra.Command{
 		fmt.Printf("Sessions:    %d\n", totalSessions)
 		fmt.Printf("Models:      %s\n", models)
 
-		// Check if embedding binary is available
-		if embedding.Available() {
-			fmt.Printf("Backend:     thinkt-embed-apple (available)\n")
+		// Check if model is available
+		modelPath, _ := embedding.DefaultModelPath()
+		if _, err := os.Stat(modelPath); err == nil {
+			fmt.Printf("Embedder:    %s (available)\n", embedding.ModelID)
 		} else {
-			fmt.Printf("Backend:     thinkt-embed-apple (not found)\n")
+			fmt.Printf("Embedder:    %s (model not downloaded)\n", embedding.ModelID)
 		}
 
 		return nil

@@ -12,6 +12,7 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/cmd"
 	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/indexer"
+	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 )
 
 var watchCmd = &cobra.Command{
@@ -20,7 +21,14 @@ var watchCmd = &cobra.Command{
 	RunE: func(cmdObj *cobra.Command, args []string) error {
 		registry := cmd.CreateSourceRegistry()
 
-		watcher, err := indexer.NewWatcher(dbPath, registry)
+		// Load yzma embedder if model is available
+		var embedder *embedding.Embedder
+		if e, err := embedding.NewEmbedder(""); err == nil {
+			embedder = e
+			defer e.Close()
+		}
+
+		watcher, err := indexer.NewWatcher(dbPath, registry, embedder)
 		if err != nil {
 			return fmt.Errorf("failed to create watcher: %w", err)
 		}
