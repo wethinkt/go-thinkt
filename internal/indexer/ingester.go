@@ -412,7 +412,7 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, entries [
 		}
 		_, err := i.db.ExecContext(ctx, `
 			INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
-			VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[512], ?)
+			VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[1024], ?)
 			ON CONFLICT (id) DO UPDATE SET
 				embedding = excluded.embedding,
 				text_hash = excluded.text_hash`,

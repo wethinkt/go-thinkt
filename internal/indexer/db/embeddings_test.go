@@ -34,16 +34,16 @@ func TestInsertAndQueryEmbedding(t *testing.T) {
 	}
 	defer d.Close()
 
-	// Insert a test embedding (512 floats)
-	embedding := make([]float32, 512)
+	// Insert a test embedding (1024 floats)
+	embedding := make([]float32, 1024)
 	for i := range embedding {
-		embedding[i] = float32(i) / 512.0
+		embedding[i] = float32(i) / 1024.0
 	}
 
 	_, err = d.Exec(`
 		INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
-		VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[512], ?)`,
-		"entry1_0", "sess1", "entry1", 0, "apple-nlcontextual-v1", 512, embedding, "abc123",
+		VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[1024], ?)`,
+		"entry1_0", "sess1", "entry1", 0, "qwen3-embedding-0.6b", 1024, embedding, "abc123",
 	)
 	if err != nil {
 		t.Fatal(err)

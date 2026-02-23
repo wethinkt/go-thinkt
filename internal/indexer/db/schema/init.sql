@@ -61,9 +61,9 @@ CREATE TABLE IF NOT EXISTS embeddings (
     session_id  VARCHAR NOT NULL,
     entry_uuid  VARCHAR NOT NULL,
     chunk_index INTEGER NOT NULL DEFAULT 0,
-    model       VARCHAR NOT NULL,       -- e.g. "apple-nlcontextual-v1"
-    dim         INTEGER NOT NULL,       -- 512 for Apple's model
-    embedding   FLOAT[512] NOT NULL,
+    model       VARCHAR NOT NULL,       -- e.g. "qwen3-embedding-0.6b"
+    dim         INTEGER NOT NULL,       -- 1024 for Qwen3-Embedding
+    embedding   FLOAT[1024] NOT NULL,
     text_hash   VARCHAR NOT NULL,       -- SHA-256, detect changes without re-embedding
     created_at  TIMESTAMP DEFAULT current_timestamp,
     UNIQUE(entry_uuid, chunk_index, model)

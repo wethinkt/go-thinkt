@@ -40,7 +40,7 @@ func (s *Service) SemanticSearch(opts SemanticSearchOptions) ([]SemanticResult, 
 	q := `
 		SELECT emb.session_id, emb.entry_uuid, emb.chunk_index,
 		       (SELECT count(*) FROM embeddings c WHERE c.entry_uuid = emb.entry_uuid AND c.model = emb.model) AS total_chunks,
-		       array_cosine_distance(emb.embedding, ?::FLOAT[512]) AS distance,
+		       array_cosine_distance(emb.embedding, ?::FLOAT[1024]) AS distance,
 		       COALESCE(ent.role, '') AS role,
 		       COALESCE(CAST(ent.timestamp AS VARCHAR), '') AS timestamp,
 		       COALESCE(ent.tool_name, '') AS tool_name,
@@ -66,7 +66,7 @@ func (s *Service) SemanticSearch(opts SemanticSearchOptions) ([]SemanticResult, 
 		args = append(args, opts.FilterSource)
 	}
 	if opts.MaxDistance > 0 {
-		q += fmt.Sprintf(" AND array_cosine_distance(emb.embedding, ?::FLOAT[512]) < %f", opts.MaxDistance)
+		q += fmt.Sprintf(" AND array_cosine_distance(emb.embedding, ?::FLOAT[1024]) < %f", opts.MaxDistance)
 		args = append(args, opts.QueryEmbedding)
 	}
 

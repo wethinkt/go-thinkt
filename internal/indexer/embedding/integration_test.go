@@ -67,7 +67,7 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 		resp := respMap[id]
 		_, err := d.Exec(`
 			INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
-			VALUES (?, ?, ?, ?, 'apple-nlcontextual-v1', ?, ?::FLOAT[512], ?)`,
+			VALUES (?, ?, ?, ?, 'qwen3-embedding-0.6b', ?, ?::FLOAT[1024], ?)`,
 			id, m.SessionID, m.EntryUUID, m.ChunkIndex, resp.Dim, resp.Embedding, m.TextHash)
 		if err != nil {
 			t.Fatal(err)
@@ -85,7 +85,7 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 	svc := search.NewService(d)
 	results, err := svc.SemanticSearch(search.SemanticSearchOptions{
 		QueryEmbedding: queryResp[0].Embedding,
-		Model:          "apple-nlcontextual-v1",
+		Model:          "qwen3-embedding-0.6b",
 		Limit:          10,
 	})
 	if err != nil {

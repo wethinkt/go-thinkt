@@ -18,8 +18,8 @@ func TestSemanticSearch_NoResults(t *testing.T) {
 
 	svc := search.NewService(d)
 	results, err := svc.SemanticSearch(search.SemanticSearchOptions{
-		QueryEmbedding: make([]float32, 512),
-		Model:          "apple-nlcontextual-v1",
+		QueryEmbedding: make([]float32, 1024),
+		Model:          "qwen3-embedding-0.6b",
 		Limit:          10,
 	})
 	if err != nil {
@@ -39,10 +39,10 @@ func TestSemanticSearch_FindsSimilar(t *testing.T) {
 	defer d.Close()
 
 	// Insert two embeddings: one similar to query, one not
-	similar := make([]float32, 512)
+	similar := make([]float32, 1024)
 	similar[0] = 1.0 // pointing in one direction
 
-	different := make([]float32, 512)
+	different := make([]float32, 1024)
 	different[1] = 1.0 // pointing in orthogonal direction
 
 	for _, tc := range []struct {
@@ -54,7 +54,7 @@ func TestSemanticSearch_FindsSimilar(t *testing.T) {
 	} {
 		_, err := d.Exec(`
 			INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
-			VALUES (?, ?, ?, 0, 'apple-nlcontextual-v1', 512, ?::FLOAT[512], 'hash')`,
+			VALUES (?, ?, ?, 0, 'qwen3-embedding-0.6b', 1024, ?::FLOAT[1024], 'hash')`,
 			tc.id, tc.sessID, tc.entryUUID, tc.emb)
 		if err != nil {
 			t.Fatal(err)
@@ -62,13 +62,13 @@ func TestSemanticSearch_FindsSimilar(t *testing.T) {
 	}
 
 	// Query with vector similar to "similar"
-	query := make([]float32, 512)
+	query := make([]float32, 1024)
 	query[0] = 1.0
 
 	svc := search.NewService(d)
 	results, err := svc.SemanticSearch(search.SemanticSearchOptions{
 		QueryEmbedding: query,
-		Model:          "apple-nlcontextual-v1",
+		Model:          "qwen3-embedding-0.6b",
 		Limit:          10,
 	})
 	if err != nil {
