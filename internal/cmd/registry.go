@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -10,12 +11,35 @@ import (
 
 // CreateSourceRegistry creates a registry with all discovered sources.
 func CreateSourceRegistry() *thinkt.StoreRegistry {
-	discovery := thinkt.NewDiscovery(sources.AllFactories()...)
+	return CreateSourceRegistryFiltered(nil)
+}
 
+// CreateSourceRegistryFiltered creates a registry, optionally limited to the
+// named sources. An empty or nil slice means "all sources".
+func CreateSourceRegistryFiltered(allowed []string) *thinkt.StoreRegistry {
+	factories := sources.AllFactories()
+	if len(allowed) > 0 {
+		set := make(map[string]bool, len(allowed))
+		for _, s := range allowed {
+			set[s] = true
+		}
+		var filtered []thinkt.StoreFactory
+		for _, f := range factories {
+			if set[string(f.Source())] {
+				filtered = append(filtered, f)
+				delete(set, string(f.Source()))
+			}
+		}
+		for name := range set {
+			log.Printf("Warning: unknown source in config: %q", name)
+		}
+		factories = filtered
+	}
+
+	discovery := thinkt.NewDiscovery(factories...)
 	ctx := context.Background()
 	registry, err := discovery.Discover(ctx)
 	if err != nil {
-		// Return empty registry on error
 		return thinkt.NewRegistry()
 	}
 

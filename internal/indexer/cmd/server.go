@@ -390,6 +390,13 @@ func (s *indexerServer) HandleStatus(ctx context.Context) (*rpc.Response, error)
 }
 
 func runServer(cmdObj *cobra.Command, args []string) error {
+	// 0. Load config
+	cfg, err := config.Load()
+	if err != nil {
+		log.Printf("Warning: failed to load config, using defaults: %v", err)
+		cfg = config.Default()
+	}
+
 	// 1. Open DB
 	database, err := getDB()
 	if err != nil {
@@ -397,29 +404,34 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 	}
 	defer database.Close()
 
-	// 2. Ensure model is downloaded
-	log.Printf("Ensuring embedding model is available...")
-	var lastLog time.Time
-	if err := embedding.EnsureModel(func(downloaded, total int64) {
-		if total > 0 && time.Since(lastLog) >= time.Second {
-			lastLog = time.Now()
-			pct := float64(downloaded) / float64(total) * 100
-			log.Printf("Downloading model: %.1f%% (%d / %d bytes)", pct, downloaded, total)
+	// 2-3. Create embedder (if enabled)
+	var embedder *embedding.Embedder
+	if cfg.Embedding.Enabled {
+		log.Printf("Ensuring embedding model is available...")
+		var lastLog time.Time
+		if err := embedding.EnsureModel(func(downloaded, total int64) {
+			if total > 0 && time.Since(lastLog) >= time.Second {
+				lastLog = time.Now()
+				pct := float64(downloaded) / float64(total) * 100
+				log.Printf("Downloading model: %.1f%% (%d / %d bytes)", pct, downloaded, total)
+			}
+		}); err != nil {
+			return fmt.Errorf("failed to ensure embedding model: %w", err)
 		}
-	}); err != nil {
-		return fmt.Errorf("failed to ensure embedding model: %w", err)
-	}
 
-	// 3. Create embedder
-	embedder, err := embedding.NewEmbedder("")
-	if err != nil {
-		return fmt.Errorf("failed to create embedder: %w", err)
+		e, err := embedding.NewEmbedder("")
+		if err != nil {
+			return fmt.Errorf("failed to create embedder: %w", err)
+		}
+		defer e.Close()
+		embedder = e
+		log.Printf("Embedder loaded: %s (dim=%d)", embedder.EmbedModelID(), embedder.Dim())
+	} else {
+		log.Printf("Embedding disabled by config")
 	}
-	defer embedder.Close()
-	log.Printf("Embedder loaded: %s (dim=%d)", embedder.EmbedModelID(), embedder.Dim())
 
 	// 4. Create registry and server struct
-	registry := cmd.CreateSourceRegistry()
+	registry := cmd.CreateSourceRegistryFiltered(cfg.Indexer.Sources)
 
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	defer shutdownCancel()
@@ -464,10 +476,11 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 		_ = config.UnregisterInstance(os.Getpid())
 	}()
 
-	// 8. Start watcher (unless --no-watch)
+	// 8. Start watcher (unless --no-watch or config disables it)
 	var watcher *indexer.Watcher
-	if !noWatch {
-		w, err := indexer.NewWatcher(dbPath, registry, embedder)
+	watchEnabled := cfg.Indexer.Watch && !noWatch
+	if watchEnabled {
+		w, err := indexer.NewWatcher(dbPath, registry, embedder, cfg.Indexer.DebounceDuration())
 		if err != nil {
 			log.Printf("Warning: failed to create watcher: %v", err)
 		} else {

@@ -27,6 +27,7 @@ type Watcher struct {
 	dbPath       string
 	registry     *thinkt.StoreRegistry
 	embedder     *embedding.Embedder          // shared, owned by caller (e.g. server)
+	debounce     time.Duration                // debounce delay for file changes
 	watcher      *fsnotify.Watcher
 	done         chan struct{}
 	mu           sync.Mutex
@@ -43,16 +44,22 @@ type Watcher struct {
 
 // NewWatcher creates a new Watcher instance.
 // The embedder may be nil if embedding is unavailable.
-func NewWatcher(dbPath string, registry *thinkt.StoreRegistry, embedder *embedding.Embedder) (*Watcher, error) {
+// A zero debounce defaults to 2 seconds.
+func NewWatcher(dbPath string, registry *thinkt.StoreRegistry, embedder *embedding.Embedder, debounce time.Duration) (*Watcher, error) {
 	fw, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
+	}
+
+	if debounce <= 0 {
+		debounce = 2 * time.Second
 	}
 
 	return &Watcher{
 		dbPath:       dbPath,
 		registry:     registry,
 		embedder:     embedder,
+		debounce:     debounce,
 		watcher:      fw,
 		done:         make(chan struct{}),
 		sessionIndex: make(map[string]sessionIndexEntry),
@@ -184,7 +191,6 @@ func hasExcludedDirComponent(path string, excluded []string) bool {
 func (w *Watcher) watchLoop(ctx context.Context) {
 	// Debounce timer to avoid spamming ingestion on rapid writes
 	timers := make(map[string]*time.Timer)
-	const debounceDuration = 2 * time.Second
 
 	for {
 		select {
@@ -204,7 +210,7 @@ func (w *Watcher) watchLoop(ctx context.Context) {
 					timer.Stop()
 				}
 
-				timers[event.Name] = time.AfterFunc(debounceDuration, func() {
+				timers[event.Name] = time.AfterFunc(w.debounce, func() {
 					w.handleFileChange(event.Name)
 				})
 			}

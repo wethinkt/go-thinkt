@@ -5,13 +5,39 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // Config holds the thinkt configuration.
 type Config struct {
-	Theme       string      `json:"theme"`                  // Name of the active theme
-	Terminal    string      `json:"terminal,omitempty"`     // App ID for default terminal (e.g., "ghostty", "kitty")
-	AllowedApps []AppConfig `json:"allowed_apps,omitempty"` // Apps allowed for open-in
+	Theme       string          `json:"theme"`                  // Name of the active theme
+	Terminal    string          `json:"terminal,omitempty"`     // App ID for default terminal (e.g., "ghostty", "kitty")
+	AllowedApps []AppConfig    `json:"allowed_apps,omitempty"` // Apps allowed for open-in
+	Embedding   EmbeddingConfig `json:"embedding"`              // Embedding settings
+	Indexer     IndexerConfig   `json:"indexer"`                // Indexer settings
+}
+
+// EmbeddingConfig holds embedding-related settings.
+type EmbeddingConfig struct {
+	Enabled bool   `json:"enabled"` // Enable GPU embedding
+	Model   string `json:"model"`   // Embedding model ID
+}
+
+// IndexerConfig holds indexer-related settings.
+type IndexerConfig struct {
+	Sources  []string `json:"sources"`  // Source filter (empty = all)
+	Watch    bool     `json:"watch"`    // Enable file watching
+	Debounce string   `json:"debounce"` // Debounce duration (e.g. "2s")
+}
+
+// DebounceDuration returns the parsed debounce duration (default: 2s).
+func (c IndexerConfig) DebounceDuration() time.Duration {
+	if c.Debounce != "" {
+		if d, err := time.ParseDuration(c.Debounce); err == nil {
+			return d
+		}
+	}
+	return 2 * time.Second
 }
 
 // Dir returns the path to the .thinkt directory.
@@ -51,7 +77,10 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
-	var config Config
+	// Start from defaults so missing keys get correct values
+	// (e.g. existing configs without embedding/indexer sections
+	// won't get false/zero which would disable features).
+	config := Default()
 	if err := json.Unmarshal(data, &config); err != nil {
 		return Config{}, err
 	}
@@ -74,6 +103,15 @@ func Default() Config {
 	return Config{
 		Theme:       "dark",
 		AllowedApps: DefaultApps(),
+		Embedding: EmbeddingConfig{
+			Enabled: true,
+			Model:   "qwen3-embedding-0.6b",
+		},
+		Indexer: IndexerConfig{
+			Sources:  []string{},
+			Watch:    true,
+			Debounce: "2s",
+		},
 	}
 }
 

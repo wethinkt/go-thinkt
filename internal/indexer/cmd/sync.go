@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wethinkt/go-thinkt/internal/cmd"
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/indexer"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
@@ -104,19 +105,26 @@ var syncCmd = &cobra.Command{
 		}
 
 		// Inline fallback
+		cfg, err := config.Load()
+		if err != nil {
+			cfg = config.Default()
+		}
+
 		database, err := getDB()
 		if err != nil {
 			return err
 		}
 		defer database.Close()
 
-		registry := cmd.CreateSourceRegistry()
+		registry := cmd.CreateSourceRegistryFiltered(cfg.Indexer.Sources)
 
-		// Load yzma embedder if model is available
+		// Load yzma embedder if enabled and model is available
 		var embedder *embedding.Embedder
-		if e, err := embedding.NewEmbedder(""); err == nil {
-			embedder = e
-			defer e.Close()
+		if cfg.Embedding.Enabled {
+			if e, err := embedding.NewEmbedder(""); err == nil {
+				embedder = e
+				defer e.Close()
+			}
 		}
 
 		ingester := indexer.NewIngester(database, registry, embedder)
