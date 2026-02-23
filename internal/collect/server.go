@@ -28,6 +28,7 @@ type Server struct {
 	router    chi.Router
 	startedAt time.Time
 	pubsub    *SessionPubSub
+	tickets   *TicketStore
 }
 
 // NewServer creates a new collector server. It opens the DuckDB store and
@@ -66,6 +67,7 @@ func NewServer(cfg CollectorConfig) (*Server, error) {
 		registry:  NewAgentRegistry(),
 		startedAt: time.Now(),
 		pubsub:    NewSessionPubSub(),
+		tickets:   NewTicketStore(),
 	}
 	s.router = s.setupRouter()
 	return s, nil
@@ -100,6 +102,8 @@ func (s *Server) setupRouter() chi.Router {
 		r.Post("/sessions/activity", s.handleSessionActivity)
 		r.Get("/sessions/active", s.handleActiveSessions)
 		r.Get("/collector/health", s.handleHealth)
+		r.Get("/sessions/{sessionID}/ws", s.handleSessionWS)
+		r.Post("/ws/ticket", s.handleIssueTicket)
 	})
 
 	return r
