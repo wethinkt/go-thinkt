@@ -23,30 +23,44 @@ func termSizeOpts() []tea.ProgramOption {
 	return opts
 }
 
+// ViewerResult holds the outcome of a standalone viewer run.
+type ViewerResult struct {
+	// Back is true if the user pressed esc (back), false if they pressed q/ctrl+c (quit).
+	Back bool
+}
+
 // RunViewer runs a single session viewer TUI.
-func RunViewer(sessionPath string) error {
+func RunViewer(sessionPath string) (ViewerResult, error) {
 	return RunViewerWithRegistry(sessionPath, nil)
 }
 
 // RunViewerWithRegistry runs a single-session viewer with source-aware session loading.
-func RunViewerWithRegistry(sessionPath string, registry *thinkt.StoreRegistry) error {
+func RunViewerWithRegistry(sessionPath string, registry *thinkt.StoreRegistry) (ViewerResult, error) {
 	model := NewMultiViewerModelWithRegistry([]string{sessionPath}, registry)
+	model.standalone = true
 	p := tea.NewProgram(model, termSizeOpts()...)
-	_, err := p.Run()
-	return err
+	finalModel, err := p.Run()
+	if err != nil {
+		return ViewerResult{}, err
+	}
+	return ViewerResult{Back: finalModel.(MultiViewerModel).BackRequested()}, nil
 }
 
 // RunMultiViewer runs a multi-session viewer TUI.
-func RunMultiViewer(sessionPaths []string) error {
+func RunMultiViewer(sessionPaths []string) (ViewerResult, error) {
 	return RunMultiViewerWithRegistry(sessionPaths, nil)
 }
 
 // RunMultiViewerWithRegistry runs a multi-session viewer with source-aware session loading.
-func RunMultiViewerWithRegistry(sessionPaths []string, registry *thinkt.StoreRegistry) error {
+func RunMultiViewerWithRegistry(sessionPaths []string, registry *thinkt.StoreRegistry) (ViewerResult, error) {
 	model := NewMultiViewerModelWithRegistry(sessionPaths, registry)
+	model.standalone = true
 	p := tea.NewProgram(model, termSizeOpts()...)
-	_, err := p.Run()
-	return err
+	finalModel, err := p.Run()
+	if err != nil {
+		return ViewerResult{}, err
+	}
+	return ViewerResult{Back: finalModel.(MultiViewerModel).BackRequested()}, nil
 }
 
 // RunSessionBrowser runs a session picker with back-navigable viewer.

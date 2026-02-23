@@ -111,6 +111,10 @@ func (ls *GenericLazySession) LoadMore(maxContentBytes int) (int, error) {
 	startCount := len(ls.entries)
 	contentBytes := 0
 
+	if ls.reader == nil {
+		return 0, nil
+	}
+
 	for contentBytes < maxContentBytes && !ls.fullyLoaded {
 		entry, err := ls.reader.ReadNext()
 		if err == io.EOF {

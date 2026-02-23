@@ -414,7 +414,8 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 		if sessionViewRaw {
 			return tui.ViewSessionRawWithRegistry(args[0], registry, os.Stdout)
 		}
-		return tui.RunViewerWithRegistry(args[0], registry)
+		_, err := tui.RunViewerWithRegistry(args[0], registry)
+		return err
 	}
 
 	// Track a display-friendly project name for the TUI header
@@ -506,7 +507,8 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 		if sessionViewRaw {
 			return tui.ViewSessionRawWithRegistry(sessionPath, registry, os.Stdout)
 		}
-		return tui.RunViewerWithRegistry(sessionPath, registry)
+		_, err := tui.RunViewerWithRegistry(sessionPath, registry)
+		return err
 	}
 
 	// No session specified - either show picker or view all
@@ -516,7 +518,8 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 		for i, s := range sessions {
 			paths[i] = s.FullPath
 		}
-		return tui.RunMultiViewerWithRegistry(paths, registry)
+		_, err := tui.RunMultiViewerWithRegistry(paths, registry)
+		return err
 	}
 
 	// Show session picker (requires TTY)

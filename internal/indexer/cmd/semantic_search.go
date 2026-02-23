@@ -11,6 +11,7 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
+	"github.com/wethinkt/go-thinkt/internal/tui"
 )
 
 var (
@@ -19,6 +20,7 @@ var (
 	semLimit         int
 	semMaxDistance    float64
 	semJSON          bool
+	semList          bool
 )
 
 var semanticCmd = &cobra.Command{
@@ -33,7 +35,10 @@ var semanticSearchCmd = &cobra.Command{
 	Long: `Search for sessions by meaning using on-device embeddings.
 
 The query is embedded using the Qwen3-Embedding model and compared
-against stored session embeddings using cosine similarity.`,
+against stored session embeddings using cosine similarity.
+
+By default, this command opens an interactive TUI to browse results.
+Use --list to output results directly to the terminal (useful for scripting).`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		queryText := args[0]
@@ -43,35 +48,57 @@ against stored session embeddings using cosine similarity.`,
 			return err
 		}
 
+		// JSON output
 		if semJSON {
 			return json.NewEncoder(os.Stdout).Encode(results)
 		}
 
+		// List output
+		if semList {
+			if len(results) == 0 {
+				fmt.Println("No semantic matches found.")
+				return nil
+			}
+			for _, r := range results {
+				fmt.Printf("\nSession: %s (Project: %s, Source: %s)\n",
+					r.SessionID, r.ProjectName, r.Source)
+				prompt := r.FirstPrompt
+				if len(prompt) > 80 {
+					prompt = prompt[:80] + "..."
+				}
+				chunk := ""
+				if r.TotalChunks > 1 {
+					chunk = fmt.Sprintf("  [chunk %d/%d]", r.ChunkIndex+1, r.TotalChunks)
+				}
+				fmt.Printf("  distance=%.4f  [%s]  %s%s\n", r.Distance, r.Role, prompt, chunk)
+			}
+			return nil
+		}
+
+		// TUI mode (default)
 		if len(results) == 0 {
 			fmt.Println("No semantic matches found.")
 			return nil
 		}
 
-		for _, r := range results {
-			chunk := ""
-			if r.TotalChunks > 1 {
-				chunk = fmt.Sprintf(" [chunk %d/%d]", r.ChunkIndex+1, r.TotalChunks)
+		for {
+			selected, err := tui.PickSemanticResult(results, queryText)
+			if err != nil {
+				return fmt.Errorf("TUI error: %w", err)
 			}
-			prompt := r.FirstPrompt
-			if len(prompt) > 80 {
-				prompt = prompt[:80] + "..."
+			if selected == nil {
+				return nil
 			}
-			fmt.Printf("%.4f  %-9s  %s  %s%s\n",
-				r.Distance, r.Role, r.ProjectName, r.SessionID[:min(12, len(r.SessionID))], chunk)
-			if r.ToolName != "" {
-				fmt.Printf("         tool: %s\n", r.ToolName)
+
+			vr, err := tui.RunViewer(selected.SessionPath)
+			if err != nil {
+				return fmt.Errorf("viewer error: %w", err)
 			}
-			if prompt != "" {
-				fmt.Printf("         session: %s\n", prompt)
+			if !vr.Back {
+				return nil // q/ctrl+c — exit entirely
 			}
-			fmt.Println()
+			// esc — loop back to picker
 		}
-		return nil
 	},
 }
 
@@ -176,6 +203,7 @@ func init() {
 	semanticSearchCmd.Flags().StringVarP(&semFilterSource, "source", "s", "", "Filter by source")
 	semanticSearchCmd.Flags().IntVarP(&semLimit, "limit", "n", 20, "Max results (default 20)")
 	semanticSearchCmd.Flags().Float64Var(&semMaxDistance, "max-distance", 0, "Max cosine distance (0 = no threshold)")
+	semanticSearchCmd.Flags().BoolVar(&semList, "list", false, "Output as list instead of TUI (useful for scripting)")
 	semanticSearchCmd.Flags().BoolVar(&semJSON, "json", false, "Output as JSON")
 
 	semanticCmd.AddCommand(semanticSearchCmd)

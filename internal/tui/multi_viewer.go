@@ -46,6 +46,10 @@ type MultiViewerModel struct {
 	// Entry type filters
 	filters RoleFilterSet
 
+	// Navigation state
+	standalone    bool // true when run via RunViewer (not embedded in shell)
+	backRequested bool // true when user pressed esc (vs q/ctrl+c to quit)
+
 	// Search state
 	searchMode    bool            // true when search input is visible
 	searchInput   textinput.Model // the text input widget
@@ -833,6 +837,10 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					s.Close()
 				}
 			}
+			if m.standalone {
+				m.backRequested = true
+				return m, tea.Quit
+			}
 			return m, func() tea.Msg { return PopPageMsg{} }
 		case key.Matches(msg, m.keys.Quit):
 			// Close all sessions and exit
@@ -1016,4 +1024,9 @@ func (m MultiViewerModel) View() tea.View {
 	v := tea.NewView(m.viewContent())
 	v.AltScreen = true
 	return v
+}
+
+// BackRequested returns true if the user pressed esc (back) rather than q/ctrl+c (quit).
+func (m MultiViewerModel) BackRequested() bool {
+	return m.backRequested
 }

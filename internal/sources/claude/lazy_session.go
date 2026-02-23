@@ -210,7 +210,7 @@ func (ls *LazySession) LoadMore(maxContentBytes int) (int, error) {
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
 
-	if ls.fullyLoaded {
+	if ls.fullyLoaded || ls.reader == nil {
 		return 0, nil
 	}
 

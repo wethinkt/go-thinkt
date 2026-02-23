@@ -76,17 +76,24 @@ Use --list to output results directly to the terminal (useful for scripting).`,
 			return nil
 		}
 
-		selected, err := tui.PickSearchResult(results, queryText)
-		if err != nil {
-			return fmt.Errorf("TUI error: %w", err)
-		}
-		if selected == nil {
-			// User cancelled
-			return nil
-		}
+		for {
+			selected, err := tui.PickSearchResult(results, queryText)
+			if err != nil {
+				return fmt.Errorf("TUI error: %w", err)
+			}
+			if selected == nil {
+				return nil
+			}
 
-		// User selected a session - view it
-		return tui.RunViewer(selected.Path)
+			vr, err := tui.RunViewer(selected.Path)
+			if err != nil {
+				return fmt.Errorf("viewer error: %w", err)
+			}
+			if !vr.Back {
+				return nil // q/ctrl+c — exit entirely
+			}
+			// esc — loop back to picker
+		}
 	},
 }
 
