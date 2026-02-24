@@ -42,6 +42,7 @@ thinkt [flags]
 
 * [thinkt apps](thinkt_apps.md)	 - Manage open-in apps and default terminal
 * [thinkt completion](thinkt_completion.md)	 - Generate the autocompletion script for the specified shell
+* [thinkt docs](thinkt_docs.md)	 - Generate documentation for thinkt
 * [thinkt indexer](thinkt_indexer.md)	 - Specialized indexing and search via DuckDB (requires thinkt-indexer)
 * [thinkt projects](thinkt_projects.md)	 - Manage and view projects
 * [thinkt prompts](thinkt_prompts.md)	 - Extract and manage prompts from trace files

@@ -54,11 +54,3 @@ func TestSyncProgress_ShouldShowProgress(t *testing.T) {
 	}
 }
 
-func TestProjectLabel(t *testing.T) {
-	if got := projectLabel(1, 1); got != "" {
-		t.Errorf("projectLabel(1, 1) = %q, want empty", got)
-	}
-	if got := projectLabel(2, 5); got != "proj 2/5" {
-		t.Errorf("projectLabel(2, 5) = %q, want %q", got, "proj 2/5")
-	}
-}

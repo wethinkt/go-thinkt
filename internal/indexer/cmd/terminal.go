@@ -124,14 +124,12 @@ func (sp *SyncProgress) RenderIndexing(pIdx, pTotal, sIdx, sTotal int, message s
 		pct = (float64(pIdx-1) + float64(sIdx)/float64(sTotal)) / float64(pTotal)
 	}
 
-	detail := projectLabel(pIdx, pTotal)
-	if detail != "" {
-		detail += " · " + message
-	} else {
-		detail = message
+	count := fmt.Sprintf("%d/%d sessions", sIdx, sTotal)
+	if pTotal > 1 {
+		count = fmt.Sprintf("%d/%d projects  %d/%d sessions", pIdx, pTotal, sIdx, sTotal)
 	}
 
-	sp.renderLine("Indexing", fmt.Sprintf("%d/%d sessions", sIdx, sTotal), detail, pct)
+	sp.renderLine("Indexing", count, message, pct)
 }
 
 // RenderEmbedding renders an embedding progress line.
@@ -163,14 +161,6 @@ func (sp *SyncProgress) Finish() {
 	if sp.isTTY {
 		fmt.Println()
 	}
-}
-
-// projectLabel returns a short label like "proj 2/5" or just the project name context.
-func projectLabel(pIdx, pTotal int) string {
-	if pTotal <= 1 {
-		return ""
-	}
-	return fmt.Sprintf("proj %d/%d", pIdx, pTotal)
 }
 
 // formatElapsed formats a duration as elapsed time (e.g., "1m 23s", "45s", "1.2s").

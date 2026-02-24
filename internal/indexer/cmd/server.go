@@ -160,6 +160,7 @@ func (s *indexerServer) HandleSync(ctx context.Context, params rpc.SyncParams, s
 		s.stateMu.Lock()
 		s.syncProg = &rpc.ProgressInfo{
 			Done: sIdx, Total: sTotal,
+			Project: pIdx, ProjectTotal: pTotal, ProjectName: message,
 			Message: fmt.Sprintf("Project %d/%d %s", pIdx, pTotal, message),
 		}
 		s.stateMu.Unlock()
