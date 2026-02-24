@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"time"
 )
 
@@ -19,22 +20,27 @@ func StartBackground(c *exec.Cmd) error {
 type InstanceType string
 
 const (
-	InstanceServer       InstanceType = "server"
-	InstanceServerMCP    InstanceType = "server-mcp"
+	InstanceServer        InstanceType = "server"
+	InstanceServerMCP     InstanceType = "server-mcp"
 	InstanceIndexerServer InstanceType = "indexer-server"
+)
+
+const (
+	instancesDirPerm  = 0o700
+	instancesFilePerm = 0o600
 )
 
 // Instance represents a running thinkt process.
 type Instance struct {
-	Type      InstanceType `json:"type"`
-	PID       int          `json:"pid"`
-	Port      int          `json:"port,omitempty"`
-	Host      string       `json:"host,omitempty"`
+	Type        InstanceType `json:"type"`
+	PID         int          `json:"pid"`
+	Port        int          `json:"port,omitempty"`
+	Host        string       `json:"host,omitempty"`
 	LogPath     string       `json:"log_path,omitempty"`
 	HTTPLogPath string       `json:"http_log_path,omitempty"`
 	Token       string       `json:"token,omitempty"`
 	IndexerPID  int          `json:"indexer_pid,omitempty"`
-	StartedAt time.Time    `json:"started_at"`
+	StartedAt   time.Time    `json:"started_at"`
 }
 
 // instancesPath returns the path to the instances file.
@@ -53,8 +59,11 @@ func RegisterInstance(inst Instance) error {
 		return err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), instancesDirPerm); err != nil {
 		return fmt.Errorf("failed to create config dir: %w", err)
+	}
+	if err := securePathPermissions(filepath.Dir(path), instancesDirPerm); err != nil {
+		return fmt.Errorf("failed to secure config dir permissions: %w", err)
 	}
 
 	instances, _ := readInstances(path)
@@ -180,7 +189,17 @@ func writeInstances(path string, instances []Instance) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0644)
+	if err := os.WriteFile(path, data, instancesFilePerm); err != nil {
+		return err
+	}
+	return securePathPermissions(path, instancesFilePerm)
+}
+
+func securePathPermissions(path string, perm os.FileMode) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	return os.Chmod(path, perm)
 }
 
 // cleanStale removes entries whose PID is no longer running.

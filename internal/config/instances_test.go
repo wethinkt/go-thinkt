@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -178,5 +179,43 @@ func TestInstancesFileCreation(t *testing.T) {
 	path := filepath.Join(tmpDir, ".thinkt", "instances.json")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		t.Fatalf("instances.json was not created at %s", path)
+	}
+}
+
+func TestInstancesFilePermissionsUnix(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission bits are not portable on windows")
+	}
+
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	inst := Instance{
+		Type:      InstanceServer,
+		PID:       os.Getpid(),
+		Port:      8784,
+		StartedAt: time.Now(),
+	}
+
+	if err := RegisterInstance(inst); err != nil {
+		t.Fatalf("RegisterInstance failed: %v", err)
+	}
+
+	dirPath := filepath.Join(tmpDir, ".thinkt")
+	dirInfo, err := os.Stat(dirPath)
+	if err != nil {
+		t.Fatalf("failed to stat config dir: %v", err)
+	}
+	if got := dirInfo.Mode().Perm(); got != instancesDirPerm {
+		t.Fatalf("expected config dir permissions %04o, got %04o", instancesDirPerm, got)
+	}
+
+	filePath := filepath.Join(dirPath, "instances.json")
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		t.Fatalf("failed to stat instances file: %v", err)
+	}
+	if got := fileInfo.Mode().Perm(); got != instancesFilePerm {
+		t.Fatalf("expected instances file permissions %04o, got %04o", instancesFilePerm, got)
 	}
 }
