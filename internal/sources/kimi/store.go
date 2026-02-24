@@ -412,6 +412,9 @@ func (s *Store) OpenSession(ctx context.Context, sessionID string) (thinkt.Sessi
 	if err != nil {
 		return nil, err
 	}
+	if meta == nil {
+		return nil, fmt.Errorf("session not found: %s", sessionID)
+	}
 
 	// Check if session is chunked
 	if meta.ChunkCount > 1 {

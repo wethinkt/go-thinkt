@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -442,6 +443,9 @@ func (s *Store) OpenSession(ctx context.Context, sessionID string) (thinkt.Sessi
 	meta, err := s.GetSessionMeta(ctx, sessionID)
 	if err != nil {
 		return nil, err
+	}
+	if meta == nil {
+		return nil, fmt.Errorf("session not found: %s", sessionID)
 	}
 
 	f, err := os.Open(meta.FullPath)
