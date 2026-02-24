@@ -241,6 +241,9 @@ The fingerprint is derived from platform-specific system identifiers:
 The `thinkt-indexer` provides DuckDB-powered indexing and search for your session data:
 
 ```bash
+# Start the indexer server (syncs, watches, and serves RPC)
+thinkt indexer start
+
 # Sync all sessions to the index
 thinkt-indexer sync
 
@@ -258,12 +261,39 @@ thinkt-indexer search "TODO" --project my-app --source codex
 
 # Usage statistics
 thinkt-indexer stats
-
-# Watch for changes and auto-index
-thinkt-indexer watch
 ```
 
-**Reference:** [thinkt indexer search](/command/thinkt_indexer_search)
+### Semantic Search
+
+Search sessions by meaning using on-device embeddings (Qwen3-Embedding model). Disabled by default.
+
+```bash
+# Enable semantic search (model downloads on first sync, ~600MB)
+thinkt-indexer semantic enable
+
+# Search by meaning
+thinkt-indexer semantic search "database migration strategy"
+
+# Filter and options
+thinkt-indexer semantic search "error handling" --project my-app --source claude
+thinkt-indexer semantic search "testing patterns" --diversity --limit 10
+thinkt-indexer semantic search "API design" --max-distance 0.5
+
+# Output formats
+thinkt-indexer semantic search "query" --list    # Plain text (for scripting)
+thinkt-indexer semantic search "query" --json    # JSON output
+
+# Check status
+thinkt-indexer semantic stats
+thinkt-indexer semantic stats --json
+
+# Disable
+thinkt-indexer semantic disable
+```
+
+When the indexer server is running, `enable` and `disable` take effect immediately — the server loads or unloads the embedding model at runtime without restart.
+
+**Reference:** [thinkt indexer search](/command/thinkt_indexer_search) · [thinkt indexer semantic](/command/thinkt_indexer_semantic)
 
 ---
 

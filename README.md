@@ -173,7 +173,10 @@ thinkt tui --log /tmp/thinkt-debug.log
 The `thinkt-indexer` provides fast, searchable storage for your conversation traces:
 
 ```bash
-# Sync all sessions to the index
+# Start the indexer server (syncs, watches for changes, and serves RPC)
+thinkt indexer start
+
+# Or run directly
 thinkt-indexer sync
 
 # Search across indexed sessions (case-insensitive by default)
@@ -185,10 +188,34 @@ thinkt-indexer search --regex "func\s+Test\w+"
 
 # Show usage statistics
 thinkt-indexer stats
-
-# Watch for changes and auto-index
-thinkt-indexer watch
 ```
+
+### Semantic Search
+
+On-device semantic search uses the Qwen3-Embedding model to find sessions by meaning, not just keywords:
+
+```bash
+# Enable semantic search (downloads model on first use)
+thinkt-indexer semantic enable
+
+# Search by meaning
+thinkt-indexer semantic search "database migration strategy"
+
+# Filter by project or source
+thinkt-indexer semantic search "error handling" --project my-app --source claude
+
+# Diversity mode spreads results across different sessions
+thinkt-indexer semantic search "testing patterns" --diversity
+
+# Check embedding status
+thinkt-indexer semantic stats
+thinkt-indexer semantic stats --json
+
+# Disable semantic search
+thinkt-indexer semantic disable
+```
+
+Semantic search is disabled by default. Enable it with `thinkt-indexer semantic enable` — the embedding model (~600MB) is downloaded automatically on first sync.
 
 Indexer data is stored in `~/.thinkt/index.duckdb` (metadata) and `~/.thinkt/embeddings.duckdb` (semantic search vectors).
 
@@ -400,6 +427,7 @@ Available MCP tools:
 - `get_session_metadata` - Get session metadata
 - `get_session_entries` - Get session content with pagination
 - `search_sessions` - Search across indexed sessions (supports regex)
+- `semantic_search` - Search by meaning using on-device embeddings
 - `get_usage_stats` - Get aggregate usage statistics
 
 See [Authentication](#authentication) for more details on securing the MCP server.

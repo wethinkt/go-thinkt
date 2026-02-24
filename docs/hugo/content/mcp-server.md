@@ -21,7 +21,7 @@ The MCP server supports two transport modes:
 
 ## Available Tools
 
-The MCP server exposes seven tools for exploring session data:
+The MCP server exposes eight tools for exploring session data:
 
 ### list_sources
 
@@ -239,6 +239,40 @@ Search for text across all indexed sessions. Requires `thinkt-indexer` to be ins
     }
   ],
   "total_matches": 5
+}
+```
+
+---
+
+### semantic_search
+
+Search for sessions by meaning using on-device embeddings. Requires `thinkt-indexer` with semantic search enabled (`thinkt-indexer semantic enable`).
+
+**Parameters:**
+| Name | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `query` | string | Yes | - | Natural language search query |
+| `project` | string | No | - | Filter by project name |
+| `source` | string | No | - | Filter by source (`claude`, `kimi`, `gemini`, `copilot`, `codex`) |
+| `limit` | int | No | 20 | Maximum results |
+| `max_distance` | float | No | 0 | Max cosine distance threshold (0 = no threshold) |
+| `diversity` | bool | No | false | Enable diversity scoring to spread results across sessions |
+
+**Returns:**
+```json
+{
+  "results": [
+    {
+      "session_id": "abc-123",
+      "entry_uuid": "entry-456",
+      "distance": 0.2847,
+      "role": "user",
+      "project_name": "my-project",
+      "source": "claude",
+      "session_path": "/path/to/session.jsonl",
+      "first_prompt": "Help me design a database schema..."
+    }
+  ]
 }
 ```
 

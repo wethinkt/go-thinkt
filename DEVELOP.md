@@ -41,9 +41,11 @@ go-thinkt/
 │   ├── config/                  # Configuration, platform app detection
 │   ├── fingerprint/             # Machine fingerprint hashing
 │   ├── indexer/                 # DuckDB-powered indexer subsystem
-│   │   ├── cmd/                 # Indexer CLI commands (watch, sync, search, stats)
+│   │   ├── cmd/                 # Indexer CLI commands (server, sync, search, semantic, stats)
 │   │   ├── db/                  # DuckDB connection and driver
-│   │   └── search/              # Full-text and metadata search
+│   │   ├── embedding/           # On-device embedding via Qwen3-Embedding
+│   │   ├── rpc/                 # Unix socket RPC protocol
+│   │   └── search/              # Full-text, metadata, and semantic search
 │   ├── jsonl/                   # JSONL format parsing
 │   ├── prompt/                  # Prompt extraction and templates
 │   ├── server/                  # HTTP/REST API and MCP server
@@ -85,7 +87,7 @@ Provides: TUI, project/session browsing, team inspection, prompt extraction, HTT
 
 DuckDB-powered indexer for search and analytics. Requires CGO (`CGO_ENABLED=1`) for DuckDB C bindings. Available on Linux and macOS only.
 
-Provides: `sync`, `watch`, `search`, `stats` commands. Data stored in `~/.thinkt/index.duckdb` (metadata) and `~/.thinkt/embeddings.duckdb` (semantic search vectors).
+Provides: `server`, `sync`, `search`, `semantic`, `stats` commands. The `server` command runs as a long-lived process with Unix socket RPC, file watching, and on-device embedding via Qwen3-Embedding. Data stored in `~/.thinkt/index.duckdb` (metadata) and `~/.thinkt/embeddings.duckdb` (semantic search vectors). Semantic search is disabled by default — enable with `thinkt-indexer semantic enable`.
 
 ## Prerequisites
 
