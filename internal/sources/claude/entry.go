@@ -363,6 +363,12 @@ func (e *Entry) ToThinktEntry() thinkt.Entry {
 		}
 	}
 
+	// Set checkpoint flag and text for file history snapshot entries
+	if e.Type == EntryTypeFileHistorySnapshot {
+		entry.IsCheckpoint = true
+		entry.Text = fileHistorySnapshotText(e)
+	}
+
 	return entry
 }
 
@@ -375,6 +381,12 @@ func convertEntryTypeToRole(t EntryType) thinkt.Role {
 		return thinkt.RoleAssistant
 	case EntryTypeSystem:
 		return thinkt.RoleSystem
+	case EntryTypeSummary:
+		return thinkt.RoleSummary
+	case EntryTypeProgress:
+		return thinkt.RoleProgress
+	case EntryTypeFileHistorySnapshot:
+		return thinkt.RoleCheckpoint
 	default:
 		return thinkt.RoleSystem
 	}

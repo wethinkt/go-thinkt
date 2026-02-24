@@ -414,7 +414,11 @@ func TestStore_FileHistorySnapshot(t *testing.T) {
 			"timestamp":        "2024-01-15T10:01:00Z",
 			"messageId":        "u1",
 			"isSnapshotUpdate": true,
-			"snapshot":         map[string]any{"file.txt": "content"},
+			"snapshot": map[string]any{
+				"messageId":          "u1",
+				"trackedFileBackups": map[string]any{"file.txt": "content"},
+				"timestamp":          "2024-01-15T10:01:00Z",
+			},
 		},
 	})
 
@@ -445,6 +449,10 @@ func TestStore_FileHistorySnapshot(t *testing.T) {
 	}
 	if snapshot.WorkspaceID != "ws-123" {
 		t.Errorf("expected workspace ID 'ws-123', got '%s'", snapshot.WorkspaceID)
+	}
+	wantText := "File History Snapshot (1 file: file.txt)"
+	if snapshot.Text != wantText {
+		t.Errorf("expected Text %q, got %q", wantText, snapshot.Text)
 	}
 }
 
@@ -661,6 +669,28 @@ func TestConvertEntry_Checkpoint(t *testing.T) {
 	}
 	if !entry.IsCheckpoint {
 		t.Error("expected IsCheckpoint=true for file-history-snapshot")
+	}
+}
+
+func TestToThinktEntry_FileHistorySnapshot(t *testing.T) {
+	e := &Entry{
+		Type:             EntryTypeFileHistorySnapshot,
+		MessageID:        "msg-1",
+		IsSnapshotUpdate: true,
+		Snapshot:         json.RawMessage(`{"messageId":"msg-1","trackedFileBackups":{"src/main.go":"content","src/util.go":"content"},"timestamp":"2024-01-15T10:00:00Z"}`),
+	}
+
+	entry := e.ToThinktEntry()
+
+	if entry.Role != thinkt.RoleCheckpoint {
+		t.Errorf("expected Role %v, got %v", thinkt.RoleCheckpoint, entry.Role)
+	}
+	if !entry.IsCheckpoint {
+		t.Error("expected IsCheckpoint=true")
+	}
+	want := "File History Snapshot (2 files)"
+	if entry.Text != want {
+		t.Errorf("expected Text %q, got %q", want, entry.Text)
 	}
 }
 

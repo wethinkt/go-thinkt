@@ -4,6 +4,7 @@ package claude
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -436,6 +437,8 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 				}
 			}
 		}
+	case EntryTypeFileHistorySnapshot:
+		entry.Text = fileHistorySnapshotText(e)
 	}
 
 	// Copy agent ID for team/subagent correlation
@@ -471,6 +474,30 @@ func convertRole(t EntryType) thinkt.Role {
 	default:
 		return thinkt.RoleSystem
 	}
+}
+
+// fileHistorySnapshotText produces a short summary for file-history-snapshot entries.
+func fileHistorySnapshotText(e *Entry) string {
+	if len(e.Snapshot) == 0 {
+		return "File History Snapshot"
+	}
+	// Snapshot shape: {"messageId":"...","trackedFileBackups":{...},"timestamp":"..."}
+	var snap struct {
+		TrackedFileBackups map[string]json.RawMessage `json:"trackedFileBackups"`
+	}
+	if err := json.Unmarshal(e.Snapshot, &snap); err != nil {
+		return "File History Snapshot"
+	}
+	n := len(snap.TrackedFileBackups)
+	if n == 0 {
+		return "File History Snapshot"
+	}
+	if n == 1 {
+		for k := range snap.TrackedFileBackups {
+			return "File History Snapshot (1 file: " + k + ")"
+		}
+	}
+	return fmt.Sprintf("File History Snapshot (%d files)", n)
 }
 
 func convertUserBlocks(blocks []ContentBlock) []thinkt.ContentBlock {
