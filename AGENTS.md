@@ -42,6 +42,7 @@ Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot|codex|qwen
 | `internal/indexer` | Indexer ingestion, watching, and search |
 | `internal/indexer/db` | DuckDB database layer with copy-on-read support |
 | `internal/export` | Trace exporter: file watcher, HTTP shipper, disk buffer, discovery |
+| `internal/agents` | Agent hub: unified local+remote detection, streaming, filter |
 | `internal/collect` | Trace collector: HTTP server, DuckDB store, agent registry, normalizer |
 | `internal/analytics` | Analytics |
 | `internal/prompt` | Prompt extraction and formatting |

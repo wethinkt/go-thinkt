@@ -8,6 +8,16 @@ The core CLI is functional with multi-source support, TUI with tree view navigat
 
 ### Recently Completed
 
+- [x] **Agent Hub** — Unified active agent following across local + remote
+  - `thinkt agents` CLI with list, follow, and filtering
+  - `internal/agents/` package: AgentHub, UnifiedAgent, stream providers
+  - TUI agents list page with filter toggle (all/local/remote)
+  - TUI agent tail page with live streaming
+  - WebSocket streaming endpoint on collector (`/v1/sessions/{id}/ws`)
+  - Session pub/sub for real-time fan-out
+  - Single-use ticket auth for browser WebSocket connections
+  - Machine fingerprint integration for local vs. remote detection
+
 - [x] **TUI Tree View** - Collapsible project tree grouped by directory
   - Compacted single-child directory chains (e.g., `~/dev/company/team`)
   - Tree prefix rendering (`├──`, `└──`, `│`)

@@ -165,6 +165,9 @@ thinkt tui --log /tmp/thinkt-debug.log
 | `thinkt export` | Export traces to a remote collector |
 | `thinkt export --forward` | Continuous watch mode |
 | `thinkt export --flush` | Flush the disk buffer |
+| `thinkt agents` | List active agents (local and remote) |
+| `thinkt agents --local` | Local agents only |
+| `thinkt agents follow <id>` | Live-tail an agent's conversation |
 | `thinkt collect` | Start trace collector server (port 4318) |
 | `thinkt collect --token` | Collector with bearer token auth |
 | `thinkt web` | Open web interface in browser |
