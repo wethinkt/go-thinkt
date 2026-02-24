@@ -56,7 +56,7 @@ func IsSessionPath(path string) bool {
 		return false
 	}
 	baseDir := (&Discoverer{}).basePath()
-	if baseDir != "" && strings.HasPrefix(filepath.Clean(path), filepath.Clean(baseDir)) {
+	if baseDir != "" && thinkt.IsPathWithinAny(path, []string{baseDir}) {
 		return true
 	}
 	clean := filepath.Clean(path)

@@ -1,4 +1,4 @@
-package kimi
+package qwen
 
 import (
 	"path/filepath"
@@ -6,8 +6,8 @@ import (
 )
 
 func TestIsSessionPath_BoundarySafe(t *testing.T) {
-	baseDir := filepath.Join(t.TempDir(), ".kimi")
-	t.Setenv("THINKT_KIMI_HOME", baseDir)
+	baseDir := filepath.Join(t.TempDir(), ".qwen")
+	t.Setenv("THINKT_QWEN_HOME", baseDir)
 
 	valid := filepath.Join(baseDir, "projects", "p1", "trace.jsonl")
 	if !IsSessionPath(valid) {
@@ -20,12 +20,10 @@ func TestIsSessionPath_BoundarySafe(t *testing.T) {
 	}
 }
 
-func TestIsSessionPath_KnownContextFileNames(t *testing.T) {
-	if !IsSessionPath(filepath.Join("any", "context.jsonl")) {
-		t.Fatalf("expected context.jsonl to be recognized")
-	}
-	if !IsSessionPath(filepath.Join("any", "context_sub_1.jsonl")) {
-		t.Fatalf("expected context_sub_*.jsonl to be recognized")
+func TestIsSessionPath_FallbackQwenProjectsPath(t *testing.T) {
+	path := filepath.Join(string(filepath.Separator), "tmp", ".qwen", "projects", "p1", "trace.jsonl")
+	if !IsSessionPath(path) {
+		t.Fatalf("expected fallback .qwen/projects path to match: %s", path)
 	}
 }
 

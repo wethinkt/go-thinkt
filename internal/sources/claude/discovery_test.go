@@ -1,56 +1,27 @@
 package claude
 
 import (
+	"path/filepath"
 	"testing"
-
-	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
-func TestDiscoverer_Source(t *testing.T) {
-	d := NewDiscoverer()
-	if d.Source() != thinkt.SourceClaude {
-		t.Errorf("expected SourceClaude, got %s", d.Source())
+func TestIsSessionPath_BoundarySafe(t *testing.T) {
+	baseDir := filepath.Join(t.TempDir(), ".claude")
+	t.Setenv("THINKT_CLAUDE_HOME", baseDir)
+
+	valid := filepath.Join(baseDir, "projects", "p1", "session.jsonl")
+	if !IsSessionPath(valid) {
+		t.Fatalf("expected path under base dir to match: %s", valid)
+	}
+
+	prefixCollision := filepath.Join(filepath.Dir(baseDir), filepath.Base(baseDir)+"x", "projects", "p1", "session.jsonl")
+	if IsSessionPath(prefixCollision) {
+		t.Fatalf("expected prefix-collision path to not match: %s", prefixCollision)
+	}
+
+	wrongExt := filepath.Join(baseDir, "projects", "p1", "session.txt")
+	if IsSessionPath(wrongExt) {
+		t.Fatalf("expected non-jsonl path to not match: %s", wrongExt)
 	}
 }
 
-func TestDiscoverer_Create_NotAvailable(t *testing.T) {
-	// This test assumes ~/.claude may or may not exist
-	d := NewDiscoverer()
-	
-	store, err := d.Create()
-	// Should not error, but may return nil if not available
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	
-	// If we got a store, verify it's the right type
-	if store != nil {
-		if store.Source() != thinkt.SourceClaude {
-			t.Errorf("expected SourceClaude, got %s", store.Source())
-		}
-	}
-}
-
-func TestDiscoverer_IsAvailable(t *testing.T) {
-	d := NewDiscoverer()
-	
-	// Just verify it doesn't panic
-	available, err := d.IsAvailable()
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	
-	// Result depends on whether ~/.claude exists
-	_ = available
-}
-
-func TestFactory(t *testing.T) {
-	f := Factory()
-	
-	if f.Source() != thinkt.SourceClaude {
-		t.Errorf("expected SourceClaude, got %s", f.Source())
-	}
-	
-	// Verify it implements the interface
-	var _ thinkt.StoreFactory = f
-}

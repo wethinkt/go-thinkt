@@ -94,7 +94,7 @@ func IsSessionPath(path string) bool {
 		return true
 	}
 	dir, _ := DefaultDir()
-	if dir != "" && strings.HasPrefix(filepath.Clean(path), filepath.Clean(dir)) {
+	if dir != "" && thinkt.IsPathWithinAny(path, []string{dir}) {
 		return true
 	}
 	return false
