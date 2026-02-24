@@ -37,6 +37,7 @@ Examples:
 * [thinkt indexer help](thinkt_indexer_help.md)	 - Help about any command
 * [thinkt indexer logs](thinkt_indexer_logs.md)	 - View indexer logs
 * [thinkt indexer search](thinkt_indexer_search.md)	 - Search for text across indexed sessions
+* [thinkt indexer semantic](thinkt_indexer_semantic.md)	 - Semantic search and index management
 * [thinkt indexer sessions](thinkt_indexer_sessions.md)	 - List sessions for a project from the index
 * [thinkt indexer start](thinkt_indexer_start.md)	 - Start indexer in background
 * [thinkt indexer stats](thinkt_indexer_stats.md)	 - Show usage statistics from the index

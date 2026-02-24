@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
@@ -169,9 +170,21 @@ var semanticStatsCmd = &cobra.Command{
 	Short: "Show statistics about the semantic search index",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Show config status
+		cfg, err := config.Load()
+		if err != nil {
+			cfg = config.Default()
+		}
+		if cfg.Embedding.Enabled {
+			fmt.Println("Embedding:   enabled")
+		} else {
+			fmt.Println("Embedding:   disabled")
+		}
+
 		embDB, err := getReadOnlyEmbeddingsDB()
 		if err != nil {
-			fmt.Println("No embeddings indexed yet.")
+			fmt.Println("Embeddings:  0")
+			fmt.Println()
 			fmt.Println("Run 'thinkt-indexer sync' to generate embeddings.")
 			return nil
 		}
@@ -186,15 +199,11 @@ var semanticStatsCmd = &cobra.Command{
 			return fmt.Errorf("query embeddings stats: %w", err)
 		}
 
-		if totalEmbeddings == 0 {
-			fmt.Println("No embeddings indexed yet.")
-			fmt.Println("Run 'thinkt-indexer sync' to generate embeddings.")
-			return nil
-		}
-
 		fmt.Printf("Embeddings:  %d\n", totalEmbeddings)
 		fmt.Printf("Sessions:    %d\n", totalSessions)
-		fmt.Printf("Models:      %s\n", models)
+		if models != "" {
+			fmt.Printf("Models:      %s\n", models)
+		}
 
 		// Check if model is available
 		modelPath, _ := embedding.DefaultModelPath()
@@ -204,6 +213,51 @@ var semanticStatsCmd = &cobra.Command{
 			fmt.Printf("Embedder:    %s (model not downloaded)\n", embedding.ModelID)
 		}
 
+		return nil
+	},
+}
+
+var semanticEnableCmd = &cobra.Command{
+	Use:   "enable",
+	Short: "Enable semantic search embedding",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			cfg = config.Default()
+		}
+		if cfg.Embedding.Enabled {
+			fmt.Println("Semantic search is already enabled.")
+			return nil
+		}
+		cfg.Embedding.Enabled = true
+		if err := config.Save(cfg); err != nil {
+			return fmt.Errorf("failed to save config: %w", err)
+		}
+		fmt.Println("Semantic search enabled.")
+		fmt.Println("Run 'thinkt-indexer sync' to generate embeddings.")
+		return nil
+	},
+}
+
+var semanticDisableCmd = &cobra.Command{
+	Use:   "disable",
+	Short: "Disable semantic search embedding",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			cfg = config.Default()
+		}
+		if !cfg.Embedding.Enabled {
+			fmt.Println("Semantic search is already disabled.")
+			return nil
+		}
+		cfg.Embedding.Enabled = false
+		if err := config.Save(cfg); err != nil {
+			return fmt.Errorf("failed to save config: %w", err)
+		}
+		fmt.Println("Semantic search disabled.")
 		return nil
 	},
 }
@@ -219,5 +273,7 @@ func init() {
 
 	semanticCmd.AddCommand(semanticSearchCmd)
 	semanticCmd.AddCommand(semanticStatsCmd)
+	semanticCmd.AddCommand(semanticEnableCmd)
+	semanticCmd.AddCommand(semanticDisableCmd)
 	rootCmd.AddCommand(semanticCmd)
 }

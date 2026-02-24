@@ -302,6 +302,7 @@ func init() {
 	indexerCmd.AddCommand(makeAutoStartingCommand("search", "Search for text across indexed sessions"))
 	indexerCmd.AddCommand(makeForwardingCommand("stats", "Show usage statistics from the index"))
 	indexerCmd.AddCommand(makeForwardingCommand("sessions", "List sessions for a project from the index"))
+	indexerCmd.AddCommand(makeForwardingCommand("semantic", "Semantic search and index management"))
 	indexerCmd.AddCommand(makeForwardingCommand("version", "Print version information"))
 	indexerCmd.AddCommand(makeForwardingCommand("help", "Help about any command"))
 }
