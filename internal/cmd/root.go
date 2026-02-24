@@ -207,6 +207,17 @@ func init() {
 	exportCmd.Flags().BoolVar(&exportForward, "forward", false, "continuous watch mode")
 	exportCmd.Flags().BoolVar(&exportFlush, "flush", false, "flush the disk buffer")
 	exportCmd.Flags().BoolVarP(&exportQuiet, "quiet", "q", false, "suppress non-error output")
+	// Agents command
+	rootCmd.AddCommand(agentsCmd)
+	agentsCmd.Flags().BoolVar(&agentsLocal, "local", false, "show only local agents")
+	agentsCmd.Flags().BoolVar(&agentsRemote, "remote", false, "show only remote agents")
+	agentsCmd.Flags().StringVar(&agentsSource, "source", "", "filter by source (claude, kimi, etc.)")
+	agentsCmd.Flags().StringVar(&agentsMachine, "machine", "", "filter by machine fingerprint")
+	agentsCmd.Flags().BoolVar(&agentsJSON, "json", false, "output as JSON")
+	agentsCmd.AddCommand(agentsFollowCmd)
+	agentsFollowCmd.Flags().BoolVar(&followRaw, "raw", false, "raw JSONL output")
+	agentsFollowCmd.Flags().BoolVar(&followJSON, "json", false, "structured JSON output")
+
 	teamsCmd.AddCommand(teamsListCmd)
 	teamsCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "output as JSON")
 	teamsCmd.PersistentFlags().BoolVar(&teamsFilterActive, "active", false, "show only active teams")
