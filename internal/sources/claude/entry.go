@@ -369,6 +369,11 @@ func (e *Entry) ToThinktEntry() thinkt.Entry {
 		entry.Text = fileHistorySnapshotText(e)
 	}
 
+	// Extract summary text for progress entries
+	if e.Type == EntryTypeProgress {
+		entry.Text = progressText(e)
+	}
+
 	return entry
 }
 

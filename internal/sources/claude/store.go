@@ -439,6 +439,8 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 		}
 	case EntryTypeFileHistorySnapshot:
 		entry.Text = fileHistorySnapshotText(e)
+	case EntryTypeProgress:
+		entry.Text = progressText(e)
 	}
 
 	// Copy agent ID for team/subagent correlation
@@ -498,6 +500,27 @@ func fileHistorySnapshotText(e *Entry) string {
 		}
 	}
 	return fmt.Sprintf("File History Snapshot (%d files)", n)
+}
+
+// progressText produces a short summary for progress entries.
+func progressText(e *Entry) string {
+	if len(e.Data) == 0 {
+		return "Progress"
+	}
+	var d struct {
+		Type     string `json:"type"`
+		HookName string `json:"hookName"`
+	}
+	if err := json.Unmarshal(e.Data, &d); err != nil {
+		return "Progress"
+	}
+	if d.HookName != "" {
+		return "Progress: " + d.HookName
+	}
+	if d.Type != "" {
+		return "Progress: " + d.Type
+	}
+	return "Progress"
 }
 
 func convertUserBlocks(blocks []ContentBlock) []thinkt.ContentBlock {
