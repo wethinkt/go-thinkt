@@ -1,0 +1,19 @@
+# thinkt-exporter Dockerfile for GoReleaser
+# Uses pre-built binary from goreleaser
+
+FROM debian:bookworm-slim
+
+# Install ca-certificates and create non-root user with home at /data
+RUN DEBIAN_FRONTEND=noninteractive apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -d /data -u 5454 thinkt
+
+# Copy pre-built binary from goreleaser
+COPY thinkt-exporter /usr/local/bin/thinkt-exporter
+
+USER thinkt
+WORKDIR /data
+
+ENTRYPOINT ["/usr/local/bin/thinkt-exporter"]

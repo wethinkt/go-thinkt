@@ -35,8 +35,26 @@ builds:
     ldflags:
       - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
 
+  - id: exporter
+    main: ./cmd/thinkt-exporter
+    binary: thinkt-exporter
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - freebsd
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
 archives:
   - id: default
+    ids:
+      - default
     formats:
       - tar.gz
     format_overrides:
@@ -52,6 +70,18 @@ archives:
       - src: ./completions/*
         dst: completions/
         strip_parent: true
+
+  - id: exporter
+    ids:
+      - exporter
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      thinkt-exporter_{{ .Version }}_{{ .Os }}_{{ .Arch }}
 
 checksum:
   name_template: checksums.txt
@@ -214,6 +244,43 @@ dockers:
     use: buildx
     goarch: arm64
 
+  - id: exporter-linux-amd64
+    ids:
+      - exporter
+    dockerfile: etc/Dockerfile.goreleaser-exporter
+    image_templates:
+      - "ghcr.io/wethinkt/thinkt-exporter:{{ .Version }}-amd64"
+      - "ghcr.io/wethinkt/thinkt-exporter:latest-amd64"
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title=thinkt-exporter"
+      - "--label=org.opencontainers.image.description=Exports LLM conversation traces to thinkt"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.source={{ .GitURL }}"
+    use: buildx
+
+  - id: exporter-linux-arm64
+    ids:
+      - exporter
+    dockerfile: etc/Dockerfile.goreleaser-exporter
+    image_templates:
+      - "ghcr.io/wethinkt/thinkt-exporter:{{ .Version }}-arm64"
+      - "ghcr.io/wethinkt/thinkt-exporter:latest-arm64"
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title=thinkt-exporter"
+      - "--label=org.opencontainers.image.description=Exports LLM conversation traces to thinkt"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.source={{ .GitURL }}"
+    use: buildx
+    goarch: arm64
+
 docker_manifests:
   - name_template: "ghcr.io/wethinkt/thinkt:{{ .Version }}"
     image_templates:
@@ -224,3 +291,13 @@ docker_manifests:
     image_templates:
       - "ghcr.io/wethinkt/thinkt:latest-amd64"
       - "ghcr.io/wethinkt/thinkt:latest-arm64"
+
+  - name_template: "ghcr.io/wethinkt/thinkt-exporter:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/wethinkt/thinkt-exporter:{{ .Version }}-amd64"
+      - "ghcr.io/wethinkt/thinkt-exporter:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/wethinkt/thinkt-exporter:latest"
+    image_templates:
+      - "ghcr.io/wethinkt/thinkt-exporter:latest-amd64"
+      - "ghcr.io/wethinkt/thinkt-exporter:latest-arm64"

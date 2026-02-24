@@ -34,6 +34,8 @@ tasks:
     desc: Build all
     deps:
       - build:thinkt
+      - build:collector
+      - build:exporter
       - build:indexer
 
   build:thinkt:
@@ -51,6 +53,32 @@ tasks:
       - "{{.BIN_DIR}}/thinkt"
     cmds:
       - go build -o {{.BIN_DIR}}/thinkt ./cmd/thinkt
+
+  build:collector:
+    desc: Build the thinkt-collector server
+    deps: [go-tidy]
+    sources:
+      - ./cmd/thinkt-collector/**/*.go
+      - ./internal/**/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.BIN_DIR}}/thinkt-collector"
+    cmds:
+      - go build -o {{.BIN_DIR}}/thinkt-collector ./cmd/thinkt-collector
+
+  build:exporter:
+    desc: Build the thinkt-exporter daemon
+    deps: [go-tidy]
+    sources:
+      - ./cmd/thinkt-exporter/**/*.go
+      - ./internal/**/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.BIN_DIR}}/thinkt-exporter"
+    cmds:
+      - go build -o {{.BIN_DIR}}/thinkt-exporter ./cmd/thinkt-exporter
 
   build:indexer:
     desc: Build the thinkt-indexer CLI
@@ -159,13 +187,23 @@ tasks:
   # Docker
   ###############################################################################
 
-  docker:build-thinkt:
+  docker:build-all:
+    deps:
+      - docker:build-exporter
+      - docker:build-indexer
+      - docker:build-thinkt
+
+  docker:build-exporter:
     cmds:
-      - docker build .
+      - docker build -f etc/Dockerfile.exporter .
 
   docker:build-indexer:
     cmds:
       - docker build -f etc/Dockerfile.indexer .
+
+  docker:build-thinkt:
+    cmds:
+      - docker build .
 
   docker:release:
     cmds:
