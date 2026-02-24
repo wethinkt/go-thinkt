@@ -8,10 +8,16 @@ import (
 // StoreCache provides project and session caching for Store implementations.
 // Stores embed this struct and use its methods to avoid repeated filesystem
 // scans during a single process lifetime. All fields are lazily populated
-// on first access. Call Reset to force a full rescan.
+// on first access. Call Clear to force a full rescan.
 //
 // When TTL is set (via SetTTL), cached data expires and is transparently
 // refetched on the next access. With TTL=0 (default), data is cached forever.
+//
+// Contract:
+//   - All interactions go through methods; internal state is never exposed.
+//   - Getter methods return defensive copies to prevent accidental mutation.
+//   - Setter methods copy input slices before storing.
+//   - Invalidation can be done per-project, per-sessions entry, or globally.
 type StoreCache struct {
 	mu   sync.RWMutex
 	name string // identifies this cache in log messages
@@ -35,11 +41,15 @@ type sessionsCacheEntry struct {
 // SetTTL configures the cache time-to-live. Cached data older than d
 // is treated as a miss. Zero means cache forever (default).
 func (c *StoreCache) SetTTL(d time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.ttl = d
 }
 
 // SetName sets a label for this cache (used in log messages).
 func (c *StoreCache) SetName(name string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.name = name
 }
 
@@ -54,7 +64,7 @@ func (c *StoreCache) GetProjects() ([]Project, error, bool) {
 	if c.ttl > 0 && time.Since(c.projectsCachedAt) > c.ttl {
 		return nil, nil, false
 	}
-	return c.projects, c.projectsErr, true
+	return copyProjects(c.projects), c.projectsErr, true
 }
 
 // SetProjects stores the project list in the cache.
@@ -63,7 +73,7 @@ func (c *StoreCache) SetProjects(projects []Project, err error) {
 	defer c.mu.Unlock()
 	c.projectsCached = true
 	c.projectsCachedAt = time.Now()
-	c.projects = projects
+	c.projects = copyProjects(projects)
 	c.projectsErr = err
 }
 
@@ -82,7 +92,7 @@ func (c *StoreCache) GetSessions(projectID string) ([]SessionMeta, error, bool) 
 	if c.ttl > 0 && time.Since(entry.cachedAt) > c.ttl {
 		return nil, nil, false
 	}
-	return entry.sessions, entry.err, true
+	return copySessionMetas(entry.sessions), entry.err, true
 }
 
 // SetSessions stores the session list for a project in the cache.
@@ -94,17 +104,65 @@ func (c *StoreCache) SetSessions(projectID string, sessions []SessionMeta, err e
 	}
 	c.sessions[projectID] = &sessionsCacheEntry{
 		cachedAt: time.Now(),
-		sessions: sessions,
+		sessions: copySessionMetas(sessions),
 		err:      err,
 	}
 }
 
-// Reset clears all cached data, forcing the next calls to rescan.
-func (c *StoreCache) Reset() {
+// InvalidateProjects clears only cached project list data.
+func (c *StoreCache) InvalidateProjects() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.projectsCached = false
+	c.projectsCachedAt = time.Time{}
+	c.projects = nil
+	c.projectsErr = nil
+}
+
+// InvalidateSessions clears the cached session list for a project.
+func (c *StoreCache) InvalidateSessions(projectID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.sessions == nil {
+		return
+	}
+	delete(c.sessions, projectID)
+	if len(c.sessions) == 0 {
+		c.sessions = nil
+	}
+}
+
+// Clear clears all cached data, forcing the next calls to rescan.
+func (c *StoreCache) Clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.projectsCached = false
+	c.projectsCachedAt = time.Time{}
 	c.projects = nil
 	c.projectsErr = nil
 	c.sessions = nil
+}
+
+// Reset clears all cached data.
+// Deprecated: use Clear.
+func (c *StoreCache) Reset() {
+	c.Clear()
+}
+
+func copyProjects(in []Project) []Project {
+	if in == nil {
+		return nil
+	}
+	out := make([]Project, len(in))
+	copy(out, in)
+	return out
+}
+
+func copySessionMetas(in []SessionMeta) []SessionMeta {
+	if in == nil {
+		return nil
+	}
+	out := make([]SessionMeta, len(in))
+	copy(out, in)
+	return out
 }
