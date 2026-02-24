@@ -76,7 +76,7 @@ func NewEmbedder(modelPath string) (*Embedder, error) {
 
 	ctx, err := llama.InitFromModel(model, ctxParams)
 	if err != nil {
-		llama.ModelFree(model)
+		_ = llama.ModelFree(model)
 		llama.Close()
 		return nil, fmt.Errorf("init context: %w", err)
 	}
@@ -86,8 +86,8 @@ func NewEmbedder(modelPath string) (*Embedder, error) {
 		nEmbd = llama.ModelNEmbdOut(model)
 	}
 	if nEmbd <= 0 {
-		llama.Free(ctx)
-		llama.ModelFree(model)
+		_ = llama.Free(ctx)
+		_ = llama.ModelFree(model)
 		llama.Close()
 		return nil, errors.New("model reports invalid embedding dimension")
 	}
@@ -241,8 +241,8 @@ func (e *Embedder) Close() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	llama.Free(e.ctx)
-	llama.ModelFree(e.model)
+	_ = llama.Free(e.ctx)
+	_ = llama.ModelFree(e.model)
 	llama.Close()
 }
 

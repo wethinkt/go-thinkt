@@ -62,10 +62,10 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 	}
 
 	// Set up session/project rows in the index DB for the join
-	indexDB.Exec("INSERT INTO projects (id, path, name, source) VALUES ('p1', '/test', 'test-project', 'claude')")
-	indexDB.Exec("INSERT INTO sessions (id, project_id, path, entry_count) VALUES ('s1', 'p1', '/test/s1.jsonl', 3)")
+	_, _ = indexDB.Exec("INSERT INTO projects (id, path, name, source) VALUES ('p1', '/test', 'test-project', 'claude')")
+	_, _ = indexDB.Exec("INSERT INTO sessions (id, project_id, path, entry_count) VALUES ('s1', 'p1', '/test/s1.jsonl', 3)")
 	for _, e := range entries {
-		indexDB.Exec("INSERT INTO entries (uuid, session_id, role, word_count) VALUES (?, 's1', ?, ?)",
+		_, _ = indexDB.Exec("INSERT INTO entries (uuid, session_id, role, word_count) VALUES (?, 's1', ?, ?)",
 			e.UUID, string(e.Role), len(e.Text))
 	}
 

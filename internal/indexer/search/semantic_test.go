@@ -247,18 +247,18 @@ func TestSemanticSearch_WithProjectFilter(t *testing.T) {
 	indexDB, embDB := openBothDBs(t)
 
 	// Set up project/session metadata in index DB
-	indexDB.Exec("INSERT INTO projects (id, path, name, source) VALUES ('p1', '/a', 'alpha', 'claude')")
-	indexDB.Exec("INSERT INTO projects (id, path, name, source) VALUES ('p2', '/b', 'beta', 'kimi')")
-	indexDB.Exec("INSERT INTO sessions (id, project_id, path, entry_count) VALUES ('s1', 'p1', '/a/s1.jsonl', 1)")
-	indexDB.Exec("INSERT INTO sessions (id, project_id, path, entry_count) VALUES ('s2', 'p2', '/b/s2.jsonl', 1)")
+	_, _ = indexDB.Exec("INSERT INTO projects (id, path, name, source) VALUES ('p1', '/a', 'alpha', 'claude')")
+	_, _ = indexDB.Exec("INSERT INTO projects (id, path, name, source) VALUES ('p2', '/b', 'beta', 'kimi')")
+	_, _ = indexDB.Exec("INSERT INTO sessions (id, project_id, path, entry_count) VALUES ('s1', 'p1', '/a/s1.jsonl', 1)")
+	_, _ = indexDB.Exec("INSERT INTO sessions (id, project_id, path, entry_count) VALUES ('s2', 'p2', '/b/s2.jsonl', 1)")
 
 	// Insert embeddings in embDB
 	vec := make([]float32, 1024)
 	vec[0] = 1.0
 
-	embDB.Exec(`INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
+	_, _ = embDB.Exec(`INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
 		VALUES ('e1_0', 's1', 'e1', 0, 'qwen3-embedding-0.6b', 1024, ?::FLOAT[1024], 'hash')`, vec)
-	embDB.Exec(`INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
+	_, _ = embDB.Exec(`INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
 		VALUES ('e2_0', 's2', 'e2', 0, 'qwen3-embedding-0.6b', 1024, ?::FLOAT[1024], 'hash')`, vec)
 
 	query := make([]float32, 1024)
