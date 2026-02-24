@@ -3,32 +3,14 @@ package tui
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
+
+	"github.com/wethinkt/go-thinkt/internal/config"
 )
 
 // IndexerAvailable checks if the thinkt-indexer binary is available.
 func IndexerAvailable() bool {
-	return findIndexerBinary() != ""
-}
-
-// findIndexerBinary attempts to locate the thinkt-indexer binary.
-func findIndexerBinary() string {
-	// 1. Check same directory as current executable
-	if execPath, err := os.Executable(); err == nil {
-		binDir := filepath.Dir(execPath)
-		indexerPath := filepath.Join(binDir, "thinkt-indexer")
-		if _, err := os.Stat(indexerPath); err == nil {
-			return indexerPath
-		}
-	}
-
-	// 2. Check system PATH
-	if path, err := exec.LookPath("thinkt-indexer"); err == nil {
-		return path
-	}
-
-	return ""
+	return config.FindIndexerBinary() != ""
 }
 
 // DefaultDBPath returns the default path to the DuckDB index file.

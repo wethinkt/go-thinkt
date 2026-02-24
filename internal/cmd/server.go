@@ -607,7 +607,7 @@ func startIndexerSidecar(appLogPath string) *exec.Cmd {
 		return nil
 	}
 
-	indexerPath := findIndexerBinary()
+	indexerPath := config.FindIndexerBinary()
 	if indexerPath == "" {
 		return nil
 	}

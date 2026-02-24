@@ -95,7 +95,7 @@ var indexerStatusCmd = &cobra.Command{
 }
 
 func runIndexerStart(cmd *cobra.Command, args []string) error {
-	path := findIndexerBinary()
+	path := config.FindIndexerBinary()
 	if path == "" {
 		return fmt.Errorf("the 'thinkt-indexer' binary was not found")
 	}
@@ -225,7 +225,7 @@ func makeForwardingCommand(use, short string) *cobra.Command {
 		SilenceUsage:       true, // Don't show help on error from thinkt-indexer
 		SilenceErrors:      true, // thinkt-indexer already printed its error
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path := findIndexerBinary()
+			path := config.FindIndexerBinary()
 			if path == "" {
 				return fmt.Errorf("the 'thinkt-indexer' binary was not found")
 			}
@@ -259,25 +259,6 @@ func makeAutoStartingCommand(use, short string) *cobra.Command {
 		return oldRunE(cmd, args)
 	}
 	return fwd
-}
-
-// findIndexerBinary attempts to locate the thinkt-indexer binary.
-func findIndexerBinary() string {
-	// 1. Check same directory as current executable
-	if execPath, err := os.Executable(); err == nil {
-		binDir := filepath.Dir(execPath)
-		indexerPath := filepath.Join(binDir, "thinkt-indexer")
-		if _, err := os.Stat(indexerPath); err == nil {
-			return indexerPath
-		}
-	}
-
-	// 2. Check system PATH
-	if path, err := exec.LookPath("thinkt-indexer"); err == nil {
-		return path
-	}
-
-	return ""
 }
 
 func init() {

@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -125,7 +124,7 @@ func (ms *MCPServer) registerTools() {
 	}
 
 	// Register indexer tools if binary is available
-	if indexerPath := findIndexerBinary(); indexerPath != "" {
+	if indexerPath := config.FindIndexerBinary(); indexerPath != "" {
 		tuilog.Log.Info("NewMCPServer: thinkt-indexer found, checking tool permissions", "path", indexerPath)
 
 		// search_sessions
@@ -152,21 +151,6 @@ func (ms *MCPServer) registerTools() {
 			}, ms.handleSemanticSearch)
 		}
 	}
-}
-
-// findIndexerBinary attempts to locate the thinkt-indexer binary.
-func findIndexerBinary() string {
-	if execPath, err := os.Executable(); err == nil {
-		binDir := filepath.Dir(execPath)
-		indexerPath := filepath.Join(binDir, "thinkt-indexer")
-		if _, err := os.Stat(indexerPath); err == nil {
-			return indexerPath
-		}
-	}
-	if path, err := exec.LookPath("thinkt-indexer"); err == nil {
-		return path
-	}
-	return ""
 }
 
 // Tool input/output types
@@ -452,7 +436,7 @@ func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRe
 	var total int
 
 	// 1. Try indexer first for accurate data
-	if path := findIndexerBinary(); path != "" {
+	if path := config.FindIndexerBinary(); path != "" {
 		cmd := exec.Command(path, "sessions", "--json", "--source", string(source), input.ProjectID)
 		if output, err := cmd.Output(); err == nil {
 			var indexed []sessionInfo
@@ -739,7 +723,7 @@ func (ms *MCPServer) handleGetSessionEntries(ctx context.Context, req *mcp.CallT
 }
 
 func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallToolRequest, input searchSessionsInput) (*mcp.CallToolResult, any, error) {
-	path := findIndexerBinary()
+	path := config.FindIndexerBinary()
 	if path == "" {
 		return toolErrorResult("indexer_not_found", "thinkt-indexer binary not found", nil)
 	}
@@ -783,7 +767,7 @@ func (ms *MCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallTool
 	if strings.TrimSpace(input.Query) == "" {
 		return toolErrorResult("missing_query", "query is required", nil)
 	}
-	path := findIndexerBinary()
+	path := config.FindIndexerBinary()
 	if path == "" {
 		return toolErrorResult("indexer_not_found", "thinkt-indexer binary not found", nil)
 	}
@@ -816,7 +800,7 @@ func (ms *MCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallTool
 }
 
 func (ms *MCPServer) handleGetUsageStats(ctx context.Context, req *mcp.CallToolRequest, _ getUsageStatsInput) (*mcp.CallToolResult, any, error) {
-	path := findIndexerBinary()
+	path := config.FindIndexerBinary()
 	if path == "" {
 		return toolErrorResult("indexer_not_found", "thinkt-indexer binary not found", nil)
 	}

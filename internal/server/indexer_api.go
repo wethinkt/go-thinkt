@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 )
 
@@ -66,7 +67,7 @@ func (s *HTTPServer) handleSearchSessions(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	indexerPath := findIndexerBinary()
+	indexerPath := config.FindIndexerBinary()
 	if indexerPath == "" {
 		writeError(w, http.StatusServiceUnavailable, "indexer_not_found", "thinkt-indexer binary not found")
 		return
@@ -120,7 +121,7 @@ func (s *HTTPServer) handleSearchSessions(w http.ResponseWriter, r *http.Request
 // @Router /stats [get]
 // @Security BearerAuth
 func (s *HTTPServer) handleGetStats(w http.ResponseWriter, r *http.Request) {
-	indexerPath := findIndexerBinary()
+	indexerPath := config.FindIndexerBinary()
 	if indexerPath == "" {
 		writeError(w, http.StatusServiceUnavailable, "indexer_not_found", "thinkt-indexer binary not found")
 		return
@@ -189,7 +190,7 @@ func (s *HTTPServer) handleSemanticSearch(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	indexerPath := findIndexerBinary()
+	indexerPath := config.FindIndexerBinary()
 	if indexerPath == "" {
 		writeError(w, http.StatusServiceUnavailable, "indexer_not_found", "thinkt-indexer binary not found")
 		return
@@ -245,7 +246,7 @@ func (s *HTTPServer) handleSemanticSearch(w http.ResponseWriter, r *http.Request
 // @Success 200 {object} map[string]any
 // @Router /indexer/health [get]
 func (s *HTTPServer) handleIndexerHealth(w http.ResponseWriter, r *http.Request) {
-	indexerPath := findIndexerBinary()
+	indexerPath := config.FindIndexerBinary()
 
 	result := map[string]any{
 		"available": indexerPath != "",
