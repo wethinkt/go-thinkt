@@ -23,6 +23,7 @@ var (
 	semJSON          bool
 	semList          bool
 	semDiversity     bool
+	semStatsJSON     bool
 )
 
 var semanticCmd = &cobra.Command{
@@ -170,33 +171,54 @@ var semanticStatsCmd = &cobra.Command{
 	Short: "Show statistics about the semantic search index",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Show config status
 		cfg, err := config.Load()
 		if err != nil {
 			cfg = config.Default()
 		}
+
+		var totalEmbeddings int
+		var totalSessions int
+		var models string
+		var modelAvailable bool
+
+		embDB, err := getReadOnlyEmbeddingsDB()
+		if err == nil {
+			defer embDB.Close()
+			_ = embDB.QueryRow("SELECT count(*), count(DISTINCT session_id), COALESCE(string_agg(DISTINCT model, ', '), '') FROM embeddings").Scan(
+				&totalEmbeddings, &totalSessions, &models,
+			)
+		}
+
+		modelPath, _ := embedding.DefaultModelPath()
+		if _, err := os.Stat(modelPath); err == nil {
+			modelAvailable = true
+		}
+
+		if semStatsJSON {
+			data := map[string]any{
+				"enabled":          cfg.Embedding.Enabled,
+				"embeddings":       totalEmbeddings,
+				"sessions":         totalSessions,
+				"model":            embedding.ModelID,
+				"model_available":  modelAvailable,
+			}
+			if models != "" {
+				data["models"] = models
+			}
+			return json.NewEncoder(os.Stdout).Encode(data)
+		}
+
 		if cfg.Embedding.Enabled {
 			fmt.Println("Embedding:   enabled")
 		} else {
 			fmt.Println("Embedding:   disabled")
 		}
 
-		embDB, err := getReadOnlyEmbeddingsDB()
-		if err != nil {
+		if totalEmbeddings == 0 && embDB == nil {
 			fmt.Println("Embeddings:  0")
 			fmt.Println()
 			fmt.Println("Run 'thinkt-indexer sync' to generate embeddings.")
 			return nil
-		}
-		defer embDB.Close()
-
-		var totalEmbeddings int
-		var totalSessions int
-		var models string
-		if err := embDB.QueryRow("SELECT count(*), count(DISTINCT session_id), COALESCE(string_agg(DISTINCT model, ', '), '') FROM embeddings").Scan(
-			&totalEmbeddings, &totalSessions, &models,
-		); err != nil {
-			return fmt.Errorf("query embeddings stats: %w", err)
 		}
 
 		fmt.Printf("Embeddings:  %d\n", totalEmbeddings)
@@ -205,9 +227,7 @@ var semanticStatsCmd = &cobra.Command{
 			fmt.Printf("Models:      %s\n", models)
 		}
 
-		// Check if model is available
-		modelPath, _ := embedding.DefaultModelPath()
-		if _, err := os.Stat(modelPath); err == nil {
+		if modelAvailable {
 			fmt.Printf("Embedder:    %s (available)\n", embedding.ModelID)
 		} else {
 			fmt.Printf("Embedder:    %s (model not downloaded)\n", embedding.ModelID)
@@ -283,6 +303,8 @@ func init() {
 	semanticSearchCmd.Flags().BoolVar(&semList, "list", false, "Output as list instead of TUI (useful for scripting)")
 	semanticSearchCmd.Flags().BoolVar(&semJSON, "json", false, "Output as JSON")
 	semanticSearchCmd.Flags().BoolVar(&semDiversity, "diversity", false, "Enable diversity scoring to get results from different sessions")
+
+	semanticStatsCmd.Flags().BoolVar(&semStatsJSON, "json", false, "Output as JSON")
 
 	semanticCmd.AddCommand(semanticSearchCmd)
 	semanticCmd.AddCommand(semanticStatsCmd)
