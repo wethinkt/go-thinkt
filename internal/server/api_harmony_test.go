@@ -46,6 +46,45 @@ func TestAPI_GetProjects_ExcludesDeletedByDefault(t *testing.T) {
 	}
 }
 
+func TestAPI_GetSession_InvalidPaginationParams(t *testing.T) {
+	registry := thinkt.NewRegistry()
+	server := NewHTTPServer(registry, DefaultConfig())
+
+	path := createTestClaudeSession(t, t.TempDir())
+	escaped := url.PathEscape(path)
+
+	tests := []struct {
+		name      string
+		query     string
+		wantError string
+	}{
+		{name: "negative limit", query: "limit=-1", wantError: "invalid_limit"},
+		{name: "negative offset", query: "offset=-1", wantError: "invalid_offset"},
+		{name: "non-integer limit", query: "limit=abc", wantError: "invalid_limit"},
+		{name: "non-integer offset", query: "offset=abc", wantError: "invalid_offset"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions/"+escaped+"?"+tt.query, nil)
+			w := httptest.NewRecorder()
+			server.router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("expected status 400, got %d", w.Code)
+			}
+
+			var out ErrorResponse
+			if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
+			}
+			if out.Error != tt.wantError {
+				t.Fatalf("expected error %q, got %q", tt.wantError, out.Error)
+			}
+		})
+	}
+}
+
 func TestAPI_GetProjects_IncludeDeleted(t *testing.T) {
 	registry := thinkt.NewRegistry()
 	activePath := t.TempDir()

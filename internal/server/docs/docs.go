@@ -1799,6 +1799,15 @@ const docTemplate = `{
             "x-enum-comments": {
                 "RoleCheckpoint": "State recovery markers (Kimi _checkpoint, Claude file-history-snapshot)"
             },
+            "x-enum-descriptions": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "State recovery markers (Kimi _checkpoint, Claude file-history-snapshot)"
+            ],
             "x-enum-varnames": [
                 "RoleUser",
                 "RoleAssistant",

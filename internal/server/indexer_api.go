@@ -214,11 +214,11 @@ func (s *HTTPServer) handleSemanticSearch(w http.ResponseWriter, r *http.Request
 	}
 
 	cmd := exec.Command(indexerPath, args...)
-	out, err := cmd.CombinedOutput()
+	out, err := cmd.Output()
 	if err != nil {
-		errMsg := strings.TrimSpace(string(out))
-		if errMsg == "" {
-			errMsg = err.Error()
+		errMsg := err.Error()
+		if exitErr, ok := err.(*exec.ExitError); ok && len(exitErr.Stderr) > 0 {
+			errMsg = strings.TrimSpace(string(exitErr.Stderr))
 		}
 		writeError(w, http.StatusInternalServerError, "semantic_search_failed", errMsg)
 		return

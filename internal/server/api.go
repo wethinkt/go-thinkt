@@ -366,10 +366,20 @@ func (s *HTTPServer) handleGetSession(w http.ResponseWriter, r *http.Request) {
 	limit := 0
 	offset := 0
 	if l := r.URL.Query().Get("limit"); l != "" {
-		limit, _ = strconv.Atoi(l)
+		parsed, err := strconv.Atoi(l)
+		if err != nil || parsed < 0 {
+			writeError(w, http.StatusBadRequest, "invalid_limit", "limit must be a non-negative integer")
+			return
+		}
+		limit = parsed
 	}
 	if o := r.URL.Query().Get("offset"); o != "" {
-		offset, _ = strconv.Atoi(o)
+		parsed, err := strconv.Atoi(o)
+		if err != nil || parsed < 0 {
+			writeError(w, http.StatusBadRequest, "invalid_offset", "offset must be a non-negative integer")
+			return
+		}
+		offset = parsed
 	}
 
 	// Load the session
