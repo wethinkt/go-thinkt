@@ -745,9 +745,9 @@ func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallTool
 	}
 	args := buildIndexerSearchArgs(input)
 	cmd := exec.Command(path, args...)
-	out, err := cmd.CombinedOutput()
+	out, err := cmd.Output()
 	if err != nil {
-		return toolErrorResult("search_failed", "indexer search failed", combineCmdError(err, out))
+		return toolErrorResult("search_failed", "indexer search failed", combineCmdError(err, nil))
 	}
 	var res any
 	if err := json.Unmarshal(out, &res); err != nil {
@@ -804,9 +804,9 @@ func (ms *MCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallTool
 		args = append(args, "--diversity")
 	}
 	cmd := exec.Command(path, args...)
-	out, err := cmd.CombinedOutput()
+	out, err := cmd.Output()
 	if err != nil {
-		return toolErrorResult("semantic_search_failed", "semantic search failed", combineCmdError(err, out))
+		return toolErrorResult("semantic_search_failed", "semantic search failed", combineCmdError(err, nil))
 	}
 	output, err := decodeSemanticSearchOutput(out)
 	if err != nil {
@@ -821,9 +821,9 @@ func (ms *MCPServer) handleGetUsageStats(ctx context.Context, req *mcp.CallToolR
 		return toolErrorResult("indexer_not_found", "thinkt-indexer binary not found", nil)
 	}
 	cmd := exec.Command(path, "stats", "--json")
-	out, err := cmd.CombinedOutput()
+	out, err := cmd.Output()
 	if err != nil {
-		return toolErrorResult("stats_failed", "failed to load usage stats", combineCmdError(err, out))
+		return toolErrorResult("stats_failed", "failed to load usage stats", combineCmdError(err, nil))
 	}
 	var res any
 	if err := json.Unmarshal(out, &res); err != nil {
@@ -894,14 +894,15 @@ func errorGetSessionEntriesOutput(code, message string, err error) getSessionEnt
 }
 
 func combineCmdError(err error, out []byte) error {
-	if len(out) == 0 {
-		return err
+	if len(out) > 0 {
+		if stderr := strings.TrimSpace(string(out)); stderr != "" {
+			return fmt.Errorf("%w: %s", err, stderr)
+		}
 	}
-	stderr := strings.TrimSpace(string(out))
-	if stderr == "" {
-		return err
+	if exitErr, ok := err.(*exec.ExitError); ok && len(exitErr.Stderr) > 0 {
+		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(exitErr.Stderr)))
 	}
-	return fmt.Errorf("%w: %s", err, stderr)
+	return err
 }
 
 func normalizeSemanticResults(results []semanticResult) []semanticResult {

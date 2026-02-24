@@ -134,6 +134,8 @@ func TestRegistry_FindProjectForPath(t *testing.T) {
 		projects: []Project{
 			{ID: "p1", Path: "/Users/evan/projects/foo", Source: SourceKimi},
 			{ID: "p2", Path: "/Users/evan/projects/foobar", Source: SourceKimi}, // Similar prefix, different project
+			{ID: "wp1", Path: `C:\Users\evan\projects\foo`, Source: SourceKimi},
+			{ID: "wp2", Path: `C:\Users\evan\projects\foobar`, Source: SourceKimi}, // Similar prefix, different project
 		},
 	}
 	claude := &mockStore{
@@ -141,6 +143,7 @@ func TestRegistry_FindProjectForPath(t *testing.T) {
 		projects: []Project{
 			{ID: "p3", Path: "/Users/evan/projects/foo/subproject", Source: SourceClaude}, // Nested in p1
 			{ID: "p4", Path: "/Users/evan/other", Source: SourceClaude},
+			{ID: "wp3", Path: `C:\Users\evan\projects\foo\subproject`, Source: SourceClaude}, // Nested in wp1
 		},
 	}
 
@@ -189,6 +192,36 @@ func TestRegistry_FindProjectForPath(t *testing.T) {
 			name:    "partial prefix should not match",
 			path:    "/Users/evan/projects/foob", // Not a real subdir of foo
 			wantNil: true,
+		},
+		{
+			name:   "windows path exact match",
+			path:   `C:\Users\evan\projects\foo`,
+			wantID: "wp1",
+		},
+		{
+			name:   "windows path subdirectory match",
+			path:   `C:\Users\evan\projects\foo\src\main.go`,
+			wantID: "wp1",
+		},
+		{
+			name:   "windows most specific nested project",
+			path:   `C:\Users\evan\projects\foo\subproject\file.go`,
+			wantID: "wp3",
+		},
+		{
+			name:   "windows similar prefix but different project",
+			path:   `C:\Users\evan\projects\foobar\file.go`,
+			wantID: "wp2",
+		},
+		{
+			name:    "windows partial prefix should not match",
+			path:    `C:\Users\evan\projects\foob`,
+			wantNil: true,
+		},
+		{
+			name:   "windows drive letter case-insensitive",
+			path:   `c:\users\evan\projects\foo\README.md`,
+			wantID: "wp1",
 		},
 	}
 

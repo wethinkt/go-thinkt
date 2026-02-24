@@ -5,7 +5,6 @@ package thinkt
 import (
 	"context"
 	"os"
-	"strings"
 	"sync"
 	"time"
 )
@@ -468,17 +467,23 @@ func (r *StoreRegistry) FindProjectForPath(ctx context.Context, path string) *Pr
 	}
 
 	var best *Project
+	bestLen := -1
 	for _, p := range projects {
-		// Check if the given path is within this project's path
-		if strings.HasPrefix(path, p.Path) {
-			// Ensure it's a proper path prefix (not just a string prefix)
-			// e.g., /foo/bar should not match /foo/barbaz
-			if len(path) == len(p.Path) || path[len(p.Path)] == '/' {
-				if best == nil || len(p.Path) > len(best.Path) {
-					match := p // Create a copy to avoid loop variable issues
-					best = &match
-				}
-			}
+		// Use canonicalized path containment checks so matching works across
+		// Unix/Windows separators, volume letters, and case differences.
+		if !IsPathWithinAny(path, []string{p.Path}) {
+			continue
+		}
+
+		canonicalProjectPath, _ := canonicalPathForMatch(p.Path)
+		if canonicalProjectPath == "" {
+			continue
+		}
+
+		if len(canonicalProjectPath) > bestLen {
+			match := p // Create a copy to avoid loop variable issues
+			best = &match
+			bestLen = len(canonicalProjectPath)
 		}
 	}
 	return best
