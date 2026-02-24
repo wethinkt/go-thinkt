@@ -36,6 +36,37 @@ const docTemplate = `{
                 }
             }
         },
+        "/indexer/status": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the current state of the indexer server including sync/embedding progress, model info, and uptime. Requires a running indexer server.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "indexer"
+                ],
+                "summary": "Get indexer server status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.IndexerStatusResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/open-in": {
             "post": {
                 "security": [
@@ -1010,6 +1041,70 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string"
+                }
+            }
+        },
+        "server.IndexerStatusProgressInfo": {
+            "type": "object",
+            "properties": {
+                "chunks_done": {
+                    "type": "integer"
+                },
+                "chunks_total": {
+                    "type": "integer"
+                },
+                "done": {
+                    "type": "integer"
+                },
+                "entries": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "project": {
+                    "type": "integer"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "project_total": {
+                    "type": "integer"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "server.IndexerStatusResponse": {
+            "type": "object",
+            "properties": {
+                "embed_progress": {
+                    "$ref": "#/definitions/server.IndexerStatusProgressInfo"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "model_dim": {
+                    "type": "integer"
+                },
+                "running": {
+                    "type": "boolean"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "sync_progress": {
+                    "$ref": "#/definitions/server.IndexerStatusProgressInfo"
+                },
+                "uptime_seconds": {
+                    "type": "integer"
+                },
+                "watching": {
+                    "type": "boolean"
                 }
             }
         },

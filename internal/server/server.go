@@ -183,6 +183,7 @@ func (s *HTTPServer) setupRouter() chi.Router {
 		r.Get("/semantic-search", s.handleSemanticSearch)
 		r.Get("/stats", s.handleGetStats)
 		r.Get("/indexer/health", s.handleIndexerHealth)
+		r.Get("/indexer/status", s.handleIndexerStatus)
 
 		// Team endpoints
 		r.Route("/teams", func(r chi.Router) {

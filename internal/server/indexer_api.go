@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os/exec"
 	"strings"
+
+	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 )
 
 // SearchMatch represents a single search match within a session.
@@ -271,4 +273,101 @@ func (s *HTTPServer) handleIndexerHealth(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, result)
 }
 
+// IndexerStatusProgressInfo describes progress for a sync or embedding operation.
+type IndexerStatusProgressInfo struct {
+	Done         int    `json:"done"`
+	Total        int    `json:"total"`
+	SessionID    string `json:"session_id,omitempty"`
+	Message      string `json:"message,omitempty"`
+	Project      int    `json:"project,omitempty"`
+	ProjectTotal int    `json:"project_total,omitempty"`
+	ProjectName  string `json:"project_name,omitempty"`
+	ChunksDone   int    `json:"chunks_done,omitempty"`
+	ChunksTotal  int    `json:"chunks_total,omitempty"`
+	Entries      int    `json:"entries,omitempty"`
+}
 
+// IndexerStatusResponse describes the current state of the indexer server.
+type IndexerStatusResponse struct {
+	Running       bool                       `json:"running"`
+	State         string                     `json:"state"`
+	UptimeSeconds int64                      `json:"uptime_seconds,omitempty"`
+	Watching      bool                       `json:"watching,omitempty"`
+	Model         string                     `json:"model,omitempty"`
+	ModelDim      int                        `json:"model_dim,omitempty"`
+	SyncProgress  *IndexerStatusProgressInfo `json:"sync_progress,omitempty"`
+	EmbedProgress *IndexerStatusProgressInfo `json:"embed_progress,omitempty"`
+}
+
+// handleIndexerStatus returns the live status of the indexer server via RPC.
+// @Summary Get indexer server status
+// @Description Returns the current state of the indexer server including sync/embedding progress, model info, and uptime. Requires a running indexer server.
+// @Tags indexer
+// @Produce json
+// @Success 200 {object} IndexerStatusResponse
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
+// @Router /indexer/status [get]
+// @Security BearerAuth
+func (s *HTTPServer) handleIndexerStatus(w http.ResponseWriter, r *http.Request) {
+	if !rpc.ServerAvailable() {
+		writeJSON(w, http.StatusOK, IndexerStatusResponse{
+			Running: false,
+			State:   "stopped",
+		})
+		return
+	}
+
+	resp, err := rpc.Call("status", nil, nil)
+	if err != nil {
+		writeJSON(w, http.StatusOK, IndexerStatusResponse{
+			Running: false,
+			State:   "stopped",
+		})
+		return
+	}
+	if !resp.OK {
+		writeError(w, http.StatusInternalServerError, "status_failed", resp.Error)
+		return
+	}
+
+	var status rpc.StatusData
+	if err := json.Unmarshal(resp.Data, &status); err != nil {
+		writeError(w, http.StatusInternalServerError, "invalid_response", "Failed to parse status")
+		return
+	}
+
+	out := IndexerStatusResponse{
+		Running:       true,
+		State:         status.State,
+		UptimeSeconds: status.UptimeSeconds,
+		Watching:      status.Watching,
+		Model:         status.Model,
+		ModelDim:      status.ModelDim,
+	}
+	if status.SyncProgress != nil {
+		out.SyncProgress = &IndexerStatusProgressInfo{
+			Done:         status.SyncProgress.Done,
+			Total:        status.SyncProgress.Total,
+			SessionID:    status.SyncProgress.SessionID,
+			Message:      status.SyncProgress.Message,
+			Project:      status.SyncProgress.Project,
+			ProjectTotal: status.SyncProgress.ProjectTotal,
+			ProjectName:  status.SyncProgress.ProjectName,
+			ChunksDone:   status.SyncProgress.ChunksDone,
+			ChunksTotal:  status.SyncProgress.ChunksTotal,
+			Entries:      status.SyncProgress.Entries,
+		}
+	}
+	if status.EmbedProgress != nil {
+		out.EmbedProgress = &IndexerStatusProgressInfo{
+			Done:        status.EmbedProgress.Done,
+			Total:       status.EmbedProgress.Total,
+			SessionID:   status.EmbedProgress.SessionID,
+			ChunksDone:  status.EmbedProgress.ChunksDone,
+			ChunksTotal: status.EmbedProgress.ChunksTotal,
+			Entries:     status.EmbedProgress.Entries,
+		}
+	}
+
+	writeJSON(w, http.StatusOK, out)
+}
