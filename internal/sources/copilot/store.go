@@ -108,7 +108,7 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 }
 
 // ResetCache clears all cached data, forcing the next calls to rescan.
-func (s *Store) ResetCache() { s.cache.Reset() }
+func (s *Store) ResetCache() { s.cache.Clear() }
 
 // GetProject returns a specific project.
 func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, error) {

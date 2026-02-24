@@ -53,7 +53,7 @@ func (s *Store) Workspace() thinkt.Workspace {
 
 // ResetCache clears all cached data.
 func (s *Store) ResetCache() {
-	s.cache.Reset()
+	s.cache.Clear()
 }
 
 // ListProjects returns all Codex projects inferred from session metadata.

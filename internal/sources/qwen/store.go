@@ -193,7 +193,7 @@ func (s *Store) decodeProjectPath(hash string) string {
 }
 
 // ResetCache clears all cached data.
-func (s *Store) ResetCache() { s.cache.Reset() }
+func (s *Store) ResetCache() { s.cache.Clear() }
 
 // GetProject returns a specific project.
 func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, error) {
@@ -618,15 +618,15 @@ func parseQwenEntry(data []byte, lineNum int, source thinkt.Source, wsID string)
 
 // qwenMessage represents the message structure in Qwen entries
 type qwenMessage struct {
-	Role  string          `json:"role"`
+	Role  string            `json:"role"`
 	Parts []qwenMessagePart `json:"parts"`
 }
 
 // qwenMessagePart represents a part in the message
 type qwenMessagePart struct {
-	Text           string          `json:"text"`
-	Thought        bool            `json:"thought"`
-	FunctionCall   *qwenFunctionCall `json:"functionCall"`
+	Text             string                `json:"text"`
+	Thought          bool                  `json:"thought"`
+	FunctionCall     *qwenFunctionCall     `json:"functionCall"`
 	FunctionResponse *qwenFunctionResponse `json:"functionResponse"`
 }
 

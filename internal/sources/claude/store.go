@@ -78,14 +78,14 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 	result := make([]thinkt.Project, len(projects))
 	for i, p := range projects {
 		result[i] = thinkt.Project{
-			ID:           p.DirPath,
-			Name:         p.DisplayName,
-			Path:         p.FullPath,
-			DisplayPath:  p.FullPath,
-			SessionCount: p.SessionCount,
-			LastModified: p.LastModified,
-			Source:       thinkt.SourceClaude,
-			WorkspaceID:  ws.ID,
+			ID:             p.DirPath,
+			Name:           p.DisplayName,
+			Path:           p.FullPath,
+			DisplayPath:    p.FullPath,
+			SessionCount:   p.SessionCount,
+			LastModified:   p.LastModified,
+			Source:         thinkt.SourceClaude,
+			WorkspaceID:    ws.ID,
 			SourceBasePath: ws.BasePath,
 		}
 	}
@@ -94,7 +94,7 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 }
 
 // ResetCache clears all cached data, forcing the next calls to rescan.
-func (s *Store) ResetCache() { s.cache.Reset() }
+func (s *Store) ResetCache() { s.cache.Clear() }
 
 // GetProject returns a specific project.
 func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, error) {

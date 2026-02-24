@@ -135,16 +135,16 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 
 		if sessionCount > 0 {
 			projects = append(projects, thinkt.Project{
-				ID:           projectHash,
-				Name:         projectName,
-				Path:         projectPath,
-				DisplayPath:  "gemini://" + projectHash[:8],
-				SessionCount: sessionCount,
-				LastModified: lastMod,
-				Source:       thinkt.SourceGemini,
-				WorkspaceID:  ws.ID,
+				ID:             projectHash,
+				Name:           projectName,
+				Path:           projectPath,
+				DisplayPath:    "gemini://" + projectHash[:8],
+				SessionCount:   sessionCount,
+				LastModified:   lastMod,
+				Source:         thinkt.SourceGemini,
+				WorkspaceID:    ws.ID,
 				SourceBasePath: ws.BasePath,
-				PathExists:   true,
+				PathExists:     true,
 			})
 		}
 	}
@@ -154,7 +154,7 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 }
 
 // ResetCache clears all cached data.
-func (s *Store) ResetCache() { s.cache.Reset() }
+func (s *Store) ResetCache() { s.cache.Clear() }
 
 // GetProject returns a specific project.
 func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, error) {
