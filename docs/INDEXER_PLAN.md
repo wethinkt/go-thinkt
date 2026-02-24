@@ -9,10 +9,15 @@ Provide a fast, searchable, and persistent storage layer for LLM conversation tr
 We leverage DuckDB's native JSON support to maintain flexibility while ensuring high performance for metadata filtering.
 
 ### Key Tables
+
+**Index database** (`~/.thinkt/index.duckdb`):
 - `sync_state`: Tracks file modification times and line offsets for incremental indexing.
 - `projects`: Normalizes workspace paths.
 - `sessions`: High-level conversation metadata.
 - `entries`: Individual turns, with the full structure stored as a JSON blob.
+
+**Embeddings database** (`~/.thinkt/embeddings.duckdb`):
+- `embeddings`: Float vectors for semantic search. Stored separately because embeddings are large, have a different lifecycle (model changes invalidate them), and are essentially a derived cache.
 
 ## 3. Indexing Pipeline
 1. **Discovery**: Startup scan or `fsnotify` (inotify) events.

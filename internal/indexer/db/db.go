@@ -29,8 +29,26 @@ func DefaultPath() (string, error) {
 	return filepath.Join(dir, "index.duckdb"), nil
 }
 
+// DefaultEmbeddingsPath returns the default filesystem path for the embeddings database.
+func DefaultEmbeddingsPath() (string, error) {
+	dir, err := config.Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "embeddings.duckdb"), nil
+}
+
 //go:embed schema/init.sql
 var initSQL string
+
+//go:embed schema/embeddings.sql
+var embeddingsSQL string
+
+// IndexSchema returns the schema SQL for the index database.
+func IndexSchema() string { return initSQL }
+
+// EmbeddingsSchema returns the schema SQL for the embeddings database.
+func EmbeddingsSchema() string { return embeddingsSQL }
 
 // DB wraps the DuckDB connection
 type DB struct {
@@ -39,22 +57,29 @@ type DB struct {
 	tempDir string // non-empty if this DB was opened via copy-on-read fallback
 }
 
-// Open initializes or opens a DuckDB database at the given path
+// Open initializes or opens a DuckDB index database at the given path.
 func Open(path string) (*DB, error) {
-	// Ensure directory exists
+	return openWithSchema(path, initSQL)
+}
+
+// OpenEmbeddings initializes or opens a DuckDB embeddings database at the given path.
+func OpenEmbeddings(path string) (*DB, error) {
+	return openWithSchema(path, embeddingsSQL)
+}
+
+// openWithSchema opens a DuckDB database, runs the given schema SQL, and hardens security.
+func openWithSchema(path, schema string) (*DB, error) {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create db directory: %w", err)
 	}
 
-	// DuckDB connection string
 	db, err := sql.Open("duckdb", path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open duckdb: %w", err)
 	}
 
-	// Initialize schema
-	if _, err := db.Exec(initSQL); err != nil {
+	if _, err := db.Exec(schema); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to initialize schema: %w", err)
 	}

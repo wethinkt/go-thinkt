@@ -10,10 +10,11 @@ import (
 )
 
 var (
-	dbPath  string
-	logPath string
-	verbose bool
-	quiet   bool
+	dbPath    string
+	embDBPath string
+	logPath   string
+	verbose   bool
+	quiet     bool
 )
 
 var rootCmd = &cobra.Command{
@@ -43,7 +44,9 @@ func Execute() error {
 
 func init() {
 	defaultDBPath, _ := db.DefaultPath()
-	rootCmd.PersistentFlags().StringVar(&dbPath, "db", defaultDBPath, "path to DuckDB database file")
+	defaultEmbDBPath, _ := db.DefaultEmbeddingsPath()
+	rootCmd.PersistentFlags().StringVar(&dbPath, "db", defaultDBPath, "path to DuckDB index database file")
+	rootCmd.PersistentFlags().StringVar(&embDBPath, "embeddings-db", defaultEmbDBPath, "path to DuckDB embeddings database file")
 	rootCmd.PersistentFlags().StringVar(&logPath, "log", "", "path to log file")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress progress output")
@@ -55,4 +58,12 @@ func getDB() (*db.DB, error) {
 
 func getReadOnlyDB() (*db.DB, error) {
 	return db.OpenReadOnly(dbPath)
+}
+
+func getEmbeddingsDB() (*db.DB, error) {
+	return db.OpenEmbeddings(embDBPath)
+}
+
+func getReadOnlyEmbeddingsDB() (*db.DB, error) {
+	return db.OpenReadOnly(embDBPath)
 }

@@ -9,7 +9,7 @@ import (
 
 func TestEmbeddingsTableExists(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.db")
-	d, err := db.Open(path)
+	d, err := db.OpenEmbeddings(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,9 +26,28 @@ func TestEmbeddingsTableExists(t *testing.T) {
 	}
 }
 
-func TestInsertAndQueryEmbedding(t *testing.T) {
+func TestEmbeddingsTableNotInIndexDB(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.db")
 	d, err := db.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+
+	// Verify embeddings table does NOT exist in the index DB
+	var count int
+	err = d.QueryRow("SELECT count(*) FROM information_schema.tables WHERE table_name = 'embeddings'").Scan(&count)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("expected embeddings table NOT to exist in index DB, got count=%d", count)
+	}
+}
+
+func TestInsertAndQueryEmbedding(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.db")
+	d, err := db.OpenEmbeddings(path)
 	if err != nil {
 		t.Fatal(err)
 	}

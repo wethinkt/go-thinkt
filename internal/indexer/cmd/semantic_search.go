@@ -140,13 +140,19 @@ func doSemanticSearch(queryText string) ([]search.SemanticResult, error) {
 		return nil, fmt.Errorf("embedding returned no results for query")
 	}
 
-	db, err := getReadOnlyDB()
+	indexDB, err := getReadOnlyDB()
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer indexDB.Close()
 
-	svc := search.NewService(db)
+	embDB, err := getReadOnlyEmbeddingsDB()
+	if err != nil {
+		return nil, fmt.Errorf("embeddings database not available (run 'thinkt-indexer sync' first): %w", err)
+	}
+	defer embDB.Close()
+
+	svc := search.NewService(indexDB, embDB)
 	return svc.SemanticSearch(search.SemanticSearchOptions{
 		QueryEmbedding: result.Vectors[0],
 		Model:          embedding.ModelID,
@@ -163,16 +169,18 @@ var semanticStatsCmd = &cobra.Command{
 	Short: "Show statistics about the semantic search index",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		db, err := getReadOnlyDB()
+		embDB, err := getReadOnlyEmbeddingsDB()
 		if err != nil {
-			return err
+			fmt.Println("No embeddings indexed yet.")
+			fmt.Println("Run 'thinkt-indexer sync' to generate embeddings.")
+			return nil
 		}
-		defer db.Close()
+		defer embDB.Close()
 
 		var totalEmbeddings int
 		var totalSessions int
 		var models string
-		if err := db.QueryRow("SELECT count(*), count(DISTINCT session_id), COALESCE(string_agg(DISTINCT model, ', '), '') FROM embeddings").Scan(
+		if err := embDB.QueryRow("SELECT count(*), count(DISTINCT session_id), COALESCE(string_agg(DISTINCT model, ', '), '') FROM embeddings").Scan(
 			&totalEmbeddings, &totalSessions, &models,
 		); err != nil {
 			return fmt.Errorf("query embeddings stats: %w", err)

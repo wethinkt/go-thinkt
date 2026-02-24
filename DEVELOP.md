@@ -85,7 +85,7 @@ Provides: TUI, project/session browsing, team inspection, prompt extraction, HTT
 
 DuckDB-powered indexer for search and analytics. Requires CGO (`CGO_ENABLED=1`) for DuckDB C bindings. Available on Linux and macOS only.
 
-Provides: `sync`, `watch`, `search`, `stats` commands. Data stored in `~/.thinkt/index.duckdb`.
+Provides: `sync`, `watch`, `search`, `stats` commands. Data stored in `~/.thinkt/index.duckdb` (metadata) and `~/.thinkt/embeddings.duckdb` (semantic search vectors).
 
 ## Prerequisites
 

@@ -3,6 +3,7 @@ package search
 import (
 	"fmt"
 	"math"
+	"strings"
 )
 
 // SemanticSearchOptions contains options for semantic search.
@@ -72,58 +73,171 @@ func (s *Service) SemanticSearch(opts SemanticSearchOptions) ([]SemanticResult, 
 	return results, nil
 }
 
-// fetchResults executes the database query and returns raw results.
+// fetchResults performs a two-phase search across the split databases:
+// 1. Pre-filter session IDs from index DB (if project/source filters specified)
+// 2. Query embeddings DB for nearest vectors (with optional session filter)
+// 3. Batch-lookup metadata from index DB using result session/entry IDs
 func (s *Service) fetchResults(opts SemanticSearchOptions, limit int) ([]SemanticResult, error) {
-	q := `
+	if s.embDB == nil {
+		return nil, fmt.Errorf("embeddings database not available")
+	}
+
+	// Phase 1: Pre-filter session IDs from index DB if filters are specified.
+	var sessionFilter []string
+	if opts.FilterProject != "" || opts.FilterSource != "" {
+		q := `SELECT s.id FROM sessions s JOIN projects p ON s.project_id = p.id WHERE 1=1`
+		var args []any
+		if opts.FilterProject != "" {
+			q += " AND p.name LIKE ?"
+			args = append(args, "%"+opts.FilterProject+"%")
+		}
+		if opts.FilterSource != "" {
+			q += " AND p.source = ?"
+			args = append(args, opts.FilterSource)
+		}
+		rows, err := s.db.Query(q, args...)
+		if err != nil {
+			return nil, fmt.Errorf("pre-filter sessions: %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				return nil, fmt.Errorf("scan session id: %w", err)
+			}
+			sessionFilter = append(sessionFilter, id)
+		}
+		if len(sessionFilter) == 0 {
+			return nil, nil // No sessions match filter
+		}
+	}
+
+	// Phase 2: Query embeddings DB for nearest vectors.
+	embQ := `
 		SELECT emb.session_id, emb.entry_uuid, emb.chunk_index,
 		       (SELECT count(*) FROM embeddings c WHERE c.session_id = emb.session_id AND c.entry_uuid = emb.entry_uuid AND c.model = emb.model) AS total_chunks,
-		       array_cosine_distance(emb.embedding, ?::FLOAT[1024]) AS distance,
-		       COALESCE(ent.role, '') AS role,
-		       COALESCE(CAST(ent.timestamp AS VARCHAR), '') AS timestamp,
-		       COALESCE(ent.tool_name, '') AS tool_name,
-		       COALESCE(ent.word_count, 0) AS word_count,
-		       COALESCE(p.name, '') AS project_name,
-		       COALESCE(p.source, '') AS source,
-		       COALESCE(s.path, '') AS session_path,
-		       COALESCE(SUBSTRING(s.first_prompt, 1, 200), '') AS first_prompt,
-		       COALESCE(ent.line_number, 0) AS line_number
+		       array_cosine_distance(emb.embedding, ?::FLOAT[1024]) AS distance
 		FROM embeddings emb
-		LEFT JOIN entries ent ON emb.session_id = ent.session_id AND emb.entry_uuid = ent.uuid
-		LEFT JOIN sessions s ON emb.session_id = s.id
-		LEFT JOIN projects p ON s.project_id = p.id
 		WHERE emb.model = ?`
+	embArgs := []any{opts.QueryEmbedding, opts.Model}
 
-	args := []any{opts.QueryEmbedding, opts.Model}
+	if len(sessionFilter) > 0 {
+		placeholders := make([]string, len(sessionFilter))
+		for i, sid := range sessionFilter {
+			placeholders[i] = "?"
+			embArgs = append(embArgs, sid)
+		}
+		embQ += " AND emb.session_id IN (" + strings.Join(placeholders, ",") + ")"
+	}
 
-	if opts.FilterProject != "" {
-		q += " AND p.name LIKE ?"
-		args = append(args, "%"+opts.FilterProject+"%")
-	}
-	if opts.FilterSource != "" {
-		q += " AND p.source = ?"
-		args = append(args, opts.FilterSource)
-	}
 	if opts.MaxDistance > 0 {
-		q += fmt.Sprintf(" AND array_cosine_distance(emb.embedding, ?::FLOAT[1024]) < %f", opts.MaxDistance)
-		args = append(args, opts.QueryEmbedding)
+		embQ += fmt.Sprintf(" AND array_cosine_distance(emb.embedding, ?::FLOAT[1024]) < %f", opts.MaxDistance)
+		embArgs = append(embArgs, opts.QueryEmbedding)
 	}
 
-	q += " ORDER BY distance ASC LIMIT ?"
-	args = append(args, limit)
+	embQ += " ORDER BY distance ASC LIMIT ?"
+	embArgs = append(embArgs, limit)
 
-	rows, err := s.db.Query(q, args...)
+	embRows, err := s.embDB.Query(embQ, embArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("semantic search query: %w", err)
 	}
-	defer rows.Close()
+	defer embRows.Close()
 
-	var results []SemanticResult
-	for rows.Next() {
-		var r SemanticResult
-		if err := rows.Scan(&r.SessionID, &r.EntryUUID, &r.ChunkIndex, &r.TotalChunks,
-			&r.Distance, &r.Role, &r.Timestamp, &r.ToolName, &r.WordCount,
-			&r.ProjectName, &r.Source, &r.SessionPath, &r.FirstPrompt, &r.LineNumber); err != nil {
-			return nil, fmt.Errorf("scan result: %w", err)
+	type embHit struct {
+		sessionID  string
+		entryUUID  string
+		chunkIndex int
+		totalChunks int
+		distance   float64
+	}
+	var hits []embHit
+	for embRows.Next() {
+		var h embHit
+		if err := embRows.Scan(&h.sessionID, &h.entryUUID, &h.chunkIndex, &h.totalChunks, &h.distance); err != nil {
+			return nil, fmt.Errorf("scan embedding hit: %w", err)
+		}
+		hits = append(hits, h)
+	}
+
+	if len(hits) == 0 {
+		return nil, nil
+	}
+
+	// Phase 3: Batch-lookup metadata from index DB.
+	// Collect unique (session_id, entry_uuid) pairs for the lookup.
+	type entryKey struct{ sessionID, entryUUID string }
+	uniqueEntries := make(map[entryKey]bool)
+	uniqueSessions := make(map[string]bool)
+	for _, h := range hits {
+		uniqueEntries[entryKey{h.sessionID, h.entryUUID}] = true
+		uniqueSessions[h.sessionID] = true
+	}
+
+	// Lookup entry metadata
+	type entryMeta struct {
+		role      string
+		timestamp string
+		toolName  string
+		wordCount int
+		lineNumber int
+	}
+	entryMetaMap := make(map[entryKey]entryMeta)
+	for ek := range uniqueEntries {
+		var m entryMeta
+		err := s.db.QueryRow(`
+			SELECT COALESCE(role, ''), COALESCE(CAST(timestamp AS VARCHAR), ''),
+			       COALESCE(tool_name, ''), COALESCE(word_count, 0), COALESCE(line_number, 0)
+			FROM entries WHERE session_id = ? AND uuid = ?`, ek.sessionID, ek.entryUUID).
+			Scan(&m.role, &m.timestamp, &m.toolName, &m.wordCount, &m.lineNumber)
+		if err == nil {
+			entryMetaMap[ek] = m
+		}
+	}
+
+	// Lookup session+project metadata
+	type sessionMeta struct {
+		projectName string
+		source      string
+		path        string
+		firstPrompt string
+	}
+	sessionMetaMap := make(map[string]sessionMeta)
+	for sid := range uniqueSessions {
+		var m sessionMeta
+		err := s.db.QueryRow(`
+			SELECT COALESCE(p.name, ''), COALESCE(p.source, ''),
+			       COALESCE(s.path, ''), COALESCE(SUBSTRING(s.first_prompt, 1, 200), '')
+			FROM sessions s LEFT JOIN projects p ON s.project_id = p.id
+			WHERE s.id = ?`, sid).
+			Scan(&m.projectName, &m.source, &m.path, &m.firstPrompt)
+		if err == nil {
+			sessionMetaMap[sid] = m
+		}
+	}
+
+	// Assemble results
+	results := make([]SemanticResult, 0, len(hits))
+	for _, h := range hits {
+		r := SemanticResult{
+			SessionID:   h.sessionID,
+			EntryUUID:   h.entryUUID,
+			ChunkIndex:  h.chunkIndex,
+			TotalChunks: h.totalChunks,
+			Distance:    h.distance,
+		}
+		if em, ok := entryMetaMap[entryKey{h.sessionID, h.entryUUID}]; ok {
+			r.Role = em.role
+			r.Timestamp = em.timestamp
+			r.ToolName = em.toolName
+			r.WordCount = em.wordCount
+			r.LineNumber = em.lineNumber
+		}
+		if sm, ok := sessionMetaMap[h.sessionID]; ok {
+			r.ProjectName = sm.projectName
+			r.Source = sm.source
+			r.SessionPath = sm.path
+			r.FirstPrompt = sm.firstPrompt
 		}
 		results = append(results, r)
 	}

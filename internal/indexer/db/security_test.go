@@ -118,6 +118,26 @@ func TestNoFileSystemAccess(t *testing.T) {
 	}
 }
 
+// TestSecurityHardeningEmbeddings verifies that external access is disabled for embeddings DB
+func TestSecurityHardeningEmbeddings(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "embeddings.duckdb")
+
+	db, err := OpenEmbeddings(dbPath)
+	if err != nil {
+		t.Fatalf("Failed to open embeddings database: %v", err)
+	}
+	defer db.Close()
+
+	// Try to read an external file - this should fail
+	_, err = db.Query("SELECT * FROM read_csv_auto('/etc/passwd')")
+	if err == nil {
+		t.Fatal("Expected error when reading external file from embeddings DB, but query succeeded")
+	}
+
+	t.Logf("Correctly blocked external file access in embeddings DB with error: %v", err)
+}
+
 func TestMain(m *testing.M) {
 	// Run tests
 	code := m.Run()

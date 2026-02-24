@@ -18,12 +18,19 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 	}
 	defer embedder.Close()
 
-	dbPath := filepath.Join(t.TempDir(), "test.db")
-	d, err := db.Open(dbPath)
+	dir := t.TempDir()
+
+	indexDB, err := db.Open(filepath.Join(dir, "index.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer d.Close()
+	defer indexDB.Close()
+
+	embDB, err := db.OpenEmbeddings(filepath.Join(dir, "embeddings.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer embDB.Close()
 
 	entries := []thinkt.Entry{
 		{UUID: "e1", Role: thinkt.RoleUser, Text: "How do I fix the authentication timeout in the login flow?"},
@@ -54,20 +61,21 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Set up session/project rows for the join
-	d.Exec("INSERT INTO projects (id, path, name, source) VALUES ('p1', '/test', 'test-project', 'claude')")
-	d.Exec("INSERT INTO sessions (id, project_id, path, entry_count) VALUES ('s1', 'p1', '/test/s1.jsonl', 3)")
+	// Set up session/project rows in the index DB for the join
+	indexDB.Exec("INSERT INTO projects (id, path, name, source) VALUES ('p1', '/test', 'test-project', 'claude')")
+	indexDB.Exec("INSERT INTO sessions (id, project_id, path, entry_count) VALUES ('s1', 'p1', '/test/s1.jsonl', 3)")
 	for _, e := range entries {
-		d.Exec("INSERT INTO entries (uuid, session_id, role, word_count) VALUES (?, 's1', ?, ?)",
+		indexDB.Exec("INSERT INTO entries (uuid, session_id, role, word_count) VALUES (?, 's1', ?, ?)",
 			e.UUID, string(e.Role), len(e.Text))
 	}
 
+	// Store embeddings in the embeddings DB
 	for idx, m := range mapping {
 		if idx >= len(embedResult.Vectors) {
 			break
 		}
 		id := requests[idx].ID
-		_, err := d.Exec(`
+		_, err := embDB.Exec(`
 			INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
 			VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[1024], ?)`,
 			id, m.SessionID, m.EntryUUID, m.ChunkIndex, embedder.EmbedModelID(), embedder.Dim(), embedResult.Vectors[idx], m.TextHash)
@@ -82,7 +90,7 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	svc := search.NewService(d)
+	svc := search.NewService(indexDB, embDB)
 	results, err := svc.SemanticSearch(search.SemanticSearchOptions{
 		QueryEmbedding: queryResult.Vectors[0],
 		Model:          embedding.ModelID,

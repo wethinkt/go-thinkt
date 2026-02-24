@@ -25,10 +25,11 @@ type indexerStatusJSON struct {
 
 var (
 	// Mirror flags from thinkt-indexer for help and completion
-	indexerDBPath  string
-	indexerLogPath string
-	indexerQuiet   bool
-	indexerVerbose bool
+	indexerDBPath    string
+	indexerEmbDBPath string
+	indexerLogPath   string
+	indexerQuiet     bool
+	indexerVerbose   bool
 )
 
 var indexerCmd = &cobra.Command{
@@ -111,6 +112,9 @@ func runIndexerStart(cmd *cobra.Command, args []string) error {
 	indexerArgs := []string{"server", "--quiet"}
 	if indexerDBPath != "" {
 		indexerArgs = append(indexerArgs, "--db", indexerDBPath)
+	}
+	if indexerEmbDBPath != "" {
+		indexerArgs = append(indexerArgs, "--embeddings-db", indexerEmbDBPath)
 	}
 
 	// Determine log path
@@ -278,7 +282,8 @@ func findIndexerBinary() string {
 
 func init() {
 	// Register persistent flags on the parent command
-	indexerCmd.PersistentFlags().StringVar(&indexerDBPath, "db", "", "path to DuckDB database file")
+	indexerCmd.PersistentFlags().StringVar(&indexerDBPath, "db", "", "path to DuckDB index database file")
+	indexerCmd.PersistentFlags().StringVar(&indexerEmbDBPath, "embeddings-db", "", "path to DuckDB embeddings database file")
 	indexerCmd.PersistentFlags().StringVar(&indexerLogPath, "log", "", "path to log file")
 	indexerCmd.PersistentFlags().BoolVarP(&indexerQuiet, "quiet", "q", false, "suppress progress output")
 	indexerCmd.PersistentFlags().BoolVarP(&indexerVerbose, "verbose", "v", false, "verbose output")

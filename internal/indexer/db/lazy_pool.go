@@ -12,6 +12,7 @@ import (
 // caller is still using it.
 type LazyPool struct {
 	path    string
+	schema  string // schema SQL to run on open
 	conn    *DB
 	refs    int
 	timer   *time.Timer
@@ -20,10 +21,12 @@ type LazyPool struct {
 }
 
 // NewLazyPool creates a new LazyPool for the given database path.
+// The schema SQL is executed when opening a new connection.
 // The connection will be closed after the specified idle timeout.
-func NewLazyPool(path string, idleTimeout time.Duration) *LazyPool {
+func NewLazyPool(path, schema string, idleTimeout time.Duration) *LazyPool {
 	return &LazyPool{
 		path:    path,
+		schema:  schema,
 		timeout: idleTimeout,
 	}
 }
@@ -48,7 +51,7 @@ func (p *LazyPool) Acquire() (*DB, error) {
 	}
 
 	// Open new connection
-	conn, err := Open(p.path)
+	conn, err := openWithSchema(p.path, p.schema)
 	if err != nil {
 		return nil, err
 	}

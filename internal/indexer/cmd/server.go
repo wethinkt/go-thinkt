@@ -38,6 +38,7 @@ func init() {
 // indexerServer implements rpc.Handler and holds all server state.
 type indexerServer struct {
 	db        *db.DB
+	embDB     *db.DB // separate embeddings database
 	registry  *thinkt.StoreRegistry
 	embedder  *embedding.Embedder
 	watching  bool
@@ -148,7 +149,7 @@ func (s *indexerServer) HandleSync(ctx context.Context, params rpc.SyncParams, s
 	s.setState("syncing")
 	defer s.setState("idle")
 
-	ingester := indexer.NewIngester(s.db, s.registry, s.embedder)
+	ingester := indexer.NewIngester(s.db, s.embDB, s.registry, s.embedder)
 
 	// Wire up progress reporting
 	ingester.OnProgress = func(pIdx, pTotal, sIdx, sTotal int, message string) {
@@ -243,7 +244,7 @@ func (s *indexerServer) HandleSync(ctx context.Context, params rpc.SyncParams, s
 }
 
 func (s *indexerServer) HandleSearch(ctx context.Context, params rpc.SearchParams) (*rpc.Response, error) {
-	svc := search.NewService(s.db)
+	svc := search.NewService(s.db, nil)
 
 	opts := search.SearchOptions{
 		Query:           params.Query,
@@ -290,7 +291,7 @@ func (s *indexerServer) HandleSemanticSearch(ctx context.Context, params rpc.Sem
 		return nil, fmt.Errorf("embedding produced no vectors")
 	}
 
-	svc := search.NewService(s.db)
+	svc := search.NewService(s.db, s.embDB)
 
 	limit := params.Limit
 	if limit <= 0 {
@@ -341,7 +342,9 @@ func (s *indexerServer) HandleStats(ctx context.Context) (*rpc.Response, error) 
 		return nil, fmt.Errorf("count entries: %w", err)
 	}
 	_ = s.db.QueryRowContext(ctx, "SELECT COALESCE(sum(input_tokens + output_tokens), 0) FROM entries").Scan(&stats.TotalTokens)
-	_ = s.db.QueryRowContext(ctx, "SELECT count(*) FROM embeddings").Scan(&stats.TotalEmbeddings)
+	if s.embDB != nil {
+		_ = s.embDB.QueryRowContext(ctx, "SELECT count(*) FROM embeddings").Scan(&stats.TotalEmbeddings)
+	}
 
 	if s.embedder != nil {
 		stats.EmbedModel = s.embedder.EmbedModelID()
@@ -398,12 +401,14 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 		cfg = config.Default()
 	}
 
-	// 1. Open DB
+	// 1. Open DBs
 	database, err := getDB()
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
 	defer database.Close()
+
+	var embDatabase *db.DB
 
 	// 2-3. Create embedder (if enabled)
 	var embedder *embedding.Embedder
@@ -427,6 +432,13 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 		defer e.Close()
 		embedder = e
 		log.Printf("Embedder loaded: %s (dim=%d)", embedder.EmbedModelID(), embedder.Dim())
+
+		d, err := getEmbeddingsDB()
+		if err != nil {
+			return fmt.Errorf("failed to open embeddings database: %w", err)
+		}
+		defer d.Close()
+		embDatabase = d
 	} else {
 		log.Printf("Embedding disabled by config")
 	}
@@ -439,6 +451,7 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 
 	srv := &indexerServer{
 		db:             database,
+		embDB:          embDatabase,
 		registry:       registry,
 		embedder:       embedder,
 		startedAt:      time.Now(),
@@ -449,7 +462,7 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 
 	// 5. Migrate embeddings (drop old model embeddings)
 	ctx := context.Background()
-	ingester := indexer.NewIngester(database, registry, embedder)
+	ingester := indexer.NewIngester(database, embDatabase, registry, embedder)
 	if err := ingester.MigrateEmbeddings(ctx); err != nil {
 		log.Printf("Warning: migration check failed: %v", err)
 	}
@@ -481,7 +494,7 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 	var watcher *indexer.Watcher
 	watchEnabled := cfg.Indexer.Watch && !noWatch
 	if watchEnabled {
-		w, err := indexer.NewWatcher(dbPath, registry, embedder, cfg.Indexer.DebounceDuration())
+		w, err := indexer.NewWatcher(dbPath, embDBPath, registry, embedder, cfg.Indexer.DebounceDuration())
 		if err != nil {
 			log.Printf("Warning: failed to create watcher: %v", err)
 		} else {

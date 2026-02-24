@@ -19,6 +19,7 @@ import (
 // and writing it to the DuckDB index.
 type Ingester struct {
 	db       *db.DB
+	embDB    *db.DB // separate embeddings database (nil if embedding unavailable)
 	registry *thinkt.StoreRegistry
 	embedder *embedding.Embedder // nil if embedding unavailable
 	OnProgress  func(pIdx, pTotal, sIdx, sTotal int, message string)
@@ -34,10 +35,12 @@ type Ingester struct {
 }
 
 // NewIngester creates a new Ingester instance.
+// The embDB may be nil if embedding is unavailable.
 // The embedder may be nil if embedding is unavailable.
-func NewIngester(database *db.DB, registry *thinkt.StoreRegistry, embedder *embedding.Embedder) *Ingester {
+func NewIngester(database *db.DB, embDB *db.DB, registry *thinkt.StoreRegistry, embedder *embedding.Embedder) *Ingester {
 	return &Ingester{
 		db:       database,
+		embDB:    embDB,
 		registry: registry,
 		embedder: embedder,
 	}
@@ -55,18 +58,18 @@ func (i *Ingester) Close() {}
 // MigrateEmbeddings drops embeddings if the stored model doesn't match the current one.
 // This ensures a clean re-embed when the model changes.
 func (i *Ingester) MigrateEmbeddings(ctx context.Context) error {
-	if i.embedder == nil {
+	if i.embedder == nil || i.embDB == nil {
 		return nil
 	}
 
 	var count int
-	err := i.db.QueryRowContext(ctx, `SELECT count(*) FROM embeddings WHERE model != ?`, i.embedder.EmbedModelID()).Scan(&count)
+	err := i.embDB.QueryRowContext(ctx, `SELECT count(*) FROM embeddings WHERE model != ?`, i.embedder.EmbedModelID()).Scan(&count)
 	if err != nil || count == 0 {
 		return nil
 	}
 
 	fmt.Fprintf(os.Stderr, "Dropping %d embeddings from old model (will re-embed with %s)\n", count, i.embedder.EmbedModelID())
-	_, err = i.db.ExecContext(ctx, `DELETE FROM embeddings WHERE model != ?`, i.embedder.EmbedModelID())
+	_, err = i.embDB.ExecContext(ctx, `DELETE FROM embeddings WHERE model != ?`, i.embedder.EmbedModelID())
 	return err
 }
 
@@ -346,42 +349,69 @@ func (i *Ingester) IngestAndEmbedSession(ctx context.Context, projectID string, 
 // EmbedAllSessions finds sessions with missing embeddings and generates them.
 // This is designed to run as a second pass after indexing.
 func (i *Ingester) EmbedAllSessions(ctx context.Context) error {
-	if i.embedder == nil {
+	if i.embedder == nil || i.embDB == nil {
 		return nil
 	}
 
-	// Find sessions that need embedding: either no embeddings at all,
-	// or entry count changed since last embed (new entries appended).
-	rows, err := i.db.QueryContext(ctx, `
-		SELECT s.id, s.path, count(DISTINCT e.uuid) as entry_count
-		FROM sessions s
-		JOIN entries e ON e.session_id = s.id
-		LEFT JOIN (
-			SELECT session_id, count(DISTINCT entry_uuid) as embedded_entries
-			FROM embeddings
-			GROUP BY session_id
-		) emb ON emb.session_id = s.id
-		GROUP BY s.id, s.path, emb.embedded_entries
-		HAVING emb.embedded_entries IS NULL
-		    OR emb.embedded_entries < count(DISTINCT e.uuid)
-		ORDER BY s.id`)
-	if err != nil {
-		return fmt.Errorf("query sessions needing embeddings: %w", err)
-	}
-	defer rows.Close()
-
+	// Two-phase: query sessions+entries from index DB, embedding counts from embDB, diff in Go.
 	type sessionInfo struct {
 		id         string
 		path       string
 		entryCount int
 	}
-	var sessions []sessionInfo
+
+	// Phase 1: Get all sessions with entry counts from index DB.
+	rows, err := i.db.QueryContext(ctx, `
+		SELECT s.id, s.path, count(DISTINCT e.uuid) as entry_count
+		FROM sessions s
+		JOIN entries e ON e.session_id = s.id
+		GROUP BY s.id, s.path
+		ORDER BY s.id`)
+	if err != nil {
+		return fmt.Errorf("query sessions: %w", err)
+	}
+	defer rows.Close()
+
+	var allSessions []sessionInfo
 	for rows.Next() {
 		var s sessionInfo
 		if err := rows.Scan(&s.id, &s.path, &s.entryCount); err != nil {
 			return fmt.Errorf("scan session: %w", err)
 		}
-		sessions = append(sessions, s)
+		allSessions = append(allSessions, s)
+	}
+
+	if len(allSessions) == 0 {
+		return nil
+	}
+
+	// Phase 2: Get embedded entry counts from embeddings DB.
+	embRows, err := i.embDB.QueryContext(ctx, `
+		SELECT session_id, count(DISTINCT entry_uuid) as embedded_entries
+		FROM embeddings
+		GROUP BY session_id`)
+	if err != nil {
+		return fmt.Errorf("query embedding counts: %w", err)
+	}
+	defer embRows.Close()
+
+	embeddedCounts := make(map[string]int)
+	for embRows.Next() {
+		var sid string
+		var count int
+		if err := embRows.Scan(&sid, &count); err != nil {
+			return fmt.Errorf("scan embedding count: %w", err)
+		}
+		embeddedCounts[sid] = count
+	}
+
+	// Phase 3: Diff — find sessions that need embedding.
+	var sessions []sessionInfo
+	for _, s := range allSessions {
+		embedded := embeddedCounts[s.id]
+		if embedded < s.entryCount {
+			sessions = append(sessions, s)
+		}
 	}
 
 	if len(sessions) == 0 {
@@ -492,7 +522,7 @@ func sqlErrNoRows() error {
 const embedBatchSize = 16
 
 func (i *Ingester) embedSession(ctx context.Context, sessionID string, source string, entries []thinkt.Entry) (int, error) {
-	if i.embedder == nil {
+	if i.embedder == nil || i.embDB == nil {
 		return 0, nil
 	}
 
@@ -519,7 +549,7 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, source st
 
 	// Load existing text hashes for this session to skip unchanged chunks.
 	existingHashes := make(map[string]string) // id -> text_hash
-	rows, err := i.db.QueryContext(ctx, `SELECT id, text_hash FROM embeddings WHERE session_id = ?`, sessionID)
+	rows, err := i.embDB.QueryContext(ctx, `SELECT id, text_hash FROM embeddings WHERE session_id = ?`, sessionID)
 	if err == nil {
 		for rows.Next() {
 			var id, hash string
@@ -542,7 +572,7 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, source st
 		}
 		// Delete existing row if it exists (text changed) so INSERT below succeeds.
 		if _, ok := existingHashes[req.ID]; ok {
-			_, _ = i.db.ExecContext(ctx, `DELETE FROM embeddings WHERE id = ?`, req.ID)
+			_, _ = i.embDB.ExecContext(ctx, `DELETE FROM embeddings WHERE id = ?`, req.ID)
 		}
 		newRequests = append(newRequests, req)
 		newMapping = append(newMapping, m)
@@ -551,7 +581,7 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, source st
 	// Clean up stale embeddings (entries removed from session).
 	for id := range existingHashes {
 		if !newIDs[id] {
-			_, _ = i.db.ExecContext(ctx, `DELETE FROM embeddings WHERE id = ?`, id)
+			_, _ = i.embDB.ExecContext(ctx, `DELETE FROM embeddings WHERE id = ?`, id)
 		}
 	}
 
@@ -587,7 +617,7 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, source st
 			idx := batchStart + j
 			id := newRequests[idx].ID
 			m := newMapping[idx]
-			_, err := i.db.ExecContext(ctx, `
+			_, err := i.embDB.ExecContext(ctx, `
 				INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
 				VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[1024], ?)`,
 				id, m.SessionID, m.EntryUUID, m.ChunkIndex,

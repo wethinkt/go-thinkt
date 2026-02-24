@@ -11,6 +11,7 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/cmd"
 	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/indexer"
+	"github.com/wethinkt/go-thinkt/internal/indexer/db"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 )
@@ -117,14 +118,19 @@ var syncCmd = &cobra.Command{
 
 		// Load yzma embedder if enabled and model is available
 		var embedder *embedding.Embedder
+		var embDB *db.DB
 		if cfg.Embedding.Enabled {
 			if e, err := embedding.NewEmbedder(""); err == nil {
 				embedder = e
 				defer e.Close()
+				if d, err := getEmbeddingsDB(); err == nil {
+					embDB = d
+					defer d.Close()
+				}
 			}
 		}
 
-		ingester := indexer.NewIngester(database, registry, embedder)
+		ingester := indexer.NewIngester(database, embDB, registry, embedder)
 
 		// Drop old embeddings if model changed
 		ctx := context.Background()

@@ -166,7 +166,7 @@ func PerformSearch(query string, opts search.SearchOptions) ([]search.SessionRes
 	defer database.Close()
 
 	// Perform the search
-	svc := search.NewService(database)
+	svc := search.NewService(database, nil)
 	results, _, err := svc.Search(opts)
 	if err != nil {
 		return nil, err

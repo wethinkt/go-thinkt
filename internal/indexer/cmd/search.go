@@ -139,7 +139,7 @@ func doSearch(queryText string) ([]search.SessionResult, int, error) {
 		UseRegex:        searchRegex,
 	}
 
-	svc := search.NewService(db)
+	svc := search.NewService(db, nil)
 
 	if verbose && !searchJSON && !searchList {
 		fmt.Printf("Searching for %q...\n", queryText)

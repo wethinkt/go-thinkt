@@ -109,12 +109,14 @@ func DefaultSearchOptions() SearchOptions {
 
 // Service provides search functionality against the indexed sessions.
 type Service struct {
-	db *db.DB
+	db    *db.DB
+	embDB *db.DB // separate embeddings database; nil for text-only search
 }
 
-// NewService creates a new search service with the given database.
-func NewService(database *db.DB) *Service {
-	return &Service{db: database}
+// NewService creates a new search service.
+// The embDB may be nil if only text search is needed.
+func NewService(database *db.DB, embDB *db.DB) *Service {
+	return &Service{db: database, embDB: embDB}
 }
 
 // FindCandidates finds candidate sessions from the database that match the filters.

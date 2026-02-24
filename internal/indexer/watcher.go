@@ -25,6 +25,7 @@ type sessionIndexEntry struct {
 // Watcher monitors session directories for changes and triggers ingestion.
 type Watcher struct {
 	dbPath       string
+	embDBPath    string
 	registry     *thinkt.StoreRegistry
 	embedder     *embedding.Embedder          // shared, owned by caller (e.g. server)
 	debounce     time.Duration                // debounce delay for file changes
@@ -32,7 +33,8 @@ type Watcher struct {
 	done         chan struct{}
 	mu           sync.Mutex
 	sessionIndex map[string]sessionIndexEntry // normalized path -> session info
-	dbPool       *db.LazyPool                 // lazy-close connection pool
+	dbPool       *db.LazyPool                 // lazy-close connection pool (index DB)
+	embDBPool    *db.LazyPool                 // lazy-close connection pool (embeddings DB)
 
 	// inFlight tracks sessions currently being re-indexed.
 	// If a session is in-flight and another change comes in, we mark it
@@ -45,7 +47,7 @@ type Watcher struct {
 // NewWatcher creates a new Watcher instance.
 // The embedder may be nil if embedding is unavailable.
 // A zero debounce defaults to 2 seconds.
-func NewWatcher(dbPath string, registry *thinkt.StoreRegistry, embedder *embedding.Embedder, debounce time.Duration) (*Watcher, error) {
+func NewWatcher(dbPath, embDBPath string, registry *thinkt.StoreRegistry, embedder *embedding.Embedder, debounce time.Duration) (*Watcher, error) {
 	fw, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -57,13 +59,15 @@ func NewWatcher(dbPath string, registry *thinkt.StoreRegistry, embedder *embeddi
 
 	return &Watcher{
 		dbPath:       dbPath,
+		embDBPath:    embDBPath,
 		registry:     registry,
 		embedder:     embedder,
 		debounce:     debounce,
 		watcher:      fw,
 		done:         make(chan struct{}),
 		sessionIndex: make(map[string]sessionIndexEntry),
-		dbPool:       db.NewLazyPool(dbPath, 5*time.Second),
+		dbPool:       db.NewLazyPool(dbPath, db.IndexSchema(), 5*time.Second),
+		embDBPool:    db.NewLazyPool(embDBPath, db.EmbeddingsSchema(), 5*time.Second),
 		inFlight:     make(map[string]bool),
 		dirty:        make(map[string]bool),
 	}, nil
@@ -92,9 +96,14 @@ func (w *Watcher) Stop() error {
 	close(w.done)
 	err := w.watcher.Close()
 
-	// Close the DB pool
+	// Close DB pools
 	if w.dbPool != nil {
 		if poolErr := w.dbPool.Close(); poolErr != nil {
+			err = errors.Join(err, poolErr)
+		}
+	}
+	if w.embDBPool != nil {
+		if poolErr := w.embDBPool.Close(); poolErr != nil {
 			err = errors.Join(err, poolErr)
 		}
 	}
@@ -295,11 +304,19 @@ func (w *Watcher) reindexSession(realPath string, entry sessionIndexEntry) {
 			return
 		}
 
-		ingester := NewIngester(database, w.registry, w.embedder)
+		embDB, err := w.embDBPool.Acquire()
+		if err != nil {
+			log.Printf("Failed to open embeddings database: %v", err)
+			w.dbPool.Release()
+			return
+		}
+
+		ingester := NewIngester(database, embDB, w.registry, w.embedder)
 		if err := ingester.IngestAndEmbedSession(ctx, entry.projectID, entry.session); err != nil {
 			log.Printf("Failed to re-index session %s: %v", entry.session.ID, err)
 		}
 
+		w.embDBPool.Release()
 		w.dbPool.Release()
 
 		// Check if the file was modified again while we were processing.

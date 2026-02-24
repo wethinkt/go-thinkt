@@ -190,7 +190,7 @@ thinkt-indexer stats
 thinkt-indexer watch
 ```
 
-Indexer data is stored in `~/.thinkt/index.duckdb`.
+Indexer data is stored in `~/.thinkt/index.duckdb` (metadata) and `~/.thinkt/embeddings.duckdb` (semantic search vectors).
 
 ## TUI Keyboard Shortcuts
 

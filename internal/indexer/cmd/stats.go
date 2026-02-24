@@ -113,8 +113,11 @@ func getStats() (*statsData, error) {
 		rows.Close()
 	}
 
-	// Embedding stats
-	db.QueryRow("SELECT count(*) FROM embeddings").Scan(&stats.TotalEmbeddings)
+	// Embedding stats (from separate embeddings DB)
+	if embDB, err := getReadOnlyEmbeddingsDB(); err == nil {
+		embDB.QueryRow("SELECT count(*) FROM embeddings").Scan(&stats.TotalEmbeddings)
+		embDB.Close()
+	}
 	modelPath, _ := embedding.DefaultModelPath()
 	if _, statErr := os.Stat(modelPath); statErr == nil {
 		stats.EmbedderAvail = true
