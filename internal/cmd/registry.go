@@ -3,10 +3,10 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 // CreateSourceRegistry creates a registry with all discovered sources.
@@ -31,7 +31,7 @@ func CreateSourceRegistryFiltered(allowed []string) *thinkt.StoreRegistry {
 			}
 		}
 		for name := range set {
-			log.Printf("Warning: unknown source in config: %q", name)
+			tuilog.Log.Warn("unknown source in config", "source", name)
 		}
 		factories = filtered
 	}

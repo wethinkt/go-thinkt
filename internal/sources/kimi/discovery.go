@@ -2,6 +2,7 @@ package kimi
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,7 +41,7 @@ func (d *Discoverer) IsAvailable() (bool, error) {
 
 	projects, err := store.ListProjects(context.TODO())
 	if err != nil {
-		return false, nil
+		return false, fmt.Errorf("list kimi projects: %w", err)
 	}
 	return len(projects) > 0, nil
 }

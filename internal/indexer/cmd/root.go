@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/wethinkt/go-thinkt/internal/indexer/db"
+	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 var (
@@ -15,6 +15,7 @@ var (
 	logPath   string
 	verbose   bool
 	quiet     bool
+	logFile   *os.File // duplicate handle for stderr redirection (panic/runtime output)
 )
 
 var rootCmd = &cobra.Command{
@@ -25,15 +26,27 @@ var rootCmd = &cobra.Command{
 AI assistant sessions using DuckDB.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if logPath != "" {
+			if err := tuilog.Init(logPath); err != nil {
+				return fmt.Errorf("failed to initialize logger: %w", err)
+			}
+
 			f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				return fmt.Errorf("failed to open log file: %w", err)
 			}
-			// Redirect both log output and stderr to the log file.
-			// This captures panics, runtime errors, and fmt.Fprintf(os.Stderr, ...).
-			log.SetOutput(f)
+
+			// Keep stderr in the same file so panics/runtime errors are captured.
+			logFile = f
 			os.Stderr = f
 		}
+		return nil
+	},
+	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+		if logFile != nil {
+			_ = logFile.Close()
+			logFile = nil
+		}
+		_ = tuilog.Log.Close()
 		return nil
 	},
 }

@@ -5,13 +5,13 @@ import (
 	_ "embed"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
+	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 var (
@@ -134,7 +134,7 @@ func OpenReadOnly(path string) (*DB, error) {
 	}
 
 	// Phase 2: lock held for longer than retries cover — copy-on-read.
-	log.Printf("Database locked after %d retries, falling back to copy-on-read for %s", readOnlyRetries, path)
+	tuilog.Log.Warn("db: locked after retries, falling back to copy-on-read", "retries", readOnlyRetries, "path", path)
 	return openReadOnlyCopy(path, lastErr)
 }
 
@@ -184,7 +184,7 @@ func openReadOnlyCopy(path string, lastDirectErr error) (*DB, error) {
 		destPath := filepath.Join(tempDir, filepath.Base(path))
 		if err := stableCopy(path, destPath); err != nil {
 			os.RemoveAll(tempDir)
-			log.Printf("Copy-on-read attempt %d: copy failed: %v", attempt+1, err)
+			tuilog.Log.Warn("db: copy-on-read attempt failed while copying", "attempt", attempt+1, "error", err)
 			continue
 		}
 
@@ -192,7 +192,7 @@ func openReadOnlyCopy(path string, lastDirectErr error) (*DB, error) {
 		db, err := sql.Open("duckdb", connStr)
 		if err != nil {
 			os.RemoveAll(tempDir)
-			log.Printf("Copy-on-read attempt %d: open failed: %v", attempt+1, err)
+			tuilog.Log.Warn("db: copy-on-read attempt failed while opening", "attempt", attempt+1, "error", err)
 			continue
 		}
 
@@ -200,7 +200,7 @@ func openReadOnlyCopy(path string, lastDirectErr error) (*DB, error) {
 		if _, err := db.Exec("SET enable_external_access=false"); err != nil {
 			db.Close()
 			os.RemoveAll(tempDir)
-			log.Printf("Copy-on-read attempt %d: security hardening failed: %v", attempt+1, err)
+			tuilog.Log.Warn("db: copy-on-read attempt failed during security hardening", "attempt", attempt+1, "error", err)
 			continue
 		}
 
@@ -212,7 +212,7 @@ func openReadOnlyCopy(path string, lastDirectErr error) (*DB, error) {
 		if err := validateCopy(db); err != nil {
 			db.Close()
 			os.RemoveAll(tempDir)
-			log.Printf("Copy-on-read attempt %d: validation failed: %v", attempt+1, err)
+			tuilog.Log.Warn("db: copy-on-read attempt failed during validation", "attempt", attempt+1, "error", err)
 			continue
 		}
 

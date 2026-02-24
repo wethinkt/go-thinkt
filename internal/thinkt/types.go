@@ -7,6 +7,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 // Source identifies the AI coding assistant that created the data.
@@ -431,6 +433,7 @@ func (r *StoreRegistry) ListAllProjects(ctx context.Context) ([]Project, error) 
 	for _, store := range r.All() {
 		projects, err := store.ListProjects(ctx)
 		if err != nil {
+			tuilog.Log.Warn("thinkt registry: list projects failed", "source", store.Source(), "error", err)
 			continue // Log error but don't fail entirely
 		}
 		for i := range projects {

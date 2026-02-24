@@ -2,6 +2,8 @@ package thinkt
 
 import (
 	"context"
+
+	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 // StoreFactory creates Store instances for a specific source.
@@ -46,12 +48,15 @@ func (d *Discovery) Discover(ctx context.Context) (*StoreRegistry, error) {
 	for _, factory := range d.factories {
 		store, err := factory.Create()
 		if err != nil {
-			// Log error but continue with other sources
+			tuilog.Log.Warn("thinkt discovery: create failed", "source", factory.Source(), "error", err)
 			continue
 		}
 		if store != nil {
 			// Verify the store actually has data
 			projects, err := store.ListProjects(ctx)
+			if err != nil {
+				tuilog.Log.Warn("thinkt discovery: list projects failed", "source", factory.Source(), "error", err)
+			}
 			if err == nil && len(projects) > 0 {
 				registry.Register(store)
 			}
@@ -60,6 +65,9 @@ func (d *Discovery) Discover(ctx context.Context) (*StoreRegistry, error) {
 		// Check if this factory also supports teams
 		if tsf, ok := factory.(TeamStoreFactory); ok {
 			ts, err := tsf.CreateTeamStore()
+			if err != nil {
+				tuilog.Log.Warn("thinkt discovery: create team store failed", "source", factory.Source(), "error", err)
+			}
 			if err == nil && ts != nil {
 				registry.RegisterTeamStore(ts)
 			}
@@ -75,17 +83,27 @@ func (d *Discovery) DiscoverAvailable(ctx context.Context) ([]SourceInfo, error)
 
 	for _, factory := range d.factories {
 		isAvail, err := factory.IsAvailable()
+		if err != nil {
+			tuilog.Log.Warn("thinkt discovery: availability check failed", "source", factory.Source(), "error", err)
+		}
 		if err != nil || !isAvail {
 			continue
 		}
 
 		store, err := factory.Create()
+		if err != nil {
+			tuilog.Log.Warn("thinkt discovery: create failed after availability check", "source", factory.Source(), "error", err)
+		}
 		if err != nil || store == nil {
 			continue
 		}
 
 		ws := store.Workspace()
-		projects, _ := store.ListProjects(ctx)
+		projects, err := store.ListProjects(ctx)
+		if err != nil {
+			tuilog.Log.Warn("thinkt discovery: list projects failed during availability metadata", "source", factory.Source(), "error", err)
+			continue
+		}
 
 		info := SourceInfo{
 			Source:       factory.Source(),

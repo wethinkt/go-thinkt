@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"sync"
@@ -20,6 +19,7 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 var noWatch bool
@@ -180,20 +180,20 @@ func (s *indexerServer) HandleSync(ctx context.Context, params rpc.SyncParams, s
 	}
 
 	if params.Force {
-		log.Printf("Force sync: clearing sync state")
+		tuilog.Log.Info("indexer: force sync requested, clearing sync state")
 		if _, err := s.db.ExecContext(ctx, "DELETE FROM sync_state"); err != nil {
-			log.Printf("Warning: failed to clear sync state: %v", err)
+			tuilog.Log.Warn("indexer: failed to clear sync state", "error", err)
 		}
 	}
 
 	totalProjects := len(projects)
 	for idx, p := range projects {
 		if ctx.Err() != nil {
-			log.Printf("Sync cancelled")
+			tuilog.Log.Warn("indexer: sync cancelled")
 			break
 		}
 		if err := ingester.IngestProject(ctx, p, idx+1, totalProjects); err != nil {
-			log.Printf("Error indexing project %s: %v", p.Name, err)
+			tuilog.Log.Error("indexer: failed to index project", "project", p.Name, "error", err)
 		}
 	}
 
@@ -231,7 +231,7 @@ func (s *indexerServer) HandleSync(ctx context.Context, params rpc.SyncParams, s
 			s.broadcastProgress(rpc.Progress{Data: data})
 		}
 		if err := ingester.EmbedAllSessions(ctx); err != nil {
-			log.Printf("Embedding error: %v", err)
+			tuilog.Log.Error("indexer: embedding pass failed", "error", err)
 		}
 	}
 
@@ -412,12 +412,12 @@ func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, 
 
 	if wantEnabled && !wasEnabled {
 		// Enable embedding
-		log.Printf("Config reload: enabling embedding")
+		tuilog.Log.Info("indexer: config reload enabling embedding")
 
 		if err := embedding.EnsureModel(func(downloaded, total int64) {
 			if total > 0 {
 				pct := float64(downloaded) / float64(total) * 100
-				log.Printf("Downloading model: %.1f%%", pct)
+				tuilog.Log.Info("indexer: downloading embedding model", "percent", pct)
 			}
 		}); err != nil {
 			return nil, fmt.Errorf("failed to ensure embedding model: %w", err)
@@ -442,18 +442,18 @@ func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, 
 		if s.watcher != nil {
 			s.watcher.SetEmbedder(e)
 		}
-		log.Printf("Embedder loaded: %s (dim=%d)", e.EmbedModelID(), e.Dim())
+		tuilog.Log.Info("indexer: embedder loaded", "model", e.EmbedModelID(), "dim", e.Dim())
 
 		// Trigger a background sync to embed existing sessions
 		go func() {
-			log.Printf("Starting embedding sync after enable...")
+			tuilog.Log.Info("indexer: starting post-enable embedding sync")
 			resp, err := s.HandleSync(s.shutdownCtx, rpc.SyncParams{}, func(rpc.Progress) {})
 			if err != nil {
-				log.Printf("Post-enable sync error: %v", err)
+				tuilog.Log.Error("indexer: post-enable sync error", "error", err)
 			} else if resp != nil && !resp.OK {
-				log.Printf("Post-enable sync failed: %s", resp.Error)
+				tuilog.Log.Error("indexer: post-enable sync failed", "error", resp.Error)
 			} else {
-				log.Printf("Post-enable sync complete")
+				tuilog.Log.Info("indexer: post-enable sync complete")
 			}
 		}()
 
@@ -463,7 +463,7 @@ func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, 
 
 	if !wantEnabled && wasEnabled {
 		// Disable embedding
-		log.Printf("Config reload: disabling embedding")
+		tuilog.Log.Info("indexer: config reload disabling embedding")
 
 		old := s.embedder
 		s.embedder = nil
@@ -485,7 +485,7 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 	// 0. Load config
 	cfg, err := config.Load()
 	if err != nil {
-		log.Printf("Warning: failed to load config, using defaults: %v", err)
+		tuilog.Log.Warn("indexer: failed to load config, using defaults", "error", err)
 		cfg = config.Default()
 	}
 
@@ -501,13 +501,13 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 	// 2-3. Create embedder (if enabled)
 	var embedder *embedding.Embedder
 	if cfg.Embedding.Enabled {
-		log.Printf("Ensuring embedding model is available...")
+		tuilog.Log.Info("indexer: ensuring embedding model is available")
 		var lastLog time.Time
 		if err := embedding.EnsureModel(func(downloaded, total int64) {
 			if total > 0 && time.Since(lastLog) >= time.Second {
 				lastLog = time.Now()
 				pct := float64(downloaded) / float64(total) * 100
-				log.Printf("Downloading model: %.1f%% (%d / %d bytes)", pct, downloaded, total)
+				tuilog.Log.Info("indexer: downloading embedding model", "percent", pct, "downloaded", downloaded, "total", total)
 			}
 		}); err != nil {
 			return fmt.Errorf("failed to ensure embedding model: %w", err)
@@ -518,7 +518,7 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to create embedder: %w", err)
 		}
 		embedder = e
-		log.Printf("Embedder loaded: %s (dim=%d)", embedder.EmbedModelID(), embedder.Dim())
+		tuilog.Log.Info("indexer: embedder loaded", "model", embedder.EmbedModelID(), "dim", embedder.Dim())
 
 		d, err := getEmbeddingsDB()
 		if err != nil {
@@ -527,7 +527,7 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 		}
 		embDatabase = d
 	} else {
-		log.Printf("Embedding disabled by config")
+		tuilog.Log.Info("indexer: embedding disabled by config")
 	}
 
 	// 4. Create registry and server struct
@@ -551,7 +551,7 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 	ctx := context.Background()
 	ingester := indexer.NewIngester(database, embDatabase, registry, embedder)
 	if err := ingester.MigrateEmbeddings(ctx); err != nil {
-		log.Printf("Warning: migration check failed: %v", err)
+		tuilog.Log.Warn("indexer: migration check failed", "error", err)
 	}
 
 	// 6. Start RPC server
@@ -561,7 +561,7 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to start RPC server: %w", err)
 	}
 	defer rpcServer.Stop()
-	log.Printf("RPC server listening on %s", socketPath)
+	tuilog.Log.Info("indexer: RPC server listening", "socket", socketPath)
 
 	// 7. Register instance
 	inst := config.Instance{
@@ -571,7 +571,7 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 		StartedAt: time.Now(),
 	}
 	if err := config.RegisterInstance(inst); err != nil {
-		log.Printf("Warning: failed to register instance: %v", err)
+		tuilog.Log.Warn("indexer: failed to register instance", "error", err)
 	}
 	defer func() {
 		_ = config.UnregisterInstance(os.Getpid())
@@ -583,31 +583,31 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 	if watchEnabled {
 		w, err := indexer.NewWatcher(dbPath, embDBPath, registry, embedder, cfg.Indexer.DebounceDuration())
 		if err != nil {
-			log.Printf("Warning: failed to create watcher: %v", err)
+			tuilog.Log.Warn("indexer: failed to create watcher", "error", err)
 		} else {
 			watchCtx, watchCancel := context.WithCancel(context.Background())
 			defer watchCancel()
 			if err := w.Start(watchCtx); err != nil {
-				log.Printf("Warning: failed to start watcher: %v", err)
+				tuilog.Log.Warn("indexer: failed to start watcher", "error", err)
 			} else {
 				watcher = w
 				srv.watcher = w
 				srv.watching = true
-				log.Printf("File watcher started")
+				tuilog.Log.Info("indexer: file watcher started")
 			}
 		}
 	}
 
 	// 9. Run initial sync in background
 	go func() {
-		log.Printf("Starting initial sync...")
+		tuilog.Log.Info("indexer: starting initial sync")
 		resp, err := srv.HandleSync(shutdownCtx, rpc.SyncParams{}, func(rpc.Progress) {})
 		if err != nil {
-			log.Printf("Initial sync error: %v", err)
+			tuilog.Log.Error("indexer: initial sync error", "error", err)
 		} else if resp != nil && !resp.OK {
-			log.Printf("Initial sync failed: %s", resp.Error)
+			tuilog.Log.Error("indexer: initial sync failed", "error", resp.Error)
 		} else {
-			log.Printf("Initial sync complete")
+			tuilog.Log.Info("indexer: initial sync complete")
 		}
 	}()
 
@@ -619,18 +619,18 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	sig := <-sigChan
-	log.Printf("Received signal %v, shutting down...", sig)
+	tuilog.Log.Info("indexer: received signal, shutting down", "signal", sig)
 	shutdownCancel() // Cancel in-flight sync/embed operations
 
 	// 11. Shutdown
 	if watcher != nil {
-		log.Printf("Stopping file watcher...")
+		tuilog.Log.Info("indexer: stopping file watcher")
 		if err := watcher.Stop(); err != nil {
-			log.Printf("Warning: watcher stop error: %v", err)
+			tuilog.Log.Warn("indexer: watcher stop error", "error", err)
 		}
 	}
 
-	log.Printf("Stopping RPC server...")
+	tuilog.Log.Info("indexer: stopping RPC server")
 	// rpcServer.Stop() called by defer
 
 	// Close embedder and embeddings DB (lifecycle managed by server, not defer)
@@ -641,6 +641,6 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 		srv.embDB.Close()
 	}
 
-	log.Printf("Server stopped")
+	tuilog.Log.Info("indexer: server stopped")
 	return nil
 }

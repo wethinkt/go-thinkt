@@ -3,7 +3,6 @@ package indexer
 import (
 	"context"
 	"errors"
-	"log"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -13,6 +12,7 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/indexer/db"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 // sessionIndexEntry holds the metadata needed to re-index a session.
@@ -83,7 +83,7 @@ func (w *Watcher) Start(ctx context.Context) error {
 
 	for _, p := range projects {
 		if err := w.watchProject(p); err != nil {
-			log.Printf("Error watching project %s: %v", p.Name, err)
+			tuilog.Log.Warn("watcher: failed to watch project", "project", p.Name, "error", err)
 		}
 	}
 
@@ -156,7 +156,7 @@ func (w *Watcher) watchProject(p thinkt.Project) error {
 		// Add to fsnotify watcher (outside lock - fsnotify has its own locking)
 		if !watchedDirs[dir] {
 			if err := w.watcher.Add(dir); err != nil {
-				log.Printf("Failed to watch directory %s: %v", dir, err)
+				tuilog.Log.Warn("watcher: failed to watch directory", "dir", dir, "error", err)
 			} else {
 				watchedDirs[dir] = true
 			}
@@ -236,7 +236,7 @@ func (w *Watcher) watchLoop(ctx context.Context) {
 			if !ok {
 				return
 			}
-			log.Printf("Watcher error: %v", err)
+			tuilog.Log.Warn("watcher: fsnotify error", "error", err)
 
 		case <-w.done:
 			return
@@ -265,7 +265,7 @@ func (w *Watcher) handleFileChange(path string) {
 
 		// Session not in index — might be a new session. Try to discover it
 		// by scanning the project that owns this file's directory.
-		log.Printf("Session not in index, attempting discovery: %s", realPath)
+		tuilog.Log.Info("watcher: session not in index, attempting discovery", "path", realPath)
 		entry, ok := w.discoverSession(realPath)
 		if ok {
 			// Add to index for future lookups
@@ -275,7 +275,7 @@ func (w *Watcher) handleFileChange(path string) {
 	}()
 
 	if !ok {
-		log.Printf("File changed but no session found for: %s", realPath)
+		tuilog.Log.Warn("watcher: file changed but no session found", "path", realPath)
 		return
 	}
 
@@ -303,25 +303,25 @@ func (w *Watcher) reindexSession(realPath string, entry sessionIndexEntry) {
 	}()
 
 	for {
-		log.Printf("File changed, re-indexing: %s", realPath)
+		tuilog.Log.Info("watcher: re-indexing changed file", "path", realPath)
 
 		ctx := context.Background()
 		database, err := w.dbPool.Acquire()
 		if err != nil {
-			log.Printf("Failed to open database: %v", err)
+			tuilog.Log.Error("watcher: failed to open database", "error", err)
 			return
 		}
 
 		embDB, err := w.embDBPool.Acquire()
 		if err != nil {
-			log.Printf("Failed to open embeddings database: %v", err)
+			tuilog.Log.Error("watcher: failed to open embeddings database", "error", err)
 			w.dbPool.Release()
 			return
 		}
 
 		ingester := NewIngester(database, embDB, w.registry, w.embedder)
 		if err := ingester.IngestAndEmbedSession(ctx, entry.projectID, entry.session); err != nil {
-			log.Printf("Failed to re-index session %s: %v", entry.session.ID, err)
+			tuilog.Log.Error("watcher: failed to re-index session", "session_id", entry.session.ID, "error", err)
 		}
 
 		w.embDBPool.Release()
