@@ -18,6 +18,7 @@ import (
 //   - Getter methods return defensive copies to prevent accidental mutation.
 //   - Setter methods copy input slices before storing.
 //   - Invalidation can be done per-project, per-sessions entry, or globally.
+//   - Error results are not cached to avoid sticky transient failures.
 type StoreCache struct {
 	mu   sync.RWMutex
 	name string // identifies this cache in log messages
@@ -71,6 +72,14 @@ func (c *StoreCache) GetProjects() ([]Project, error, bool) {
 func (c *StoreCache) SetProjects(projects []Project, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if err != nil {
+		// Avoid caching transient scanner/read errors (error poisoning).
+		c.projectsCached = false
+		c.projectsCachedAt = time.Time{}
+		c.projects = nil
+		c.projectsErr = nil
+		return
+	}
 	c.projectsCached = true
 	c.projectsCachedAt = time.Now()
 	c.projects = copyProjects(projects)
@@ -99,6 +108,17 @@ func (c *StoreCache) GetSessions(projectID string) ([]SessionMeta, error, bool) 
 func (c *StoreCache) SetSessions(projectID string, sessions []SessionMeta, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if err != nil {
+		// Avoid caching transient scanner/read errors (error poisoning).
+		if c.sessions == nil {
+			return
+		}
+		delete(c.sessions, projectID)
+		if len(c.sessions) == 0 {
+			c.sessions = nil
+		}
+		return
+	}
 	if c.sessions == nil {
 		c.sessions = make(map[string]*sessionsCacheEntry)
 	}

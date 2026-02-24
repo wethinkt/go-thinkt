@@ -1,6 +1,7 @@
 package thinkt
 
 import (
+	"errors"
 	"testing"
 	"time"
 )
@@ -154,5 +155,37 @@ func TestStoreCacheInvalidationMethods(t *testing.T) {
 	c.Clear()
 	if _, _, ok := c.GetSessions("proj2"); ok {
 		t.Fatal("expected all sessions cache miss after Clear")
+	}
+}
+
+func TestStoreCacheProjectsErrorNotCached(t *testing.T) {
+	var c StoreCache
+
+	c.SetProjects(nil, errors.New("temporary failure"))
+	projects, err, ok := c.GetProjects()
+	if ok {
+		t.Fatal("expected project cache miss after error set")
+	}
+	if err != nil {
+		t.Fatalf("expected no cached error, got %v", err)
+	}
+	if projects != nil {
+		t.Fatalf("expected nil projects on miss, got %v", projects)
+	}
+}
+
+func TestStoreCacheSessionsErrorNotCached(t *testing.T) {
+	var c StoreCache
+
+	c.SetSessions("proj1", nil, errors.New("temporary failure"))
+	sessions, err, ok := c.GetSessions("proj1")
+	if ok {
+		t.Fatal("expected session cache miss after error set")
+	}
+	if err != nil {
+		t.Fatalf("expected no cached error, got %v", err)
+	}
+	if sessions != nil {
+		t.Fatalf("expected nil sessions on miss, got %v", sessions)
 	}
 }
