@@ -393,6 +393,23 @@ func (s *HTTPServer) handleGetSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, session)
 }
 
+// handlePostSession dispatches state-changing session sub-actions.
+func (s *HTTPServer) handlePostSession(w http.ResponseWriter, r *http.Request) {
+	path, err := extractWildcardPath(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "missing_path", "Session path is required")
+		return
+	}
+
+	if sessionPath, ok := strings.CutSuffix(path, "/resume"); ok {
+		rewriteWildcardPath(r, sessionPath)
+		s.handleResumeSessionExec(w, r)
+		return
+	}
+
+	writeError(w, http.StatusNotFound, "unsupported_action", "Unsupported session action")
+}
+
 // handleGetSessionMetadata returns session metadata and lightweight previews
 // without returning full entry content.
 // @Summary Get session metadata
@@ -592,23 +609,27 @@ func (s *HTTPServer) resolveResumeInfo(ctx context.Context, path string) (*think
 	return resumer.ResumeCommand(*meta)
 }
 
-// handleResumeSession returns the command to resume a session, or executes it
-// in a terminal when action=exec is set.
-// @Summary Get or execute resume command for a session
+// handleResumeSession returns the command to resume a session.
+// @Summary Get resume command for a session
 // @Description Returns the command, arguments, and working directory needed to resume a session.
-// @Description With ?action=exec, spawns the command in the configured terminal instead.
 // @Tags sessions
 // @Produce json
 // @Param path path string true "Session file path (URL-encoded)"
-// @Param action query string false "Set to 'exec' to spawn the command in a terminal"
 // @Success 200 {object} ResumeResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse "Source does not support resume"
 // @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
+// @Failure 405 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /sessions/{path}/resume [get]
 // @Security BearerAuth
 func (s *HTTPServer) handleResumeSession(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("action") == "exec" {
+		w.Header().Set("Allow", http.MethodPost)
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Use POST /api/v1/sessions/{path}/resume to execute the resume command")
+		return
+	}
+
 	path, err := extractWildcardPath(r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "missing_path", "Session path is required")
@@ -621,23 +642,100 @@ func (s *HTTPServer) handleResumeSession(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if r.URL.Query().Get("action") == "exec" {
-		if err := spawnInTerminal(info); err != nil {
-			writeError(w, http.StatusInternalServerError, "exec_failed", err.Error())
-			return
-		}
-		writeJSON(w, http.StatusOK, OpenInResponse{
-			Success: true,
-			Message: "Resumed session in terminal",
-		})
-		return
-	}
-
 	writeJSON(w, http.StatusOK, ResumeResponse{
 		Command: info.Command,
 		Args:    info.Args,
 		Dir:     info.Dir,
 	})
+}
+
+// handleResumeSessionExec executes the resume command in a terminal.
+// @Summary Execute resume command for a session
+// @Description Executes the resume command in a terminal for the target session.
+// @Description This endpoint requires POST and rejects cross-origin browser requests.
+// @Tags sessions
+// @Produce json
+// @Param path path string true "Session file path (URL-encoded)"
+// @Success 200 {object} OpenInResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse "Source does not support resume"
+// @Failure 500 {object} ErrorResponse
+// @Router /sessions/{path}/resume [post]
+// @Security BearerAuth
+func (s *HTTPServer) handleResumeSessionExec(w http.ResponseWriter, r *http.Request) {
+	path, err := extractWildcardPath(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "missing_path", "Session path is required")
+		return
+	}
+
+	if err := requireSameOriginForStateChange(r); err != nil {
+		writeError(w, http.StatusForbidden, "forbidden", "Cross-origin requests are not allowed for this endpoint")
+		return
+	}
+
+	info, err := s.resolveResumeInfo(r.Context(), path)
+	if err != nil {
+		writeResumeError(w, err)
+		return
+	}
+
+	if err := spawnInTerminal(info); err != nil {
+		writeError(w, http.StatusInternalServerError, "exec_failed", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, OpenInResponse{
+		Success: true,
+		Message: "Resumed session in terminal",
+	})
+}
+
+func requireSameOriginForStateChange(r *http.Request) error {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	referer := strings.TrimSpace(r.Header.Get("Referer"))
+	if origin == "" && referer == "" {
+		// Allow non-browser and CLI clients that do not send origin metadata.
+		return nil
+	}
+
+	expected := requestOrigin(r)
+	if origin != "" {
+		if sameOrigin(origin, expected) {
+			return nil
+		}
+		return fmt.Errorf("origin mismatch")
+	}
+
+	refURL, err := url.Parse(referer)
+	if err != nil || refURL.Scheme == "" || refURL.Host == "" {
+		return fmt.Errorf("invalid referer")
+	}
+	if sameOrigin(refURL.Scheme+"://"+refURL.Host, expected) {
+		return nil
+	}
+	return fmt.Errorf("referer mismatch")
+}
+
+func requestOrigin(r *http.Request) string {
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	return scheme + "://" + r.Host
+}
+
+func sameOrigin(a, b string) bool {
+	au, err := url.Parse(strings.TrimSpace(a))
+	if err != nil || au.Scheme == "" || au.Host == "" {
+		return false
+	}
+	bu, err := url.Parse(strings.TrimSpace(b))
+	if err != nil || bu.Scheme == "" || bu.Host == "" {
+		return false
+	}
+	return strings.EqualFold(au.Scheme, bu.Scheme) && strings.EqualFold(au.Host, bu.Host)
 }
 
 // writeResumeError maps resolveResumeInfo errors to appropriate HTTP responses.

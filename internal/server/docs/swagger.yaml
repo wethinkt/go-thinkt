@@ -1150,18 +1150,13 @@ paths:
       - sessions
   /sessions/{path}/resume:
     get:
-      description: |-
-        Returns the command, arguments, and working directory needed to resume a session.
-        With ?action=exec, spawns the command in the configured terminal instead.
+      description: Returns the command, arguments, and working directory needed to
+        resume a session.
       parameters:
       - description: Session file path (URL-encoded)
         in: path
         name: path
         required: true
-        type: string
-      - description: Set to 'exec' to spawn the command in a terminal
-        in: query
-        name: action
         type: string
       produces:
       - application/json
@@ -1182,13 +1177,59 @@ paths:
           description: Source does not support resume
           schema:
             $ref: '#/definitions/server.ErrorResponse'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/server.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Get or execute resume command for a session
+      summary: Get resume command for a session
+      tags:
+      - sessions
+    post:
+      description: |-
+        Executes the resume command in a terminal for the target session.
+        This endpoint requires POST and rejects cross-origin browser requests.
+      parameters:
+      - description: Session file path (URL-encoded)
+        in: path
+        name: path
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.OpenInResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing token
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: Source does not support resume
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Execute resume command for a session
       tags:
       - sessions
   /sources:

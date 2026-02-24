@@ -662,14 +662,14 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns the command, arguments, and working directory needed to resume a session.\nWith ?action=exec, spawns the command in the configured terminal instead.",
+                "description": "Returns the command, arguments, and working directory needed to resume a session.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "sessions"
                 ],
-                "summary": "Get or execute resume command for a session",
+                "summary": "Get resume command for a session",
                 "parameters": [
                     {
                         "type": "string",
@@ -677,12 +677,6 @@ const docTemplate = `{
                         "name": "path",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Set to 'exec' to spawn the command in a terminal",
-                        "name": "action",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -700,6 +694,74 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Source does not support resume",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "405": {
+                        "description": "Method Not Allowed",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Executes the resume command in a terminal for the target session.\nThis endpoint requires POST and rejects cross-origin browser requests.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "Execute resume command for a session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session file path (URL-encoded)",
+                        "name": "path",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.OpenInResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/server.ErrorResponse"
                         }

@@ -169,7 +169,9 @@ func (s *HTTPServer) setupRouter() chi.Router {
 		r.Get("/projects/{source}/{projectID}/sessions", s.handleGetProjectSessionsBySource)
 		r.Get("/projects/{projectID}/sessions", s.handleGetProjectSessions)
 		r.Get("/sessions/resume/*", s.handleResumeSession)
+		r.Post("/sessions/resume/*", s.handleResumeSessionExec)
 		r.Get("/sessions/*", s.handleGetSession)
+		r.Post("/sessions/*", s.handlePostSession)
 
 		// Open-in endpoints
 		r.Post("/open-in", s.handleOpenIn)
