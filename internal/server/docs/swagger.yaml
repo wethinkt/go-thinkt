@@ -89,6 +89,44 @@ definitions:
       source:
         type: string
     type: object
+  server.SemanticSearchResponse:
+    properties:
+      results:
+        items:
+          $ref: '#/definitions/server.SemanticSearchResult'
+        type: array
+    type: object
+  server.SemanticSearchResult:
+    properties:
+      chunk_index:
+        type: integer
+      distance:
+        type: number
+      entry_uuid:
+        type: string
+      first_prompt:
+        type: string
+      line_number:
+        type: integer
+      project_name:
+        type: string
+      role:
+        type: string
+      session_id:
+        type: string
+      session_path:
+        type: string
+      source:
+        type: string
+      timestamp:
+        type: string
+      tool_name:
+        type: string
+      total_chunks:
+        type: integer
+      word_count:
+        type: integer
+    type: object
   server.SessionMetadataResponse:
     properties:
       description:
@@ -97,6 +135,8 @@ definitions:
         items:
           $ref: '#/definitions/server.entrySummary'
         type: array
+      error:
+        $ref: '#/definitions/server.toolErrorDetail'
       meta:
         $ref: '#/definitions/server.sessionMetaInfo'
       returned_summaries:
@@ -303,6 +343,15 @@ definitions:
       source:
         type: string
     type: object
+  server.toolErrorDetail:
+    properties:
+      code:
+        type: string
+      details:
+        type: string
+      message:
+        type: string
+    type: object
   thinkt.ContentBlock:
     properties:
       is_error:
@@ -428,14 +477,6 @@ definitions:
     type: string
     x-enum-comments:
       RoleCheckpoint: State recovery markers (Kimi _checkpoint, Claude file-history-snapshot)
-    x-enum-descriptions:
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - State recovery markers (Kimi _checkpoint, Claude file-history-snapshot)
     x-enum-varnames:
     - RoleUser
     - RoleAssistant
@@ -880,6 +921,61 @@ paths:
       security:
       - BearerAuth: []
       summary: Search across indexed sessions
+      tags:
+      - indexer
+  /semantic-search:
+    get:
+      description: Search for sessions by meaning using on-device embeddings. Returns
+        sessions ranked by semantic similarity. Requires the indexer with a synced
+        embedding index.
+      parameters:
+      - description: Natural language search query
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: Filter by project name (substring match)
+        in: query
+        name: project
+        type: string
+      - description: Filter by source (claude, kimi, gemini, copilot, codex, qwen)
+        in: query
+        name: source
+        type: string
+      - description: Maximum number of results (default 20)
+        in: query
+        name: limit
+        type: integer
+      - description: Cosine distance threshold (0-2, lower is more similar)
+        in: query
+        name: max_distance
+        type: number
+      - description: Apply diversity scoring to return results from different sessions
+        in: query
+        name: diversity
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.SemanticSearchResponse'
+        "400":
+          description: Bad Request - missing query
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "401":
+          description: Unauthorized - invalid or missing token
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "503":
+          description: Service Unavailable - indexer not found
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Semantic search across indexed sessions
       tags:
       - indexer
   /sessions/{path}:

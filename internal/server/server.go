@@ -180,6 +180,7 @@ func (s *HTTPServer) setupRouter() chi.Router {
 
 		// Indexer endpoints (search/stats)
 		r.Get("/search", s.handleSearchSessions)
+		r.Get("/semantic-search", s.handleSemanticSearch)
 		r.Get("/stats", s.handleGetStats)
 		r.Get("/indexer/health", s.handleIndexerHealth)
 

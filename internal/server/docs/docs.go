@@ -392,6 +392,88 @@ const docTemplate = `{
                 }
             }
         },
+        "/semantic-search": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Search for sessions by meaning using on-device embeddings. Returns sessions ranked by semantic similarity. Requires the indexer with a synced embedding index.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "indexer"
+                ],
+                "summary": "Semantic search across indexed sessions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Natural language search query",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by project name (substring match)",
+                        "name": "project",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by source (claude, kimi, gemini, copilot, codex, qwen)",
+                        "name": "source",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of results (default 20)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Cosine distance threshold (0-2, lower is more similar)",
+                        "name": "max_distance",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Apply diversity scoring to return results from different sessions",
+                        "name": "diversity",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.SemanticSearchResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - missing query",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable - indexer not found",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/sessions/{path}": {
             "get": {
                 "security": [
@@ -1034,6 +1116,64 @@ const docTemplate = `{
                 }
             }
         },
+        "server.SemanticSearchResponse": {
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/server.SemanticSearchResult"
+                    }
+                }
+            }
+        },
+        "server.SemanticSearchResult": {
+            "type": "object",
+            "properties": {
+                "chunk_index": {
+                    "type": "integer"
+                },
+                "distance": {
+                    "type": "number"
+                },
+                "entry_uuid": {
+                    "type": "string"
+                },
+                "first_prompt": {
+                    "type": "string"
+                },
+                "line_number": {
+                    "type": "integer"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "session_path": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "tool_name": {
+                    "type": "string"
+                },
+                "total_chunks": {
+                    "type": "integer"
+                },
+                "word_count": {
+                    "type": "integer"
+                }
+            }
+        },
         "server.SessionMetadataResponse": {
             "type": "object",
             "properties": {
@@ -1045,6 +1185,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/server.entrySummary"
                     }
+                },
+                "error": {
+                    "$ref": "#/definitions/server.toolErrorDetail"
                 },
                 "meta": {
                     "$ref": "#/definitions/server.sessionMetaInfo"
@@ -1370,6 +1513,20 @@ const docTemplate = `{
                 }
             }
         },
+        "server.toolErrorDetail": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "details": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
         "thinkt.ContentBlock": {
             "type": "object",
             "properties": {
@@ -1547,15 +1704,6 @@ const docTemplate = `{
             "x-enum-comments": {
                 "RoleCheckpoint": "State recovery markers (Kimi _checkpoint, Claude file-history-snapshot)"
             },
-            "x-enum-descriptions": [
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "State recovery markers (Kimi _checkpoint, Claude file-history-snapshot)"
-            ],
             "x-enum-varnames": [
                 "RoleUser",
                 "RoleAssistant",

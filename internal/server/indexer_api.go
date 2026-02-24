@@ -2,8 +2,10 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os/exec"
+	"strings"
 )
 
 // SearchMatch represents a single search match within a session.
@@ -136,6 +138,101 @@ func (s *HTTPServer) handleGetStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, result)
+}
+
+// SemanticSearchResult represents a single semantic search hit.
+type SemanticSearchResult struct {
+	SessionID   string  `json:"session_id"`
+	EntryUUID   string  `json:"entry_uuid"`
+	ChunkIndex  int     `json:"chunk_index"`
+	TotalChunks int     `json:"total_chunks"`
+	Distance    float64 `json:"distance"`
+	Role        string  `json:"role,omitempty"`
+	Timestamp   string  `json:"timestamp,omitempty"`
+	ToolName    string  `json:"tool_name,omitempty"`
+	WordCount   int     `json:"word_count,omitempty"`
+	ProjectName string  `json:"project_name,omitempty"`
+	Source      string  `json:"source,omitempty"`
+	SessionPath string  `json:"session_path,omitempty"`
+	FirstPrompt string  `json:"first_prompt,omitempty"`
+	LineNumber  int     `json:"line_number,omitempty"`
+}
+
+// SemanticSearchResponse contains semantic search results.
+type SemanticSearchResponse struct {
+	Results []SemanticSearchResult `json:"results"`
+}
+
+// handleSemanticSearch searches by meaning using on-device embeddings.
+// @Summary Semantic search across indexed sessions
+// @Description Search for sessions by meaning using on-device embeddings. Returns sessions ranked by semantic similarity. Requires the indexer with a synced embedding index.
+// @Tags indexer
+// @Produce json
+// @Param q query string true "Natural language search query"
+// @Param project query string false "Filter by project name (substring match)"
+// @Param source query string false "Filter by source (claude, kimi, gemini, copilot, codex, qwen)"
+// @Param limit query int false "Maximum number of results (default 20)"
+// @Param max_distance query number false "Cosine distance threshold (0-2, lower is more similar)"
+// @Param diversity query bool false "Apply diversity scoring to return results from different sessions"
+// @Success 200 {object} SemanticSearchResponse
+// @Failure 400 {object} ErrorResponse "Bad Request - missing query"
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
+// @Failure 503 {object} ErrorResponse "Service Unavailable - indexer not found"
+// @Router /semantic-search [get]
+// @Security BearerAuth
+func (s *HTTPServer) handleSemanticSearch(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		writeError(w, http.StatusBadRequest, "missing_query", "Query parameter 'q' is required")
+		return
+	}
+
+	indexerPath := findIndexerBinary()
+	if indexerPath == "" {
+		writeError(w, http.StatusServiceUnavailable, "indexer_not_found", "thinkt-indexer binary not found")
+		return
+	}
+
+	args := []string{"semantic", "search", "--json", query}
+
+	if project := r.URL.Query().Get("project"); project != "" {
+		args = append(args, "--project", project)
+	}
+	if source := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("source"))); source != "" {
+		args = append(args, "--source", source)
+	}
+	if limit := r.URL.Query().Get("limit"); limit != "" {
+		args = append(args, "--limit", limit)
+	}
+	if maxDist := r.URL.Query().Get("max_distance"); maxDist != "" {
+		args = append(args, "--max-distance", maxDist)
+	}
+	if r.URL.Query().Get("diversity") == "true" {
+		args = append(args, "--diversity")
+	}
+
+	cmd := exec.Command(indexerPath, args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		errMsg := strings.TrimSpace(string(out))
+		if errMsg == "" {
+			errMsg = err.Error()
+		}
+		writeError(w, http.StatusInternalServerError, "semantic_search_failed", errMsg)
+		return
+	}
+
+	var results []SemanticSearchResult
+	if err := json.Unmarshal(out, &results); err != nil {
+		writeError(w, http.StatusInternalServerError, "invalid_response",
+			fmt.Sprintf("Failed to parse indexer output: %s", strings.TrimSpace(string(out))))
+		return
+	}
+	if results == nil {
+		results = []SemanticSearchResult{}
+	}
+
+	writeJSON(w, http.StatusOK, SemanticSearchResponse{Results: results})
 }
 
 // handleIndexerHealth returns the health/status of the indexer.
