@@ -15,9 +15,9 @@ const DefaultTruncateLength = 50
 
 // Default buffer sizes for scanners.
 const (
-	DefaultBufferSize   = 64 * 1024  // 64KB initial buffer
-	MaxLineCapacity     = 10 * 1024 * 1024 // 10MB max line capacity
-	MaxScannerCapacity  = 16 * 1024 * 1024 // 16MB max scanner capacity
+	DefaultBufferSize  = 64 * 1024        // 64KB initial buffer
+	MaxLineCapacity    = 10 * 1024 * 1024 // 10MB max line capacity
+	MaxScannerCapacity = 16 * 1024 * 1024 // 16MB max scanner capacity
 )
 
 // TruncateString truncates a string to max length, adding "..." if truncated.
@@ -40,15 +40,43 @@ func TruncateString(s string, max int) string {
 // This prevents directory traversal attacks when loading sessions.
 // Returns an error if the session ID is not within the base directory.
 func ValidateSessionPath(sessionID, baseDir string) error {
-	cleanID := filepath.Clean(sessionID)
-	cleanBase := filepath.Clean(baseDir)
-
-	// Add trailing separator to baseDir for strict prefix matching.
-	if !strings.HasSuffix(cleanBase, string(os.PathSeparator)) {
-		cleanBase += string(os.PathSeparator)
+	if strings.TrimSpace(sessionID) == "" {
+		return fmt.Errorf("invalid session path: empty path")
+	}
+	if strings.TrimSpace(baseDir) == "" {
+		return fmt.Errorf("invalid base path: empty path")
 	}
 
-	if !strings.HasPrefix(cleanID, cleanBase) && cleanID != filepath.Clean(baseDir) {
+	absBase, err := filepath.Abs(baseDir)
+	if err != nil {
+		return fmt.Errorf("invalid base path: %w", err)
+	}
+	absSession, err := filepath.Abs(sessionID)
+	if err != nil {
+		return fmt.Errorf("invalid session path: %w", err)
+	}
+
+	realBase, err := filepath.EvalSymlinks(absBase)
+	if err != nil {
+		return fmt.Errorf("invalid base path: %w", err)
+	}
+
+	realSession, err := filepath.EvalSymlinks(absSession)
+	if err != nil {
+		// For non-existent leaf paths, resolve the parent directory so symlink
+		// traversal is still checked correctly.
+		if os.IsNotExist(err) {
+			parentReal, parentErr := filepath.EvalSymlinks(filepath.Dir(absSession))
+			if parentErr != nil {
+				return fmt.Errorf("invalid session path: %w", err)
+			}
+			realSession = filepath.Join(parentReal, filepath.Base(absSession))
+		} else {
+			return fmt.Errorf("invalid session path: %w", err)
+		}
+	}
+
+	if !IsPathWithinAny(realSession, []string{realBase}) {
 		return fmt.Errorf("invalid session path: %s is not within %s", sessionID, baseDir)
 	}
 	return nil
