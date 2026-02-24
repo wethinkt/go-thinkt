@@ -655,7 +655,11 @@ func spawnInTerminal(info *thinkt.ResumeInfo) error {
 		return fmt.Errorf("no terminal app configured or available")
 	}
 
-	shellCmd := strings.Join(info.Args, " ")
+	quotedArgs := make([]string, len(info.Args))
+	for i, arg := range info.Args {
+		quotedArgs[i] = quoteShell(arg)
+	}
+	shellCmd := strings.Join(quotedArgs, " ")
 	if info.Dir != "" {
 		shellCmd = fmt.Sprintf("cd %s && %s", quoteShell(info.Dir), shellCmd)
 	}

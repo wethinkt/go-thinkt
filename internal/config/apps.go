@@ -91,15 +91,21 @@ func (a AppConfig) Launch(validatedPath string) error {
 // BuildRunCommand returns the command and args for running a shell command in this app.
 // Unlike BuildCommand, {} is replaced inline within args (not just as a standalone arg),
 // allowing patterns like ["osascript", "-e", "tell app \"Terminal\" to do script \"{}\""].
+// It escapes double quotes and backslashes in shellCmd to prevent breaking out of
+// double-quoted templates.
 func (a AppConfig) BuildRunCommand(shellCmd string) (string, []string) {
 	if len(a.ExecRun) == 0 {
 		return "", nil
 	}
 
+	// Escape backslashes and double quotes for safe injection into "{}"
+	escaped := strings.ReplaceAll(shellCmd, "\\", "\\\\")
+	escaped = strings.ReplaceAll(escaped, "\"", "\\\"")
+
 	cmd := a.ExecRun[0]
 	args := make([]string, 0, len(a.ExecRun)-1)
 	for _, arg := range a.ExecRun[1:] {
-		args = append(args, strings.ReplaceAll(arg, "{}", shellCmd))
+		args = append(args, strings.ReplaceAll(arg, "{}", escaped))
 	}
 
 	return cmd, args

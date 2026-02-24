@@ -5,6 +5,8 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -38,7 +40,15 @@ func TruncateString(s string, max int) string {
 // This prevents directory traversal attacks when loading sessions.
 // Returns an error if the session ID is not within the base directory.
 func ValidateSessionPath(sessionID, baseDir string) error {
-	if !strings.HasPrefix(sessionID, baseDir) {
+	cleanID := filepath.Clean(sessionID)
+	cleanBase := filepath.Clean(baseDir)
+
+	// Add trailing separator to baseDir for strict prefix matching.
+	if !strings.HasSuffix(cleanBase, string(os.PathSeparator)) {
+		cleanBase += string(os.PathSeparator)
+	}
+
+	if !strings.HasPrefix(cleanID, cleanBase) && cleanID != filepath.Clean(baseDir) {
 		return fmt.Errorf("invalid session path: %s is not within %s", sessionID, baseDir)
 	}
 	return nil
