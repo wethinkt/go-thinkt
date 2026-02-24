@@ -33,7 +33,7 @@ func TestLocalStream_NewEntries(t *testing.T) {
 	defer cancel()
 
 	// Start stream — it should seek to end, only delivering new entries
-	ch, err := StreamLocal(ctx, path)
+	ch, err := StreamLocal(ctx, path, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

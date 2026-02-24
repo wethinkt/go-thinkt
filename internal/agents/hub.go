@@ -129,14 +129,15 @@ func (h *AgentHub) notify(event AgentEvent) {
 
 // Stream opens a live entry stream for the given agent.
 // Local agents are tailed from the filesystem; remote agents stream via WebSocket.
-func (h *AgentHub) Stream(ctx context.Context, agentID string) (<-chan StreamEntry, error) {
+// If backlog > 0, the last N entries are sent before tailing new ones (local only).
+func (h *AgentHub) Stream(ctx context.Context, agentID string, backlog int) (<-chan StreamEntry, error) {
 	agent, ok := h.FindBySessionID(agentID)
 	if !ok {
 		return nil, fmt.Errorf("agent not found: %s", agentID)
 	}
 
 	if agent.IsLocal(h.localFP) && agent.SessionPath != "" {
-		return StreamLocal(ctx, agent.SessionPath)
+		return StreamLocal(ctx, agent.SessionPath, backlog)
 	}
 
 	if agent.CollectorURL != "" {

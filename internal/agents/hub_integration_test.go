@@ -39,7 +39,7 @@ func TestHub_LocalDetectionAndStream(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	ch, err := hub.Stream(ctx, "test-session")
+	ch, err := hub.Stream(ctx, "test-session", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

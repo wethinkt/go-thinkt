@@ -12,10 +12,16 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+
 	"github.com/wethinkt/go-thinkt/internal/agents"
 	"github.com/wethinkt/go-thinkt/internal/collect"
 	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tui"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
 var (
@@ -44,7 +50,7 @@ Examples:
 }
 
 var agentsFollowCmd = &cobra.Command{
-	Use:   "follow <session-id>",
+	Use:   "follow [session-id]",
 	Short: "Live-tail an agent's conversation",
 	Long: `Stream new conversation entries from an active agent in real-time.
 
@@ -55,7 +61,7 @@ Examples:
   thinkt agents follow a3f8b2c1          # Tail agent conversation
   thinkt agents follow a3f8b2c1 --json   # Structured JSON output
   thinkt agents follow a3f8b2c1 --raw    # Raw JSONL`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.MaximumNArgs(1),
 	RunE: runAgentsFollow,
 }
 
@@ -135,14 +141,37 @@ func runAgentsList(cmd *cobra.Command, args []string) error {
 	return w.Flush()
 }
 
+// followModel wraps AgentTailModel for standalone CLI usage,
+// converting the back/dismiss result into tea.Quit.
+type followModel struct {
+	inner tui.AgentTailModel
+}
+
+func (m followModel) Init() tea.Cmd {
+	return m.inner.Init()
+}
+
+func (m followModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg.(type) {
+	case tui.AgentTailResult:
+		return m, tea.Quit
+	}
+	updated, cmd := m.inner.Update(msg)
+	m.inner = updated.(tui.AgentTailModel)
+	return m, cmd
+}
+
+func (m followModel) View() tea.View {
+	return m.inner.View()
+}
+
 func runAgentsFollow(cmd *cobra.Command, args []string) error {
-	sessionID := args[0]
 	hub := buildHub()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Handle interrupt
+	// Handle interrupt for raw/json modes
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt)
 	go func() {
@@ -153,42 +182,152 @@ func runAgentsFollow(cmd *cobra.Command, args []string) error {
 	// Initial poll to find the agent
 	hub.PollOnce(ctx)
 
-	ch, err := hub.Stream(ctx, sessionID)
-	if err != nil {
-		return err
+	var sessionID string
+	if len(args) > 0 {
+		sessionID = args[0]
+	} else {
+		allAgents := hub.List(agents.AgentFilter{})
+		if len(allAgents) == 0 {
+			fmt.Println("No active agents found.")
+			return nil
+		}
+		selected, err := pickAgent(allAgents)
+		if err != nil {
+			return err
+		}
+		if selected == nil {
+			return nil
+		}
+		sessionID = selected.SessionID
 	}
 
-	for entry := range ch {
-		if followJSON || followRaw {
+	// Raw/JSON modes: stream without TUI
+	if followJSON || followRaw {
+		ch, err := hub.Stream(ctx, sessionID, 0)
+		if err != nil {
+			return err
+		}
+		for entry := range ch {
 			data, _ := json.Marshal(entry)
 			fmt.Println(string(data))
-		} else {
-			printFollowEntry(entry)
 		}
+		return nil
 	}
-	return nil
+
+	// TUI mode: use AgentTailModel with themed rendering
+	agent, ok := hub.FindBySessionID(sessionID)
+	if !ok {
+		return fmt.Errorf("agent %s not found", sessionID)
+	}
+
+	model := followModel{inner: tui.NewAgentTailModel(hub, agent)}
+	p := tea.NewProgram(model)
+	_, err := p.Run()
+	return err
 }
 
-func printFollowEntry(e agents.StreamEntry) {
-	ts := e.Timestamp.Format("15:04:05")
-	switch e.Role {
-	case "user":
-		fmt.Printf("\n[user] %s\n%s\n", ts, e.Text)
-	case "assistant":
-		model := ""
-		if e.Model != "" {
-			model = " " + e.Model
-		}
-		fmt.Printf("\n[assistant]%s %s\n%s\n", model, ts, e.Text)
-	case "system":
-		fmt.Printf("\n--- %s ---\n", e.Text)
-	default:
-		if e.ToolName != "" {
-			fmt.Printf("\n[%s] %s %s\n", e.Role, e.ToolName, ts)
-		} else {
-			fmt.Printf("\n[%s] %s\n%s\n", e.Role, ts, e.Text)
+// --- agent picker TUI ---
+
+type agentPickItem struct {
+	agent agents.UnifiedAgent
+}
+
+func (i agentPickItem) Title() string {
+	project := shortenPathCLI(i.agent.ProjectPath)
+	return fmt.Sprintf("[%s] %s", i.agent.Source, project)
+}
+
+func (i agentPickItem) Description() string {
+	sid := i.agent.SessionID
+	if len(sid) > 8 {
+		sid = sid[:8]
+	}
+	age := time.Since(i.agent.DetectedAt).Truncate(time.Second).String()
+	return fmt.Sprintf("%s  %s  %s", sid, i.agent.Status, age)
+}
+
+func (i agentPickItem) FilterValue() string {
+	return i.agent.Source + " " + i.agent.ProjectPath + " " + i.agent.SessionID
+}
+
+type agentPickModel struct {
+	list     list.Model
+	selected *agents.UnifiedAgent
+	quitting bool
+}
+
+func newAgentPickModel(agentList []agents.UnifiedAgent) agentPickModel {
+	items := make([]list.Item, len(agentList))
+	for i, a := range agentList {
+		items[i] = agentPickItem{agent: a}
+	}
+
+	t := theme.Current()
+	delegate := list.NewDefaultDelegate()
+	delegate.Styles.NormalTitle = delegate.Styles.NormalTitle.
+		Foreground(lipgloss.Color(t.TextPrimary.Fg))
+	delegate.Styles.NormalDesc = delegate.Styles.NormalDesc.
+		Foreground(lipgloss.Color(t.TextSecondary.Fg))
+	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.
+		Foreground(lipgloss.Color(t.GetAccent())).
+		Bold(true)
+	delegate.Styles.SelectedDesc = delegate.Styles.SelectedDesc.
+		Foreground(lipgloss.Color(t.TextMuted.Fg))
+	delegate.Styles.DimmedTitle = delegate.Styles.DimmedTitle.
+		Foreground(lipgloss.Color(t.TextMuted.Fg))
+	delegate.Styles.DimmedDesc = delegate.Styles.DimmedDesc.
+		Foreground(lipgloss.Color(t.TextMuted.Fg))
+
+	l := list.New(items, delegate, 60, min(len(items)*3+6, 20))
+	l.SetShowTitle(true)
+	l.Title = "Select an agent to follow"
+	l.SetShowStatusBar(false)
+	l.SetShowHelp(true)
+	l.SetFilteringEnabled(false)
+
+	return agentPickModel{list: l}
+}
+
+func (m agentPickModel) Init() tea.Cmd { return nil }
+
+func (m agentPickModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q", "esc", "ctrl+c":
+			m.quitting = true
+			return m, tea.Quit
+		case "enter":
+			if item, ok := m.list.SelectedItem().(agentPickItem); ok {
+				m.selected = &item.agent
+				return m, tea.Quit
+			}
 		}
 	}
+
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
+}
+
+func (m agentPickModel) View() tea.View {
+	if m.quitting && m.selected == nil {
+		return tea.NewView("")
+	}
+	return tea.NewView(m.list.View())
+}
+
+func pickAgent(agentList []agents.UnifiedAgent) (*agents.UnifiedAgent, error) {
+	model := newAgentPickModel(agentList)
+	p := tea.NewProgram(model)
+
+	finalModel, err := p.Run()
+	if err != nil {
+		return nil, err
+	}
+
+	m := finalModel.(agentPickModel)
+	return m.selected, nil
 }
 
 func shortenPathCLI(path string) string {

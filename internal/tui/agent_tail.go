@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -41,31 +42,41 @@ type AgentTailModel struct {
 	agent         agents.UnifiedAgent
 	width, height int
 	viewport      viewport.Model
+	spinner       spinner.Model
+	filters       RoleFilterSet
+	keys          tailKeyBindings
 	ready         bool
 	entries       []agents.StreamEntry
 	autoScroll    bool
 	connected     bool
 	streamErr     error
 	cancel        context.CancelFunc
+	flashTicks    int // counts down on spinner ticks; >0 means show new-data indicator
 }
 
 // NewAgentTailModel creates a tail page for the given agent.
 func NewAgentTailModel(hub *agents.AgentHub, agent agents.UnifiedAgent) AgentTailModel {
+	t := theme.Current()
+	s := spinner.New(
+		spinner.WithSpinner(spinner.MiniDot),
+		spinner.WithStyle(lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent()))),
+	)
 	return AgentTailModel{
 		hub:        hub,
 		agent:      agent,
+		spinner:    s,
+		filters:    NewRoleFilterSet(),
+		keys:       tailKeys(),
 		autoScroll: true,
 		connected:  true,
 	}
 }
 
 func (m AgentTailModel) Init() tea.Cmd {
-	return m.connectStream()
+	return tea.Batch(m.connectStream(), m.spinner.Tick)
 }
 
 func (m AgentTailModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	keys := tailKeys()
-
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -95,6 +106,7 @@ func (m AgentTailModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case agentStreamEntryMsg:
 		m.entries = append(m.entries, msg.Entry)
 		m.connected = true
+		m.flashTicks = 4
 		if m.ready {
 			m.viewport.SetContent(m.renderEntries())
 			if m.autoScroll {
@@ -114,42 +126,72 @@ func (m AgentTailModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case spinner.TickMsg:
+		if m.flashTicks > 0 {
+			m.flashTicks--
+		}
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
+
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, keys.Back):
+		case key.Matches(msg, m.keys.Back):
 			if m.cancel != nil {
 				m.cancel()
 			}
 			return m, func() tea.Msg { return AgentTailResult{Cancelled: true} }
-		case key.Matches(msg, keys.Quit):
+		case key.Matches(msg, m.keys.Quit):
 			if m.cancel != nil {
 				m.cancel()
 			}
 			return m, tea.Quit
-		case key.Matches(msg, keys.Bottom):
+		case key.Matches(msg, m.keys.Bottom):
 			m.autoScroll = true
 			if m.ready {
 				m.viewport.GotoBottom()
 			}
 			return m, nil
-		case key.Matches(msg, keys.Up):
-			m.autoScroll = false
-		case key.Matches(msg, keys.PageUp):
-			m.autoScroll = false
+		case key.Matches(msg, m.keys.ToggleInput):
+			m.filters.Input = !m.filters.Input
+			return m, m.refreshViewport()
+		case key.Matches(msg, m.keys.ToggleOutput):
+			m.filters.Output = !m.filters.Output
+			return m, m.refreshViewport()
+		case key.Matches(msg, m.keys.ToggleTools):
+			m.filters.Tools = !m.filters.Tools
+			return m, m.refreshViewport()
+		case key.Matches(msg, m.keys.ToggleThinking):
+			m.filters.Thinking = !m.filters.Thinking
+			return m, m.refreshViewport()
+		case key.Matches(msg, m.keys.ToggleOther):
+			m.filters.Other = !m.filters.Other
+			return m, m.refreshViewport()
 		}
 	}
 
 	if m.ready {
 		var cmd tea.Cmd
 		m.viewport, cmd = m.viewport.Update(msg)
+		m.autoScroll = m.viewport.AtBottom()
 		return m, cmd
 	}
 	return m, nil
 }
 
+func (m *AgentTailModel) refreshViewport() tea.Cmd {
+	if m.ready {
+		m.viewport.SetContent(m.renderEntries())
+		if m.autoScroll {
+			m.viewport.GotoBottom()
+		}
+	}
+	return nil
+}
+
 func (m AgentTailModel) View() tea.View {
 	if !m.ready {
-		v := tea.NewView("Connecting to agent stream...")
+		v := tea.NewView(m.spinner.View() + " Connecting to agent stream...")
 		v.AltScreen = true
 		return v
 	}
@@ -170,16 +212,21 @@ func (m AgentTailModel) View() tea.View {
 	title := titleStyle.Render(fmt.Sprintf("Agent Tail: %s", sessionID))
 	info := mutedStyle.Render(fmt.Sprintf(" %s  %s", m.agent.Source, shortenPath(m.agent.ProjectPath)))
 
-	connStatus := connectedStyle.Render("connected")
+	var status string
 	if !m.connected {
-		connStatus = disconnectedStyle.Render("disconnected")
+		status = disconnectedStyle.Render("disconnected")
+	} else if m.flashTicks > 0 {
+		status = m.spinner.View() + " " + connectedStyle.Render("new data")
+	} else {
+		status = m.spinner.View() + " " + connectedStyle.Render("live")
 	}
 
-	header := title + info + "  " + connStatus
+	header := title + info + "  " + status
 
+	filterStatus := m.renderFilterStatus()
 	help := helpStyle.Render("G/end: resume scroll  esc: back  q: quit  j/k: scroll")
 
-	content := header + "\n" + m.viewport.View() + "\n" + help
+	content := header + "\n" + filterStatus + "\n" + m.viewport.View() + "\n" + help
 	v := tea.NewView(padStyle.Render(content))
 	v.AltScreen = true
 	return v
@@ -191,7 +238,7 @@ func (m *AgentTailModel) connectStream() tea.Cmd {
 		ctx, cancel := context.WithCancel(context.Background())
 		m.cancel = cancel
 
-		ch, err := m.hub.Stream(ctx, m.agent.SessionID)
+		ch, err := m.hub.Stream(ctx, m.agent.SessionID, 50)
 		if err != nil {
 			return agentStreamErrorMsg{Err: err}
 		}
@@ -212,53 +259,73 @@ func waitForStreamEntry(ch <-chan agents.StreamEntry) tea.Cmd {
 }
 
 func (m AgentTailModel) renderEntries() string {
-	t := theme.Current()
-	userStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#5a9fd4"))
-	assistantStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7fcc5a"))
-	systemStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg)).Italic(true)
-	toolStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#d4a55a"))
-	timeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
+	s := GetStyles()
 
 	if len(m.entries) == 0 {
+		systemStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(theme.Current().TextMuted.Fg)).Italic(true)
 		return systemStyle.Render("Waiting for entries...")
 	}
 
+	contentWidth := max(20, m.width-8)
 	var b strings.Builder
 	for _, e := range m.entries {
-		ts := timeStyle.Render(e.Timestamp.Format("15:04:05"))
-		switch e.Role {
-		case "user":
-			fmt.Fprintf(&b, "\n%s %s\n%s\n", userStyle.Render("[user]"), ts, e.Text)
-		case "assistant":
-			model := ""
-			if e.Model != "" {
-				model = " " + timeStyle.Render(e.Model)
-			}
-			fmt.Fprintf(&b, "\n%s%s %s\n%s\n", assistantStyle.Render("[assistant]"), model, ts, e.Text)
-		case "system":
-			fmt.Fprintf(&b, "\n%s\n", systemStyle.Render("--- "+e.Text+" ---"))
-		default:
-			if e.ToolName != "" {
-				fmt.Fprintf(&b, "\n%s %s %s\n", toolStyle.Render("["+e.Role+"]"), toolStyle.Render(e.ToolName), ts)
-			} else {
-				fmt.Fprintf(&b, "\n%s %s\n%s\n", toolStyle.Render("["+e.Role+"]"), ts, e.Text)
-			}
+		te := e.ToThinktEntry()
+		rendered := RenderThinktEntry(&te, contentWidth, &m.filters)
+		if rendered != "" {
+			b.WriteString(rendered)
+			b.WriteString("\n")
 		}
 	}
 
 	if m.streamErr != nil {
-		fmt.Fprintf(&b, "\n%s\n", systemStyle.Render("--- Error: "+m.streamErr.Error()+" ---"))
+		label := s.ThinkingLabel.Render("Error")
+		content := s.ThinkingBlock.Width(contentWidth).Render(m.streamErr.Error())
+		b.WriteString(label + "\n" + content + "\n")
 	}
 
 	return b.String()
 }
 
+func (m AgentTailModel) renderFilterStatus() string {
+	type filterItem struct {
+		key   string
+		label string
+		on    bool
+	}
+	items := []filterItem{
+		{"1", "Input", m.filters.Input},
+		{"2", "Output", m.filters.Output},
+		{"3", "Tools", m.filters.Tools},
+		{"4", "Thinking", m.filters.Thinking},
+		{"5", "Other", m.filters.Other},
+	}
+
+	active := lipgloss.NewStyle().Bold(true)
+	dim := lipgloss.NewStyle().Faint(true)
+
+	var parts []string
+	for _, it := range items {
+		label := fmt.Sprintf("%s:%s", it.key, it.label)
+		if it.on {
+			parts = append(parts, active.Render(label))
+		} else {
+			parts = append(parts, dim.Render(label))
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
 type tailKeyBindings struct {
-	Back   key.Binding
-	Quit   key.Binding
-	Bottom key.Binding
-	Up     key.Binding
-	PageUp key.Binding
+	Back           key.Binding
+	Quit           key.Binding
+	Bottom         key.Binding
+	Up             key.Binding
+	PageUp         key.Binding
+	ToggleInput    key.Binding
+	ToggleOutput   key.Binding
+	ToggleTools    key.Binding
+	ToggleThinking key.Binding
+	ToggleOther    key.Binding
 }
 
 func tailKeys() tailKeyBindings {
@@ -282,6 +349,26 @@ func tailKeys() tailKeyBindings {
 		PageUp: key.NewBinding(
 			key.WithKeys("pgup"),
 			key.WithHelp("pgup", "page up"),
+		),
+		ToggleInput: key.NewBinding(
+			key.WithKeys("1"),
+			key.WithHelp("1", "toggle input"),
+		),
+		ToggleOutput: key.NewBinding(
+			key.WithKeys("2"),
+			key.WithHelp("2", "toggle output"),
+		),
+		ToggleTools: key.NewBinding(
+			key.WithKeys("3"),
+			key.WithHelp("3", "toggle tools"),
+		),
+		ToggleThinking: key.NewBinding(
+			key.WithKeys("4"),
+			key.WithHelp("4", "toggle thinking"),
+		),
+		ToggleOther: key.NewBinding(
+			key.WithKeys("5"),
+			key.WithHelp("5", "toggle other"),
 		),
 	}
 }

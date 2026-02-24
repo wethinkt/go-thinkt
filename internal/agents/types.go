@@ -1,6 +1,10 @@
 package agents
 
-import "time"
+import (
+	"time"
+
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
+)
 
 // UnifiedAgent represents an active agent regardless of origin (local or remote).
 // Local vs. remote is derived: an agent is local when MachineID matches the
@@ -74,14 +78,30 @@ type AgentEvent struct {
 
 // StreamEntry is a single conversation entry received from a live stream.
 type StreamEntry struct {
-	Timestamp    time.Time `json:"timestamp"`
-	Role         string    `json:"role"`          // "user", "assistant", "tool_use", "tool_result"
-	Text         string    `json:"text,omitempty"`
-	Model        string    `json:"model,omitempty"`
-	ToolName     string    `json:"tool_name,omitempty"`
-	IsError      bool      `json:"is_error,omitempty"`
-	InputTokens  int       `json:"input_tokens,omitempty"`
-	OutputTokens int       `json:"output_tokens,omitempty"`
-	SessionID    string    `json:"session_id,omitempty"` // for context in streams
-	Synthetic    bool      `json:"synthetic,omitempty"`  // true for connection status messages
+	Timestamp     time.Time              `json:"timestamp"`
+	Role          string                 `json:"role"`          // "user", "assistant", "tool_use", "tool_result"
+	Text          string                 `json:"text,omitempty"`
+	Model         string                 `json:"model,omitempty"`
+	ToolName      string                 `json:"tool_name,omitempty"`
+	IsError       bool                   `json:"is_error,omitempty"`
+	InputTokens   int                    `json:"input_tokens,omitempty"`
+	OutputTokens  int                    `json:"output_tokens,omitempty"`
+	SessionID     string                 `json:"session_id,omitempty"` // for context in streams
+	Synthetic     bool                   `json:"synthetic,omitempty"`  // true for connection status messages
+	ContentBlocks []thinkt.ContentBlock  `json:"content_blocks,omitempty"`
+}
+
+// ToThinktEntry converts a StreamEntry to a thinkt.Entry for rendering.
+func (e StreamEntry) ToThinktEntry() thinkt.Entry {
+	entry := thinkt.Entry{
+		Role:      thinkt.Role(e.Role),
+		Timestamp: e.Timestamp,
+		Model:     e.Model,
+		Text:      e.Text,
+	}
+	if len(e.ContentBlocks) > 0 {
+		entry.ContentBlocks = e.ContentBlocks
+		entry.Text = "" // prefer blocks over flat text
+	}
+	return entry
 }
