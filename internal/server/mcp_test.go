@@ -13,6 +13,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/wethinkt/go-thinkt/internal/sources/claude"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
@@ -45,13 +46,57 @@ func (s *testStore) ListSessions(ctx context.Context, projectID string) ([]think
 	return nil, nil
 }
 func (s *testStore) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.SessionMeta, error) {
+	for _, sessions := range s.sessions {
+		for _, session := range sessions {
+			if session.ID == sessionID || session.FullPath == sessionID {
+				copy := session
+				return &copy, nil
+			}
+		}
+	}
 	return nil, nil
 }
 func (s *testStore) LoadSession(ctx context.Context, sessionID string) (*thinkt.Session, error) {
 	return nil, nil
 }
 func (s *testStore) OpenSession(ctx context.Context, sessionID string) (thinkt.SessionReader, error) {
-	return nil, nil
+	if s.source != thinkt.SourceClaude {
+		return nil, os.ErrNotExist
+	}
+	reader, err := claude.NewStore("").OpenSession(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if reader == nil {
+		return nil, os.ErrNotExist
+	}
+	return reader, nil
+}
+
+func newSessionFixtureStore(path string) thinkt.Store {
+	projectPath := filepath.Dir(path)
+	projectID := "fixture-project"
+	return &testStore{
+		source: thinkt.SourceClaude,
+		projects: []thinkt.Project{
+			{
+				ID:         projectID,
+				Name:       filepath.Base(projectPath),
+				Path:       projectPath,
+				Source:     thinkt.SourceClaude,
+				PathExists: true,
+			},
+		},
+		sessions: map[string][]thinkt.SessionMeta{
+			projectID: {
+				{
+					ID:       "fixture-session",
+					FullPath: path,
+					Source:   thinkt.SourceClaude,
+				},
+			},
+		},
+	}
 }
 
 // newTestMCPServer creates an MCPServer with the given stores registered.
@@ -503,7 +548,7 @@ func createTestClaudeSession(t *testing.T, dir string) string {
 func TestMCP_GetSessionMetadata(t *testing.T) {
 	dir := t.TempDir()
 	path := createTestClaudeSession(t, dir)
-	ms := newTestMCPServer()
+	ms := newTestMCPServer(newSessionFixtureStore(path))
 
 	result := callTool(t, ms, "get_session_metadata", map[string]any{"path": path})
 
@@ -530,7 +575,7 @@ func TestMCP_GetSessionMetadata(t *testing.T) {
 func TestMCP_GetSessionMetadata_SummaryOnly(t *testing.T) {
 	dir := t.TempDir()
 	path := createTestClaudeSession(t, dir)
-	ms := newTestMCPServer()
+	ms := newTestMCPServer(newSessionFixtureStore(path))
 
 	result := callTool(t, ms, "get_session_metadata", map[string]any{
 		"path": path, "summary_only": true,
@@ -559,7 +604,7 @@ func TestMCP_GetSessionMetadata_SummaryOnly(t *testing.T) {
 func TestMCP_GetSessionMetadata_Pagination(t *testing.T) {
 	dir := t.TempDir()
 	path := createTestClaudeSession(t, dir)
-	ms := newTestMCPServer()
+	ms := newTestMCPServer(newSessionFixtureStore(path))
 
 	result := callTool(t, ms, "get_session_metadata", map[string]any{
 		"path": path, "limit": 2, "offset": 0,
@@ -576,6 +621,16 @@ func TestMCP_GetSessionMetadata_Pagination(t *testing.T) {
 func TestMCP_GetSessionMetadata_InvalidPath(t *testing.T) {
 	ms := newTestMCPServer()
 	result := callToolMayError(t, ms, "get_session_metadata", map[string]any{"path": "/nonexistent/file.jsonl"})
+	errOut := parseToolError(t, result)
+	if errOut.Error.Code != "session_metadata_failed" {
+		t.Fatalf("expected session_metadata_failed code, got %q", errOut.Error.Code)
+	}
+}
+
+func TestMCP_GetSessionMetadata_UnscopedExistingPathRejected(t *testing.T) {
+	path := createTestClaudeSession(t, t.TempDir())
+	ms := newTestMCPServer()
+	result := callToolMayError(t, ms, "get_session_metadata", map[string]any{"path": path})
 	errOut := parseToolError(t, result)
 	if errOut.Error.Code != "session_metadata_failed" {
 		t.Fatalf("expected session_metadata_failed code, got %q", errOut.Error.Code)
@@ -609,7 +664,7 @@ func TestMCP_GetSessionMetadata_InvalidPath_TypedOutputIncludesError(t *testing.
 func TestMCP_GetSessionEntries(t *testing.T) {
 	dir := t.TempDir()
 	path := createTestClaudeSession(t, dir)
-	ms := newTestMCPServer()
+	ms := newTestMCPServer(newSessionFixtureStore(path))
 
 	result := callTool(t, ms, "get_session_entries", map[string]any{
 		"path": path,
@@ -634,7 +689,7 @@ func TestMCP_GetSessionEntries(t *testing.T) {
 func TestMCP_GetSessionEntries_RoleFilter(t *testing.T) {
 	dir := t.TempDir()
 	path := createTestClaudeSession(t, dir)
-	ms := newTestMCPServer()
+	ms := newTestMCPServer(newSessionFixtureStore(path))
 
 	result := callTool(t, ms, "get_session_entries", map[string]any{
 		"path": path, "roles": []string{"user"}, "limit": 20,
@@ -656,7 +711,7 @@ func TestMCP_GetSessionEntries_RoleFilter(t *testing.T) {
 func TestMCP_GetSessionEntries_ByIndex(t *testing.T) {
 	dir := t.TempDir()
 	path := createTestClaudeSession(t, dir)
-	ms := newTestMCPServer()
+	ms := newTestMCPServer(newSessionFixtureStore(path))
 
 	result := callTool(t, ms, "get_session_entries", map[string]any{
 		"path": path, "entry_indices": []int{0, 3},
@@ -679,7 +734,7 @@ func TestMCP_GetSessionEntries_ByIndex(t *testing.T) {
 func TestMCP_GetSessionEntries_Truncation(t *testing.T) {
 	dir := t.TempDir()
 	path := createTestClaudeSession(t, dir)
-	ms := newTestMCPServer()
+	ms := newTestMCPServer(newSessionFixtureStore(path))
 
 	result := callTool(t, ms, "get_session_entries", map[string]any{
 		"path": path, "max_content_length": 10,
@@ -698,7 +753,7 @@ func TestMCP_GetSessionEntries_Truncation(t *testing.T) {
 func TestMCP_GetSessionEntries_IncludeThinking(t *testing.T) {
 	dir := t.TempDir()
 	path := createTestClaudeSession(t, dir)
-	ms := newTestMCPServer()
+	ms := newTestMCPServer(newSessionFixtureStore(path))
 
 	// Without include_thinking
 	result := callTool(t, ms, "get_session_entries", map[string]any{
@@ -737,7 +792,7 @@ func TestMCP_GetSessionEntries_IncludeThinking(t *testing.T) {
 func TestMCP_GetSessionEntries_Pagination(t *testing.T) {
 	dir := t.TempDir()
 	path := createTestClaudeSession(t, dir)
-	ms := newTestMCPServer()
+	ms := newTestMCPServer(newSessionFixtureStore(path))
 
 	result := callTool(t, ms, "get_session_entries", map[string]any{
 		"path": path, "limit": 2, "offset": 0,

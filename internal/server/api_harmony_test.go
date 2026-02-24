@@ -118,9 +118,9 @@ func TestAPI_GetProjects_IncludeDeleted(t *testing.T) {
 
 func TestAPI_GetSessionMetadata_SummaryOnlyPreviews(t *testing.T) {
 	registry := thinkt.NewRegistry()
-	server := NewHTTPServer(registry, DefaultConfig())
-
 	path := createTestClaudeSession(t, t.TempDir())
+	registry.Register(newSessionFixtureStore(path))
+	server := NewHTTPServer(registry, DefaultConfig())
 	escaped := url.PathEscape(path)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions/"+escaped+"/metadata?summary_only=true&limit=1", nil)
 	w := httptest.NewRecorder()
@@ -142,5 +142,28 @@ func TestAPI_GetSessionMetadata_SummaryOnlyPreviews(t *testing.T) {
 	}
 	if out.EntrySummary[0].Role != "user" {
 		t.Fatalf("expected user preview, got %s", out.EntrySummary[0].Role)
+	}
+}
+
+func TestAPI_GetSessionMetadata_UnscopedExistingPathRejected(t *testing.T) {
+	registry := thinkt.NewRegistry()
+	server := NewHTTPServer(registry, DefaultConfig())
+
+	path := createTestClaudeSession(t, t.TempDir())
+	escaped := url.PathEscape(path)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions/"+escaped+"/metadata", nil)
+	w := httptest.NewRecorder()
+	server.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500, got %d", w.Code)
+	}
+
+	var out ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if out.Error != "metadata_failed" {
+		t.Fatalf("expected error metadata_failed, got %s", out.Error)
 	}
 }

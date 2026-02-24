@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 
@@ -15,7 +14,6 @@ import (
 
 	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
-	"github.com/wethinkt/go-thinkt/internal/tui"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
@@ -489,14 +487,7 @@ func (s *HTTPServer) handleGetSessionMetadata(w http.ResponseWriter, r *http.Req
 func (s *HTTPServer) loadSession(ctx context.Context, path string, limit, offset int) (*SessionResponse, error) {
 	ls, err := s.registry.OpenLazySessionByPath(ctx, path)
 	if err != nil {
-		// Fallback for direct file paths not discovered via registry.
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, err
-		}
-		ls, err = tui.OpenLazySession(path)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 	defer ls.Close()
 

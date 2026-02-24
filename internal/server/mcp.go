@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -17,7 +16,6 @@ import (
 
 	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
-	"github.com/wethinkt/go-thinkt/internal/tui"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -514,14 +512,7 @@ func (ms *MCPServer) handleGetSessionMetadata(ctx context.Context, req *mcp.Call
 func collectSessionMetadata(ctx context.Context, registry *thinkt.StoreRegistry, path string, input getSessionMetadataInput) (getSessionMetadataOutput, error) {
 	ls, err := registry.OpenLazySessionByPath(ctx, path)
 	if err != nil {
-		// Fallback for direct file paths used in tests/manual calls.
-		if !errors.Is(err, os.ErrNotExist) {
-			return getSessionMetadataOutput{}, err
-		}
-		ls, err = tui.OpenLazySession(path)
-		if err != nil {
-			return getSessionMetadataOutput{}, err
-		}
+		return getSessionMetadataOutput{}, err
 	}
 	defer ls.Close()
 	if err := ls.LoadAll(); err != nil {
@@ -626,16 +617,8 @@ func (ms *MCPServer) handleGetSessionEntries(ctx context.Context, req *mcp.CallT
 	}
 	ls, err := ms.registry.OpenLazySessionByPath(ctx, input.Path)
 	if err != nil {
-		// Fallback for direct file paths used in tests/manual calls.
-		if !errors.Is(err, os.ErrNotExist) {
-			r, _, retErr := toolErrorResult("open_session_failed", "failed to open session", err)
-			return r, errorGetSessionEntriesOutput("open_session_failed", "failed to open session", err), retErr
-		}
-		ls, err = tui.OpenLazySession(input.Path)
-		if err != nil {
-			r, _, retErr := toolErrorResult("open_session_failed", "failed to open session", err)
-			return r, errorGetSessionEntriesOutput("open_session_failed", "failed to open session", err), retErr
-		}
+		r, _, retErr := toolErrorResult("open_session_failed", "failed to open session", err)
+		return r, errorGetSessionEntriesOutput("open_session_failed", "failed to open session", err), retErr
 	}
 	defer ls.Close()
 	if err := ls.LoadAll(); err != nil {
