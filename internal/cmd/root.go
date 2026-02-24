@@ -180,7 +180,7 @@ func init() {
 	themeListCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
 
 	// Server command flags shared across subcommands
-	serverCmd.PersistentFlags().StringVar(&serveCORSOrigin, "cors-origin", "", "CORS Access-Control-Allow-Origin (default \"*\", env: THINKT_CORS_ORIGIN)")
+	serverCmd.PersistentFlags().StringVar(&serveCORSOrigin, "cors-origin", "", "CORS Access-Control-Allow-Origin (default \"*\" when unauthenticated, disabled when authenticated; env: THINKT_CORS_ORIGIN)")
 	serverCmd.PersistentFlags().BoolVar(&serveNoIndexer, "no-indexer", false, "don't auto-start the background indexer")
 
 	// Server run subcommand (foreground server)

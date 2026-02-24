@@ -243,3 +243,20 @@ func TestAPIAuthenticator_OptionalMiddleware(t *testing.T) {
 		t.Errorf("OptionalMiddleware() with auth, valid token status = %d, want %d", rr3.Code, http.StatusOK)
 	}
 }
+
+func TestAPIAuthenticator_DoesNotAcceptQueryToken(t *testing.T) {
+	auth := NewBearerAuthenticator(AuthConfig{
+		Mode:  AuthModeToken,
+		Token: "secret-token",
+	})
+
+	req := httptest.NewRequest("GET", "/api/v1/sources?token=secret-token", nil)
+	rr := httptest.NewRecorder()
+
+	if auth.AuthenticateRequest(rr, req) {
+		t.Fatal("AuthenticateRequest() should fail when token is only in query params")
+	}
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("AuthenticateRequest() status = %d, want %d", rr.Code, http.StatusUnauthorized)
+	}
+}

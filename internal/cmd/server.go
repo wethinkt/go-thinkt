@@ -223,12 +223,13 @@ func runWebOpen(isLite bool) error {
 	if isLite {
 		targetURL += "/lite/"
 	}
+	openURL := targetURL
 	if inst.Token != "" {
-		targetURL += "?token=" + inst.Token
+		openURL += "#token=" + url.QueryEscape(inst.Token)
 	}
 
 	fmt.Printf("🌐 Opening %s in browser...\n", targetURL)
-	openBrowser(targetURL)
+	openBrowser(openURL)
 	return nil
 }
 
@@ -528,7 +529,7 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 		Host:          serveHost,
 		Quiet:         serveQuiet,
 		HTTPLog:       httpLogPath,
-		CORSOrigin:    resolveCORSOrigin(),
+		CORSOrigin:    resolveCORSOrigin(authConfig.Mode != server.AuthModeNone),
 		StaticHandler: staticHandler,
 		InstanceType:  config.InstanceServer,
 		LogPath:       appLogPath,
@@ -549,9 +550,13 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 	// Auto-open browser if requested (after small delay for server to start)
 	if !serveNoOpen {
 		go func() {
-			url := fmt.Sprintf("http://%s", srv.Addr())
-			fmt.Printf("🌐 Opening %s in browser...\n", url)
-			openBrowser(url)
+			displayURL := fmt.Sprintf("http://%s", srv.Addr())
+			openURL := displayURL
+			if resolvedToken != "" {
+				openURL += "#token=" + url.QueryEscape(resolvedToken)
+			}
+			fmt.Printf("🌐 Opening %s in browser...\n", displayURL)
+			openBrowser(openURL)
 		}()
 	}
 
@@ -722,13 +727,17 @@ func runServerMCP(cmd *cobra.Command, args []string) error {
 	return mcpServer.RunHTTP(ctx, mcpHost, mcpPort)
 }
 
-// resolveCORSOrigin returns the CORS origin from the CLI flag or env var, defaulting to "*".
-func resolveCORSOrigin() string {
+// resolveCORSOrigin returns the CORS origin from the CLI flag or env var.
+// If not explicitly set, authenticated mode disables CORS and unauthenticated mode defaults to "*".
+func resolveCORSOrigin(authEnabled bool) string {
 	if serveCORSOrigin != "" {
 		return serveCORSOrigin
 	}
 	if v := os.Getenv("THINKT_CORS_ORIGIN"); v != "" {
 		return v
+	}
+	if authEnabled {
+		return ""
 	}
 	return "*"
 }

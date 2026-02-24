@@ -34,7 +34,7 @@ type Config struct {
 	Host          string
 	Quiet         bool                // suppress HTTP request logging
 	HTTPLog       string              // path to HTTP access log file (empty = stdout, "-" = discard unless Quiet)
-	CORSOrigin    string              // Access-Control-Allow-Origin value (default "*")
+	CORSOrigin    string              // Access-Control-Allow-Origin value (empty disables CORS headers)
 	StaticHandler http.Handler        // if nil, defaults to StaticLiteWebAppHandler()
 	InstanceType  config.InstanceType // instance type for discovery file registration
 	LogPath       string              // path to process log file (for instance registry)
@@ -141,10 +141,10 @@ func (s *HTTPServer) setupRouter() chi.Router {
 		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 	}
 	if logWriter != nil {
-		r.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{
+		r.Use(middleware.RequestLogger(&redactingLogFormatter{base: &middleware.DefaultLogFormatter{
 			Logger:  logWriter,
 			NoColor: true,
-		}))
+		}}))
 	}
 
 	// Middleware
@@ -203,8 +203,8 @@ func (s *HTTPServer) setupRouter() chi.Router {
 	// Lite webapp at /lite — redirect /lite to /lite/ so relative URLs resolve correctly
 	r.Get("/lite", func(w http.ResponseWriter, req *http.Request) {
 		target := "/lite/"
-		if req.URL.RawQuery != "" {
-			target += "?" + req.URL.RawQuery
+		if sanitizedQuery := sanitizeQueryForRedirect(req.URL.RawQuery); sanitizedQuery != "" {
+			target += "?" + sanitizedQuery
 		}
 		http.Redirect(w, req, target, http.StatusMovedPermanently)
 	})
@@ -290,14 +290,13 @@ func (s *HTTPServer) ListenAndServe(ctx context.Context) error {
 
 // corsMiddleware returns middleware that adds CORS headers.
 func corsMiddleware(origin string) func(http.Handler) http.Handler {
-	if origin == "" {
-		origin = "*"
-	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			if origin != "" {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			}
 
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
