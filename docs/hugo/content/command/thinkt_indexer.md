@@ -18,16 +18,17 @@ Examples:
   thinkt indexer stop                        # Stop background indexer
   thinkt indexer sync                        # Sync all local sessions to the index
   thinkt indexer search "query"              # Search across all sessions
-  thinkt indexer watch                       # Watch and index in real-time (foreground)
+  thinkt indexer server                      # Run indexer server (foreground)
 
 ### Options
 
 ```
-      --db string    path to DuckDB database file
-  -h, --help         help for indexer
-      --log string   path to log file
-  -q, --quiet        suppress progress output
-  -v, --verbose      verbose output
+      --db string              path to DuckDB index database file
+      --embeddings-db string   path to DuckDB embeddings database file
+  -h, --help                   help for indexer
+      --log string             path to log file
+  -q, --quiet                  suppress progress output
+  -v, --verbose                verbose output
 ```
 
 ### SEE ALSO
@@ -43,5 +44,4 @@ Examples:
 * [thinkt indexer stop](thinkt_indexer_stop.md)	 - Stop background indexer
 * [thinkt indexer sync](thinkt_indexer_sync.md)	 - Synchronize all local sessions into the index
 * [thinkt indexer version](thinkt_indexer_version.md)	 - Print version information
-* [thinkt indexer watch](thinkt_indexer_watch.md)	 - Watch session directories for changes and index in real-time
 

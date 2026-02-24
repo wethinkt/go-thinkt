@@ -1,20 +1,21 @@
 ---
-title: "thinkt server start"
+title: "thinkt server http-logs"
 ---
 
-## thinkt server start
+## thinkt server http-logs
 
-Start server in background
+View HTTP access logs
 
 ```
-thinkt server start [flags]
+thinkt server http-logs [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help      help for start
-      --no-auth   disable authentication (allow unauthenticated access)
+  -f, --follow      follow log output
+  -h, --help        help for http-logs
+  -n, --lines int   number of lines to show (default 50)
 ```
 
 ### Options inherited from parent commands

@@ -34,7 +34,7 @@ thinkt server [flags]
 ```
       --cors-origin string   CORS Access-Control-Allow-Origin (default "*", env: THINKT_CORS_ORIGIN)
   -h, --help                 help for server
-      --json                 output as JSON
+      --no-indexer           don't auto-start the background indexer
 ```
 
 ### Options inherited from parent commands
@@ -47,6 +47,7 @@ thinkt server [flags]
 
 * [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
 * [thinkt server fingerprint](thinkt_server_fingerprint.md)	 - Display the machine fingerprint
+* [thinkt server http-logs](thinkt_server_http-logs.md)	 - View HTTP access logs
 * [thinkt server logs](thinkt_server_logs.md)	 - View server logs
 * [thinkt server mcp](thinkt_server_mcp.md)	 - Start MCP server for AI tool integration
 * [thinkt server run](thinkt_server_run.md)	 - Start server in foreground

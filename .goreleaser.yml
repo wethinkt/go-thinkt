@@ -118,7 +118,6 @@ homebrew_casks:
       - man/man1/thinkt-indexer-stop.1
       - man/man1/thinkt-indexer-sync.1
       - man/man1/thinkt-indexer-version.1
-      - man/man1/thinkt-indexer-watch.1
       - man/man1/thinkt-indexer.1
       - man/man1/thinkt-projects-copy.1
       - man/man1/thinkt-projects-list.1
@@ -132,6 +131,7 @@ homebrew_casks:
       - man/man1/thinkt-prompts-templates.1
       - man/man1/thinkt-prompts.1
       - man/man1/thinkt-server-fingerprint.1
+      - man/man1/thinkt-server-http-logs.1
       - man/man1/thinkt-server-logs.1
       - man/man1/thinkt-server-mcp.1
       - man/man1/thinkt-server-run.1

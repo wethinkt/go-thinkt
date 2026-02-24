@@ -18,6 +18,7 @@ thinkt server run [flags]
       --host string       server host (default "localhost")
       --http-log string   write HTTP access log to file (default: stdout, unless --quiet)
       --log string        write debug log to file
+      --no-auth           disable authentication (allow unauthenticated access)
       --no-open           don't auto-open browser
   -p, --port int          server port (default 8784)
   -q, --quiet             suppress HTTP request logging (errors still go to stderr)
@@ -28,6 +29,7 @@ thinkt server run [flags]
 
 ```
       --cors-origin string   CORS Access-Control-Allow-Origin (default "*", env: THINKT_CORS_ORIGIN)
+      --no-indexer           don't auto-start the background indexer
   -v, --verbose              verbose output
 ```
 

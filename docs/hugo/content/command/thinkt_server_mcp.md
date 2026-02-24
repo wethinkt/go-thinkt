@@ -37,7 +37,6 @@ thinkt server mcp [flags]
   -h, --help                  help for mcp
       --host string           host to bind MCP HTTP server (default "localhost")
       --log string            write debug log to file
-      --no-indexer            don't auto-start the background indexer
   -p, --port int              run MCP over HTTP on this port
       --stdio                 use stdio transport (default if no --port)
       --token string          bearer token for HTTP authentication (default: use THINKT_MCP_TOKEN env var)
@@ -47,6 +46,7 @@ thinkt server mcp [flags]
 
 ```
       --cors-origin string   CORS Access-Control-Allow-Origin (default "*", env: THINKT_CORS_ORIGIN)
+      --no-indexer           don't auto-start the background indexer
   -v, --verbose              verbose output
 ```
 
