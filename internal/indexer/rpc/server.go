@@ -19,6 +19,7 @@ type Handler interface {
 	HandleSemanticSearch(ctx context.Context, params SemanticSearchParams) (*Response, error)
 	HandleStats(ctx context.Context) (*Response, error)
 	HandleStatus(ctx context.Context) (*Response, error)
+	HandleConfigReload(ctx context.Context) (*Response, error)
 }
 
 // Server listens on a Unix domain socket and dispatches RPC requests to a Handler.
@@ -147,6 +148,9 @@ func (s *Server) handleConn(conn net.Conn) {
 
 	case "status":
 		resp, handlerErr = s.handler.HandleStatus(ctx)
+
+	case "config_reload":
+		resp, handlerErr = s.handler.HandleConfigReload(ctx)
 
 	default:
 		writeJSON(conn, Response{OK: false, Error: fmt.Sprintf("unknown method: %q", req.Method)})

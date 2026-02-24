@@ -111,6 +111,14 @@ func (w *Watcher) Stop() error {
 	return err
 }
 
+// SetEmbedder swaps the embedder used for future re-indexing.
+// Pass nil to disable embedding without stopping the watcher.
+func (w *Watcher) SetEmbedder(e *embedding.Embedder) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.embedder = e
+}
+
 func (w *Watcher) watchProject(p thinkt.Project) error {
 	// Get store and list sessions without lock (I/O operations)
 	store, ok := w.registry.Get(p.Source)

@@ -44,6 +44,10 @@ func (m *mockHandler) HandleStats(_ context.Context) (*Response, error) {
 	return &Response{OK: true, Data: json.RawMessage(`{"sessions":42}`)}, nil
 }
 
+func (m *mockHandler) HandleConfigReload(_ context.Context) (*Response, error) {
+	return &Response{OK: true, Data: json.RawMessage(`{"embedding_enabled":false}`)}, nil
+}
+
 func (m *mockHandler) HandleStatus(_ context.Context) (*Response, error) {
 	m.statusCalled = true
 	data, _ := json.Marshal(StatusData{

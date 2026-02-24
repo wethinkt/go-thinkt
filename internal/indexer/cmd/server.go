@@ -41,6 +41,7 @@ type indexerServer struct {
 	embDB     *db.DB // separate embeddings database
 	registry  *thinkt.StoreRegistry
 	embedder  *embedding.Embedder
+	watcher   *indexer.Watcher // file watcher (nil if disabled)
 	watching  bool
 	startedAt time.Time
 
@@ -56,6 +57,9 @@ type indexerServer struct {
 	syncDone    chan struct{} // closed when current sync finishes
 	syncResult  *rpc.Response
 	syncErr     error
+
+	// Config reload coordination
+	reloadMu sync.Mutex
 
 	// Status tracking
 	stateMu   sync.RWMutex
@@ -393,6 +397,89 @@ func (s *indexerServer) HandleStatus(ctx context.Context) (*rpc.Response, error)
 	return &rpc.Response{OK: true, Data: data}, nil
 }
 
+func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, error) {
+	s.reloadMu.Lock()
+	defer s.reloadMu.Unlock()
+
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	wasEnabled := s.embedder != nil
+	wantEnabled := cfg.Embedding.Enabled
+
+	if wantEnabled && !wasEnabled {
+		// Enable embedding
+		log.Printf("Config reload: enabling embedding")
+
+		if err := embedding.EnsureModel(func(downloaded, total int64) {
+			if total > 0 {
+				pct := float64(downloaded) / float64(total) * 100
+				log.Printf("Downloading model: %.1f%%", pct)
+			}
+		}); err != nil {
+			return nil, fmt.Errorf("failed to ensure embedding model: %w", err)
+		}
+
+		e, err := embedding.NewEmbedder("")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create embedder: %w", err)
+		}
+
+		// Open embeddings DB if not already open
+		if s.embDB == nil {
+			d, err := getEmbeddingsDB()
+			if err != nil {
+				e.Close()
+				return nil, fmt.Errorf("failed to open embeddings database: %w", err)
+			}
+			s.embDB = d
+		}
+
+		s.embedder = e
+		if s.watcher != nil {
+			s.watcher.SetEmbedder(e)
+		}
+		log.Printf("Embedder loaded: %s (dim=%d)", e.EmbedModelID(), e.Dim())
+
+		// Trigger a background sync to embed existing sessions
+		go func() {
+			log.Printf("Starting embedding sync after enable...")
+			resp, err := s.HandleSync(s.shutdownCtx, rpc.SyncParams{}, func(rpc.Progress) {})
+			if err != nil {
+				log.Printf("Post-enable sync error: %v", err)
+			} else if resp != nil && !resp.OK {
+				log.Printf("Post-enable sync failed: %s", resp.Error)
+			} else {
+				log.Printf("Post-enable sync complete")
+			}
+		}()
+
+		data, _ := json.Marshal(map[string]any{"embedding_enabled": true})
+		return &rpc.Response{OK: true, Data: data}, nil
+	}
+
+	if !wantEnabled && wasEnabled {
+		// Disable embedding
+		log.Printf("Config reload: disabling embedding")
+
+		old := s.embedder
+		s.embedder = nil
+		if s.watcher != nil {
+			s.watcher.SetEmbedder(nil)
+		}
+		old.Close()
+
+		data, _ := json.Marshal(map[string]any{"embedding_enabled": false})
+		return &rpc.Response{OK: true, Data: data}, nil
+	}
+
+	// No change
+	data, _ := json.Marshal(map[string]any{"embedding_enabled": wantEnabled})
+	return &rpc.Response{OK: true, Data: data}, nil
+}
+
 func runServer(cmdObj *cobra.Command, args []string) error {
 	// 0. Load config
 	cfg, err := config.Load()
@@ -429,15 +516,14 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create embedder: %w", err)
 		}
-		defer e.Close()
 		embedder = e
 		log.Printf("Embedder loaded: %s (dim=%d)", embedder.EmbedModelID(), embedder.Dim())
 
 		d, err := getEmbeddingsDB()
 		if err != nil {
+			embedder.Close()
 			return fmt.Errorf("failed to open embeddings database: %w", err)
 		}
-		defer d.Close()
 		embDatabase = d
 	} else {
 		log.Printf("Embedding disabled by config")
@@ -504,6 +590,7 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 				log.Printf("Warning: failed to start watcher: %v", err)
 			} else {
 				watcher = w
+				srv.watcher = w
 				srv.watching = true
 				log.Printf("File watcher started")
 			}
@@ -544,6 +631,14 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 
 	log.Printf("Stopping RPC server...")
 	// rpcServer.Stop() called by defer
+
+	// Close embedder and embeddings DB (lifecycle managed by server, not defer)
+	if srv.embedder != nil {
+		srv.embedder.Close()
+	}
+	if srv.embDB != nil {
+		srv.embDB.Close()
+	}
 
 	log.Printf("Server stopped")
 	return nil

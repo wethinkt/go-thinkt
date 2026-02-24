@@ -235,7 +235,7 @@ var semanticEnableCmd = &cobra.Command{
 			return fmt.Errorf("failed to save config: %w", err)
 		}
 		fmt.Println("Semantic search enabled.")
-		fmt.Println("Run 'thinkt-indexer sync' to generate embeddings.")
+		notifyServerConfigReload()
 		return nil
 	},
 }
@@ -258,8 +258,21 @@ var semanticDisableCmd = &cobra.Command{
 			return fmt.Errorf("failed to save config: %w", err)
 		}
 		fmt.Println("Semantic search disabled.")
+		notifyServerConfigReload()
 		return nil
 	},
+}
+
+// notifyServerConfigReload tells a running indexer server to reload its config.
+func notifyServerConfigReload() {
+	if rpc.ServerAvailable() {
+		resp, err := rpc.Call("config_reload", nil, nil)
+		if err != nil {
+			fmt.Printf("Warning: failed to notify server: %v\n", err)
+		} else if resp != nil && resp.OK {
+			fmt.Println("Server notified.")
+		}
+	}
 }
 
 func init() {

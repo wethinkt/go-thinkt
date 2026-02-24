@@ -104,7 +104,7 @@ func Default() Config {
 		Theme:       "dark",
 		AllowedApps: DefaultApps(),
 		Embedding: EmbeddingConfig{
-			Enabled: true,
+			Enabled: false,
 			Model:   "qwen3-embedding-0.6b",
 		},
 		Indexer: IndexerConfig{
