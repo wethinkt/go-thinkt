@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/wethinkt/go-thinkt/internal/agents"
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/collect"
 	"github.com/wethinkt/go-thinkt/internal/config"
@@ -107,12 +108,16 @@ const (
 // resumeFinishedMsg is sent when a resumed CLI process exits and the TUI resumes.
 type resumeFinishedMsg struct{}
 
+// OpenAgentsPageMsg signals the shell to push the agents page.
+type OpenAgentsPageMsg struct{}
+
 // Shell is the main TUI container with navigation
 type Shell struct {
 	width       int
 	height      int
 	stack       *NavStack
 	registry    *thinkt.StoreRegistry
+	hub         *agents.AgentHub
 	loading     bool
 	initialPage InitialPage
 	preloaded   bool
@@ -253,6 +258,12 @@ func (s *Shell) renderHeader() string {
 
 		case SearchPickerModel:
 			left = nameStyle.Render(current.Title)
+
+		case AgentsPageModel:
+			left = actionStyle.Render("Agents")
+
+		case AgentTailModel:
+			left = nameStyle.Render("Agents") + sep + nameStyle.Render(current.Title)
 
 		default:
 			left = nameStyle.Render(current.Title)
@@ -448,6 +459,50 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ExporterPageResult:
 		tuilog.Log.Info("Shell.Update: ExporterPageResult received", "cancelled", msg.Cancelled)
+		s.stack.Pop()
+		if s.stack.IsEmpty() {
+			return s, tea.Quit
+		}
+		if s.width > 0 && s.height > 0 {
+			cmds = append(cmds, func() tea.Msg {
+				return tea.WindowSizeMsg{Width: s.width, Height: s.height}
+			})
+		}
+		return s, tea.Batch(cmds...)
+
+	case OpenAgentsPageMsg:
+		tuilog.Log.Info("Shell.Update: OpenAgentsPageMsg received")
+		cmd, ok := s.PushAgentsPage()
+		if ok {
+			cmds = append(cmds, cmd)
+		}
+		return s, tea.Batch(cmds...)
+
+	case AgentsPageResult:
+		tuilog.Log.Info("Shell.Update: AgentsPageResult received", "cancelled", msg.Cancelled)
+		if msg.Cancelled {
+			s.stack.Pop()
+			if s.stack.IsEmpty() {
+				return s, tea.Quit
+			}
+			if s.hasWindowSize() {
+				cmds = append(cmds, s.windowSizeCmd())
+			}
+			return s, tea.Batch(cmds...)
+		}
+		if msg.Selected != nil {
+			tuilog.Log.Info("Shell.Update: agent selected for tailing", "sessionID", msg.Selected.SessionID)
+			tail := NewAgentTailModel(s.hub, *msg.Selected)
+			cmd := s.stack.Push(NavItem{
+				Title: "Agent Tail",
+				Model: tail,
+			}, s.width, s.height)
+			cmds = append(cmds, cmd)
+		}
+		return s, tea.Batch(cmds...)
+
+	case AgentTailResult:
+		tuilog.Log.Info("Shell.Update: AgentTailResult received", "cancelled", msg.Cancelled)
 		s.stack.Pop()
 		if s.stack.IsEmpty() {
 			return s, tea.Quit
@@ -679,6 +734,40 @@ func (s *Shell) PushCollectorPage() (tea.Cmd, bool) {
 		}
 	}
 	return nil, false
+}
+
+// PushAgentsPage pushes the agents list page onto the shell's nav stack.
+// It lazily initializes the hub if needed.
+func (s *Shell) PushAgentsPage() (tea.Cmd, bool) {
+	if s.hub == nil {
+		detector := thinkt.NewActiveSessionDetector(s.registry)
+
+		var collectorURLs []string
+		instances, err := config.ListInstances()
+		if err == nil {
+			for _, inst := range instances {
+				if inst.Type == collect.InstanceCollector {
+					host := inst.Host
+					if host == "" {
+						host = "localhost"
+					}
+					collectorURLs = append(collectorURLs, fmt.Sprintf("http://%s:%d", host, inst.Port))
+				}
+			}
+		}
+
+		s.hub = agents.NewHub(agents.HubConfig{
+			Detector:      detector,
+			CollectorURLs: collectorURLs,
+		})
+	}
+
+	page := NewAgentsPageModel(s.hub)
+	cmd := s.stack.Push(NavItem{
+		Title: "Agents",
+		Model: page,
+	}, s.width, s.height)
+	return cmd, true
 }
 
 func loadSourcesCmd(registry *thinkt.StoreRegistry) tea.Cmd {

@@ -369,6 +369,7 @@ type projectPickerKeyMap struct {
 	Toggle     key.Binding
 	TreeToggle key.Binding
 	Search     key.Binding // / key for search
+	Agents     key.Binding // a key for agents
 }
 
 func defaultProjectPickerKeyMap() projectPickerKeyMap {
@@ -424,6 +425,10 @@ func defaultProjectPickerKeyMap() projectPickerKeyMap {
 		Search: key.NewBinding(
 			key.WithKeys("/"),
 			key.WithHelp("/", thinktI18n.T("tui.help.search", "search")),
+		),
+		Agents: key.NewBinding(
+			key.WithKeys("a"),
+			key.WithHelp("a", "agents"),
 		),
 	}
 }
@@ -805,6 +810,10 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			tuilog.Log.Info("ProjectPicker.Update: Search key pressed")
 			// Signal the shell to open search
 			return m, func() tea.Msg { return OpenSearchMsg{} }
+
+		case key.Matches(msg, keys.Agents):
+			tuilog.Log.Info("ProjectPicker.Update: Agents key pressed")
+			return m, func() tea.Msg { return OpenAgentsPageMsg{} }
 
 		case m.treeView && key.Matches(msg, keys.Toggle):
 			// Toggle expand/collapse on directory nodes
