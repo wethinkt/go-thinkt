@@ -64,33 +64,29 @@ func (s *Store) Workspace() thinkt.Workspace {
 // ListProjects returns all Claude projects. Results are cached after the
 // first call. Use ResetCache to force a rescan.
 func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
-	if cached, err, ok := s.cache.GetProjects(); ok {
-		return cached, err
-	}
-
-	projects, err := ListProjects(s.baseDir)
-	if err != nil {
-		s.cache.SetProjects(nil, err)
-		return nil, err
-	}
-
-	ws := s.Workspace()
-	result := make([]thinkt.Project, len(projects))
-	for i, p := range projects {
-		result[i] = thinkt.Project{
-			ID:             p.DirPath,
-			Name:           p.DisplayName,
-			Path:           p.FullPath,
-			DisplayPath:    p.FullPath,
-			SessionCount:   p.SessionCount,
-			LastModified:   p.LastModified,
-			Source:         thinkt.SourceClaude,
-			WorkspaceID:    ws.ID,
-			SourceBasePath: ws.BasePath,
+	return s.cache.LoadProjects(func() ([]thinkt.Project, error) {
+		projects, err := ListProjects(s.baseDir)
+		if err != nil {
+			return nil, err
 		}
-	}
-	s.cache.SetProjects(result, nil)
-	return result, nil
+
+		ws := s.Workspace()
+		result := make([]thinkt.Project, len(projects))
+		for i, p := range projects {
+			result[i] = thinkt.Project{
+				ID:             p.DirPath,
+				Name:           p.DisplayName,
+				Path:           p.FullPath,
+				DisplayPath:    p.FullPath,
+				SessionCount:   p.SessionCount,
+				LastModified:   p.LastModified,
+				Source:         thinkt.SourceClaude,
+				WorkspaceID:    ws.ID,
+				SourceBasePath: ws.BasePath,
+			}
+		}
+		return result, nil
+	})
 }
 
 // ResetCache clears all cached data, forcing the next calls to rescan.
@@ -115,38 +111,34 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 // ListSessions returns sessions for a project. Results are cached per
 // project after the first call.
 func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
-	if cached, err, ok := s.cache.GetSessions(projectID); ok {
-		return cached, err
-	}
-
-	sessions, err := ListProjectSessionsBackfill(projectID)
-	if err != nil {
-		s.cache.SetSessions(projectID, nil, err)
-		return nil, err
-	}
-
-	ws := s.Workspace()
-	result := make([]thinkt.SessionMeta, len(sessions))
-	for i, sess := range sessions {
-		result[i] = thinkt.SessionMeta{
-			ID:          sess.SessionID,
-			ProjectPath: projectID,
-			FullPath:    sess.FullPath,
-			FirstPrompt: sess.FirstPrompt,
-			Summary:     sess.Summary,
-			Model:       sess.Model,
-			EntryCount:  sess.MessageCount,
-			FileSize:    sess.FileSize,
-			CreatedAt:   sess.Created,
-			ModifiedAt:  sess.Modified,
-			GitBranch:   sess.GitBranch,
-			Source:      thinkt.SourceClaude,
-			WorkspaceID: ws.ID,
-			ChunkCount:  1, // Claude sessions are not chunked
+	return s.cache.LoadSessions(projectID, func() ([]thinkt.SessionMeta, error) {
+		sessions, err := ListProjectSessionsBackfill(projectID)
+		if err != nil {
+			return nil, err
 		}
-	}
-	s.cache.SetSessions(projectID, result, nil)
-	return result, nil
+
+		ws := s.Workspace()
+		result := make([]thinkt.SessionMeta, len(sessions))
+		for i, sess := range sessions {
+			result[i] = thinkt.SessionMeta{
+				ID:          sess.SessionID,
+				ProjectPath: projectID,
+				FullPath:    sess.FullPath,
+				FirstPrompt: sess.FirstPrompt,
+				Summary:     sess.Summary,
+				Model:       sess.Model,
+				EntryCount:  sess.MessageCount,
+				FileSize:    sess.FileSize,
+				CreatedAt:   sess.Created,
+				ModifiedAt:  sess.Modified,
+				GitBranch:   sess.GitBranch,
+				Source:      thinkt.SourceClaude,
+				WorkspaceID: ws.ID,
+				ChunkCount:  1, // Claude sessions are not chunked
+			}
+		}
+		return result, nil
+	})
 }
 
 // GetSessionMeta returns session metadata.

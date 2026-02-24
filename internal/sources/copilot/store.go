@@ -54,57 +54,53 @@ func (s *Store) Workspace() thinkt.Workspace {
 // ListProjects returns all Copilot projects (derived from sessions). Results
 // are cached after the first call. Use ResetCache to force a rescan.
 func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
-	if cached, err, ok := s.cache.GetProjects(); ok {
-		return cached, err
-	}
-
-	sessions, err := s.scanSessions()
-	if err != nil {
-		s.cache.SetProjects(nil, err)
-		return nil, err
-	}
-
-	projectsMap := make(map[string]*thinkt.Project)
-	ws := s.Workspace()
-
-	for _, sess := range sessions {
-		path := sess.ProjectPath
-		if path == "" {
-			path = "unknown"
+	return s.cache.LoadProjects(func() ([]thinkt.Project, error) {
+		sessions, err := s.scanSessions()
+		if err != nil {
+			return nil, err
 		}
 
-		if _, exists := projectsMap[path]; !exists {
-			projectsMap[path] = &thinkt.Project{
-				ID:             path, // Use path as ID
-				Name:           filepath.Base(path),
-				Path:           path,
-				DisplayPath:    path,
-				Source:         thinkt.SourceCopilot,
-				WorkspaceID:    ws.ID,
-				SourceBasePath: ws.BasePath,
-				LastModified:   sess.ModifiedAt,
+		projectsMap := make(map[string]*thinkt.Project)
+		ws := s.Workspace()
+
+		for _, sess := range sessions {
+			path := sess.ProjectPath
+			if path == "" {
+				path = "unknown"
+			}
+
+			if _, exists := projectsMap[path]; !exists {
+				projectsMap[path] = &thinkt.Project{
+					ID:             path, // Use path as ID
+					Name:           filepath.Base(path),
+					Path:           path,
+					DisplayPath:    path,
+					Source:         thinkt.SourceCopilot,
+					WorkspaceID:    ws.ID,
+					SourceBasePath: ws.BasePath,
+					LastModified:   sess.ModifiedAt,
+				}
+			}
+
+			p := projectsMap[path]
+			p.SessionCount++
+			if sess.ModifiedAt.After(p.LastModified) {
+				p.LastModified = sess.ModifiedAt
 			}
 		}
 
-		p := projectsMap[path]
-		p.SessionCount++
-		if sess.ModifiedAt.After(p.LastModified) {
-			p.LastModified = sess.ModifiedAt
+		var projects []thinkt.Project
+		for _, p := range projectsMap {
+			projects = append(projects, *p)
 		}
-	}
 
-	var projects []thinkt.Project
-	for _, p := range projectsMap {
-		projects = append(projects, *p)
-	}
+		// Sort by last modified desc
+		sort.Slice(projects, func(i, j int) bool {
+			return projects[i].LastModified.After(projects[j].LastModified)
+		})
 
-	// Sort by last modified desc
-	sort.Slice(projects, func(i, j int) bool {
-		return projects[i].LastModified.After(projects[j].LastModified)
+		return projects, nil
 	})
-
-	s.cache.SetProjects(projects, nil)
-	return projects, nil
 }
 
 // ResetCache clears all cached data, forcing the next calls to rescan.
@@ -126,31 +122,27 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 
 // ListSessions returns sessions for a project.
 func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
-	if cached, err, ok := s.cache.GetSessions(projectID); ok {
-		return cached, err
-	}
-
-	allSessions, err := s.scanSessions()
-	if err != nil {
-		s.cache.SetSessions(projectID, nil, err)
-		return nil, err
-	}
-
-	var sessions []thinkt.SessionMeta
-	for _, sess := range allSessions {
-		// If projectID matches the session's project path
-		if sess.ProjectPath == projectID {
-			sessions = append(sessions, sess)
+	return s.cache.LoadSessions(projectID, func() ([]thinkt.SessionMeta, error) {
+		allSessions, err := s.scanSessions()
+		if err != nil {
+			return nil, err
 		}
-	}
 
-	// Sort by created desc
-	sort.Slice(sessions, func(i, j int) bool {
-		return sessions[i].CreatedAt.After(sessions[j].CreatedAt)
+		var sessions []thinkt.SessionMeta
+		for _, sess := range allSessions {
+			// If projectID matches the session's project path
+			if sess.ProjectPath == projectID {
+				sessions = append(sessions, sess)
+			}
+		}
+
+		// Sort by created desc
+		sort.Slice(sessions, func(i, j int) bool {
+			return sessions[i].CreatedAt.After(sessions[j].CreatedAt)
+		})
+
+		return sessions, nil
 	})
-
-	s.cache.SetSessions(projectID, sessions, nil)
-	return sessions, nil
 }
 
 // GetSessionMeta returns session metadata.

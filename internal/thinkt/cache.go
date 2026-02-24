@@ -3,6 +3,8 @@ package thinkt
 import (
 	"sync"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 )
 
 // StoreCache provides project and session caching for Store implementations.
@@ -23,6 +25,8 @@ type StoreCache struct {
 	mu   sync.RWMutex
 	name string // identifies this cache in log messages
 	ttl  time.Duration
+
+	flights singleflight.Group
 
 	projectsCached   bool
 	projectsCachedAt time.Time
@@ -52,6 +56,33 @@ func (c *StoreCache) SetName(name string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.name = name
+}
+
+// LoadProjects returns cached projects if available, otherwise executes loader.
+// Concurrent cache misses are deduplicated so only one loader runs at a time.
+func (c *StoreCache) LoadProjects(loader func() ([]Project, error)) ([]Project, error) {
+	if cached, err, ok := c.GetProjects(); ok {
+		return cached, err
+	}
+
+	_, err, _ := c.flights.Do("projects", func() (any, error) {
+		// Another goroutine may have filled cache while this call was waiting.
+		if cached, err, ok := c.GetProjects(); ok {
+			return cached, err
+		}
+		projects, loadErr := loader()
+		c.SetProjects(projects, loadErr)
+		return nil, loadErr
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	cached, cachedErr, ok := c.GetProjects()
+	if ok {
+		return cached, cachedErr
+	}
+	return nil, nil
 }
 
 // GetProjects returns the cached project list and whether it was cached.
@@ -84,6 +115,34 @@ func (c *StoreCache) SetProjects(projects []Project, err error) {
 	c.projectsCachedAt = time.Now()
 	c.projects = copyProjects(projects)
 	c.projectsErr = err
+}
+
+// LoadSessions returns cached sessions if available, otherwise executes loader.
+// Concurrent cache misses for the same projectID are deduplicated.
+func (c *StoreCache) LoadSessions(projectID string, loader func() ([]SessionMeta, error)) ([]SessionMeta, error) {
+	if cached, err, ok := c.GetSessions(projectID); ok {
+		return cached, err
+	}
+
+	key := "sessions:" + projectID
+	_, err, _ := c.flights.Do(key, func() (any, error) {
+		// Another goroutine may have filled cache while this call was waiting.
+		if cached, err, ok := c.GetSessions(projectID); ok {
+			return cached, err
+		}
+		sessions, loadErr := loader()
+		c.SetSessions(projectID, sessions, loadErr)
+		return nil, loadErr
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	cached, cachedErr, ok := c.GetSessions(projectID)
+	if ok {
+		return cached, cachedErr
+	}
+	return nil, nil
 }
 
 // GetSessions returns the cached session list for a project and whether it was cached.

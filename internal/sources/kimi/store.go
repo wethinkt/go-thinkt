@@ -75,49 +75,44 @@ func workDirHash(path string) string {
 // ListProjects returns all Kimi projects. Results are cached after the
 // first call. Use ResetCache to force a rescan.
 func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
-	if cached, err, ok := s.cache.GetProjects(); ok {
-		return cached, err
-	}
+	return s.cache.LoadProjects(func() ([]thinkt.Project, error) {
+		sessionsDir := filepath.Join(s.baseDir, "sessions")
 
-	sessionsDir := filepath.Join(s.baseDir, "sessions")
-
-	// Read kimi.json for work directory mapping
-	workDirs, err := s.loadWorkDirs()
-	if err != nil {
-		// Fallback: scan sessions directory
-		result, scanErr := s.scanProjects(sessionsDir)
-		s.cache.SetProjects(result, scanErr)
-		return result, scanErr
-	}
-
-	ws := s.Workspace()
-	projects := make([]thinkt.Project, 0, len(workDirs))
-	for _, wd := range workDirs {
-		hash := workDirHash(wd.Path)
-		sessionDir := filepath.Join(sessionsDir, hash)
-
-		info, err := os.Stat(sessionDir)
+		// Read kimi.json for work directory mapping
+		workDirs, err := s.loadWorkDirs()
 		if err != nil {
-			continue
+			// Fallback: scan sessions directory
+			return s.scanProjects(sessionsDir)
 		}
 
-		sessions, _ := s.listSessionsForHash(hash)
+		ws := s.Workspace()
+		projects := make([]thinkt.Project, 0, len(workDirs))
+		for _, wd := range workDirs {
+			hash := workDirHash(wd.Path)
+			sessionDir := filepath.Join(sessionsDir, hash)
 
-		projects = append(projects, thinkt.Project{
-			ID:             wd.Path,
-			Name:           filepath.Base(wd.Path),
-			Path:           wd.Path,
-			DisplayPath:    wd.Path,
-			SessionCount:   len(sessions),
-			LastModified:   info.ModTime(),
-			Source:         thinkt.SourceKimi,
-			WorkspaceID:    ws.ID,
-			SourceBasePath: ws.BasePath,
-		})
-	}
+			info, err := os.Stat(sessionDir)
+			if err != nil {
+				continue
+			}
 
-	s.cache.SetProjects(projects, nil)
-	return projects, nil
+			sessions, _ := s.listSessionsForHash(hash)
+
+			projects = append(projects, thinkt.Project{
+				ID:             wd.Path,
+				Name:           filepath.Base(wd.Path),
+				Path:           wd.Path,
+				DisplayPath:    wd.Path,
+				SessionCount:   len(sessions),
+				LastModified:   info.ModTime(),
+				Source:         thinkt.SourceKimi,
+				WorkspaceID:    ws.ID,
+				SourceBasePath: ws.BasePath,
+			})
+		}
+
+		return projects, nil
+	})
 }
 
 // ResetCache clears all cached data, forcing the next calls to rescan.
@@ -152,13 +147,10 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 
 // ListSessions returns sessions for a project.
 func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
-	if cached, err, ok := s.cache.GetSessions(projectID); ok {
-		return cached, err
-	}
-	hash := workDirHash(projectID)
-	result, err := s.listSessionsForHash(hash)
-	s.cache.SetSessions(projectID, result, err)
-	return result, err
+	return s.cache.LoadSessions(projectID, func() ([]thinkt.SessionMeta, error) {
+		hash := workDirHash(projectID)
+		return s.listSessionsForHash(hash)
+	})
 }
 
 func (s *Store) listSessionsForHash(hash string) ([]thinkt.SessionMeta, error) {

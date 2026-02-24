@@ -63,94 +63,89 @@ func (s *Store) Workspace() thinkt.Workspace {
 
 // ListProjects returns all Gemini projects.
 func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
-	if cached, err, ok := s.cache.GetProjects(); ok {
-		return cached, err
-	}
-
-	tmpDir := filepath.Join(s.baseDir, "tmp")
-	entries, err := os.ReadDir(tmpDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			s.cache.SetProjects(nil, nil)
-			return nil, nil
-		}
-		s.cache.SetProjects(nil, err)
-		return nil, err
-	}
-
-	var projects []thinkt.Project
-	ws := s.Workspace()
-
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		projectHash := entry.Name()
-		projectPath := filepath.Join(tmpDir, projectHash)
-		chatsDir := filepath.Join(projectPath, "chats")
-
-		// Check if chats directory exists
-		if _, err := os.Stat(chatsDir); os.IsNotExist(err) {
-			continue
-		}
-
-		// Try to find a human-readable name from logs.json
-		projectName := projectHash
-		logsPath := filepath.Join(projectPath, "logs.json")
-		if data, err := os.ReadFile(logsPath); err == nil {
-			var logs []struct {
-				Message string `json:"message"`
-				Type    string `json:"type"`
+	return s.cache.LoadProjects(func() ([]thinkt.Project, error) {
+		tmpDir := filepath.Join(s.baseDir, "tmp")
+		entries, err := os.ReadDir(tmpDir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil, nil
 			}
-			if err := json.Unmarshal(data, &logs); err == nil {
-				// Find first user message to use as a name hint
-				for _, l := range logs {
-					if l.Type == "user" && l.Message != "" {
-						projectName = l.Message
-						if len(projectName) > 40 {
-							projectName = projectName[:37] + "..."
+			return nil, err
+		}
+
+		var projects []thinkt.Project
+		ws := s.Workspace()
+
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+
+			projectHash := entry.Name()
+			projectPath := filepath.Join(tmpDir, projectHash)
+			chatsDir := filepath.Join(projectPath, "chats")
+
+			// Check if chats directory exists
+			if _, err := os.Stat(chatsDir); os.IsNotExist(err) {
+				continue
+			}
+
+			// Try to find a human-readable name from logs.json
+			projectName := projectHash
+			logsPath := filepath.Join(projectPath, "logs.json")
+			if data, err := os.ReadFile(logsPath); err == nil {
+				var logs []struct {
+					Message string `json:"message"`
+					Type    string `json:"type"`
+				}
+				if err := json.Unmarshal(data, &logs); err == nil {
+					// Find first user message to use as a name hint
+					for _, l := range logs {
+						if l.Type == "user" && l.Message != "" {
+							projectName = l.Message
+							if len(projectName) > 40 {
+								projectName = projectName[:37] + "..."
+							}
+							break
 						}
-						break
 					}
 				}
 			}
-		}
 
-		// Count sessions and get last modified
-		sessions, _ := os.ReadDir(chatsDir)
-		sessionCount := 0
-		var lastMod time.Time
+			// Count sessions and get last modified
+			sessions, _ := os.ReadDir(chatsDir)
+			sessionCount := 0
+			var lastMod time.Time
 
-		for _, sess := range sessions {
-			if strings.HasSuffix(sess.Name(), ".json") {
-				sessionCount++
-				if info, err := sess.Info(); err == nil {
-					if info.ModTime().After(lastMod) {
-						lastMod = info.ModTime()
+			for _, sess := range sessions {
+				if strings.HasSuffix(sess.Name(), ".json") {
+					sessionCount++
+					if info, err := sess.Info(); err == nil {
+						if info.ModTime().After(lastMod) {
+							lastMod = info.ModTime()
+						}
 					}
 				}
 			}
+
+			if sessionCount > 0 {
+				projects = append(projects, thinkt.Project{
+					ID:             projectHash,
+					Name:           projectName,
+					Path:           projectPath,
+					DisplayPath:    "gemini://" + projectHash[:8],
+					SessionCount:   sessionCount,
+					LastModified:   lastMod,
+					Source:         thinkt.SourceGemini,
+					WorkspaceID:    ws.ID,
+					SourceBasePath: ws.BasePath,
+					PathExists:     true,
+				})
+			}
 		}
 
-		if sessionCount > 0 {
-			projects = append(projects, thinkt.Project{
-				ID:             projectHash,
-				Name:           projectName,
-				Path:           projectPath,
-				DisplayPath:    "gemini://" + projectHash[:8],
-				SessionCount:   sessionCount,
-				LastModified:   lastMod,
-				Source:         thinkt.SourceGemini,
-				WorkspaceID:    ws.ID,
-				SourceBasePath: ws.BasePath,
-				PathExists:     true,
-			})
-		}
-	}
-
-	s.cache.SetProjects(projects, nil)
-	return projects, nil
+		return projects, nil
+	})
 }
 
 // ResetCache clears all cached data.
@@ -173,43 +168,40 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 
 // ListSessions returns sessions for a project.
 func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
-	if cached, err, ok := s.cache.GetSessions(projectID); ok {
-		return cached, err
-	}
-
-	chatsDir := filepath.Join(s.baseDir, "tmp", projectID, "chats")
-	entries, err := os.ReadDir(chatsDir)
-	if err != nil {
-		return nil, err
-	}
-
-	var sessions []thinkt.SessionMeta
-	ws := s.Workspace()
-
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".json") {
-			fullPath := filepath.Join(chatsDir, entry.Name())
-			info, err := entry.Info()
-			if err != nil {
-				continue
-			}
-
-			// Partial read to get metadata efficiently
-			meta, err := s.readSessionMeta(fullPath, projectID, info.Size(), info.ModTime(), ws.ID)
-			if err != nil {
-				tuilog.Log.Error("failed to read gemini session meta", "path", fullPath, "error", err)
-				continue
-			}
-			sessions = append(sessions, *meta)
+	return s.cache.LoadSessions(projectID, func() ([]thinkt.SessionMeta, error) {
+		chatsDir := filepath.Join(s.baseDir, "tmp", projectID, "chats")
+		entries, err := os.ReadDir(chatsDir)
+		if err != nil {
+			return nil, err
 		}
-	}
 
-	sort.Slice(sessions, func(i, j int) bool {
-		return sessions[i].ModifiedAt.After(sessions[j].ModifiedAt)
+		var sessions []thinkt.SessionMeta
+		ws := s.Workspace()
+
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".json") {
+				fullPath := filepath.Join(chatsDir, entry.Name())
+				info, err := entry.Info()
+				if err != nil {
+					continue
+				}
+
+				// Partial read to get metadata efficiently
+				meta, err := s.readSessionMeta(fullPath, projectID, info.Size(), info.ModTime(), ws.ID)
+				if err != nil {
+					tuilog.Log.Error("failed to read gemini session meta", "path", fullPath, "error", err)
+					continue
+				}
+				sessions = append(sessions, *meta)
+			}
+		}
+
+		sort.Slice(sessions, func(i, j int) bool {
+			return sessions[i].ModifiedAt.After(sessions[j].ModifiedAt)
+		})
+
+		return sessions, nil
 	})
-
-	s.cache.SetSessions(projectID, sessions, nil)
-	return sessions, nil
 }
 
 func (s *Store) readSessionMeta(path, projectID string, size int64, modTime time.Time, wsID string) (*thinkt.SessionMeta, error) {

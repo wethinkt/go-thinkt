@@ -65,80 +65,75 @@ func (s *Store) Workspace() thinkt.Workspace {
 // ListProjects returns all Qwen projects.
 // Projects are organized by working directory under ~/.qwen/projects/
 func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
-	if cached, err, ok := s.cache.GetProjects(); ok {
-		return cached, err
-	}
-
-	projectsDir := filepath.Join(s.baseDir, "projects")
-	entries, err := os.ReadDir(projectsDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			s.cache.SetProjects([]thinkt.Project{}, nil)
-			return []thinkt.Project{}, nil
-		}
-		s.cache.SetProjects(nil, err)
-		return nil, err
-	}
-
-	ws := s.Workspace()
-	var projects []thinkt.Project
-
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
+	return s.cache.LoadProjects(func() ([]thinkt.Project, error) {
+		projectsDir := filepath.Join(s.baseDir, "projects")
+		entries, err := os.ReadDir(projectsDir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return []thinkt.Project{}, nil
+			}
+			return nil, err
 		}
 
-		projectHash := entry.Name()
-		projectPath := filepath.Join(projectsDir, projectHash)
-		chatsDir := filepath.Join(projectPath, "chats")
+		ws := s.Workspace()
+		var projects []thinkt.Project
 
-		// Check if chats directory exists
-		if _, err := os.Stat(chatsDir); os.IsNotExist(err) {
-			continue
-		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
 
-		// Try to get a human-readable name from debug logs
-		projectName := s.extractProjectName(projectHash)
-		if projectName == "" {
-			projectName = projectHash
-		}
+			projectHash := entry.Name()
+			projectPath := filepath.Join(projectsDir, projectHash)
+			chatsDir := filepath.Join(projectPath, "chats")
 
-		// Count sessions and get last modified
-		sessions, _ := s.listSessionsForProject(projectHash)
-		sessionCount := len(sessions)
+			// Check if chats directory exists
+			if _, err := os.Stat(chatsDir); os.IsNotExist(err) {
+				continue
+			}
 
-		var lastMod time.Time
-		for _, sess := range sessions {
-			if sess.ModifiedAt.After(lastMod) {
-				lastMod = sess.ModifiedAt
+			// Try to get a human-readable name from debug logs
+			projectName := s.extractProjectName(projectHash)
+			if projectName == "" {
+				projectName = projectHash
+			}
+
+			// Count sessions and get last modified
+			sessions, _ := s.listSessionsForProject(projectHash)
+			sessionCount := len(sessions)
+
+			var lastMod time.Time
+			for _, sess := range sessions {
+				if sess.ModifiedAt.After(lastMod) {
+					lastMod = sess.ModifiedAt
+				}
+			}
+
+			if sessionCount > 0 {
+				// Decode the project hash back to original path if possible
+				displayPath := s.decodeProjectPath(projectHash)
+				if displayPath == "" {
+					// Show hash with qwen:// prefix for unknown encoding
+					displayPath = "qwen://" + projectHash[:min(8, len(projectHash))]
+				}
+
+				projects = append(projects, thinkt.Project{
+					ID:             projectHash,
+					Name:           projectName,
+					Path:           displayPath,
+					DisplayPath:    displayPath,
+					SessionCount:   sessionCount,
+					LastModified:   lastMod,
+					Source:         thinkt.SourceQwen,
+					WorkspaceID:    ws.ID,
+					SourceBasePath: ws.BasePath,
+					PathExists:     true,
+				})
 			}
 		}
 
-		if sessionCount > 0 {
-			// Decode the project hash back to original path if possible
-			displayPath := s.decodeProjectPath(projectHash)
-			if displayPath == "" {
-				// Show hash with qwen:// prefix for unknown encoding
-				displayPath = "qwen://" + projectHash[:min(8, len(projectHash))]
-			}
-
-			projects = append(projects, thinkt.Project{
-				ID:             projectHash,
-				Name:           projectName,
-				Path:           displayPath,
-				DisplayPath:    displayPath,
-				SessionCount:   sessionCount,
-				LastModified:   lastMod,
-				Source:         thinkt.SourceQwen,
-				WorkspaceID:    ws.ID,
-				SourceBasePath: ws.BasePath,
-				PathExists:     true,
-			})
-		}
-	}
-
-	s.cache.SetProjects(projects, nil)
-	return projects, nil
+		return projects, nil
+	})
 }
 
 // extractProjectName tries to get a human-readable project name from debug logs
@@ -212,18 +207,9 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 
 // ListSessions returns sessions for a project.
 func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
-	if cached, err, ok := s.cache.GetSessions(projectID); ok {
-		return cached, err
-	}
-
-	sessions, err := s.listSessionsForProject(projectID)
-	if err != nil {
-		s.cache.SetSessions(projectID, nil, err)
-		return nil, err
-	}
-
-	s.cache.SetSessions(projectID, sessions, nil)
-	return sessions, nil
+	return s.cache.LoadSessions(projectID, func() ([]thinkt.SessionMeta, error) {
+		return s.listSessionsForProject(projectID)
+	})
 }
 
 func (s *Store) listSessionsForProject(projectHash string) ([]thinkt.SessionMeta, error) {

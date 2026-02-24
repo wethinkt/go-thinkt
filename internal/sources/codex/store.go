@@ -58,67 +58,63 @@ func (s *Store) ResetCache() {
 
 // ListProjects returns all Codex projects inferred from session metadata.
 func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
-	if cached, err, ok := s.cache.GetProjects(); ok {
-		return cached, err
-	}
-
-	sessions, err := s.scanSessions()
-	if err != nil {
-		s.cache.SetProjects(nil, err)
-		return nil, err
-	}
-
-	ws := s.Workspace()
-	projectsMap := make(map[string]*thinkt.Project)
-	for _, sess := range sessions {
-		projectPath := sess.ProjectPath
-		if projectPath == "" {
-			projectPath = "unknown"
+	return s.cache.LoadProjects(func() ([]thinkt.Project, error) {
+		sessions, err := s.scanSessions()
+		if err != nil {
+			return nil, err
 		}
 
-		p := projectsMap[projectPath]
-		if p == nil {
-			name := filepath.Base(projectPath)
-			if projectPath == "unknown" || name == "" || name == "." || name == "/" {
-				name = "unknown"
+		ws := s.Workspace()
+		projectsMap := make(map[string]*thinkt.Project)
+		for _, sess := range sessions {
+			projectPath := sess.ProjectPath
+			if projectPath == "" {
+				projectPath = "unknown"
 			}
 
-			pathExists := false
-			if projectPath != "unknown" {
-				if info, err := os.Stat(projectPath); err == nil && info.IsDir() {
-					pathExists = true
+			p := projectsMap[projectPath]
+			if p == nil {
+				name := filepath.Base(projectPath)
+				if projectPath == "unknown" || name == "" || name == "." || name == "/" {
+					name = "unknown"
 				}
+
+				pathExists := false
+				if projectPath != "unknown" {
+					if info, err := os.Stat(projectPath); err == nil && info.IsDir() {
+						pathExists = true
+					}
+				}
+
+				p = &thinkt.Project{
+					ID:             projectPath,
+					Name:           name,
+					Path:           projectPath,
+					DisplayPath:    projectPath,
+					Source:         thinkt.SourceCodex,
+					WorkspaceID:    ws.ID,
+					SourceBasePath: ws.BasePath,
+					PathExists:     pathExists,
+				}
+				projectsMap[projectPath] = p
 			}
 
-			p = &thinkt.Project{
-				ID:             projectPath,
-				Name:           name,
-				Path:           projectPath,
-				DisplayPath:    projectPath,
-				Source:         thinkt.SourceCodex,
-				WorkspaceID:    ws.ID,
-				SourceBasePath: ws.BasePath,
-				PathExists:     pathExists,
+			p.SessionCount++
+			if sess.ModifiedAt.After(p.LastModified) {
+				p.LastModified = sess.ModifiedAt
 			}
-			projectsMap[projectPath] = p
 		}
 
-		p.SessionCount++
-		if sess.ModifiedAt.After(p.LastModified) {
-			p.LastModified = sess.ModifiedAt
+		projects := make([]thinkt.Project, 0, len(projectsMap))
+		for _, p := range projectsMap {
+			projects = append(projects, *p)
 		}
-	}
+		sort.Slice(projects, func(i, j int) bool {
+			return projects[i].LastModified.After(projects[j].LastModified)
+		})
 
-	projects := make([]thinkt.Project, 0, len(projectsMap))
-	for _, p := range projectsMap {
-		projects = append(projects, *p)
-	}
-	sort.Slice(projects, func(i, j int) bool {
-		return projects[i].LastModified.After(projects[j].LastModified)
+		return projects, nil
 	})
-
-	s.cache.SetProjects(projects, nil)
-	return projects, nil
 }
 
 // GetProject returns a specific project by ID/path.
@@ -137,28 +133,24 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 
 // ListSessions returns sessions for a project.
 func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
-	if cached, err, ok := s.cache.GetSessions(projectID); ok {
-		return cached, err
-	}
-
-	all, err := s.scanSessions()
-	if err != nil {
-		s.cache.SetSessions(projectID, nil, err)
-		return nil, err
-	}
-
-	filtered := make([]thinkt.SessionMeta, 0, len(all))
-	for _, sess := range all {
-		if sess.ProjectPath == projectID {
-			filtered = append(filtered, sess)
+	return s.cache.LoadSessions(projectID, func() ([]thinkt.SessionMeta, error) {
+		all, err := s.scanSessions()
+		if err != nil {
+			return nil, err
 		}
-	}
-	sort.Slice(filtered, func(i, j int) bool {
-		return filtered[i].ModifiedAt.After(filtered[j].ModifiedAt)
-	})
 
-	s.cache.SetSessions(projectID, filtered, nil)
-	return filtered, nil
+		filtered := make([]thinkt.SessionMeta, 0, len(all))
+		for _, sess := range all {
+			if sess.ProjectPath == projectID {
+				filtered = append(filtered, sess)
+			}
+		}
+		sort.Slice(filtered, func(i, j int) bool {
+			return filtered[i].ModifiedAt.After(filtered[j].ModifiedAt)
+		})
+
+		return filtered, nil
+	})
 }
 
 // GetSessionMeta returns session metadata.

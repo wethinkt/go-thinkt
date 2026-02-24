@@ -2,6 +2,8 @@ package thinkt
 
 import (
 	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -187,5 +189,149 @@ func TestStoreCacheSessionsErrorNotCached(t *testing.T) {
 	}
 	if sessions != nil {
 		t.Fatalf("expected nil sessions on miss, got %v", sessions)
+	}
+}
+
+func TestStoreCacheLoadProjectsDedupesConcurrentMisses(t *testing.T) {
+	var c StoreCache
+	var loaderCalls atomic.Int32
+
+	const workers = 12
+	start := make(chan struct{})
+	errs := make(chan error, workers)
+	var wg sync.WaitGroup
+
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			projects, err := c.LoadProjects(func() ([]Project, error) {
+				loaderCalls.Add(1)
+				time.Sleep(20 * time.Millisecond)
+				return []Project{{Path: "/dedup"}}, nil
+			})
+			if err == nil && (len(projects) != 1 || projects[0].Path != "/dedup") {
+				err = errors.New("unexpected projects result")
+			}
+			errs <- err
+		}()
+	}
+
+	close(start)
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("unexpected load error: %v", err)
+		}
+	}
+
+	if got := loaderCalls.Load(); got != 1 {
+		t.Fatalf("expected exactly 1 loader call, got %d", got)
+	}
+}
+
+func TestStoreCacheLoadSessionsDedupesPerProjectID(t *testing.T) {
+	var c StoreCache
+	var loaderCalls atomic.Int32
+
+	const workers = 12
+	start := make(chan struct{})
+	errs := make(chan error, workers)
+	var wg sync.WaitGroup
+
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			sessions, err := c.LoadSessions("proj1", func() ([]SessionMeta, error) {
+				loaderCalls.Add(1)
+				time.Sleep(20 * time.Millisecond)
+				return []SessionMeta{{ID: "s1"}}, nil
+			})
+			if err == nil && (len(sessions) != 1 || sessions[0].ID != "s1") {
+				err = errors.New("unexpected sessions result")
+			}
+			errs <- err
+		}()
+	}
+
+	close(start)
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("unexpected load error: %v", err)
+		}
+	}
+
+	if got := loaderCalls.Load(); got != 1 {
+		t.Fatalf("expected exactly 1 loader call, got %d", got)
+	}
+}
+
+func TestStoreCacheLoadSessionsDifferentProjectIDsDoNotBlockEachOther(t *testing.T) {
+	var c StoreCache
+	var p1Calls atomic.Int32
+	var p2Calls atomic.Int32
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		_, _ = c.LoadSessions("proj1", func() ([]SessionMeta, error) {
+			p1Calls.Add(1)
+			time.Sleep(20 * time.Millisecond)
+			return []SessionMeta{{ID: "s1"}}, nil
+		})
+	}()
+	go func() {
+		defer wg.Done()
+		_, _ = c.LoadSessions("proj2", func() ([]SessionMeta, error) {
+			p2Calls.Add(1)
+			time.Sleep(20 * time.Millisecond)
+			return []SessionMeta{{ID: "s2"}}, nil
+		})
+	}()
+
+	wg.Wait()
+
+	if got := p1Calls.Load(); got != 1 {
+		t.Fatalf("expected proj1 loader to run once, got %d", got)
+	}
+	if got := p2Calls.Load(); got != 1 {
+		t.Fatalf("expected proj2 loader to run once, got %d", got)
+	}
+}
+
+func TestStoreCacheLoadProjectsErrorRetriesOnNextCall(t *testing.T) {
+	var c StoreCache
+	var loaderCalls atomic.Int32
+
+	loader := func() ([]Project, error) {
+		call := loaderCalls.Add(1)
+		if call == 1 {
+			return nil, errors.New("temporary failure")
+		}
+		return []Project{{Path: "/ok"}}, nil
+	}
+
+	if _, err := c.LoadProjects(loader); err == nil {
+		t.Fatal("expected first load to fail")
+	}
+	projects, err := c.LoadProjects(loader)
+	if err != nil {
+		t.Fatalf("expected second load to succeed, got %v", err)
+	}
+	if len(projects) != 1 || projects[0].Path != "/ok" {
+		t.Fatalf("unexpected projects result: %+v", projects)
+	}
+	if got := loaderCalls.Load(); got != 2 {
+		t.Fatalf("expected two loader calls, got %d", got)
 	}
 }
