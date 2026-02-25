@@ -67,6 +67,11 @@ type indexerServer struct {
 	embedResult *rpc.Response
 	embedErr    error
 
+	// embedCancelMu guards embedCancelFn, which is set while a sync is in progress.
+	// Separate from embedMu to avoid deadlock with reloadMu.
+	embedCancelMu sync.Mutex
+	embedCancelFn context.CancelFunc
+
 	// Config reload coordination
 	reloadMu sync.Mutex
 
@@ -238,7 +243,15 @@ func (s *indexerServer) HandleEmbedSync(ctx context.Context, params rpc.EmbedSyn
 	}()
 
 	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	s.embedCancelMu.Lock()
+	s.embedCancelFn = cancel
+	s.embedCancelMu.Unlock()
+	defer func() {
+		cancel()
+		s.embedCancelMu.Lock()
+		s.embedCancelFn = nil
+		s.embedCancelMu.Unlock()
+	}()
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -574,6 +587,48 @@ func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, 
 		}
 
 		data, _ := json.Marshal(map[string]any{"embedding_enabled": false})
+		return &rpc.Response{OK: true, Data: data}, nil
+	}
+
+	// Both enabled — check if model changed
+	if wantEnabled && wasEnabled && s.embedder != nil && s.embedder.EmbedModelID() != cfg.Embedding.Model {
+		tuilog.Log.Info("indexer: config reload detected model change",
+			"old", s.embedder.EmbedModelID(), "new", cfg.Embedding.Model)
+
+		// Cancel any in-flight embed sync so it doesn't waste time on the old model.
+		s.embedCancelMu.Lock()
+		fn := s.embedCancelFn
+		s.embedCancelMu.Unlock()
+		if fn != nil {
+			fn()
+		}
+
+		// Clear the cached embedder and DB; HandleEmbedSync will re-init with the new model.
+		old := s.embedder
+		s.embedder = nil
+		old.Close()
+		if s.embDB != nil {
+			s.embDB.Close()
+			s.embDB = nil
+			s.embDBModel = ""
+		}
+		if s.watcher != nil {
+			s.watcher.SetEmbedder(nil)
+		}
+
+		go func() {
+			tuilog.Log.Info("indexer: starting post-model-change embed sync", "model", cfg.Embedding.Model)
+			resp, err := s.HandleEmbedSync(s.shutdownCtx, rpc.EmbedSyncParams{}, func(rpc.Progress) {})
+			if err != nil {
+				tuilog.Log.Error("indexer: post-model-change embed sync error", "error", err)
+			} else if resp != nil && !resp.OK {
+				tuilog.Log.Error("indexer: post-model-change embed sync failed", "error", resp.Error)
+			} else {
+				tuilog.Log.Info("indexer: post-model-change embed sync complete")
+			}
+		}()
+
+		data, _ := json.Marshal(map[string]any{"embedding_enabled": true, "model_changed": true})
 		return &rpc.Response{OK: true, Data: data}, nil
 	}
 
