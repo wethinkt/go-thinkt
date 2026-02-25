@@ -17,6 +17,7 @@ type EntryText struct {
 	SessionID string
 	Source    string // used to scope embedding IDs across sources
 	Text      string
+	Tier      Tier
 }
 
 // ChunkMapping tracks which chunk maps back to which entry.
@@ -25,6 +26,7 @@ type ChunkMapping struct {
 	SessionID  string
 	ChunkIndex int
 	TextHash   string
+	Tier       Tier
 }
 
 // TextHash returns the SHA-256 hex digest of the given text.
@@ -43,7 +45,7 @@ func PrepareEntries(entries []EntryText, maxChars, overlap int) ([]EmbedRequest,
 	for _, e := range entries {
 		chunks := ChunkText(e.Text, maxChars, overlap)
 		for i, chunk := range chunks {
-			id := fmt.Sprintf("%s:%s:%s_%d", e.Source, e.SessionID, e.UUID, i)
+			id := fmt.Sprintf("%s:%s:%s_%s_%d", e.Source, e.SessionID, e.UUID, e.Tier, i)
 			requests = append(requests, EmbedRequest{
 				ID:   id,
 				Text: chunk,
@@ -53,6 +55,7 @@ func PrepareEntries(entries []EntryText, maxChars, overlap int) ([]EmbedRequest,
 				SessionID:  e.SessionID,
 				ChunkIndex: i,
 				TextHash:   TextHash(chunk),
+				Tier:       e.Tier,
 			})
 		}
 	}
