@@ -24,6 +24,7 @@ type SyncProgress struct {
 	startTime time.Time
 	isTTY     bool
 	bar       progress.Model
+	rendered  bool // true once any progress line has been printed
 
 	// lipgloss styles (from theme)
 	phaseStyle   lipgloss.Style
@@ -159,6 +160,7 @@ func (sp *SyncProgress) RenderEmbedding(done, total int, detail string) {
 
 // Print outputs a progress line, using carriage return + clear on TTY.
 func (sp *SyncProgress) Print(line string) {
+	sp.rendered = true
 	if sp.isTTY {
 		fmt.Printf("\r\x1b[K%s", line)
 	} else {
@@ -166,9 +168,9 @@ func (sp *SyncProgress) Print(line string) {
 	}
 }
 
-// Finish prints a final newline if in TTY mode.
+// Finish prints a final newline if in TTY mode and progress was rendered.
 func (sp *SyncProgress) Finish() {
-	if sp.isTTY {
+	if sp.isTTY && sp.rendered {
 		fmt.Println()
 	}
 }
