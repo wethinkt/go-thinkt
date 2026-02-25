@@ -420,12 +420,23 @@ var embeddingsStatusCmd = &cobra.Command{
 			}
 			fmt.Println()
 			if len(perModel) > 1 {
+				maxNameLen := 0
+				maxCountLen := 0
+				for _, ms := range perModel {
+					if len(ms.Model) > maxNameLen {
+						maxNameLen = len(ms.Model)
+					}
+					cl := len(fmt.Sprintf("%d", ms.Count))
+					if cl > maxCountLen {
+						maxCountLen = cl
+					}
+				}
 				for _, ms := range perModel {
 					marker := "  "
 					if ms.Model == modelID {
 						marker = "* "
 					}
-					fmt.Printf("           %s%s: %d embeddings, %d sessions\n", marker, ms.Model, ms.Count, ms.Sessions)
+					fmt.Printf("           %s%-*s  %*d embeddings, %d sessions\n", marker, maxNameLen, ms.Model, maxCountLen, ms.Count, ms.Sessions)
 				}
 			}
 		}
