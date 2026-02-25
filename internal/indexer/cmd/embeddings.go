@@ -576,13 +576,13 @@ var embeddingsSyncCmd = &cobra.Command{
 
 		database, err := getDB()
 		if err != nil {
-			return fmt.Errorf("index database is locked by another process (likely 'thinkt-indexer serve'); use the server's embed sync instead: %w", err)
+			return fmt.Errorf("index database is locked by another process (likely 'thinkt-indexer serve'); use the server's embed sync instead")
 		}
 		defer database.Close()
 
 		embDB, err := getEmbeddingsDB(modelID, embedder.Dim())
 		if err != nil {
-			return fmt.Errorf("embeddings database is locked by another process; use 'thinkt-indexer serve' to allow concurrent access: %w", err)
+			return fmt.Errorf("embeddings database is locked by another process; use 'thinkt-indexer serve' to allow concurrent access")
 		}
 		defer embDB.Close()
 
