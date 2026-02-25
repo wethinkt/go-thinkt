@@ -616,8 +616,17 @@ func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, 
 			s.watcher.SetEmbedder(nil)
 		}
 
+		newModel := cfg.Embedding.Model
 		go func() {
-			tuilog.Log.Info("indexer: starting post-model-change embed sync", "model", cfg.Embedding.Model)
+			// Wait for the cancelled sync to fully exit and release embedMu before
+			// attempting a new sync — otherwise we'd subscribe to the dying run.
+			s.embedMu.Lock()
+			shutdown := s.shutdownCtx.Err() != nil
+			s.embedMu.Unlock()
+			if shutdown {
+				return
+			}
+			tuilog.Log.Info("indexer: starting post-model-change embed sync", "model", newModel)
 			resp, err := s.HandleEmbedSync(s.shutdownCtx, rpc.EmbedSyncParams{}, func(rpc.Progress) {})
 			if err != nil {
 				tuilog.Log.Error("indexer: post-model-change embed sync error", "error", err)
