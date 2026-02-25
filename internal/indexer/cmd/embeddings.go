@@ -33,6 +33,7 @@ Use 'embeddings list' to see available models.
 Use 'embeddings sync' to generate embeddings for indexed sessions.
 Use 'embeddings status' to check model, download state, and progress.
 Use 'semantic search' to query sessions using the generated embeddings.`,
+	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return embeddingsListCmd.RunE(cmd, args)
 	},
