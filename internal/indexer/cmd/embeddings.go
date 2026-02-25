@@ -576,7 +576,7 @@ var embeddingsSyncCmd = &cobra.Command{
 
 		database, err := getDB()
 		if err != nil {
-			return err
+			return fmt.Errorf("index database is locked by another process (likely 'thinkt-indexer serve'); use the server's embed sync instead: %w", err)
 		}
 		defer database.Close()
 
