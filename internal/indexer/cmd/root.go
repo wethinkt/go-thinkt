@@ -10,12 +10,12 @@ import (
 )
 
 var (
-	dbPath    string
-	embDBPath string
-	logPath   string
-	verbose   bool
-	quiet     bool
-	logFile   *os.File // duplicate handle for stderr redirection (panic/runtime output)
+	dbPath   string
+	embDBDir string
+	logPath  string
+	verbose  bool
+	quiet    bool
+	logFile  *os.File // duplicate handle for stderr redirection (panic/runtime output)
 )
 
 var rootCmd = &cobra.Command{
@@ -57,9 +57,9 @@ func Execute() error {
 
 func init() {
 	defaultDBPath, _ := db.DefaultPath()
-	defaultEmbDBPath, _ := db.DefaultEmbeddingsPath()
+	defaultEmbDBDir, _ := db.DefaultEmbeddingsDir()
 	rootCmd.PersistentFlags().StringVar(&dbPath, "db", defaultDBPath, "path to DuckDB index database file")
-	rootCmd.PersistentFlags().StringVar(&embDBPath, "embeddings-db", defaultEmbDBPath, "path to DuckDB embeddings database file")
+	rootCmd.PersistentFlags().StringVar(&embDBDir, "embeddings-dir", defaultEmbDBDir, "directory for per-model DuckDB embedding files")
 	rootCmd.PersistentFlags().StringVar(&logPath, "log", "", "path to log file")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress progress output")
@@ -73,10 +73,12 @@ func getReadOnlyDB() (*db.DB, error) {
 	return db.OpenReadOnly(dbPath)
 }
 
-func getEmbeddingsDB(dim int) (*db.DB, error) {
-	return db.OpenEmbeddings(embDBPath, dim)
+func getEmbeddingsDB(modelID string, dim int) (*db.DB, error) {
+	path := db.EmbeddingsPathForModel(embDBDir, modelID)
+	return db.OpenEmbeddings(path, dim)
 }
 
-func getReadOnlyEmbeddingsDB() (*db.DB, error) {
-	return db.OpenReadOnly(embDBPath)
+func getReadOnlyEmbeddingsDB(modelID string) (*db.DB, error) {
+	path := db.EmbeddingsPathForModel(embDBDir, modelID)
+	return db.OpenReadOnly(path)
 }
