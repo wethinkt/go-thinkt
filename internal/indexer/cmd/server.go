@@ -279,7 +279,7 @@ func (s *indexerServer) HandleEmbedSync(ctx context.Context, params rpc.EmbedSyn
 		}
 
 		if s.embDB == nil {
-			d, err := getEmbeddingsDB(e.Dim())
+			d, err := getEmbeddingsDB(e.EmbedModelID(), e.Dim())
 			if err != nil {
 				e.Close()
 				embedErr = fmt.Errorf("open embeddings database: %w", err)
@@ -307,11 +307,6 @@ func (s *indexerServer) HandleEmbedSync(ctx context.Context, params rpc.EmbedSyn
 
 	ingester := indexer.NewIngester(s.db, s.embDB, s.registry, s.embedder)
 	ingester.Verbose = verbose
-
-	// Migrate embeddings if model changed
-	if err := ingester.MigrateEmbeddings(ctx); err != nil {
-		tuilog.Log.Warn("indexer: migration check failed", "error", err)
-	}
 
 	if params.Force {
 		tuilog.Log.Info("indexer: force embed sync requested, clearing embed state")
@@ -567,6 +562,12 @@ func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, 
 		}
 		old.Close()
 
+		// Close cached embDB so it re-opens with new model path if re-enabled
+		if s.embDB != nil {
+			s.embDB.Close()
+			s.embDB = nil
+		}
+
 		data, _ := json.Marshal(map[string]any{"embedding_enabled": false})
 		return &rpc.Response{OK: true, Data: data}, nil
 	}
@@ -633,7 +634,7 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 	var watcher *indexer.Watcher
 	watchEnabled := cfg.Indexer.Watch && !noWatch
 	if watchEnabled {
-		w, err := indexer.NewWatcher(dbPath, embDBPath, registry, nil, cfg.Indexer.DebounceDuration())
+		w, err := indexer.NewWatcher(dbPath, embDBDir, registry, nil, cfg.Indexer.DebounceDuration())
 		if err != nil {
 			tuilog.Log.Warn("indexer: failed to create watcher", "error", err)
 		} else {
