@@ -109,7 +109,7 @@ func doSearch(queryText string) ([]search.SessionResult, int, error) {
 			CaseSensitive:   searchCaseSensitive,
 			Regex:           searchRegex,
 		}
-		resp, err := rpc.Call("search", params, nil)
+		resp, err := rpc.Call(rpc.MethodSearch, params, nil)
 		if err == nil && resp.OK {
 			var data struct {
 				Results      []search.SessionResult `json:"results"`

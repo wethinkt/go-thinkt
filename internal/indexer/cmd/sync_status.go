@@ -26,7 +26,7 @@ var syncStatusCmd = &cobra.Command{
 			return nil
 		}
 
-		resp, err := rpc.Call("status", nil, nil)
+		resp, err := rpc.Call(rpc.MethodStatus, nil, nil)
 		if err != nil {
 			return fmt.Errorf("status: %w", err)
 		}

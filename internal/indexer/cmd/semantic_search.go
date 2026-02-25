@@ -15,6 +15,18 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/tui"
 )
 
+// notifyServerConfigReload tells a running indexer server to reload its config.
+func notifyServerConfigReload() {
+	if rpc.ServerAvailable() {
+		resp, err := rpc.Call(rpc.MethodConfigReload, nil, nil)
+		if err != nil {
+			fmt.Printf("Warning: failed to notify server: %v\n", err)
+		} else if resp != nil && resp.OK {
+			fmt.Println("Server notified.")
+		}
+	}
+}
+
 var (
 	semFilterProject string
 	semFilterSource  string
@@ -23,13 +35,15 @@ var (
 	semJSON          bool
 	semList          bool
 	semDiversity     bool
-	semStatsJSON     bool
 )
 
 var semanticCmd = &cobra.Command{
 	Use:   "semantic",
-	Short: "Semantic search and index management",
-	Long:  `Commands for semantic search using on-device embeddings.`,
+	Short: "Search sessions by meaning using on-device embeddings",
+	Long: `Query indexed sessions using semantic similarity.
+
+Requires embeddings to be generated first via 'embeddings sync'.
+Use 'embeddings' to manage the embedding model and storage.`,
 }
 
 var semanticSearchCmd = &cobra.Command{
@@ -115,7 +129,7 @@ func doSemanticSearch(queryText string) ([]search.SemanticResult, error) {
 			Limit:       semLimit,
 			MaxDistance:  semMaxDistance,
 		}
-		resp, err := rpc.Call("semantic_search", params, nil)
+		resp, err := rpc.Call(rpc.MethodSemanticSearch, params, nil)
 		if err == nil && resp.OK {
 			var data struct {
 				Results []search.SemanticResult `json:"results"`
@@ -171,136 +185,6 @@ func doSemanticSearch(queryText string) ([]search.SemanticResult, error) {
 	})
 }
 
-var semanticStatsCmd = &cobra.Command{
-	Use:   "stats",
-	Short: "Show statistics about the semantic search index",
-	Args:  cobra.NoArgs,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.Load()
-		if err != nil {
-			cfg = config.Default()
-		}
-
-		var totalEmbeddings int
-		var totalSessions int
-		var models string
-		var modelAvailable bool
-
-		embDB, err := getReadOnlyEmbeddingsDB()
-		if err == nil {
-			defer embDB.Close()
-			_ = embDB.QueryRow("SELECT count(*), count(DISTINCT session_id), COALESCE(string_agg(DISTINCT model, ', '), '') FROM embeddings").Scan(
-				&totalEmbeddings, &totalSessions, &models,
-			)
-		}
-
-		modelID := cfg.Embedding.Model
-		modelPath, _ := embedding.ModelPathForID(modelID)
-		if _, err := os.Stat(modelPath); err == nil {
-			modelAvailable = true
-		}
-
-		if semStatsJSON {
-			data := map[string]any{
-				"enabled":          cfg.Embedding.Enabled,
-				"embeddings":       totalEmbeddings,
-				"sessions":         totalSessions,
-				"model":            modelID,
-				"model_available":  modelAvailable,
-			}
-			if models != "" {
-				data["models"] = models
-			}
-			return json.NewEncoder(os.Stdout).Encode(data)
-		}
-
-		if cfg.Embedding.Enabled {
-			fmt.Println("Embedding:   enabled")
-		} else {
-			fmt.Println("Embedding:   disabled")
-		}
-
-		if totalEmbeddings == 0 && embDB == nil {
-			fmt.Println("Embeddings:  0")
-			fmt.Println()
-			fmt.Println("Run 'thinkt-indexer sync' to generate embeddings.")
-			return nil
-		}
-
-		fmt.Printf("Embeddings:  %d\n", totalEmbeddings)
-		fmt.Printf("Sessions:    %d\n", totalSessions)
-		if models != "" {
-			fmt.Printf("Models:      %s\n", models)
-		}
-
-		if modelAvailable {
-			fmt.Printf("Embedder:    %s (available)\n", modelID)
-		} else {
-			fmt.Printf("Embedder:    %s (model not downloaded)\n", modelID)
-		}
-
-		return nil
-	},
-}
-
-var semanticEnableCmd = &cobra.Command{
-	Use:   "enable",
-	Short: "Enable semantic search embedding",
-	Args:  cobra.NoArgs,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.Load()
-		if err != nil {
-			cfg = config.Default()
-		}
-		if cfg.Embedding.Enabled {
-			fmt.Println("Semantic search is already enabled.")
-			return nil
-		}
-		cfg.Embedding.Enabled = true
-		if err := config.Save(cfg); err != nil {
-			return fmt.Errorf("failed to save config: %w", err)
-		}
-		fmt.Println("Semantic search enabled.")
-		notifyServerConfigReload()
-		return nil
-	},
-}
-
-var semanticDisableCmd = &cobra.Command{
-	Use:   "disable",
-	Short: "Disable semantic search embedding",
-	Args:  cobra.NoArgs,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.Load()
-		if err != nil {
-			cfg = config.Default()
-		}
-		if !cfg.Embedding.Enabled {
-			fmt.Println("Semantic search is already disabled.")
-			return nil
-		}
-		cfg.Embedding.Enabled = false
-		if err := config.Save(cfg); err != nil {
-			return fmt.Errorf("failed to save config: %w", err)
-		}
-		fmt.Println("Semantic search disabled.")
-		notifyServerConfigReload()
-		return nil
-	},
-}
-
-// notifyServerConfigReload tells a running indexer server to reload its config.
-func notifyServerConfigReload() {
-	if rpc.ServerAvailable() {
-		resp, err := rpc.Call("config_reload", nil, nil)
-		if err != nil {
-			fmt.Printf("Warning: failed to notify server: %v\n", err)
-		} else if resp != nil && resp.OK {
-			fmt.Println("Server notified.")
-		}
-	}
-}
-
 func init() {
 	semanticSearchCmd.Flags().StringVarP(&semFilterProject, "project", "p", "", "Filter by project name")
 	semanticSearchCmd.Flags().StringVarP(&semFilterSource, "source", "s", "", "Filter by source")
@@ -310,11 +194,6 @@ func init() {
 	semanticSearchCmd.Flags().BoolVar(&semJSON, "json", false, "Output as JSON")
 	semanticSearchCmd.Flags().BoolVar(&semDiversity, "diversity", false, "Enable diversity scoring to get results from different sessions")
 
-	semanticStatsCmd.Flags().BoolVar(&semStatsJSON, "json", false, "Output as JSON")
-
 	semanticCmd.AddCommand(semanticSearchCmd)
-	semanticCmd.AddCommand(semanticStatsCmd)
-	semanticCmd.AddCommand(semanticEnableCmd)
-	semanticCmd.AddCommand(semanticDisableCmd)
 	rootCmd.AddCommand(semanticCmd)
 }

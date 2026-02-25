@@ -113,8 +113,9 @@ func NewEmbedder(modelID, modelPath string) (*Embedder, error) {
 	}
 
 	ctxParams := llama.ContextDefaultParams()
-	ctxParams.NCtx = uint32(2048)
-	ctxParams.NBatch = uint32(2048)
+	ctxParams.NCtx = uint32(maxCtxTokens)
+	ctxParams.NBatch = uint32(maxCtxTokens)
+	ctxParams.NUbatch = uint32(maxCtxTokens) // physical batch must match logical for embedding
 	ctxParams.PoolingType = spec.PoolingType
 	ctxParams.Embeddings = 1
 
@@ -225,12 +226,14 @@ func (e *Embedder) Embed(_ context.Context, texts []string) (*EmbedResult, error
 // decodeBatch embeds multiple tokenized texts in a single decode call,
 // using distinct sequence IDs to separate them.
 func (e *Embedder) decodeBatch(items []tokenized) ([][]float32, error) {
-	mem, err := llama.GetMemory(e.ctx)
-	if err != nil {
+	// Clear memory before batch. Some embedding-only models (e.g. nomic)
+	// return a nil memory handle — skip the clear in that case.
+	if mem, err := llama.GetMemory(e.ctx); err != nil {
 		return nil, fmt.Errorf("get memory: %w", err)
-	}
-	if err := llama.MemoryClear(mem, true); err != nil {
-		return nil, fmt.Errorf("clear memory: %w", err)
+	} else if mem != 0 {
+		if err := llama.MemoryClear(mem, true); err != nil {
+			return nil, fmt.Errorf("clear memory: %w", err)
+		}
 	}
 
 	// Process each text sequentially with BatchGetOne + Decode.
@@ -257,12 +260,12 @@ func (e *Embedder) decodeBatch(items []tokenized) ([][]float32, error) {
 
 		// Clear memory for next text in the batch.
 		if i < len(items)-1 {
-			mem2, err := llama.GetMemory(e.ctx)
-			if err != nil {
+			if mem, err := llama.GetMemory(e.ctx); err != nil {
 				return nil, fmt.Errorf("get memory: %w", err)
-			}
-			if err := llama.MemoryClear(mem2, true); err != nil {
-				return nil, fmt.Errorf("clear memory: %w", err)
+			} else if mem != 0 {
+				if err := llama.MemoryClear(mem, true); err != nil {
+					return nil, fmt.Errorf("clear memory: %w", err)
+				}
 			}
 		}
 	}

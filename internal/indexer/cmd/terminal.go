@@ -112,6 +112,16 @@ func (sp *SyncProgress) renderLine(phase, count, detail string, pct float64) {
 	sp.Print(line)
 }
 
+// RenderDownload renders a model download progress line.
+func (sp *SyncProgress) RenderDownload(modelID string, pct float64) {
+	if !sp.isTTY {
+		sp.Print(fmt.Sprintf("Downloading %s: %.0f%%", modelID, pct*100))
+		return
+	}
+
+	sp.renderLine("Download", modelID, fmt.Sprintf("%.0f%%", pct*100), pct)
+}
+
 // RenderIndexing renders an indexing progress line.
 func (sp *SyncProgress) RenderIndexing(pIdx, pTotal, sIdx, sTotal int, message string) {
 	if !sp.isTTY {

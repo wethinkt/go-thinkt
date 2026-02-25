@@ -30,9 +30,30 @@ func DefaultPath() (string, error) {
 	return filepath.Join(dir, "index.duckdb"), nil
 }
 
-// DefaultEmbeddingsPath returns the default filesystem path for the embeddings database.
-func DefaultEmbeddingsPath() (string, error) {
+// DefaultEmbeddingsDir returns the directory that holds per-model embedding databases.
+func DefaultEmbeddingsDir() (string, error) {
 	dir, err := config.Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "embeddings"), nil
+}
+
+// EmbeddingsPathForModel returns the DB file path for a given model inside dir.
+// Characters unsafe for filenames are replaced with '_'.
+func EmbeddingsPathForModel(dir, modelID string) string {
+	safe := strings.Map(func(r rune) rune {
+		if r == '/' || r == '\\' || r == ':' || r == '*' || r == '?' || r == '"' || r == '<' || r == '>' || r == '|' {
+			return '_'
+		}
+		return r
+	}, modelID)
+	return filepath.Join(dir, safe+".duckdb")
+}
+
+// Deprecated: use DefaultEmbeddingsDir + EmbeddingsPathForModel.
+func DefaultEmbeddingsPath() (string, error) {
+	dir, err := DefaultEmbeddingsDir()
 	if err != nil {
 		return "", err
 	}

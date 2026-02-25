@@ -32,6 +32,9 @@ type Ingester struct {
 	// OnEmbedChunkProgress is called after each sub-batch of chunks is embedded,
 	// providing within-session progress visibility.
 	OnEmbedChunkProgress func(chunksDone, chunksTotal, tokensDone int, sessionID string)
+
+	// Verbose enables additional warning output (e.g. skipped sessions).
+	Verbose bool
 }
 
 // NewIngester creates a new Ingester instance.
@@ -483,7 +486,7 @@ func (i *Ingester) EmbedAllSessions(ctx context.Context) error {
 		}
 		start := time.Now()
 		chunks, err := i.embedSessionFromDB(ctx, s.id)
-		if err != nil {
+		if err != nil && i.Verbose {
 			fmt.Fprintf(os.Stderr, "\nWarning: embedding failed for session %s: %v\n", s.id, err)
 		}
 		if i.OnEmbedProgress != nil {
@@ -520,6 +523,9 @@ func (i *Ingester) embedSessionFromDB(ctx context.Context, sessionID string) (in
 	reader, err := store.OpenSession(ctx, sessionID)
 	if err != nil {
 		return 0, fmt.Errorf("open session %s: %w", sessionID, err)
+	}
+	if reader == nil {
+		return 0, fmt.Errorf("session %s: file not found (may have been deleted)", sessionID)
 	}
 	defer reader.Close()
 

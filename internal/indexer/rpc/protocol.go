@@ -2,6 +2,17 @@ package rpc
 
 import "encoding/json"
 
+// RPC method names.
+const (
+	MethodIndexSync      = "index_sync"
+	MethodEmbedSync      = "embed_sync"
+	MethodSearch         = "search"
+	MethodSemanticSearch = "semantic_search"
+	MethodStats          = "stats"
+	MethodStatus         = "status"
+	MethodConfigReload   = "config_reload"
+)
+
 // Request is a JSON-over-newline RPC request.
 type Request struct {
 	Method string          `json:"method"`
@@ -24,6 +35,11 @@ type Progress struct {
 // SyncParams for the sync method.
 type SyncParams struct {
 	Force bool `json:"force,omitempty"`
+}
+
+// EmbedSyncParams for the embed_sync method.
+type EmbedSyncParams struct {
+	Force bool `json:"force,omitempty"` // re-embed everything
 }
 
 // SearchParams for the search method.
@@ -49,7 +65,9 @@ type SemanticSearchParams struct {
 
 // StatusData returned by the status method.
 type StatusData struct {
-	State         string        `json:"state"` // "idle", "syncing", "embedding"
+	Syncing       bool          `json:"syncing"`
+	Embedding     bool          `json:"embedding"`
+	State         string        `json:"state"` // computed: "idle", "syncing", "embedding", "syncing+embedding"
 	SyncProgress  *ProgressInfo `json:"sync_progress,omitempty"`
 	EmbedProgress *ProgressInfo `json:"embed_progress,omitempty"`
 	Model         string        `json:"model"`

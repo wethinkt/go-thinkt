@@ -2,21 +2,55 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
+	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/hybridgroup/yzma/pkg/llama"
 	"github.com/spf13/cobra"
 
+	"github.com/wethinkt/go-thinkt/internal/cmd"
 	"github.com/wethinkt/go-thinkt/internal/config"
 	indexer "github.com/wethinkt/go-thinkt/internal/indexer"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
+	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
 var embeddingsCmd = &cobra.Command{
 	Use:   "embeddings",
-	Short: "Manage the embeddings database",
+	Short: "Manage embedding model, storage, and sync",
+	Long: `Manage the embedding infrastructure: model selection, sync, and storage.
+
+Use 'embeddings list' to see available models.
+Use 'embeddings sync' to generate embeddings for indexed sessions.
+Use 'embeddings status' to check model, download state, and progress.
+Use 'semantic search' to query sessions using the generated embeddings.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return embeddingsListCmd.RunE(cmd, args)
+	},
+}
+
+var embeddingsListJSON bool
+
+var embeddingsListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List available embedding models",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			cfg = config.Default()
+		}
+		if embeddingsListJSON {
+			return printModelListJSON(cfg.Embedding.Model)
+		}
+		printModelList(cfg.Embedding.Model)
+		return nil
+	},
 }
 
 var embeddingsPurgeCmd = &cobra.Command{
@@ -109,28 +143,18 @@ var embeddingsDisableCmd = &cobra.Command{
 }
 
 var embeddingsModelCmd = &cobra.Command{
-	Use:   "model [model-id]",
-	Short: "Show or change the embedding model",
-	Long: `Without arguments, lists available models and shows which is active.
-With an argument, switches to the specified model.
+	Use:   "model <model-id>",
+	Short: "Switch the embedding model",
+	Long: `Switch to a different embedding model.
 
-Available models:
-  nomic-embed-text-v1.5   768-dim, mean pooling, ~146 MB (default)
-  qwen3-embedding-0.6b    1024-dim, last-token pooling, ~640 MB`,
-	Args: cobra.MaximumNArgs(1),
+Use 'thinkt-indexer embeddings' to list available models.`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
 		if err != nil {
 			cfg = config.Default()
 		}
 
-		if len(args) == 0 {
-			// List mode
-			printModelList(cfg.Embedding.Model)
-			return nil
-		}
-
-		// Switch mode
 		newModel := args[0]
 		if _, err := embedding.LookupModel(newModel); err != nil {
 			fmt.Fprintf(os.Stderr, "Unknown model %q. Available models:\n\n", newModel)
@@ -170,6 +194,11 @@ Available models:
 }
 
 func printModelList(activeModel string) {
+	t := theme.Current()
+	accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true)
+	primaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg))
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
+
 	// Sort model IDs for stable output.
 	ids := make([]string, 0, len(embedding.KnownModels))
 	for id := range embedding.KnownModels {
@@ -179,22 +208,375 @@ func printModelList(activeModel string) {
 
 	for _, id := range ids {
 		spec := embedding.KnownModels[id]
-		marker := "  "
-		if id == activeModel {
-			marker = "* "
-		}
 		pooling := "mean"
 		if spec.PoolingType != llama.PoolingTypeMean {
 			pooling = "last-token"
 		}
-		fmt.Printf("%s%-25s %d-dim, %s pooling\n", marker, id, spec.Dim, pooling)
+		detail := fmt.Sprintf("%d-dim, %s pooling", spec.Dim, pooling)
+
+		if id == activeModel {
+			fmt.Printf("%s %s  %s\n", accentStyle.Render("*"), primaryStyle.Render(fmt.Sprintf("%-25s", id)), mutedStyle.Render(detail))
+		} else {
+			fmt.Printf("  %s  %s\n", mutedStyle.Render(fmt.Sprintf("%-25s", id)), mutedStyle.Render(detail))
+		}
 	}
 }
 
+func printModelListJSON(activeModel string) error {
+	ids := make([]string, 0, len(embedding.KnownModels))
+	for id := range embedding.KnownModels {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	type modelInfo struct {
+		ID      string `json:"id"`
+		Dim     int    `json:"dim"`
+		Pooling string `json:"pooling"`
+		Active  bool   `json:"active"`
+	}
+
+	var models []modelInfo
+	for _, id := range ids {
+		spec := embedding.KnownModels[id]
+		pooling := "mean"
+		if spec.PoolingType != llama.PoolingTypeMean {
+			pooling = "last-token"
+		}
+		models = append(models, modelInfo{
+			ID:      id,
+			Dim:     spec.Dim,
+			Pooling: pooling,
+			Active:  id == activeModel,
+		})
+	}
+
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{
+		"active": activeModel,
+		"models": models,
+	})
+}
+
+var embeddingsStatusJSON bool
+
+var embeddingsStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show embedding configuration and status",
+	Args:  cobra.NoArgs,
+	RunE: func(cmdObj *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			cfg = config.Default()
+		}
+
+		modelID := cfg.Embedding.Model
+		spec, _ := embedding.LookupModel(modelID)
+		modelPath, _ := embedding.ModelPathForID(modelID)
+		_, statErr := os.Stat(modelPath)
+		modelDownloaded := statErr == nil
+
+		// Embedding counts per model from DB
+		type modelCount struct {
+			Model string `json:"model"`
+			Count int    `json:"count"`
+		}
+		var perModel []modelCount
+		var totalEmbeddings int
+		if embDB, err := getReadOnlyEmbeddingsDB(); err == nil {
+			rows, err := embDB.Query("SELECT model, count(*) FROM embeddings GROUP BY model ORDER BY count(*) DESC")
+			if err == nil {
+				for rows.Next() {
+					var mc modelCount
+					if err := rows.Scan(&mc.Model, &mc.Count); err == nil {
+						perModel = append(perModel, mc)
+						totalEmbeddings += mc.Count
+					}
+				}
+				rows.Close()
+			}
+			embDB.Close()
+		}
+
+		// Server status (if running)
+		var serverRunning bool
+		var serverEmbedding bool
+		var embedProgress *rpc.ProgressInfo
+		var serverModel string
+		if rpc.ServerAvailable() {
+			serverRunning = true
+			resp, err := rpc.Call(rpc.MethodStatus, nil, nil)
+			if err == nil && resp.OK {
+				var status rpc.StatusData
+				if err := json.Unmarshal(resp.Data, &status); err == nil {
+					serverEmbedding = status.Embedding
+					embedProgress = status.EmbedProgress
+					serverModel = status.Model
+				}
+			}
+		}
+
+		if embeddingsStatusJSON {
+			out := map[string]any{
+				"enabled":          cfg.Embedding.Enabled,
+				"model":            modelID,
+				"model_dim":        spec.Dim,
+				"model_downloaded": modelDownloaded,
+				"total_embeddings": totalEmbeddings,
+				"embeddings_by_model": perModel,
+				"server_running":   serverRunning,
+				"server_embedding": serverEmbedding,
+			}
+			if serverModel != "" {
+				out["server_model"] = serverModel
+			}
+			if embedProgress != nil {
+				out["progress"] = embedProgress
+			}
+			return json.NewEncoder(os.Stdout).Encode(out)
+		}
+
+		if cfg.Embedding.Enabled {
+			fmt.Println("Embedding: enabled")
+		} else {
+			fmt.Println("Embedding: disabled")
+		}
+		fmt.Printf("Model:     %s (%d dim)\n", modelID, spec.Dim)
+		if modelDownloaded {
+			fmt.Println("Download:  ready")
+		} else {
+			fmt.Println("Download:  not downloaded")
+		}
+		if len(perModel) <= 1 {
+			fmt.Printf("Stored:    %d embeddings\n", totalEmbeddings)
+		} else {
+			fmt.Printf("Stored:    %d embeddings\n", totalEmbeddings)
+			for _, mc := range perModel {
+				marker := "  "
+				if mc.Model == modelID {
+					marker = "* "
+				}
+				fmt.Printf("           %s%s: %d\n", marker, mc.Model, mc.Count)
+			}
+		}
+
+		if serverRunning {
+			if serverModel != "" && serverModel != modelID {
+				fmt.Printf("Server:    running (model: %s)\n", serverModel)
+			} else if serverEmbedding {
+				fmt.Print("Server:    embedding")
+				if embedProgress != nil {
+					fmt.Printf(" %d/%d sessions", embedProgress.Done, embedProgress.Total)
+					if embedProgress.ChunksTotal > 0 {
+						fmt.Printf("  %d/%d chunks", embedProgress.ChunksDone, embedProgress.ChunksTotal)
+					}
+					if embedProgress.SessionID != "" {
+						sid := embedProgress.SessionID
+						if len(sid) > 8 {
+							sid = sid[:8]
+						}
+						fmt.Printf(" [%s]", sid)
+					}
+				}
+				fmt.Println()
+			} else {
+				fmt.Println("Server:    idle")
+			}
+		} else {
+			fmt.Println("Server:    not running")
+		}
+
+		return nil
+	},
+}
+
+var embeddingsSyncCmd = &cobra.Command{
+	Use:   "sync",
+	Short: "Run embedding sync (download model if needed, embed all sessions)",
+	Args:  cobra.NoArgs,
+	RunE: func(cmdObj *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			cfg = config.Default()
+		}
+
+		// Try RPC first
+		if rpc.ServerAvailable() {
+			sp := NewSyncProgress()
+			var progressFn func(rpc.Progress)
+			if sp.ShouldShowProgress(quiet, verbose) {
+				var lastSessionDone, lastSessionTotal, lastEntries int
+				var sessionStart time.Time
+				progressFn = func(p rpc.Progress) {
+					var data struct {
+						ModelDownload bool    `json:"model_download"`
+						Percent       float64 `json:"percent"`
+						Done          int     `json:"done"`
+						Total         int     `json:"total"`
+						Chunks        int     `json:"chunks"`
+						Entries       int     `json:"entries"`
+						ChunksDone    int     `json:"chunks_done"`
+						ChunksTotal   int     `json:"chunks_total"`
+						TokensDone    int     `json:"tokens_done"`
+						SessionID     string  `json:"session_id"`
+						ElapsedMs     int64   `json:"elapsed_ms"`
+					}
+					if err := json.Unmarshal(p.Data, &data); err == nil {
+						if data.ModelDownload {
+							sp.RenderDownload(cfg.Embedding.Model, data.Percent/100)
+						} else if data.ChunksTotal > 0 {
+							sid := data.SessionID
+							if len(sid) > 8 {
+								sid = sid[:8]
+							}
+							detail := fmt.Sprintf("%s · %d entries · %d/%d chunks", sid, lastEntries, data.ChunksDone, data.ChunksTotal)
+							if data.TokensDone > 0 && !sessionStart.IsZero() {
+								if secs := time.Since(sessionStart).Seconds(); secs > 0 {
+									detail += fmt.Sprintf("  %.0f tok/s", float64(data.TokensDone)/secs)
+								}
+							}
+							sp.RenderEmbedding(lastSessionDone, lastSessionTotal, detail)
+						} else if data.Total > 0 {
+							lastSessionDone = data.Done
+							lastSessionTotal = data.Total
+							sid := data.SessionID
+							if len(sid) > 8 {
+								sid = sid[:8]
+							}
+							if data.ElapsedMs > 0 {
+								elapsed := time.Duration(data.ElapsedMs) * time.Millisecond
+								detail := fmt.Sprintf("%s · %d chunks (%s)", sid, data.Chunks, elapsed.Round(time.Millisecond))
+								sp.RenderEmbedding(data.Done, data.Total, detail)
+							} else {
+								lastEntries = data.Entries
+								sessionStart = time.Now()
+								detail := fmt.Sprintf("%s · %d entries", sid, data.Entries)
+								sp.RenderEmbedding(data.Done, data.Total, detail)
+							}
+						}
+					}
+				}
+			}
+			resp, err := rpc.Call(rpc.MethodEmbedSync, rpc.EmbedSyncParams{}, progressFn)
+			if err != nil {
+				if sp.ShouldShowProgress(quiet, verbose) {
+					sp.Finish()
+				}
+				fmt.Fprintf(os.Stderr, "RPC embed_sync failed, falling back to inline: %v\n", err)
+			} else if !resp.OK {
+				if sp.ShouldShowProgress(quiet, verbose) {
+					sp.Finish()
+				}
+				return fmt.Errorf("embed_sync: %s", resp.Error)
+			} else {
+				if sp.ShouldShowProgress(quiet, verbose) {
+					sp.Finish()
+				}
+				if !quiet {
+					fmt.Println("Embedding sync complete (via server).")
+				}
+				return nil
+			}
+		}
+
+		// Inline fallback
+
+		if !cfg.Embedding.Enabled {
+			return fmt.Errorf("embedding is not enabled (run: thinkt-indexer embeddings enable)")
+		}
+
+		modelID := cfg.Embedding.Model
+		dlSp := NewSyncProgress()
+		if err := embedding.EnsureModel(modelID, func(downloaded, total int64) {
+			if total > 0 && dlSp.ShouldShowProgress(quiet, verbose) {
+				dlSp.RenderDownload(modelID, float64(downloaded)/float64(total))
+			}
+		}); err != nil {
+			return fmt.Errorf("failed to download embedding model: %w", err)
+		}
+		if dlSp.ShouldShowProgress(quiet, verbose) {
+			dlSp.Finish()
+		}
+
+		embedder, err := embedding.NewEmbedder(modelID, "")
+		if err != nil {
+			return fmt.Errorf("failed to create embedder: %w", err)
+		}
+		defer embedder.Close()
+
+		database, err := getDB()
+		if err != nil {
+			return err
+		}
+		defer database.Close()
+
+		embDB, err := getEmbeddingsDB(embedder.Dim())
+		if err != nil {
+			return fmt.Errorf("embeddings database is locked by another process; use 'thinkt-indexer serve' to allow concurrent access: %w", err)
+		}
+		defer embDB.Close()
+
+		registry := cmd.CreateSourceRegistryFiltered(cfg.Indexer.Sources)
+		ingester := indexer.NewIngester(database, embDB, registry, embedder)
+		ingester.Verbose = verbose
+
+		ctx := context.Background()
+		if err := ingester.MigrateEmbeddings(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: migration check failed: %v\n", err)
+		}
+
+		sp := NewSyncProgress()
+		if sp.ShouldShowProgress(quiet, verbose) {
+			var inlineDone, inlineTotal, inlineEntries int
+			var inlineSessionStart time.Time
+			ingester.OnEmbedProgress = func(done, total, chunks, entries int, sessionID, sessionPath string, elapsed time.Duration) {
+				inlineDone = done
+				inlineTotal = total
+				sid := sessionID[:min(8, len(sessionID))]
+				if elapsed == 0 {
+					inlineEntries = entries
+					inlineSessionStart = time.Now()
+					sp.RenderEmbedding(done, total, fmt.Sprintf("%s · %d entries", sid, entries))
+				} else {
+					sp.RenderEmbedding(done, total, fmt.Sprintf("%s · %d chunks (%s)", sid, chunks, elapsed.Round(time.Millisecond)))
+				}
+			}
+			ingester.OnEmbedChunkProgress = func(chunksDone, chunksTotal, tokensDone int, sessionID string) {
+				sid := sessionID[:min(8, len(sessionID))]
+				detail := fmt.Sprintf("%s · %d entries · %d/%d chunks", sid, inlineEntries, chunksDone, chunksTotal)
+				if tokensDone > 0 && !inlineSessionStart.IsZero() {
+					if secs := time.Since(inlineSessionStart).Seconds(); secs > 0 {
+						detail += fmt.Sprintf("  %.0f tok/s", float64(tokensDone)/secs)
+					}
+				}
+				sp.RenderEmbedding(inlineDone, inlineTotal, detail)
+			}
+		}
+
+		if err := ingester.EmbedAllSessions(ctx); err != nil {
+			return fmt.Errorf("embedding error: %w", err)
+		}
+
+		if sp.ShouldShowProgress(quiet, verbose) {
+			sp.Finish()
+		}
+
+		if !quiet {
+			fmt.Println("Embedding sync complete.")
+		}
+		return nil
+	},
+}
+
 func init() {
+	embeddingsCmd.Flags().BoolVar(&embeddingsListJSON, "json", false, "Output as JSON")
+	embeddingsListCmd.Flags().BoolVar(&embeddingsListJSON, "json", false, "Output as JSON")
+	embeddingsCmd.AddCommand(embeddingsListCmd)
 	embeddingsCmd.AddCommand(embeddingsPurgeCmd)
 	embeddingsCmd.AddCommand(embeddingsEnableCmd)
 	embeddingsCmd.AddCommand(embeddingsDisableCmd)
 	embeddingsCmd.AddCommand(embeddingsModelCmd)
+	embeddingsStatusCmd.Flags().BoolVar(&embeddingsStatusJSON, "json", false, "Output as JSON")
+	embeddingsCmd.AddCommand(embeddingsStatusCmd)
+	embeddingsCmd.AddCommand(embeddingsSyncCmd)
 	rootCmd.AddCommand(embeddingsCmd)
 }

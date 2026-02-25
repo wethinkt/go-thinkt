@@ -9,7 +9,8 @@ import (
 
 // mockHandler implements Handler for testing.
 type mockHandler struct {
-	syncCalled           bool
+	indexSyncCalled           bool
+	embedSyncCalled      bool
 	searchCalled         bool
 	semanticSearchCalled bool
 	statsCalled          bool
@@ -19,12 +20,18 @@ type mockHandler struct {
 	lastSemanticSearchParams SemanticSearchParams
 }
 
-func (m *mockHandler) HandleSync(_ context.Context, params SyncParams, send func(Progress)) (*Response, error) {
-	m.syncCalled = true
+func (m *mockHandler) HandleIndexSync(_ context.Context, params SyncParams, send func(Progress)) (*Response, error) {
+	m.indexSyncCalled = true
 	// Send a couple of progress updates.
 	send(Progress{Data: json.RawMessage(`{"done":1,"total":3}`)})
 	send(Progress{Data: json.RawMessage(`{"done":2,"total":3}`)})
 	return &Response{OK: true, Data: json.RawMessage(`{"synced":3}`)}, nil
+}
+
+func (m *mockHandler) HandleEmbedSync(_ context.Context, params EmbedSyncParams, send func(Progress)) (*Response, error) {
+	m.embedSyncCalled = true
+	send(Progress{Data: json.RawMessage(`{"done":1,"total":2}`)})
+	return &Response{OK: true, Data: json.RawMessage(`{"embedded":2}`)}, nil
 }
 
 func (m *mockHandler) HandleSearch(_ context.Context, params SearchParams) (*Response, error) {
@@ -52,6 +59,8 @@ func (m *mockHandler) HandleStatus(_ context.Context) (*Response, error) {
 	m.statusCalled = true
 	data, _ := json.Marshal(StatusData{
 		State:         "idle",
+		Syncing:       false,
+		Embedding:     false,
 		Model:         "test-model",
 		ModelDim:      384,
 		UptimeSeconds: 120,
@@ -75,7 +84,7 @@ func startTestServer(t *testing.T) (string, *mockHandler) {
 func TestStats(t *testing.T) {
 	sock, h := startTestServer(t)
 
-	resp, err := CallAt(sock, "stats", nil, nil)
+	resp, err := CallAt(sock, MethodStats, nil, nil)
 	if err != nil {
 		t.Fatalf("call stats: %v", err)
 	}
@@ -98,7 +107,7 @@ func TestSearch(t *testing.T) {
 		Project: "myproject",
 		Limit:   10,
 	}
-	resp, err := CallAt(sock, "search", params, nil)
+	resp, err := CallAt(sock, MethodSearch, params, nil)
 	if err != nil {
 		t.Fatalf("call search: %v", err)
 	}
@@ -135,7 +144,7 @@ func TestSyncWithProgress(t *testing.T) {
 	sock, h := startTestServer(t)
 
 	var progressMessages []Progress
-	resp, err := CallAt(sock, "sync", SyncParams{Force: true}, func(p Progress) {
+	resp, err := CallAt(sock, MethodIndexSync, SyncParams{Force: true}, func(p Progress) {
 		progressMessages = append(progressMessages, p)
 	})
 	if err != nil {
@@ -144,7 +153,7 @@ func TestSyncWithProgress(t *testing.T) {
 	if !resp.OK {
 		t.Fatalf("expected ok response, got error: %s", resp.Error)
 	}
-	if !h.syncCalled {
+	if !h.indexSyncCalled {
 		t.Fatal("expected sync handler to be called")
 	}
 	if len(progressMessages) != 2 {
@@ -168,7 +177,7 @@ func TestServerAvailable(t *testing.T) {
 func TestStatus(t *testing.T) {
 	sock, h := startTestServer(t)
 
-	resp, err := CallAt(sock, "status", nil, nil)
+	resp, err := CallAt(sock, MethodStatus, nil, nil)
 	if err != nil {
 		t.Fatalf("call status: %v", err)
 	}
@@ -199,7 +208,7 @@ func TestSemanticSearch(t *testing.T) {
 		Limit:      5,
 		MaxDistance: 0.8,
 	}
-	resp, err := CallAt(sock, "semantic_search", params, nil)
+	resp, err := CallAt(sock, MethodSemanticSearch, params, nil)
 	if err != nil {
 		t.Fatalf("call semantic_search: %v", err)
 	}

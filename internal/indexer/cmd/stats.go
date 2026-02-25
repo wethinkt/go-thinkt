@@ -67,7 +67,7 @@ type statsData struct {
 func getStats() (*statsData, error) {
 	// Try RPC first
 	if rpc.ServerAvailable() {
-		resp, err := rpc.Call("stats", nil, nil)
+		resp, err := rpc.Call(rpc.MethodStats, nil, nil)
 		if err == nil && resp.OK {
 			var s statsData
 			if err := json.Unmarshal(resp.Data, &s); err == nil {

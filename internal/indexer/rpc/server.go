@@ -14,7 +14,8 @@ import (
 
 // Handler defines the methods that an RPC server can dispatch to.
 type Handler interface {
-	HandleSync(ctx context.Context, params SyncParams, send func(Progress)) (*Response, error)
+	HandleIndexSync(ctx context.Context, params SyncParams, send func(Progress)) (*Response, error)
+	HandleEmbedSync(ctx context.Context, params EmbedSyncParams, send func(Progress)) (*Response, error)
 	HandleSearch(ctx context.Context, params SearchParams) (*Response, error)
 	HandleSemanticSearch(ctx context.Context, params SemanticSearchParams) (*Response, error)
 	HandleStats(ctx context.Context) (*Response, error)
@@ -109,11 +110,11 @@ func (s *Server) handleConn(conn net.Conn) {
 	var handlerErr error
 
 	switch req.Method {
-	case "sync":
+	case MethodIndexSync:
 		var params SyncParams
 		if req.Params != nil {
 			if err := json.Unmarshal(req.Params, &params); err != nil {
-				writeJSON(conn, Response{OK: false, Error: "invalid sync params: " + err.Error()})
+				writeJSON(conn, Response{OK: false, Error: "invalid index_sync params: " + err.Error()})
 				return
 			}
 		}
@@ -121,9 +122,23 @@ func (s *Server) handleConn(conn net.Conn) {
 			p.Progress = true
 			writeJSON(conn, p)
 		}
-		resp, handlerErr = s.handler.HandleSync(ctx, params, send)
+		resp, handlerErr = s.handler.HandleIndexSync(ctx, params, send)
 
-	case "search":
+	case MethodEmbedSync:
+		var params EmbedSyncParams
+		if req.Params != nil {
+			if err := json.Unmarshal(req.Params, &params); err != nil {
+				writeJSON(conn, Response{OK: false, Error: "invalid embed_sync params: " + err.Error()})
+				return
+			}
+		}
+		send := func(p Progress) {
+			p.Progress = true
+			writeJSON(conn, p)
+		}
+		resp, handlerErr = s.handler.HandleEmbedSync(ctx, params, send)
+
+	case MethodSearch:
 		var params SearchParams
 		if req.Params != nil {
 			if err := json.Unmarshal(req.Params, &params); err != nil {
@@ -133,7 +148,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		}
 		resp, handlerErr = s.handler.HandleSearch(ctx, params)
 
-	case "semantic_search":
+	case MethodSemanticSearch:
 		var params SemanticSearchParams
 		if req.Params != nil {
 			if err := json.Unmarshal(req.Params, &params); err != nil {
@@ -143,13 +158,13 @@ func (s *Server) handleConn(conn net.Conn) {
 		}
 		resp, handlerErr = s.handler.HandleSemanticSearch(ctx, params)
 
-	case "stats":
+	case MethodStats:
 		resp, handlerErr = s.handler.HandleStats(ctx)
 
-	case "status":
+	case MethodStatus:
 		resp, handlerErr = s.handler.HandleStatus(ctx)
 
-	case "config_reload":
+	case MethodConfigReload:
 		resp, handlerErr = s.handler.HandleConfigReload(ctx)
 
 	default:
