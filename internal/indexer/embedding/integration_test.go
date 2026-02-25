@@ -2,6 +2,7 @@ package embedding_test
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -12,7 +13,7 @@ import (
 )
 
 func TestEndToEnd_EmbedAndSearch(t *testing.T) {
-	embedder, err := embedding.NewEmbedder("")
+	embedder, err := embedding.NewEmbedder("", "")
 	if err != nil {
 		t.Skipf("yzma model not available: %v", err)
 	}
@@ -26,7 +27,7 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 	}
 	defer indexDB.Close()
 
-	embDB, err := db.OpenEmbeddings(filepath.Join(dir, "embeddings.db"))
+	embDB, err := db.OpenEmbeddings(filepath.Join(dir, "embeddings.db"), embedder.Dim())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,9 +76,9 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 			break
 		}
 		id := requests[idx].ID
-		_, err := embDB.Exec(`
+		_, err := embDB.Exec(fmt.Sprintf(`
 			INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
-			VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[1024], ?)`,
+			VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[%d], ?)`, embedder.Dim()),
 			id, m.SessionID, m.EntryUUID, m.ChunkIndex, embedder.EmbedModelID(), embedder.Dim(), embedResult.Vectors[idx], m.TextHash)
 		if err != nil {
 			t.Fatal(err)
@@ -93,7 +94,8 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 	svc := search.NewService(indexDB, embDB)
 	results, err := svc.SemanticSearch(search.SemanticSearchOptions{
 		QueryEmbedding: queryResult.Vectors[0],
-		Model:          embedding.ModelID,
+		Model:          embedder.EmbedModelID(),
+		Dim:            embedder.Dim(),
 		Limit:          10,
 	})
 	if err != nil {

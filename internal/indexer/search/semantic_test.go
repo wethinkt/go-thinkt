@@ -19,7 +19,7 @@ func openBothDBs(t *testing.T) (*db.DB, *db.DB) {
 	}
 	t.Cleanup(func() { indexDB.Close() })
 
-	embDB, err := db.OpenEmbeddings(filepath.Join(dir, "embeddings.db"))
+	embDB, err := db.OpenEmbeddings(filepath.Join(dir, "embeddings.db"), 1024)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,6 +35,7 @@ func TestSemanticSearch_NoResults(t *testing.T) {
 	results, err := svc.SemanticSearch(search.SemanticSearchOptions{
 		QueryEmbedding: make([]float32, 1024),
 		Model:          "qwen3-embedding-0.6b",
+		Dim:            1024,
 		Limit:          10,
 	})
 	if err != nil {
@@ -79,6 +80,7 @@ func TestSemanticSearch_FindsSimilar(t *testing.T) {
 	results, err := svc.SemanticSearch(search.SemanticSearchOptions{
 		QueryEmbedding: query,
 		Model:          "qwen3-embedding-0.6b",
+		Dim:            1024,
 		Limit:          10,
 	})
 	if err != nil {
@@ -139,6 +141,7 @@ func TestSemanticSearch_WithDiversity(t *testing.T) {
 	resultsNoDiv, err := svc.SemanticSearch(search.SemanticSearchOptions{
 		QueryEmbedding: query,
 		Model:          "qwen3-embedding-0.6b",
+		Dim:            1024,
 		Limit:          3,
 		Diversity:      false,
 	})
@@ -150,6 +153,7 @@ func TestSemanticSearch_WithDiversity(t *testing.T) {
 	resultsDiv, err := svc.SemanticSearch(search.SemanticSearchOptions{
 		QueryEmbedding: query,
 		Model:          "qwen3-embedding-0.6b",
+		Dim:            1024,
 		Limit:          3,
 		Diversity:      true,
 	})
@@ -216,6 +220,7 @@ func TestSemanticSearch_MaxDistance(t *testing.T) {
 	results, err := svc.SemanticSearch(search.SemanticSearchOptions{
 		QueryEmbedding: query,
 		Model:          "qwen3-embedding-0.6b",
+		Dim:            1024,
 		Limit:          10,
 	})
 	if err != nil {
@@ -229,6 +234,7 @@ func TestSemanticSearch_MaxDistance(t *testing.T) {
 	results, err = svc.SemanticSearch(search.SemanticSearchOptions{
 		QueryEmbedding: query,
 		Model:          "qwen3-embedding-0.6b",
+		Dim:            1024,
 		Limit:          10,
 		MaxDistance:    0.5,
 	})
@@ -270,6 +276,7 @@ func TestSemanticSearch_WithProjectFilter(t *testing.T) {
 	results, err := svc.SemanticSearch(search.SemanticSearchOptions{
 		QueryEmbedding: query,
 		Model:          "qwen3-embedding-0.6b",
+		Dim:            1024,
 		Limit:          10,
 		FilterProject:  "alpha",
 	})

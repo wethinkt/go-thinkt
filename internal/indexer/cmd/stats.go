@@ -43,9 +43,9 @@ var statsCmd = &cobra.Command{
 		if stats.EmbedModel != "" {
 			fmt.Printf("Embedder:    %s (available)\n", stats.EmbedModel)
 		} else if stats.EmbedderAvail {
-			fmt.Printf("Embedder:    %s (available)\n", embedding.ModelID)
+			fmt.Printf("Embedder:    %s (available)\n", embedding.DefaultModelID)
 		} else {
-			fmt.Printf("Embedder:    %s (model not downloaded)\n", embedding.ModelID)
+			fmt.Printf("Embedder:    %s (model not downloaded)\n", embedding.DefaultModelID)
 		}
 		fmt.Printf("Embeddings:  %d\n", stats.TotalEmbeddings)
 
@@ -121,7 +121,7 @@ func getStats() (*statsData, error) {
 	modelPath, _ := embedding.DefaultModelPath()
 	if _, statErr := os.Stat(modelPath); statErr == nil {
 		stats.EmbedderAvail = true
-		stats.EmbedModel = embedding.ModelID
+		stats.EmbedModel = embedding.DefaultModelID
 	}
 
 	return &stats, nil

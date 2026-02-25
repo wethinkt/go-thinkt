@@ -128,7 +128,11 @@ func doSemanticSearch(queryText string) ([]search.SemanticResult, error) {
 	}
 
 	// Inline fallback: load embedder locally
-	embedder, err := embedding.NewEmbedder("")
+	cfg, err := config.Load()
+	if err != nil {
+		cfg = config.Default()
+	}
+	embedder, err := embedding.NewEmbedder(cfg.Embedding.Model, "")
 	if err != nil {
 		return nil, fmt.Errorf("semantic search unavailable: %w", err)
 	}
@@ -157,7 +161,8 @@ func doSemanticSearch(queryText string) ([]search.SemanticResult, error) {
 	svc := search.NewService(indexDB, embDB)
 	return svc.SemanticSearch(search.SemanticSearchOptions{
 		QueryEmbedding: result.Vectors[0],
-		Model:          embedding.ModelID,
+		Model:          embedder.EmbedModelID(),
+		Dim:            embedder.Dim(),
 		FilterProject: semFilterProject,
 		FilterSource:  semFilterSource,
 		Limit:         semLimit,
@@ -189,7 +194,8 @@ var semanticStatsCmd = &cobra.Command{
 			)
 		}
 
-		modelPath, _ := embedding.DefaultModelPath()
+		modelID := cfg.Embedding.Model
+		modelPath, _ := embedding.ModelPathForID(modelID)
 		if _, err := os.Stat(modelPath); err == nil {
 			modelAvailable = true
 		}
@@ -199,7 +205,7 @@ var semanticStatsCmd = &cobra.Command{
 				"enabled":          cfg.Embedding.Enabled,
 				"embeddings":       totalEmbeddings,
 				"sessions":         totalSessions,
-				"model":            embedding.ModelID,
+				"model":            modelID,
 				"model_available":  modelAvailable,
 			}
 			if models != "" {
@@ -228,9 +234,9 @@ var semanticStatsCmd = &cobra.Command{
 		}
 
 		if modelAvailable {
-			fmt.Printf("Embedder:    %s (available)\n", embedding.ModelID)
+			fmt.Printf("Embedder:    %s (available)\n", modelID)
 		} else {
-			fmt.Printf("Embedder:    %s (model not downloaded)\n", embedding.ModelID)
+			fmt.Printf("Embedder:    %s (model not downloaded)\n", modelID)
 		}
 
 		return nil

@@ -9,7 +9,7 @@ import (
 
 func TestEmbeddingsTableExists(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.db")
-	d, err := db.OpenEmbeddings(path)
+	d, err := db.OpenEmbeddings(path, 1024)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestEmbeddingsTableNotInIndexDB(t *testing.T) {
 
 func TestInsertAndQueryEmbedding(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test.db")
-	d, err := db.OpenEmbeddings(path)
+	d, err := db.OpenEmbeddings(path, 1024)
 	if err != nil {
 		t.Fatal(err)
 	}

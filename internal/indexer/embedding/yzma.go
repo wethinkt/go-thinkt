@@ -18,30 +18,74 @@ import (
 )
 
 const (
-	DefaultModelName = "Qwen3-Embedding-0.6B-Q8_0.gguf"
-	DefaultModelURL  = "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf"
-	DefaultModelDir  = "models"
-	ModelID          = "qwen3-embedding-0.6b"
+	DefaultModelDir = "models"
+	DefaultModelID  = "nomic-embed-text-v1.5"
 )
+
+// ModelSpec describes a known embedding model.
+type ModelSpec struct {
+	ID          string
+	FileName    string
+	URL         string
+	Dim         int
+	PoolingType llama.PoolingType
+}
+
+// KnownModels maps model IDs to their specifications.
+var KnownModels = map[string]ModelSpec{
+	"nomic-embed-text-v1.5": {
+		ID:          "nomic-embed-text-v1.5",
+		FileName:    "nomic-embed-text-v1.5.Q8_0.gguf",
+		URL:         "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q8_0.gguf",
+		Dim:         768,
+		PoolingType: llama.PoolingTypeMean,
+	},
+	"qwen3-embedding-0.6b": {
+		ID:          "qwen3-embedding-0.6b",
+		FileName:    "Qwen3-Embedding-0.6B-Q8_0.gguf",
+		URL:         "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf",
+		Dim:         1024,
+		PoolingType: llama.PoolingTypeLast,
+	},
+}
+
+// LookupModel returns the ModelSpec for a given model ID.
+func LookupModel(modelID string) (ModelSpec, error) {
+	if modelID == "" {
+		modelID = DefaultModelID
+	}
+	spec, ok := KnownModels[modelID]
+	if !ok {
+		return ModelSpec{}, fmt.Errorf("unknown embedding model %q", modelID)
+	}
+	return spec, nil
+}
 
 // Embedder wraps a yzma/llama model for in-process text embedding.
 // It is safe for concurrent use.
 type Embedder struct {
-	model llama.Model
-	ctx   llama.Context
-	vocab llama.Vocab
-	dim   int32
-	mu    sync.Mutex
+	model   llama.Model
+	ctx     llama.Context
+	vocab   llama.Vocab
+	dim     int32
+	modelID string
+	mu      sync.Mutex
 }
 
-// NewEmbedder loads the GGUF model at modelPath and returns a ready-to-use
-// Embedder. If modelPath is empty, DefaultModelPath() is used.
+// NewEmbedder loads a GGUF embedding model and returns a ready-to-use Embedder.
+// modelID selects the model from KnownModels (empty = DefaultModelID).
+// modelPath overrides the file path (empty = derived from modelID).
 // The caller must call Close() when done.
-func NewEmbedder(modelPath string) (*Embedder, error) {
+func NewEmbedder(modelID, modelPath string) (*Embedder, error) {
+	spec, err := LookupModel(modelID)
+	if err != nil {
+		return nil, err
+	}
+
 	if modelPath == "" {
-		p, err := DefaultModelPath()
+		p, err := ModelPathForID(spec.ID)
 		if err != nil {
-			return nil, fmt.Errorf("default model path: %w", err)
+			return nil, fmt.Errorf("model path: %w", err)
 		}
 		modelPath = p
 	}
@@ -71,7 +115,7 @@ func NewEmbedder(modelPath string) (*Embedder, error) {
 	ctxParams := llama.ContextDefaultParams()
 	ctxParams.NCtx = uint32(2048)
 	ctxParams.NBatch = uint32(2048)
-	ctxParams.PoolingType = llama.PoolingTypeLast
+	ctxParams.PoolingType = spec.PoolingType
 	ctxParams.Embeddings = 1
 
 	ctx, err := llama.InitFromModel(model, ctxParams)
@@ -93,10 +137,11 @@ func NewEmbedder(modelPath string) (*Embedder, error) {
 	}
 
 	return &Embedder{
-		model: model,
-		ctx:   ctx,
-		vocab: llama.ModelGetVocab(model),
-		dim:   nEmbd,
+		model:   model,
+		ctx:     ctx,
+		vocab:   llama.ModelGetVocab(model),
+		dim:     nEmbd,
+		modelID: spec.ID,
 	}, nil
 }
 
@@ -234,7 +279,7 @@ type tokenized struct {
 func (e *Embedder) Dim() int { return int(e.dim) }
 
 // EmbedModelID returns the model identifier string.
-func (e *Embedder) EmbedModelID() string { return ModelID }
+func (e *Embedder) EmbedModelID() string { return e.modelID }
 
 // Close releases all llama resources.
 func (e *Embedder) Close() {
@@ -246,19 +291,34 @@ func (e *Embedder) Close() {
 	llama.Close()
 }
 
-// DefaultModelPath returns ~/.thinkt/models/Qwen3-Embedding-0.6B-Q8_0.gguf.
-func DefaultModelPath() (string, error) {
+// ModelPathForID returns ~/.thinkt/models/{filename} for a known model ID.
+func ModelPathForID(modelID string) (string, error) {
+	spec, err := LookupModel(modelID)
+	if err != nil {
+		return "", err
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".thinkt", DefaultModelDir, DefaultModelName), nil
+	return filepath.Join(home, ".thinkt", DefaultModelDir, spec.FileName), nil
 }
 
-// EnsureModel downloads the default model if it is not already present.
+// DefaultModelPath returns the path for the default model.
+func DefaultModelPath() (string, error) {
+	return ModelPathForID(DefaultModelID)
+}
+
+// EnsureModel downloads the specified model if it is not already present.
+// modelID selects from KnownModels (empty = DefaultModelID).
 // onProgress is called with bytes downloaded and total size; it may be nil.
-func EnsureModel(onProgress func(downloaded, total int64)) error {
-	modelPath, err := DefaultModelPath()
+func EnsureModel(modelID string, onProgress func(downloaded, total int64)) error {
+	spec, err := LookupModel(modelID)
+	if err != nil {
+		return err
+	}
+
+	modelPath, err := ModelPathForID(spec.ID)
 	if err != nil {
 		return err
 	}
@@ -278,11 +338,11 @@ func EnsureModel(onProgress func(downloaded, total int64)) error {
 	defer os.RemoveAll(tmpDir)
 
 	tracker := &progressTracker{onProgress: onProgress}
-	if err := download.GetModelWithProgress(DefaultModelURL, tmpDir, tracker); err != nil {
+	if err := download.GetModelWithProgress(spec.URL, tmpDir, tracker); err != nil {
 		return fmt.Errorf("download model: %w", err)
 	}
 
-	modelFile, err := findGGUFFile(tmpDir, DefaultModelName)
+	modelFile, err := findGGUFFile(tmpDir, spec.FileName)
 	if err != nil {
 		return err
 	}

@@ -105,7 +105,7 @@ func Default() Config {
 		AllowedApps: DefaultApps(),
 		Embedding: EmbeddingConfig{
 			Enabled: false,
-			Model:   "qwen3-embedding-0.6b",
+			Model:   "nomic-embed-text-v1.5",
 		},
 		Indexer: IndexerConfig{
 			Sources:  []string{},

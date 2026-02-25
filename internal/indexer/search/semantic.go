@@ -10,6 +10,7 @@ import (
 type SemanticSearchOptions struct {
 	QueryEmbedding []float32
 	Model          string
+	Dim            int     // Embedding dimension (e.g. 768, 1024)
 	FilterProject  string
 	FilterSource   string
 	Limit          int
@@ -113,12 +114,13 @@ func (s *Service) fetchResults(opts SemanticSearchOptions, limit int) ([]Semanti
 	}
 
 	// Phase 2: Query embeddings DB for nearest vectors.
-	embQ := `
+	floatCast := fmt.Sprintf("FLOAT[%d]", opts.Dim)
+	embQ := fmt.Sprintf(`
 		SELECT emb.session_id, emb.entry_uuid, emb.chunk_index,
 		       (SELECT count(*) FROM embeddings c WHERE c.session_id = emb.session_id AND c.entry_uuid = emb.entry_uuid AND c.model = emb.model) AS total_chunks,
-		       array_cosine_distance(emb.embedding, ?::FLOAT[1024]) AS distance
+		       array_cosine_distance(emb.embedding, ?::%s) AS distance
 		FROM embeddings emb
-		WHERE emb.model = ?`
+		WHERE emb.model = ?`, floatCast)
 	embArgs := []any{opts.QueryEmbedding, opts.Model}
 
 	if len(sessionFilter) > 0 {
@@ -131,7 +133,7 @@ func (s *Service) fetchResults(opts SemanticSearchOptions, limit int) ([]Semanti
 	}
 
 	if opts.MaxDistance > 0 {
-		embQ += fmt.Sprintf(" AND array_cosine_distance(emb.embedding, ?::FLOAT[1024]) < %f", opts.MaxDistance)
+		embQ += fmt.Sprintf(" AND array_cosine_distance(emb.embedding, ?::%s) < %f", floatCast, opts.MaxDistance)
 		embArgs = append(embArgs, opts.QueryEmbedding)
 	}
 

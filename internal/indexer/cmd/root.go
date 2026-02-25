@@ -73,8 +73,8 @@ func getReadOnlyDB() (*db.DB, error) {
 	return db.OpenReadOnly(dbPath)
 }
 
-func getEmbeddingsDB() (*db.DB, error) {
-	return db.OpenEmbeddings(embDBPath)
+func getEmbeddingsDB(dim int) (*db.DB, error) {
+	return db.OpenEmbeddings(embDBPath, dim)
 }
 
 func getReadOnlyEmbeddingsDB() (*db.DB, error) {

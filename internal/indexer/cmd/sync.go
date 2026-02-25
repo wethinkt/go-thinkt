@@ -116,14 +116,23 @@ var syncCmd = &cobra.Command{
 
 		registry := cmd.CreateSourceRegistryFiltered(cfg.Indexer.Sources)
 
-		// Load yzma embedder if enabled and model is available
+		// Load yzma embedder if enabled, downloading model if needed
 		var embedder *embedding.Embedder
 		var embDB *db.DB
 		if cfg.Embedding.Enabled {
-			if e, err := embedding.NewEmbedder(""); err == nil {
+			modelID := cfg.Embedding.Model
+			if err := embedding.EnsureModel(modelID, func(downloaded, total int64) {
+				if total > 0 {
+					pct := float64(downloaded) / float64(total) * 100
+					fmt.Fprintf(os.Stderr, "\rDownloading %s: %.0f%%", modelID, pct)
+				}
+			}); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to download embedding model: %v\n", err)
+			}
+			if e, err := embedding.NewEmbedder(modelID, ""); err == nil {
 				embedder = e
 				defer e.Close()
-				if d, err := getEmbeddingsDB(); err == nil {
+				if d, err := getEmbeddingsDB(e.Dim()); err == nil {
 					embDB = d
 					defer d.Close()
 				}

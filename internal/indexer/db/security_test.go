@@ -123,7 +123,7 @@ func TestSecurityHardeningEmbeddings(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "embeddings.duckdb")
 
-	db, err := OpenEmbeddings(dbPath)
+	db, err := OpenEmbeddings(dbPath, 768)
 	if err != nil {
 		t.Fatalf("Failed to open embeddings database: %v", err)
 	}

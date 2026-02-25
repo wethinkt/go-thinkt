@@ -307,6 +307,7 @@ func (s *indexerServer) HandleSemanticSearch(ctx context.Context, params rpc.Sem
 	results, err := svc.SemanticSearch(search.SemanticSearchOptions{
 		QueryEmbedding: result.Vectors[0],
 		Model:          s.embedder.EmbedModelID(),
+		Dim:            s.embedder.Dim(),
 		FilterProject:  params.Project,
 		FilterSource:   params.Source,
 		Limit:          limit,
@@ -412,9 +413,10 @@ func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, 
 
 	if wantEnabled && !wasEnabled {
 		// Enable embedding
-		tuilog.Log.Info("indexer: config reload enabling embedding")
+		modelID := cfg.Embedding.Model
+		tuilog.Log.Info("indexer: config reload enabling embedding", "model", modelID)
 
-		if err := embedding.EnsureModel(func(downloaded, total int64) {
+		if err := embedding.EnsureModel(modelID, func(downloaded, total int64) {
 			if total > 0 {
 				pct := float64(downloaded) / float64(total) * 100
 				tuilog.Log.Info("indexer: downloading embedding model", "percent", pct)
@@ -423,14 +425,14 @@ func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, 
 			return nil, fmt.Errorf("failed to ensure embedding model: %w", err)
 		}
 
-		e, err := embedding.NewEmbedder("")
+		e, err := embedding.NewEmbedder(modelID, "")
 		if err != nil {
 			return nil, fmt.Errorf("failed to create embedder: %w", err)
 		}
 
 		// Open embeddings DB if not already open
 		if s.embDB == nil {
-			d, err := getEmbeddingsDB()
+			d, err := getEmbeddingsDB(e.Dim())
 			if err != nil {
 				e.Close()
 				return nil, fmt.Errorf("failed to open embeddings database: %w", err)
@@ -501,9 +503,10 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 	// 2-3. Create embedder (if enabled)
 	var embedder *embedding.Embedder
 	if cfg.Embedding.Enabled {
-		tuilog.Log.Info("indexer: ensuring embedding model is available")
+		modelID := cfg.Embedding.Model
+		tuilog.Log.Info("indexer: ensuring embedding model is available", "model", modelID)
 		var lastLog time.Time
-		if err := embedding.EnsureModel(func(downloaded, total int64) {
+		if err := embedding.EnsureModel(modelID, func(downloaded, total int64) {
 			if total > 0 && time.Since(lastLog) >= time.Second {
 				lastLog = time.Now()
 				pct := float64(downloaded) / float64(total) * 100
@@ -513,14 +516,14 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to ensure embedding model: %w", err)
 		}
 
-		e, err := embedding.NewEmbedder("")
+		e, err := embedding.NewEmbedder(modelID, "")
 		if err != nil {
 			return fmt.Errorf("failed to create embedder: %w", err)
 		}
 		embedder = e
 		tuilog.Log.Info("indexer: embedder loaded", "model", embedder.EmbedModelID(), "dim", embedder.Dim())
 
-		d, err := getEmbeddingsDB()
+		d, err := getEmbeddingsDB(embedder.Dim())
 		if err != nil {
 			embedder.Close()
 			return fmt.Errorf("failed to open embeddings database: %w", err)

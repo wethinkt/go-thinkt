@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -47,8 +48,11 @@ var embeddingsSQL string
 // IndexSchema returns the schema SQL for the index database.
 func IndexSchema() string { return initSQL }
 
-// EmbeddingsSchema returns the schema SQL for the embeddings database.
-func EmbeddingsSchema() string { return embeddingsSQL }
+// EmbeddingsSchemaForDim returns the embeddings schema SQL with the
+// given embedding dimension substituted for the {DIM} placeholder.
+func EmbeddingsSchemaForDim(dim int) string {
+	return strings.ReplaceAll(embeddingsSQL, "{DIM}", strconv.Itoa(dim))
+}
 
 // DB wraps the DuckDB connection
 type DB struct {
@@ -63,8 +67,9 @@ func Open(path string) (*DB, error) {
 }
 
 // OpenEmbeddings initializes or opens a DuckDB embeddings database at the given path.
-func OpenEmbeddings(path string) (*DB, error) {
-	return openWithSchema(path, embeddingsSQL)
+// dim specifies the embedding dimension for the schema (e.g. 768 for nomic, 1024 for qwen3).
+func OpenEmbeddings(path string, dim int) (*DB, error) {
+	return openWithSchema(path, EmbeddingsSchemaForDim(dim))
 }
 
 // openWithSchema opens a DuckDB database, runs the given schema SQL, and hardens security.

@@ -67,7 +67,7 @@ func NewWatcher(dbPath, embDBPath string, registry *thinkt.StoreRegistry, embedd
 		done:         make(chan struct{}),
 		sessionIndex: make(map[string]sessionIndexEntry),
 		dbPool:       db.NewLazyPool(dbPath, db.IndexSchema(), 5*time.Second),
-		embDBPool:    db.NewLazyPool(embDBPath, db.EmbeddingsSchema(), 5*time.Second),
+		embDBPool:    db.NewLazyPool(embDBPath, db.EmbeddingsSchemaForDim(embDim(embedder)), 5*time.Second),
 		inFlight:     make(map[string]bool),
 		dirty:        make(map[string]bool),
 	}, nil
@@ -117,6 +117,15 @@ func (w *Watcher) SetEmbedder(e *embedding.Embedder) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.embedder = e
+}
+
+// embDim returns the embedding dimension from an embedder, or 768 (nomic default) if nil.
+func embDim(e *embedding.Embedder) int {
+	if e != nil {
+		return e.Dim()
+	}
+	spec, _ := embedding.LookupModel("")
+	return spec.Dim
 }
 
 func (w *Watcher) watchProject(p thinkt.Project) error {

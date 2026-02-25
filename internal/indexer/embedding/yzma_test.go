@@ -17,7 +17,7 @@ func TestEmbedder(t *testing.T) {
 		t.Skipf("model not downloaded: %s (run EnsureModel first)", modelPath)
 	}
 
-	e, err := NewEmbedder(modelPath)
+	e, err := NewEmbedder("", modelPath)
 	if err != nil {
 		t.Fatalf("NewEmbedder: %v", err)
 	}
@@ -26,8 +26,8 @@ func TestEmbedder(t *testing.T) {
 	if e.Dim() <= 0 {
 		t.Fatalf("Dim() = %d, want > 0", e.Dim())
 	}
-	if e.EmbedModelID() != ModelID {
-		t.Errorf("EmbedModelID() = %q, want %q", e.EmbedModelID(), ModelID)
+	if e.EmbedModelID() != DefaultModelID {
+		t.Errorf("EmbedModelID() = %q, want %q", e.EmbedModelID(), DefaultModelID)
 	}
 
 	texts := []string{
@@ -90,7 +90,7 @@ func TestEmbedEmpty(t *testing.T) {
 		t.Skipf("model not downloaded: %s", modelPath)
 	}
 
-	e, err := NewEmbedder(modelPath)
+	e, err := NewEmbedder("", modelPath)
 	if err != nil {
 		t.Fatalf("NewEmbedder: %v", err)
 	}
@@ -115,8 +115,9 @@ func TestDefaultModelPath(t *testing.T) {
 		t.Fatal("DefaultModelPath returned empty string")
 	}
 	// Should end with the expected model filename.
-	if got := p[len(p)-len(DefaultModelName):]; got != DefaultModelName {
-		t.Errorf("path ends with %q, want %q", got, DefaultModelName)
+	spec, _ := LookupModel("")
+	if got := p[len(p)-len(spec.FileName):]; got != spec.FileName {
+		t.Errorf("path ends with %q, want %q", got, spec.FileName)
 	}
 }
 
