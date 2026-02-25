@@ -25,7 +25,7 @@ type sessionIndexEntry struct {
 // Watcher monitors session directories for changes and triggers ingestion.
 type Watcher struct {
 	dbPath       string
-	embDBPath    string
+	embDBDir     string
 	registry     *thinkt.StoreRegistry
 	embedder     *embedding.Embedder          // shared, owned by caller (e.g. server)
 	debounce     time.Duration                // debounce delay for file changes
@@ -47,7 +47,7 @@ type Watcher struct {
 // NewWatcher creates a new Watcher instance.
 // The embedder may be nil if embedding is unavailable.
 // A zero debounce defaults to 2 seconds.
-func NewWatcher(dbPath, embDBPath string, registry *thinkt.StoreRegistry, embedder *embedding.Embedder, debounce time.Duration) (*Watcher, error) {
+func NewWatcher(dbPath, embDBDir string, registry *thinkt.StoreRegistry, embedder *embedding.Embedder, debounce time.Duration) (*Watcher, error) {
 	fw, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func NewWatcher(dbPath, embDBPath string, registry *thinkt.StoreRegistry, embedd
 
 	return &Watcher{
 		dbPath:       dbPath,
-		embDBPath:    embDBPath,
+		embDBDir:     embDBDir,
 		registry:     registry,
 		embedder:     embedder,
 		debounce:     debounce,
@@ -67,7 +67,7 @@ func NewWatcher(dbPath, embDBPath string, registry *thinkt.StoreRegistry, embedd
 		done:         make(chan struct{}),
 		sessionIndex: make(map[string]sessionIndexEntry),
 		dbPool:       db.NewLazyPool(dbPath, db.IndexSchema(), 5*time.Second),
-		embDBPool:    db.NewLazyPool(embDBPath, db.EmbeddingsSchemaForDim(embDim(embedder)), 5*time.Second),
+		embDBPool:    db.NewLazyPool(embModelPath(embDBDir, embedder), db.EmbeddingsSchemaForDim(embDim(embedder)), 5*time.Second),
 		inFlight:     make(map[string]bool),
 		dirty:        make(map[string]bool),
 	}, nil
@@ -116,7 +116,29 @@ func (w *Watcher) Stop() error {
 func (w *Watcher) SetEmbedder(e *embedding.Embedder) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
+	oldModel := ""
+	if w.embedder != nil {
+		oldModel = w.embedder.EmbedModelID()
+	}
+	newModel := ""
+	if e != nil {
+		newModel = e.EmbedModelID()
+	}
+
 	w.embedder = e
+
+	// Recreate the embeddings pool if the model (and therefore path) changed.
+	if newModel != oldModel {
+		if w.embDBPool != nil {
+			_ = w.embDBPool.Close()
+		}
+		w.embDBPool = db.NewLazyPool(
+			embModelPath(w.embDBDir, e),
+			db.EmbeddingsSchemaForDim(embDim(e)),
+			5*time.Second,
+		)
+	}
 }
 
 // embDim returns the embedding dimension from an embedder, or 768 (nomic default) if nil.
@@ -126,6 +148,15 @@ func embDim(e *embedding.Embedder) int {
 	}
 	spec, _ := embedding.LookupModel("")
 	return spec.Dim
+}
+
+// embModelPath returns the embeddings DB path for the current embedder, or the
+// default model's path when embedder is nil.
+func embModelPath(dir string, e *embedding.Embedder) string {
+	if e != nil {
+		return db.EmbeddingsPathForModel(dir, e.EmbedModelID())
+	}
+	return db.EmbeddingsPathForModel(dir, embedding.DefaultModelID)
 }
 
 func (w *Watcher) watchProject(p thinkt.Project) error {
