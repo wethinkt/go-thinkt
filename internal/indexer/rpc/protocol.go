@@ -61,6 +61,7 @@ type SemanticSearchParams struct {
 	Limit       int     `json:"limit,omitempty"`
 	MaxDistance float64 `json:"max_distance,omitempty"`
 	Diversity   bool    `json:"diversity,omitempty"`
+	Tier        string  `json:"tier,omitempty"`
 }
 
 // StatusData returned by the status method.

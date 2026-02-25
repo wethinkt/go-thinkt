@@ -30,6 +30,7 @@ func notifyServerConfigReload() {
 var (
 	semFilterProject string
 	semFilterSource  string
+	semTier          string
 	semLimit         int
 	semMaxDistance   float64
 	semJSON          bool
@@ -87,7 +88,7 @@ Use --list to output results directly to the terminal (useful for scripting).`,
 				if r.TotalChunks > 1 {
 					chunk = fmt.Sprintf("  [chunk %d/%d]", r.ChunkIndex+1, r.TotalChunks)
 				}
-				fmt.Printf("  distance=%.4f  [%s]  %s%s\n", r.Distance, r.Role, prompt, chunk)
+				fmt.Printf("  distance=%.4f  [%s]  [%s]  %s%s\n", r.Distance, r.Tier, r.Role, prompt, chunk)
 			}
 			return nil
 		}
@@ -128,6 +129,7 @@ func doSemanticSearch(queryText string) ([]search.SemanticResult, error) {
 			Source:      semFilterSource,
 			Limit:       semLimit,
 			MaxDistance:  semMaxDistance,
+			Tier:        semTier,
 		}
 		resp, err := rpc.Call(rpc.MethodSemanticSearch, params, nil)
 		if err == nil && resp.OK {
@@ -183,6 +185,7 @@ func doSemanticSearch(queryText string) ([]search.SemanticResult, error) {
 		Dim:            embedder.Dim(),
 		FilterProject: semFilterProject,
 		FilterSource:  semFilterSource,
+		FilterTier:    semTier,
 		Limit:         semLimit,
 		MaxDistance:   semMaxDistance,
 		Diversity:     semDiversity,
@@ -197,6 +200,7 @@ func init() {
 	semanticSearchCmd.Flags().BoolVar(&semList, "list", false, "Output as list instead of TUI (useful for scripting)")
 	semanticSearchCmd.Flags().BoolVar(&semJSON, "json", false, "Output as JSON")
 	semanticSearchCmd.Flags().BoolVar(&semDiversity, "diversity", false, "Enable diversity scoring to get results from different sessions")
+	semanticSearchCmd.Flags().StringVar(&semTier, "tier", "", `Embedding tier: "conversation" (default), "reasoning", or "all"`)
 
 	semanticCmd.AddCommand(semanticSearchCmd)
 	rootCmd.AddCommand(semanticCmd)

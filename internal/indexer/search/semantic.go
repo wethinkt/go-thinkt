@@ -13,6 +13,7 @@ type SemanticSearchOptions struct {
 	Dim            int     // Embedding dimension (e.g. 768, 1024)
 	FilterProject  string
 	FilterSource   string
+	FilterTier     string // "conversation" (default), "reasoning", "all", or "" (defaults to "conversation")
 	Limit          int
 	MaxDistance    float64 // 0 means no threshold
 	Diversity      bool    // Enable diversity scoring to avoid similar results from same session
@@ -25,6 +26,7 @@ type SemanticResult struct {
 	ChunkIndex   int     `json:"chunk_index"`
 	TotalChunks  int     `json:"total_chunks"`
 	Distance     float64 `json:"distance"`
+	Tier         string  `json:"tier,omitempty"`
 	Role         string  `json:"role,omitempty"`
 	Timestamp    string  `json:"timestamp,omitempty"`
 	ToolName     string  `json:"tool_name,omitempty"`
@@ -116,12 +118,22 @@ func (s *Service) fetchResults(opts SemanticSearchOptions, limit int) ([]Semanti
 	// Phase 2: Query embeddings DB for nearest vectors.
 	floatCast := fmt.Sprintf("FLOAT[%d]", opts.Dim)
 	embQ := fmt.Sprintf(`
-		SELECT emb.session_id, emb.entry_uuid, emb.chunk_index,
+		SELECT emb.session_id, emb.entry_uuid, emb.chunk_index, COALESCE(emb.tier, 'conversation') AS tier,
 		       (SELECT count(*) FROM embeddings c WHERE c.session_id = emb.session_id AND c.entry_uuid = emb.entry_uuid AND c.model = emb.model) AS total_chunks,
 		       array_cosine_distance(emb.embedding, ?::%s) AS distance
 		FROM embeddings emb
 		WHERE emb.model = ?`, floatCast)
 	embArgs := []any{opts.QueryEmbedding, opts.Model}
+
+	// Apply tier filter (default: "conversation")
+	tier := opts.FilterTier
+	if tier == "" {
+		tier = "conversation"
+	}
+	if tier != "all" {
+		embQ += " AND COALESCE(emb.tier, 'conversation') = ?"
+		embArgs = append(embArgs, tier)
+	}
 
 	if len(sessionFilter) > 0 {
 		placeholders := make([]string, len(sessionFilter))
@@ -147,16 +159,17 @@ func (s *Service) fetchResults(opts SemanticSearchOptions, limit int) ([]Semanti
 	defer embRows.Close()
 
 	type embHit struct {
-		sessionID  string
-		entryUUID  string
-		chunkIndex int
+		sessionID   string
+		entryUUID   string
+		chunkIndex  int
+		tier        string
 		totalChunks int
-		distance   float64
+		distance    float64
 	}
 	var hits []embHit
 	for embRows.Next() {
 		var h embHit
-		if err := embRows.Scan(&h.sessionID, &h.entryUUID, &h.chunkIndex, &h.totalChunks, &h.distance); err != nil {
+		if err := embRows.Scan(&h.sessionID, &h.entryUUID, &h.chunkIndex, &h.tier, &h.totalChunks, &h.distance); err != nil {
 			return nil, fmt.Errorf("scan embedding hit: %w", err)
 		}
 		hits = append(hits, h)
@@ -227,6 +240,7 @@ func (s *Service) fetchResults(opts SemanticSearchOptions, limit int) ([]Semanti
 			ChunkIndex:  h.chunkIndex,
 			TotalChunks: h.totalChunks,
 			Distance:    h.distance,
+			Tier:        h.tier,
 		}
 		if em, ok := entryMetaMap[entryKey{h.sessionID, h.entryUUID}]; ok {
 			r.Role = em.role

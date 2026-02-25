@@ -436,6 +436,7 @@ func (s *indexerServer) HandleSemanticSearch(ctx context.Context, params rpc.Sem
 		Dim:            s.embedder.Dim(),
 		FilterProject:  params.Project,
 		FilterSource:   params.Source,
+		FilterTier:     params.Tier,
 		Limit:          limit,
 		MaxDistance:    maxDist,
 		Diversity:      params.Diversity,
