@@ -571,7 +571,7 @@ func collectSessionMetadata(ctx context.Context, registry *thinkt.StoreRegistry,
 		}
 
 		limit := input.Limit
-		if limit == 0 {
+		if limit <= 0 {
 			limit = 5
 		}
 		start := input.Offset
@@ -591,7 +591,7 @@ func collectSessionMetadata(ctx context.Context, registry *thinkt.StoreRegistry,
 			sort.Slice(allSummaries, func(i, j int) bool { return allSummaries[i].ContentLength > allSummaries[j].ContentLength })
 		}
 		limit := input.Limit
-		if limit == 0 {
+		if limit <= 0 {
 			limit = 50
 		}
 		start := input.Offset
@@ -637,7 +637,7 @@ func (ms *MCPServer) handleGetSessionEntries(ctx context.Context, req *mcp.CallT
 	}
 
 	limit := input.Limit
-	if limit == 0 {
+	if limit <= 0 {
 		limit = 5
 	}
 	maxLen := input.MaxContentLength

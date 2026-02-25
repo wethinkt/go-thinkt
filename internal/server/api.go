@@ -440,6 +440,10 @@ func (s *HTTPServer) handleGetSessionMetadata(w http.ResponseWriter, r *http.Req
 			writeError(w, http.StatusBadRequest, "invalid_limit", "limit must be an integer")
 			return
 		}
+		if parsed < 0 {
+			writeError(w, http.StatusBadRequest, "invalid_limit", "limit must be non-negative")
+			return
+		}
 		limit = parsed
 	}
 
@@ -448,6 +452,10 @@ func (s *HTTPServer) handleGetSessionMetadata(w http.ResponseWriter, r *http.Req
 		parsed, err := strconv.Atoi(raw)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_offset", "offset must be an integer")
+			return
+		}
+		if parsed < 0 {
+			writeError(w, http.StatusBadRequest, "invalid_offset", "offset must be non-negative")
 			return
 		}
 		offset = parsed
