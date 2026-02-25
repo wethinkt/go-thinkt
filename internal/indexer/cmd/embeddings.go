@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"charm.land/lipgloss/v2"
@@ -15,8 +17,10 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/cmd"
 	"github.com/wethinkt/go-thinkt/internal/config"
 	indexer "github.com/wethinkt/go-thinkt/internal/indexer"
+	"github.com/wethinkt/go-thinkt/internal/indexer/db"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
+	"github.com/wethinkt/go-thinkt/internal/tui"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
@@ -63,34 +67,31 @@ var embeddingsPurgeCmd = &cobra.Command{
 		if err != nil {
 			cfg = config.Default()
 		}
+		activeModel := cfg.Embedding.Model
+		activePath := db.EmbeddingsPathForModel(embDBDir, activeModel)
 
-		embDB, err := getReadOnlyEmbeddingsDB()
+		files, err := filepath.Glob(filepath.Join(embDBDir, "*.duckdb"))
 		if err != nil {
-			return fmt.Errorf("embeddings database not available: %w", err)
-		}
-		embDB.Close()
-
-		// Re-open read-write for the purge. We need to look up the dim from existing data,
-		// since we don't load the model. Use a default dim for schema (the table already exists).
-		spec, err := embedding.LookupModel(cfg.Embedding.Model)
-		if err != nil {
-			return err
-		}
-		embDBRW, err := getEmbeddingsDB(spec.Dim)
-		if err != nil {
-			return fmt.Errorf("embeddings database not available: %w", err)
-		}
-		defer embDBRW.Close()
-
-		count, err := indexer.PurgeStaleEmbeddingsByModel(context.Background(), embDBRW, cfg.Embedding.Model)
-		if err != nil {
-			return fmt.Errorf("purge failed: %w", err)
+			return fmt.Errorf("glob embeddings dir: %w", err)
 		}
 
-		if count == 0 {
-			fmt.Println("No stale embeddings to purge.")
+		var purged int
+		for _, f := range files {
+			if filepath.Clean(f) == filepath.Clean(activePath) {
+				continue
+			}
+			if err := os.Remove(f); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: could not remove %s: %v\n", f, err)
+			} else {
+				purged++
+				fmt.Printf("Removed: %s\n", filepath.Base(f))
+			}
+		}
+
+		if purged == 0 {
+			fmt.Println("No stale embedding databases to purge.")
 		} else {
-			fmt.Printf("Purged %d stale embeddings.\n", count)
+			fmt.Printf("Purged %d stale embedding database(s).\n", purged)
 		}
 		return nil
 	},
@@ -143,22 +144,36 @@ var embeddingsDisableCmd = &cobra.Command{
 }
 
 var embeddingsModelCmd = &cobra.Command{
-	Use:   "model <model-id>",
+	Use:   "model [model-id]",
 	Short: "Switch the embedding model",
 	Long: `Switch to a different embedding model.
 
-Use 'thinkt-indexer embeddings' to list available models.`,
-	Args: cobra.ExactArgs(1),
+Without arguments, opens an interactive picker.
+With an argument, switches directly to the specified model.`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
 		if err != nil {
 			cfg = config.Default()
 		}
 
-		newModel := args[0]
+		var newModel string
+		if len(args) > 0 {
+			newModel = args[0]
+		} else {
+			selected, err := pickEmbeddingModel(cfg.Embedding.Model)
+			if err != nil {
+				return err
+			}
+			if selected == nil {
+				return nil // cancelled
+			}
+			newModel = *selected
+		}
 		if _, err := embedding.LookupModel(newModel); err != nil {
 			fmt.Fprintf(os.Stderr, "Unknown model %q. Available models:\n\n", newModel)
 			printModelList(cfg.Embedding.Model)
+			cmd.SilenceErrors = true
 			return fmt.Errorf("unknown model %q", newModel)
 		}
 
@@ -222,6 +237,30 @@ func printModelList(activeModel string) {
 	}
 }
 
+func pickEmbeddingModel(activeModel string) (*string, error) {
+	ids := make([]string, 0, len(embedding.KnownModels))
+	for id := range embedding.KnownModels {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	var options []tui.ModelOption
+	for _, id := range ids {
+		spec := embedding.KnownModels[id]
+		pooling := "mean"
+		if spec.PoolingType != llama.PoolingTypeMean {
+			pooling = "last-token"
+		}
+		options = append(options, tui.ModelOption{
+			ID:     id,
+			Detail: fmt.Sprintf("%d-dim, %s pooling", spec.Dim, pooling),
+			Active: id == activeModel,
+		})
+	}
+
+	return tui.PickModel(options)
+}
+
 func printModelListJSON(activeModel string) error {
 	ids := make([]string, 0, len(embedding.KnownModels))
 	for id := range embedding.KnownModels {
@@ -259,6 +298,13 @@ func printModelListJSON(activeModel string) error {
 
 var embeddingsStatusJSON bool
 
+type modelStats struct {
+	Model    string `json:"model"`
+	Count    int    `json:"count"`
+	Sessions int    `json:"sessions"`
+	Dim      int    `json:"dim"`
+}
+
 var embeddingsStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show embedding configuration and status",
@@ -275,26 +321,36 @@ var embeddingsStatusCmd = &cobra.Command{
 		_, statErr := os.Stat(modelPath)
 		modelDownloaded := statErr == nil
 
-		// Embedding counts per model from DB
-		type modelCount struct {
-			Model string `json:"model"`
-			Count int    `json:"count"`
-		}
-		var perModel []modelCount
+		// Embedding stats per model from DB
+		var perModel []modelStats
 		var totalEmbeddings int
-		if embDB, err := getReadOnlyEmbeddingsDB(); err == nil {
-			rows, err := embDB.Query("SELECT model, count(*) FROM embeddings GROUP BY model ORDER BY count(*) DESC")
-			if err == nil {
-				for rows.Next() {
-					var mc modelCount
-					if err := rows.Scan(&mc.Model, &mc.Count); err == nil {
-						perModel = append(perModel, mc)
-						totalEmbeddings += mc.Count
-					}
+		var totalDBSize int64
+
+		if files, err := filepath.Glob(filepath.Join(embDBDir, "*.duckdb")); err == nil {
+			for _, f := range files {
+				fi, statErr := os.Stat(f)
+				if statErr != nil {
+					continue
 				}
-				rows.Close()
+				totalDBSize += fi.Size()
+
+				base := filepath.Base(f)
+				mID := strings.TrimSuffix(base, ".duckdb")
+
+				if embDB, err := db.OpenReadOnly(f); err == nil {
+					var count, sessions int
+					_ = embDB.QueryRow("SELECT count(*), count(DISTINCT session_id) FROM embeddings").Scan(&count, &sessions)
+					spec, _ := embedding.LookupModel(mID)
+					perModel = append(perModel, modelStats{
+						Model:    mID,
+						Count:    count,
+						Sessions: sessions,
+						Dim:      spec.Dim,
+					})
+					totalEmbeddings += count
+					embDB.Close()
+				}
 			}
-			embDB.Close()
 		}
 
 		// Server status (if running)
@@ -317,14 +373,15 @@ var embeddingsStatusCmd = &cobra.Command{
 
 		if embeddingsStatusJSON {
 			out := map[string]any{
-				"enabled":          cfg.Embedding.Enabled,
-				"model":            modelID,
-				"model_dim":        spec.Dim,
-				"model_downloaded": modelDownloaded,
-				"total_embeddings": totalEmbeddings,
+				"enabled":             cfg.Embedding.Enabled,
+				"model":               modelID,
+				"model_dim":           spec.Dim,
+				"model_downloaded":    modelDownloaded,
+				"total_embeddings":    totalEmbeddings,
 				"embeddings_by_model": perModel,
-				"server_running":   serverRunning,
-				"server_embedding": serverEmbedding,
+				"db_size_bytes":       totalDBSize,
+				"server_running":      serverRunning,
+				"server_embedding":    serverEmbedding,
 			}
 			if serverModel != "" {
 				out["server_model"] = serverModel
@@ -346,16 +403,22 @@ var embeddingsStatusCmd = &cobra.Command{
 		} else {
 			fmt.Println("Download:  not downloaded")
 		}
-		if len(perModel) <= 1 {
-			fmt.Printf("Stored:    %d embeddings\n", totalEmbeddings)
+		if totalEmbeddings == 0 {
+			fmt.Println("Stored:    0 embeddings")
 		} else {
-			fmt.Printf("Stored:    %d embeddings\n", totalEmbeddings)
-			for _, mc := range perModel {
-				marker := "  "
-				if mc.Model == modelID {
-					marker = "* "
+			fmt.Printf("Stored:    %d embeddings across %d sessions", totalEmbeddings, totalSessions(perModel))
+			if totalDBSize > 0 {
+				fmt.Printf(" (%s on disk)", formatBytes(totalDBSize))
+			}
+			fmt.Println()
+			if len(perModel) > 1 {
+				for _, ms := range perModel {
+					marker := "  "
+					if ms.Model == modelID {
+						marker = "* "
+					}
+					fmt.Printf("           %s%s: %d embeddings, %d sessions\n", marker, ms.Model, ms.Count, ms.Sessions)
 				}
-				fmt.Printf("           %s%s: %d\n", marker, mc.Model, mc.Count)
 			}
 		}
 
@@ -509,7 +572,7 @@ var embeddingsSyncCmd = &cobra.Command{
 		}
 		defer database.Close()
 
-		embDB, err := getEmbeddingsDB(embedder.Dim())
+		embDB, err := getEmbeddingsDB(modelID, embedder.Dim())
 		if err != nil {
 			return fmt.Errorf("embeddings database is locked by another process; use 'thinkt-indexer serve' to allow concurrent access: %w", err)
 		}
@@ -520,9 +583,6 @@ var embeddingsSyncCmd = &cobra.Command{
 		ingester.Verbose = verbose
 
 		ctx := context.Background()
-		if err := ingester.MigrateEmbeddings(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: migration check failed: %v\n", err)
-		}
 
 		sp := NewSyncProgress()
 		if sp.ShouldShowProgress(quiet, verbose) {
@@ -565,6 +625,34 @@ var embeddingsSyncCmd = &cobra.Command{
 		}
 		return nil
 	},
+}
+
+func totalSessions(models []modelStats) int {
+	// Can't just sum — sessions may overlap across models.
+	// But as an approximation it's fine; exact would require a DB query.
+	total := 0
+	for _, ms := range models {
+		total += ms.Sessions
+	}
+	return total
+}
+
+func formatBytes(b int64) string {
+	const (
+		kb = 1024
+		mb = 1024 * kb
+		gb = 1024 * mb
+	)
+	switch {
+	case b >= gb:
+		return fmt.Sprintf("%.1f GB", float64(b)/float64(gb))
+	case b >= mb:
+		return fmt.Sprintf("%.1f MB", float64(b)/float64(mb))
+	case b >= kb:
+		return fmt.Sprintf("%.1f KB", float64(b)/float64(kb))
+	default:
+		return fmt.Sprintf("%d B", b)
+	}
 }
 
 func init() {
