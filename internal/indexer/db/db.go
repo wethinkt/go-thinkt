@@ -51,15 +51,6 @@ func EmbeddingsPathForModel(dir, modelID string) string {
 	return filepath.Join(dir, safe+".duckdb")
 }
 
-// Deprecated: use DefaultEmbeddingsDir + EmbeddingsPathForModel.
-func DefaultEmbeddingsPath() (string, error) {
-	dir, err := DefaultEmbeddingsDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "embeddings.duckdb"), nil
-}
-
 //go:embed schema/init.sql
 var initSQL string
 
