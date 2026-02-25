@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 )
 
@@ -98,9 +99,17 @@ func (a AppConfig) BuildRunCommand(shellCmd string) (string, []string) {
 		return "", nil
 	}
 
-	// Escape backslashes and double quotes for safe injection into "{}"
-	escaped := strings.ReplaceAll(shellCmd, "\\", "\\\\")
-	escaped = strings.ReplaceAll(escaped, "\"", "\\\"")
+	var escaped string
+	if runtime.GOOS == "windows" {
+		// On Windows, ExecRun templates inject shellCmd as a raw argument
+		// (e.g., "cmd /c {}"), so no template-level escaping is needed.
+		escaped = shellCmd
+	} else {
+		// On Unix, templates may embed shellCmd in double-quoted strings
+		// (e.g., AppleScript), so escape backslashes and double quotes.
+		escaped = strings.ReplaceAll(shellCmd, "\\", "\\\\")
+		escaped = strings.ReplaceAll(escaped, "\"", "\\\"")
+	}
 
 	cmd := a.ExecRun[0]
 	args := make([]string, 0, len(a.ExecRun)-1)

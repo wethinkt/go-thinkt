@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -775,6 +776,10 @@ func spawnInTerminal(info *thinkt.ResumeInfo) error {
 }
 
 func quoteShell(s string) string {
+	if runtime.GOOS == "windows" {
+		// cmd.exe uses double quotes; escape embedded double quotes by doubling.
+		return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
+	}
 	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }
 
