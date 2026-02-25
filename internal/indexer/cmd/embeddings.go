@@ -307,11 +307,13 @@ func printModelListJSON(activeModel string) error {
 var embeddingsStatusJSON bool
 
 type modelStats struct {
-	Model    string `json:"model"`
-	Count    int    `json:"count"`
-	Sessions int    `json:"sessions"`
-	Dim      int    `json:"dim"`
-	Size     int64  `json:"size_bytes"`
+	Model        string `json:"model"`
+	Count        int    `json:"count"`
+	Sessions     int    `json:"sessions"`
+	Dim          int    `json:"dim"`
+	Size         int64  `json:"size_bytes"`
+	Conversation int    `json:"conversation"`
+	Reasoning    int    `json:"reasoning"`
 }
 
 var embeddingsStatusCmd = &cobra.Command{
@@ -349,13 +351,18 @@ var embeddingsStatusCmd = &cobra.Command{
 				if embDB, err := db.OpenReadOnly(f); err == nil {
 					var count, sessions int
 					_ = embDB.QueryRow("SELECT count(*), count(DISTINCT session_id) FROM embeddings").Scan(&count, &sessions)
+					var convCount, reasonCount int
+					_ = embDB.QueryRow("SELECT count(*) FROM embeddings WHERE tier = 'conversation'").Scan(&convCount)
+					_ = embDB.QueryRow("SELECT count(*) FROM embeddings WHERE tier = 'reasoning'").Scan(&reasonCount)
 					spec, _ := embedding.LookupModel(mID)
 					perModel = append(perModel, modelStats{
-						Model:    mID,
-						Count:    count,
-						Sessions: sessions,
-						Dim:      spec.Dim,
-						Size:     fi.Size(),
+						Model:        mID,
+						Count:        count,
+						Sessions:     sessions,
+						Dim:          spec.Dim,
+						Size:         fi.Size(),
+						Conversation: convCount,
+						Reasoning:    reasonCount,
 					})
 					totalEmbeddings += count
 					embDB.Close()
@@ -442,6 +449,9 @@ var embeddingsStatusCmd = &cobra.Command{
 						marker = "* "
 					}
 					fmt.Printf("           %s%-*s  %*d embeddings, %d sessions  %*s\n", marker, maxNameLen, ms.Model, maxCountLen, ms.Count, ms.Sessions, maxSizeLen, formatBytes(ms.Size))
+					if ms.Conversation > 0 || ms.Reasoning > 0 {
+						fmt.Printf("           %s%-*s  conversation: %d, reasoning: %d\n", "  ", maxNameLen, "", ms.Conversation, ms.Reasoning)
+					}
 				}
 			}
 		}
