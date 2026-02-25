@@ -37,8 +37,9 @@ func init() {
 
 // indexerServer implements rpc.Handler and holds all server state.
 type indexerServer struct {
-	db        *db.DB
-	embDB     *db.DB // separate embeddings database
+	db         *db.DB
+	embDB      *db.DB   // separate embeddings database (per-model; re-opened on model change)
+	embDBModel string   // model ID that embDB was opened for
 	registry  *thinkt.StoreRegistry
 	embedder  *embedding.Embedder
 	watcher   *indexer.Watcher // file watcher (nil if disabled)
@@ -278,7 +279,10 @@ func (s *indexerServer) HandleEmbedSync(ctx context.Context, params rpc.EmbedSyn
 			return nil, embedErr
 		}
 
-		if s.embDB == nil {
+		if s.embDB == nil || s.embDBModel != e.EmbedModelID() {
+			if s.embDB != nil {
+				s.embDB.Close()
+			}
 			d, err := getEmbeddingsDB(e.EmbedModelID(), e.Dim())
 			if err != nil {
 				e.Close()
@@ -286,6 +290,7 @@ func (s *indexerServer) HandleEmbedSync(ctx context.Context, params rpc.EmbedSyn
 				return nil, embedErr
 			}
 			s.embDB = d
+			s.embDBModel = e.EmbedModelID()
 		}
 
 		s.embedder = e
