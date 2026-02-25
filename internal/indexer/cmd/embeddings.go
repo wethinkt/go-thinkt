@@ -221,6 +221,13 @@ func printModelList(activeModel string) {
 	}
 	sort.Strings(ids)
 
+	maxLen := 0
+	for _, id := range ids {
+		if len(id) > maxLen {
+			maxLen = len(id)
+		}
+	}
+
 	for _, id := range ids {
 		spec := embedding.KnownModels[id]
 		pooling := "mean"
@@ -230,9 +237,9 @@ func printModelList(activeModel string) {
 		detail := fmt.Sprintf("%d-dim, %s pooling", spec.Dim, pooling)
 
 		if id == activeModel {
-			fmt.Printf("%s %s  %s\n", accentStyle.Render("*"), primaryStyle.Render(fmt.Sprintf("%-25s", id)), mutedStyle.Render(detail))
+			fmt.Printf("%s %s  %s\n", accentStyle.Render("*"), primaryStyle.Width(maxLen).Render(id), mutedStyle.Render(detail))
 		} else {
-			fmt.Printf("  %s  %s\n", mutedStyle.Render(fmt.Sprintf("%-25s", id)), mutedStyle.Render(detail))
+			fmt.Printf("  %s  %s\n", mutedStyle.Width(maxLen).Render(id), mutedStyle.Render(detail))
 		}
 	}
 }
