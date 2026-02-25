@@ -518,16 +518,16 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, source st
 	// Extract text from entries
 	var entryTexts []embedding.EntryText
 	for _, e := range entries {
-		text := embedding.ExtractText(e)
-		if text == "" {
-			continue
+		tiered := embedding.ExtractTiered(e)
+		for _, tt := range tiered {
+			entryTexts = append(entryTexts, embedding.EntryText{
+				UUID:      e.UUID,
+				SessionID: sessionID,
+				Source:    source,
+				Text:      tt.Text,
+				Tier:      tt.Tier,
+			})
 		}
-		entryTexts = append(entryTexts, embedding.EntryText{
-			UUID:      e.UUID,
-			SessionID: sessionID,
-			Source:    source,
-			Text:      text,
-		})
 	}
 	if len(entryTexts) == 0 {
 		return 0, nil
@@ -607,9 +607,9 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, source st
 			id := newRequests[idx].ID
 			m := newMapping[idx]
 			_, err := i.embDB.ExecContext(ctx, fmt.Sprintf(`
-				INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
-				VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[%d], ?)`, i.embedder.Dim()),
-				id, m.SessionID, m.EntryUUID, m.ChunkIndex,
+				INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, tier, model, dim, embedding, text_hash)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?::FLOAT[%d], ?)`, i.embedder.Dim()),
+				id, m.SessionID, m.EntryUUID, m.ChunkIndex, string(m.Tier),
 				i.embedder.EmbedModelID(), i.embedder.Dim(), vec, m.TextHash,
 			)
 			if err != nil {
