@@ -311,6 +311,7 @@ type modelStats struct {
 	Count    int    `json:"count"`
 	Sessions int    `json:"sessions"`
 	Dim      int    `json:"dim"`
+	Size     int64  `json:"size_bytes"`
 }
 
 var embeddingsStatusCmd = &cobra.Command{
@@ -354,6 +355,7 @@ var embeddingsStatusCmd = &cobra.Command{
 						Count:    count,
 						Sessions: sessions,
 						Dim:      spec.Dim,
+						Size:     fi.Size(),
 					})
 					totalEmbeddings += count
 					embDB.Close()
@@ -422,13 +424,16 @@ var embeddingsStatusCmd = &cobra.Command{
 			if len(perModel) > 1 {
 				maxNameLen := 0
 				maxCountLen := 0
+				maxSizeLen := 0
 				for _, ms := range perModel {
 					if len(ms.Model) > maxNameLen {
 						maxNameLen = len(ms.Model)
 					}
-					cl := len(fmt.Sprintf("%d", ms.Count))
-					if cl > maxCountLen {
+					if cl := len(fmt.Sprintf("%d", ms.Count)); cl > maxCountLen {
 						maxCountLen = cl
+					}
+					if sl := len(formatBytes(ms.Size)); sl > maxSizeLen {
+						maxSizeLen = sl
 					}
 				}
 				for _, ms := range perModel {
@@ -436,7 +441,7 @@ var embeddingsStatusCmd = &cobra.Command{
 					if ms.Model == modelID {
 						marker = "* "
 					}
-					fmt.Printf("           %s%-*s  %*d embeddings, %d sessions\n", marker, maxNameLen, ms.Model, maxCountLen, ms.Count, ms.Sessions)
+					fmt.Printf("           %s%-*s  %*d embeddings, %d sessions  %*s\n", marker, maxNameLen, ms.Model, maxCountLen, ms.Count, ms.Sessions, maxSizeLen, formatBytes(ms.Size))
 				}
 			}
 		}
