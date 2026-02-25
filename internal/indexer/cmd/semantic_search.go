@@ -166,7 +166,11 @@ func doSemanticSearch(queryText string) ([]search.SemanticResult, error) {
 	}
 	defer indexDB.Close()
 
-	embDB, err := getReadOnlyEmbeddingsDB()
+	ssCfg, err := config.Load()
+	if err != nil {
+		ssCfg = config.Default()
+	}
+	embDB, err := getReadOnlyEmbeddingsDB(ssCfg.Embedding.Model)
 	if err != nil {
 		return nil, fmt.Errorf("embeddings database not available (run 'thinkt-indexer sync' first): %w", err)
 	}

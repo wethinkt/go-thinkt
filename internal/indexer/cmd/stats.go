@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 )
@@ -114,9 +115,11 @@ func getStats() (*statsData, error) {
 	}
 
 	// Embedding stats (from separate embeddings DB)
-	if embDB, err := getReadOnlyEmbeddingsDB(); err == nil {
-		_ = embDB.QueryRow("SELECT count(*) FROM embeddings").Scan(&stats.TotalEmbeddings)
-		embDB.Close()
+	if statsCfg, cfgErr := config.Load(); cfgErr == nil {
+		if embDB, err := getReadOnlyEmbeddingsDB(statsCfg.Embedding.Model); err == nil {
+			_ = embDB.QueryRow("SELECT count(*) FROM embeddings").Scan(&stats.TotalEmbeddings)
+			embDB.Close()
+		}
 	}
 	modelPath, _ := embedding.DefaultModelPath()
 	if _, statErr := os.Stat(modelPath); statErr == nil {
