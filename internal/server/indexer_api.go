@@ -33,13 +33,19 @@ type SearchResponse struct {
 	TotalMatches int                   `json:"total_matches"`
 }
 
+// StatsToolCount represents a tool and its usage count.
+type StatsToolCount struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
 // StatsResponse contains usage statistics from the index.
 type StatsResponse struct {
-	TotalProjects int            `json:"total_projects"`
-	TotalSessions int            `json:"total_sessions"`
-	TotalEntries  int            `json:"total_entries"`
-	TotalTokens   int            `json:"total_tokens"`
-	ToolUsage     map[string]int `json:"tool_usage"`
+	TotalProjects int               `json:"total_projects"`
+	TotalSessions int               `json:"total_sessions"`
+	TotalEntries  int               `json:"total_entries"`
+	TotalTokens   int               `json:"total_tokens"`
+	TopTools      []StatsToolCount  `json:"top_tools"`
 }
 
 // handleSearchSessions searches for text across indexed sessions.

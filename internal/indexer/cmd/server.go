@@ -456,13 +456,16 @@ func (s *indexerServer) HandleSemanticSearch(ctx context.Context, params rpc.Sem
 
 func (s *indexerServer) HandleStats(ctx context.Context) (*rpc.Response, error) {
 	var stats struct {
-		TotalProjects   int            `json:"total_projects"`
-		TotalSessions   int            `json:"total_sessions"`
-		TotalEntries    int            `json:"total_entries"`
-		TotalTokens     int            `json:"total_tokens"`
-		TotalEmbeddings int            `json:"total_embeddings"`
-		EmbedModel      string         `json:"embed_model"`
-		ToolUsage       map[string]int `json:"tool_usage"`
+		TotalProjects   int `json:"total_projects"`
+		TotalSessions   int `json:"total_sessions"`
+		TotalEntries    int `json:"total_entries"`
+		TotalTokens     int `json:"total_tokens"`
+		TotalEmbeddings int `json:"total_embeddings"`
+		EmbedModel      string `json:"embed_model"`
+		TopTools        []struct {
+			Name  string `json:"name"`
+			Count int    `json:"count"`
+		} `json:"top_tools"`
 	}
 
 	if err := s.db.QueryRowContext(ctx, "SELECT count(*) FROM projects").Scan(&stats.TotalProjects); err != nil {
@@ -483,14 +486,16 @@ func (s *indexerServer) HandleStats(ctx context.Context) (*rpc.Response, error) 
 		stats.EmbedModel = s.embedder.EmbedModelID()
 	}
 
-	rows, err := s.db.QueryContext(ctx, "SELECT tool_name, count(*) FROM entries WHERE tool_name != '' GROUP BY tool_name ORDER BY count(*) DESC")
+	rows, err := s.db.QueryContext(ctx, "SELECT tool_name, count(*) AS cnt FROM entries WHERE tool_name != '' GROUP BY tool_name ORDER BY cnt DESC LIMIT 25")
 	if err == nil {
-		stats.ToolUsage = make(map[string]int)
 		for rows.Next() {
 			var name string
 			var count int
 			if err := rows.Scan(&name, &count); err == nil {
-				stats.ToolUsage[name] = count
+				stats.TopTools = append(stats.TopTools, struct {
+					Name  string `json:"name"`
+					Count int    `json:"count"`
+				}{name, count})
 			}
 		}
 		rows.Close()

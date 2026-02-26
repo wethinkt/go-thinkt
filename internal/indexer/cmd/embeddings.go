@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"text/tabwriter"
 	"time"
 
-	"charm.land/lipgloss/v2"
 	"github.com/hybridgroup/yzma/pkg/llama"
 	"github.com/spf13/cobra"
 
@@ -21,7 +21,6 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/tui"
-	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
 var embeddingsCmd = &cobra.Command{
@@ -220,22 +219,30 @@ func printModelList(activeModel string) {
 	}
 	sort.Strings(ids)
 
-	maxLen := 0
-	for _, id := range ids {
-		if len(id) > maxLen {
-			maxLen = len(id)
+	// Gather per-model embedding stats from DB files.
+	embStats := make(map[string]modelStats)
+	if files, err := filepath.Glob(filepath.Join(embDBDir, "*.duckdb")); err == nil {
+		for _, f := range files {
+			fi, err := os.Stat(f)
+			if err != nil {
+				continue
+			}
+			mID := strings.TrimSuffix(filepath.Base(f), ".duckdb")
+			if embDB, err := db.OpenReadOnly(f); err == nil {
+				var count, sessions int
+				_ = embDB.QueryRow("SELECT count(*), count(DISTINCT session_id) FROM embeddings").Scan(&count, &sessions)
+				embStats[mID] = modelStats{
+					Count:    count,
+					Sessions: sessions,
+					Size:     fi.Size(),
+				}
+				embDB.Close()
+			}
 		}
 	}
 
-	tty := isTTY()
-
-	var accentStyle, primaryStyle, mutedStyle lipgloss.Style
-	if tty {
-		t := theme.Current()
-		accentStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true)
-		primaryStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg))
-		mutedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
-	}
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "  MODEL\tDIM\tPOOLING\tMODEL SIZE\tSESSIONS\tDB SIZE")
 
 	for _, id := range ids {
 		spec := embedding.KnownModels[id]
@@ -243,22 +250,39 @@ func printModelList(activeModel string) {
 		if spec.PoolingType != llama.PoolingTypeMean {
 			pooling = "last-token"
 		}
-		detail := fmt.Sprintf("%d-dim, %s pooling", spec.Dim, pooling)
 
-		if tty {
-			if id == activeModel {
-				fmt.Printf("%s %s  %s\n", accentStyle.Render("*"), primaryStyle.Width(maxLen).Render(id), mutedStyle.Render(detail))
-			} else {
-				fmt.Printf("  %s  %s\n", mutedStyle.Width(maxLen).Render(id), mutedStyle.Render(detail))
-			}
-		} else {
-			if id == activeModel {
-				fmt.Printf("* %-*s  %s\n", maxLen, id, detail)
-			} else {
-				fmt.Printf("  %-*s  %s\n", maxLen, id, detail)
-			}
+		modelSize := "not downloaded"
+		if size := modelFileSize(id); size >= 0 {
+			modelSize = formatBytes(size)
 		}
+
+		sessionCol := "-"
+		dbSizeCol := "-"
+		if st, ok := embStats[id]; ok && st.Count > 0 {
+			sessionCol = fmt.Sprintf("%d", st.Sessions)
+			dbSizeCol = formatBytes(st.Size)
+		}
+
+		marker := " "
+		if id == activeModel {
+			marker = "*"
+		}
+		fmt.Fprintf(w, "%s %s\t%d\t%s\t%s\t%s\t%s\n", marker, id, spec.Dim, pooling, modelSize, sessionCol, dbSizeCol)
 	}
+	w.Flush()
+}
+
+// modelFileSize returns the on-disk size for a model, or -1 if not downloaded.
+func modelFileSize(modelID string) int64 {
+	p, err := embedding.ModelPathForID(modelID)
+	if err != nil {
+		return -1
+	}
+	fi, err := os.Stat(p)
+	if err != nil {
+		return -1
+	}
+	return fi.Size()
 }
 
 func pickEmbeddingModel(activeModel string) (*string, error) {
@@ -293,10 +317,12 @@ func printModelListJSON(activeModel string) error {
 	sort.Strings(ids)
 
 	type modelInfo struct {
-		ID      string `json:"id"`
-		Dim     int    `json:"dim"`
-		Pooling string `json:"pooling"`
-		Active  bool   `json:"active"`
+		ID         string `json:"id"`
+		Dim        int    `json:"dim"`
+		Pooling    string `json:"pooling"`
+		Active     bool   `json:"active"`
+		Downloaded bool   `json:"downloaded"`
+		SizeBytes  int64  `json:"size_bytes,omitempty"`
 	}
 
 	var models []modelInfo
@@ -306,12 +332,17 @@ func printModelListJSON(activeModel string) error {
 		if spec.PoolingType != llama.PoolingTypeMean {
 			pooling = "last-token"
 		}
-		models = append(models, modelInfo{
+		m := modelInfo{
 			ID:      id,
 			Dim:     spec.Dim,
 			Pooling: pooling,
 			Active:  id == activeModel,
-		})
+		}
+		if size := modelFileSize(id); size >= 0 {
+			m.Downloaded = true
+			m.SizeBytes = size
+		}
+		models = append(models, m)
 	}
 
 	return json.NewEncoder(os.Stdout).Encode(map[string]any{
@@ -348,41 +379,16 @@ var embeddingsStatusCmd = &cobra.Command{
 		_, statErr := os.Stat(modelPath)
 		modelDownloaded := statErr == nil
 
-		// Embedding stats per model from DB
-		var perModel []modelStats
-		var totalEmbeddings int
-		var totalDBSize int64
-
-		if files, err := filepath.Glob(filepath.Join(embDBDir, "*.duckdb")); err == nil {
-			for _, f := range files {
-				fi, statErr := os.Stat(f)
-				if statErr != nil {
-					continue
-				}
-				totalDBSize += fi.Size()
-
-				base := filepath.Base(f)
-				mID := strings.TrimSuffix(base, ".duckdb")
-
-				if embDB, err := db.OpenReadOnly(f); err == nil {
-					var count, sessions int
-					_ = embDB.QueryRow("SELECT count(*), count(DISTINCT session_id) FROM embeddings").Scan(&count, &sessions)
-					var convCount, reasonCount int
-					_ = embDB.QueryRow("SELECT count(*) FROM embeddings WHERE tier = 'conversation'").Scan(&convCount)
-					_ = embDB.QueryRow("SELECT count(*) FROM embeddings WHERE tier = 'reasoning'").Scan(&reasonCount)
-					spec, _ := embedding.LookupModel(mID)
-					perModel = append(perModel, modelStats{
-						Model:        mID,
-						Count:        count,
-						Sessions:     sessions,
-						Dim:          spec.Dim,
-						Size:         fi.Size(),
-						Conversation: convCount,
-						Reasoning:    reasonCount,
-					})
-					totalEmbeddings += count
-					embDB.Close()
-				}
+		// Embedding stats for active model from DB
+		var activeStats modelStats
+		embPath := db.EmbeddingsPathForModel(embDBDir, modelID)
+		if fi, err := os.Stat(embPath); err == nil {
+			activeStats.Size = fi.Size()
+			if embDB, err := db.OpenReadOnly(embPath); err == nil {
+				_ = embDB.QueryRow("SELECT count(*), count(DISTINCT session_id) FROM embeddings").Scan(&activeStats.Count, &activeStats.Sessions)
+				_ = embDB.QueryRow("SELECT count(*) FROM embeddings WHERE tier = 'conversation'").Scan(&activeStats.Conversation)
+				_ = embDB.QueryRow("SELECT count(*) FROM embeddings WHERE tier = 'reasoning'").Scan(&activeStats.Reasoning)
+				embDB.Close()
 			}
 		}
 
@@ -406,15 +412,17 @@ var embeddingsStatusCmd = &cobra.Command{
 
 		if embeddingsStatusJSON {
 			out := map[string]any{
-				"enabled":             cfg.Embedding.Enabled,
-				"model":               modelID,
-				"model_dim":           spec.Dim,
-				"model_downloaded":    modelDownloaded,
-				"total_embeddings":    totalEmbeddings,
-				"embeddings_by_model": perModel,
-				"db_size_bytes":       totalDBSize,
-				"server_running":      serverRunning,
-				"server_embedding":    serverEmbedding,
+				"enabled":          cfg.Embedding.Enabled,
+				"model":            modelID,
+				"model_dim":        spec.Dim,
+				"model_downloaded": modelDownloaded,
+				"embeddings":       activeStats.Count,
+				"sessions":         activeStats.Sessions,
+				"conversation":     activeStats.Conversation,
+				"reasoning":        activeStats.Reasoning,
+				"db_size_bytes":    activeStats.Size,
+				"server_running":   serverRunning,
+				"server_embedding": serverEmbedding,
 			}
 			if serverModel != "" {
 				out["server_model"] = serverModel
@@ -425,78 +433,57 @@ var embeddingsStatusCmd = &cobra.Command{
 			return json.NewEncoder(os.Stdout).Encode(out)
 		}
 
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+
+		enabled := "disabled"
 		if cfg.Embedding.Enabled {
-			fmt.Println("Embedding: enabled")
-		} else {
-			fmt.Println("Embedding: disabled")
+			enabled = "enabled"
 		}
-		fmt.Printf("Model:     %s (%d dim)\n", modelID, spec.Dim)
+		download := "not downloaded"
 		if modelDownloaded {
-			fmt.Println("Download:  ready")
-		} else {
-			fmt.Println("Download:  not downloaded")
-		}
-		if totalEmbeddings == 0 {
-			fmt.Println("Stored:    0 embeddings")
-		} else {
-			fmt.Printf("Stored:    %d embeddings across %d sessions", totalEmbeddings, totalSessions(perModel))
-			if totalDBSize > 0 {
-				fmt.Printf(" (%s on disk)", formatBytes(totalDBSize))
-			}
-			fmt.Println()
-			if len(perModel) > 1 {
-				maxNameLen := 0
-				maxCountLen := 0
-				maxSizeLen := 0
-				for _, ms := range perModel {
-					if len(ms.Model) > maxNameLen {
-						maxNameLen = len(ms.Model)
-					}
-					if cl := len(fmt.Sprintf("%d", ms.Count)); cl > maxCountLen {
-						maxCountLen = cl
-					}
-					if sl := len(formatBytes(ms.Size)); sl > maxSizeLen {
-						maxSizeLen = sl
-					}
-				}
-				for _, ms := range perModel {
-					marker := "  "
-					if ms.Model == modelID {
-						marker = "* "
-					}
-					fmt.Printf("           %s%-*s  %*d embeddings, %d sessions  %*s\n", marker, maxNameLen, ms.Model, maxCountLen, ms.Count, ms.Sessions, maxSizeLen, formatBytes(ms.Size))
-					if ms.Conversation > 0 || ms.Reasoning > 0 {
-						fmt.Printf("           %s%-*s  conversation: %d, reasoning: %d\n", "  ", maxNameLen, "", ms.Conversation, ms.Reasoning)
-					}
-				}
-			}
+			download = "ready"
 		}
 
+		fmt.Fprintf(w, "Embedding:\t%s\n", enabled)
+		fmt.Fprintf(w, "Model:\t%s (%d dim)\n", modelID, spec.Dim)
+		fmt.Fprintf(w, "Download:\t%s\n", download)
+		if activeStats.Count == 0 {
+			fmt.Fprintf(w, "Stored:\t0 embeddings\n")
+		} else {
+			stored := fmt.Sprintf("%d embeddings across %d sessions", activeStats.Count, activeStats.Sessions)
+			if activeStats.Size > 0 {
+				stored += fmt.Sprintf(" (%s on disk)", formatBytes(activeStats.Size))
+			}
+			fmt.Fprintf(w, "Stored:\t%s\n", stored)
+			fmt.Fprintf(w, " conversation:\t%d\n", activeStats.Conversation)
+			fmt.Fprintf(w, " reasoning:\t%d\n", activeStats.Reasoning)
+		}
+
+		serverStatus := "not running"
 		if serverRunning {
 			if serverModel != "" && serverModel != modelID {
-				fmt.Printf("Server:    running (model: %s)\n", serverModel)
+				serverStatus = fmt.Sprintf("running (model: %s)", serverModel)
 			} else if serverEmbedding {
-				fmt.Print("Server:    embedding")
+				serverStatus = "embedding"
 				if embedProgress != nil {
-					fmt.Printf(" %d/%d sessions", embedProgress.Done, embedProgress.Total)
+					serverStatus += fmt.Sprintf(" %d/%d sessions", embedProgress.Done, embedProgress.Total)
 					if embedProgress.ChunksTotal > 0 {
-						fmt.Printf("  %d/%d chunks", embedProgress.ChunksDone, embedProgress.ChunksTotal)
+						serverStatus += fmt.Sprintf("  %d/%d chunks", embedProgress.ChunksDone, embedProgress.ChunksTotal)
 					}
 					if embedProgress.SessionID != "" {
 						sid := embedProgress.SessionID
 						if len(sid) > 8 {
 							sid = sid[:8]
 						}
-						fmt.Printf(" [%s]", sid)
+						serverStatus += fmt.Sprintf(" [%s]", sid)
 					}
 				}
-				fmt.Println()
 			} else {
-				fmt.Println("Server:    idle")
+				serverStatus = "idle"
 			}
-		} else {
-			fmt.Println("Server:    not running")
 		}
+		fmt.Fprintf(w, "Server:\t%s\n", serverStatus)
+		w.Flush()
 
 		return nil
 	},
@@ -677,15 +664,6 @@ var embeddingsSyncCmd = &cobra.Command{
 	},
 }
 
-func totalSessions(models []modelStats) int {
-	// Can't just sum — sessions may overlap across models.
-	// But as an approximation it's fine; exact would require a DB query.
-	total := 0
-	for _, ms := range models {
-		total += ms.Sessions
-	}
-	return total
-}
 
 func formatBytes(b int64) string {
 	const (
