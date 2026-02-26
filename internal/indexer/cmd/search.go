@@ -70,7 +70,21 @@ Use --list to output results directly to the terminal (useful for scripting).`,
 			return nil
 		}
 
-		// TUI mode (default)
+		// TUI mode (default) — fall back to list when not a TTY
+		if !isTTY() {
+			for _, res := range results {
+				fmt.Printf("\nSession: %s (Project: %s, Source: %s)\n", res.SessionID, res.ProjectName, res.Source)
+				fmt.Printf("Path:    %s\n", search.ShortenPath(res.Path))
+				for _, m := range res.Matches {
+					fmt.Printf("  Line %d [%s]: %s\n", m.LineNum, m.Role, m.Preview)
+				}
+			}
+			if totalMatches == 0 {
+				fmt.Println("No matches found.")
+			}
+			return nil
+		}
+
 		if len(results) == 0 {
 			fmt.Println("No matches found.")
 			return nil

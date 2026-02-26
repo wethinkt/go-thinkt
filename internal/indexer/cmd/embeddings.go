@@ -162,6 +162,9 @@ With an argument, switches directly to the specified model.`,
 		if len(args) > 0 {
 			newModel = args[0]
 		} else {
+			if !isTTY() {
+				return fmt.Errorf("interactive model picker requires a terminal; pass model ID as argument")
+			}
 			selected, err := pickEmbeddingModel(cfg.Embedding.Model)
 			if err != nil {
 				return err
@@ -210,11 +213,6 @@ With an argument, switches directly to the specified model.`,
 }
 
 func printModelList(activeModel string) {
-	t := theme.Current()
-	accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true)
-	primaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg))
-	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
-
 	// Sort model IDs for stable output.
 	ids := make([]string, 0, len(embedding.KnownModels))
 	for id := range embedding.KnownModels {
@@ -229,6 +227,16 @@ func printModelList(activeModel string) {
 		}
 	}
 
+	tty := isTTY()
+
+	var accentStyle, primaryStyle, mutedStyle lipgloss.Style
+	if tty {
+		t := theme.Current()
+		accentStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true)
+		primaryStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg))
+		mutedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
+	}
+
 	for _, id := range ids {
 		spec := embedding.KnownModels[id]
 		pooling := "mean"
@@ -237,10 +245,18 @@ func printModelList(activeModel string) {
 		}
 		detail := fmt.Sprintf("%d-dim, %s pooling", spec.Dim, pooling)
 
-		if id == activeModel {
-			fmt.Printf("%s %s  %s\n", accentStyle.Render("*"), primaryStyle.Width(maxLen).Render(id), mutedStyle.Render(detail))
+		if tty {
+			if id == activeModel {
+				fmt.Printf("%s %s  %s\n", accentStyle.Render("*"), primaryStyle.Width(maxLen).Render(id), mutedStyle.Render(detail))
+			} else {
+				fmt.Printf("  %s  %s\n", mutedStyle.Width(maxLen).Render(id), mutedStyle.Render(detail))
+			}
 		} else {
-			fmt.Printf("  %s  %s\n", mutedStyle.Width(maxLen).Render(id), mutedStyle.Render(detail))
+			if id == activeModel {
+				fmt.Printf("* %-*s  %s\n", maxLen, id, detail)
+			} else {
+				fmt.Printf("  %-*s  %s\n", maxLen, id, detail)
+			}
 		}
 	}
 }

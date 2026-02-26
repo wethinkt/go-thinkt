@@ -93,7 +93,28 @@ Use --list to output results directly to the terminal (useful for scripting).`,
 			return nil
 		}
 
-		// TUI mode (default)
+		// TUI mode (default) — fall back to list when not a TTY
+		if !isTTY() {
+			if len(results) == 0 {
+				fmt.Println("No semantic matches found.")
+				return nil
+			}
+			for _, r := range results {
+				fmt.Printf("\nSession: %s (Project: %s, Source: %s)\n",
+					r.SessionID, r.ProjectName, r.Source)
+				prompt := r.FirstPrompt
+				if len(prompt) > 80 {
+					prompt = prompt[:80] + "..."
+				}
+				chunk := ""
+				if r.TotalChunks > 1 {
+					chunk = fmt.Sprintf("  [chunk %d/%d]", r.ChunkIndex+1, r.TotalChunks)
+				}
+				fmt.Printf("  distance=%.4f  [%s]  [%s]  %s%s\n", r.Distance, r.Tier, r.Role, prompt, chunk)
+			}
+			return nil
+		}
+
 		if len(results) == 0 {
 			fmt.Println("No semantic matches found.")
 			return nil

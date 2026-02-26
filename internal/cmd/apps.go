@@ -409,10 +409,16 @@ func runAppPicker(apps []config.AppConfig, title string, activeID string) (strin
 }
 
 func pickApp(apps []config.AppConfig, title string) (string, error) {
+	if !isTTY() {
+		return "", fmt.Errorf("interactive picker requires a terminal; pass app ID as argument")
+	}
 	return runAppPicker(apps, title, "")
 }
 
 func pickTerminal(apps []config.AppConfig, currentTerminal string) (string, error) {
+	if !isTTY() {
+		return "", fmt.Errorf("interactive picker requires a terminal; pass terminal ID as argument")
+	}
 	activeID := currentTerminal
 	if activeID == "" {
 		activeID = "terminal"

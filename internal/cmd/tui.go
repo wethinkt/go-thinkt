@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	tea "charm.land/bubbletea/v2"
@@ -10,6 +11,11 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/tui"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
+
+// isTTY reports whether stdout is connected to a terminal.
+func isTTY() bool {
+	return term.IsTerminal(int(os.Stdout.Fd()))
+}
 
 var tuiCmd = &cobra.Command{
 	Use:   "tui",
@@ -27,6 +33,10 @@ Press T to open thinking-tracer for the selected session.`,
 }
 
 func runTUI(cmd *cobra.Command, args []string) error {
+	if !isTTY() {
+		return fmt.Errorf("interactive TUI requires a terminal; use a subcommand (try 'thinkt --help')")
+	}
+
 	tuilog.Log.Info("Starting TUI")
 
 	// Get initial terminal size - try stdout, stdin, stderr in order

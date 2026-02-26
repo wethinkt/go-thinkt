@@ -157,6 +157,9 @@ Key bindings:
 }
 
 func runThemeBrowse(cmd *cobra.Command, args []string) error {
+	if !isTTY() {
+		return fmt.Errorf("interactive theme browser requires a terminal; use 'thinkt theme list' or 'thinkt theme show'")
+	}
 	return tui.RunThemeBrowser()
 }
 
@@ -209,6 +212,9 @@ func runThemeImport(cmd *cobra.Command, args []string) error {
 }
 
 func runThemeBuilder(cmd *cobra.Command, args []string) error {
+	if !isTTY() {
+		return fmt.Errorf("interactive theme builder requires a terminal")
+	}
 	name := theme.ActiveName()
 	if len(args) > 0 {
 		name = args[0]

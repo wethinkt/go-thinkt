@@ -5,9 +5,15 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
+
 	"github.com/wethinkt/go-thinkt/internal/indexer/db"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
+
+func isTTY() bool {
+	return term.IsTerminal(int(os.Stdout.Fd()))
+}
 
 var (
 	dbPath   string
