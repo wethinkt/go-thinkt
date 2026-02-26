@@ -82,7 +82,7 @@ func (s *Shipper) Ship(ctx context.Context, payload TracePayload) (*ShipResult, 
 		}
 
 		statusCode = resp.StatusCode
-		io.Copy(io.Discard, resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
 		resp.Body.Close()
 
 		if statusCode >= 200 && statusCode < 300 {
@@ -95,17 +95,18 @@ func (s *Shipper) Ship(ctx context.Context, payload TracePayload) (*ShipResult, 
 				"entries", result.Entries,
 				"status", statusCode,
 				"duration", result.Duration,
+				"body", string(body),
 			)
 			return result, nil
 		}
 
 		// Don't retry on client errors (4xx) except 429
 		if statusCode >= 400 && statusCode < 500 && statusCode != http.StatusTooManyRequests {
-			lastErr = fmt.Errorf("collector returned %d", statusCode)
+			lastErr = fmt.Errorf("collector returned %d: %s", statusCode, string(body))
 			break
 		}
 
-		lastErr = fmt.Errorf("collector returned %d", statusCode)
+		lastErr = fmt.Errorf("collector returned %d: %s", statusCode, string(body))
 	}
 
 	result := &ShipResult{

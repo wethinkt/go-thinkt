@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/fingerprint"
-	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -350,30 +349,11 @@ func (e *Exporter) processFile(ctx context.Context, path, source string) {
 	scanner.Buffer(make([]byte, 0, 1024*1024), 10*1024*1024) // 10MB max line
 
 	for scanner.Scan() {
-		var raw thinkt.Entry
-		if err := json.Unmarshal(scanner.Bytes(), &raw); err != nil {
-			continue // Skip malformed lines
+		entry, ok := parseRawEntry(scanner.Bytes())
+		if !ok {
+			continue
 		}
-
-		text := raw.Text
-		if text == "" && len(raw.ContentBlocks) > 0 {
-			for _, b := range raw.ContentBlocks {
-				if b.Text != "" {
-					text = b.Text
-					break
-				}
-			}
-		}
-
-		entries = append(entries, TraceEntry{
-			UUID:      raw.UUID,
-			Role:      string(raw.Role),
-			Timestamp: raw.Timestamp,
-			Text:      text,
-			Model:     raw.Model,
-			ToolName:  firstToolName(raw.ContentBlocks),
-			AgentID:   raw.AgentID,
-		})
+		entries = append(entries, entry)
 	}
 
 	// Update offset
@@ -443,12 +423,124 @@ func (e *Exporter) shipOrBuffer(ctx context.Context, payload TracePayload) {
 	e.lastShipTime.Store(time.Now().UnixNano())
 }
 
-// firstToolName extracts the first tool_use name from content blocks, if any.
-func firstToolName(blocks []thinkt.ContentBlock) string {
+// rawEntry is a minimal struct for parsing JSONL lines from any source.
+// Different sources use different field names: Claude uses "type" for role,
+// Kimi uses "role", etc. This struct captures both so we can normalize.
+type rawEntry struct {
+	UUID      string          `json:"uuid"`
+	Type      string          `json:"type"`                // Claude: role is in "type"
+	Role      string          `json:"role"`                // Kimi/others: role is in "role"
+	Timestamp time.Time       `json:"timestamp"`
+	Model     string          `json:"model,omitempty"`
+	Text      string          `json:"text,omitempty"`
+	AgentID   string          `json:"agentId,omitempty"`
+	Message   json.RawMessage `json:"message,omitempty"`
+}
+
+// validRoles are the roles accepted by the collector.
+var validRoles = map[string]bool{
+	"user": true, "assistant": true, "tool_use": true, "tool_result": true, "system": true,
+}
+
+// parseRawEntry parses a JSONL line into a TraceEntry, handling source-specific
+// field naming differences.
+func parseRawEntry(line []byte) (TraceEntry, bool) {
+	var raw rawEntry
+	if err := json.Unmarshal(line, &raw); err != nil {
+		return TraceEntry{}, false
+	}
+
+	if raw.UUID == "" {
+		return TraceEntry{}, false
+	}
+
+	// Resolve role: prefer "role" field, fall back to "type" field
+	role := raw.Role
+	if role == "" {
+		role = raw.Type
+	}
+	// Map source-specific types to collector roles
+	switch role {
+	case "human":
+		role = "user"
+	}
+	if !validRoles[role] {
+		return TraceEntry{}, false
+	}
+
+	text := raw.Text
+
+	// Try to extract text and model from assistant message content
+	var model string
+	var toolName string
+	if raw.Message != nil {
+		text, model, toolName = extractFromMessage(raw.Message, text)
+	}
+	if raw.Model != "" {
+		model = raw.Model
+	}
+
+	return TraceEntry{
+		UUID:      raw.UUID,
+		Role:      role,
+		Timestamp: raw.Timestamp,
+		Text:      text,
+		Model:     model,
+		ToolName:  toolName,
+		AgentID:   raw.AgentID,
+	}, true
+}
+
+// extractFromMessage extracts text, model, and tool name from a message JSON blob.
+func extractFromMessage(msg json.RawMessage, fallbackText string) (text, model, toolName string) {
+	text = fallbackText
+
+	// Try to parse as {"role": "...", "model": "...", "content": [...]}
+	var parsed struct {
+		Model   string          `json:"model"`
+		Content json.RawMessage `json:"content"`
+	}
+	if err := json.Unmarshal(msg, &parsed); err != nil {
+		return
+	}
+	model = parsed.Model
+
+	if parsed.Content == nil {
+		return
+	}
+
+	// Content can be a string or an array of blocks
+	var contentStr string
+	if err := json.Unmarshal(parsed.Content, &contentStr); err == nil {
+		if text == "" {
+			text = contentStr
+		}
+		return
+	}
+
+	// Parse as array of content blocks
+	var blocks []struct {
+		Type     string `json:"type"`
+		Text     string `json:"text"`
+		Name     string `json:"name"`
+		Thinking string `json:"thinking"`
+	}
+	if err := json.Unmarshal(parsed.Content, &blocks); err != nil {
+		return
+	}
+
 	for _, b := range blocks {
-		if b.ToolName != "" {
-			return b.ToolName
+		switch b.Type {
+		case "text":
+			if text == "" {
+				text = b.Text
+			}
+		case "tool_use":
+			if toolName == "" {
+				toolName = b.Name
+			}
 		}
 	}
-	return ""
+	return
 }
+

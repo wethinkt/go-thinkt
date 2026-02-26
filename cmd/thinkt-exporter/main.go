@@ -1,15 +1,27 @@
 // thinkt-exporter is a standalone binary that watches local AI session files
 // and exports trace entries to a remote collector endpoint.
 //
+// By default it auto-discovers all installed AI sources (Claude, Kimi, Gemini,
+// Codex, Copilot, Qwen) and watches their session directories. Use --source to
+// limit to specific sources. Source paths are controlled via environment variables
+// (THINKT_CLAUDE_HOME, THINKT_KIMI_HOME, etc.).
+//
 // Usage:
 //
-//	thinkt-exporter --collector-url https://collect.example.com/v1/traces --watch-dir ~/.claude/projects
-//	thinkt-exporter --watch-dir /path/a --watch-dir /path/b --api-key mytoken
+//	thinkt-exporter --collector-url https://collect.example.com/v1/traces
+//	thinkt-exporter --source claude --source kimi
+//	THINKT_CLAUDE_HOME=/custom/path thinkt-exporter --source claude
 //
 // Environment variables:
 //
 //	THINKT_COLLECTOR_URL  Collector endpoint (fallback if --collector-url not set)
 //	THINKT_API_KEY        Bearer token (fallback if --api-key not set)
+//	THINKT_CLAUDE_HOME    Override Claude session directory
+//	THINKT_KIMI_HOME      Override Kimi session directory
+//	THINKT_GEMINI_HOME    Override Gemini session directory
+//	THINKT_CODEX_HOME     Override Codex session directory
+//	THINKT_COPILOT_HOME   Override Copilot session directory
+//	THINKT_QWEN_HOME      Override Qwen session directory
 package main
 
 import (
@@ -21,18 +33,20 @@ import (
 	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/export"
+	"github.com/wethinkt/go-thinkt/internal/sources"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 // version is set via ldflags at build time.
 var version = "dev"
 
-// watchDirs is a repeatable flag for specifying directories to watch.
-type watchDirs []string
+// sourceFlags is a repeatable flag for specifying sources to export.
+type sourceFlags []string
 
-func (w *watchDirs) String() string { return strings.Join(*w, ",") }
-func (w *watchDirs) Set(val string) error {
-	*w = append(*w, val)
+func (s *sourceFlags) String() string { return strings.Join(*s, ",") }
+func (s *sourceFlags) Set(val string) error {
+	*s = append(*s, val)
 	return nil
 }
 
@@ -40,16 +54,17 @@ func main() {
 	var (
 		collectorURL string
 		apiKey       string
-		dirs         watchDirs
+		srcs         sourceFlags
 		bufferDir    string
 		quiet        bool
 		showVersion  bool
 		logFile      string
 	)
 
+	allNames := sourceNames()
 	flag.StringVar(&collectorURL, "collector-url", "", "collector endpoint URL (env: THINKT_COLLECTOR_URL)")
 	flag.StringVar(&apiKey, "api-key", "", "bearer token for collector auth (env: THINKT_API_KEY)")
-	flag.Var(&dirs, "watch-dir", "directory to watch for session files (repeatable)")
+	flag.Var(&srcs, "source", "source to export (repeatable: "+strings.Join(allNames, ", ")+"); all if omitted")
 	flag.StringVar(&bufferDir, "buffer-dir", "", "disk buffer directory (default ~/.thinkt/export-buffer/)")
 	flag.BoolVar(&quiet, "quiet", false, "suppress non-error output")
 	flag.BoolVar(&showVersion, "version", false, "print version and exit")
@@ -78,9 +93,20 @@ func main() {
 		apiKey = os.Getenv("THINKT_API_KEY")
 	}
 
+	// Build source filter set (empty = all sources)
+	sourceFilter := make(map[thinkt.Source]bool)
+	for _, s := range srcs {
+		sourceFilter[thinkt.Source(s)] = true
+	}
+
+	// Discover watch dirs from source registry
+	dirs := discoverWatchDirs(sourceFilter, quiet)
 	if len(dirs) == 0 {
-		fmt.Fprintln(os.Stderr, "error: at least one --watch-dir is required")
-		flag.Usage()
+		if len(srcs) > 0 {
+			fmt.Fprintf(os.Stderr, "error: no session directories found for sources: %s\n", strings.Join([]string(srcs), ", "))
+		} else {
+			fmt.Fprintln(os.Stderr, "error: no session directories found (is a supported AI tool installed?)")
+		}
 		os.Exit(1)
 	}
 
@@ -128,4 +154,43 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// discoverWatchDirs uses the source registry to find session directories.
+// If filter is non-empty, only sources in the filter are included.
+func discoverWatchDirs(filter map[thinkt.Source]bool, quiet bool) []string {
+	discovery := thinkt.NewDiscovery(sources.AllFactories()...)
+	registry, err := discovery.Discover(context.Background())
+	if err != nil {
+		return nil
+	}
+
+	var dirs []string
+	for _, store := range registry.All() {
+		src := store.Source()
+		if len(filter) > 0 && !filter[src] {
+			continue
+		}
+		ws := store.Workspace()
+		if ws.BasePath == "" {
+			continue
+		}
+		if _, err := os.Stat(ws.BasePath); err != nil {
+			continue
+		}
+		dirs = append(dirs, ws.BasePath)
+		if !quiet {
+			fmt.Fprintf(os.Stderr, "Discovered %s: %s\n", src, ws.BasePath)
+		}
+	}
+	return dirs
+}
+
+// sourceNames returns the string names of all known sources for help text.
+func sourceNames() []string {
+	names := make([]string, len(thinkt.AllSources))
+	for i, s := range thinkt.AllSources {
+		names[i] = string(s)
+	}
+	return names
 }

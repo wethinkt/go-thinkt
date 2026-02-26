@@ -7,6 +7,8 @@ bin/
 *.dylib
 /thinkt
 /thinkt.zip
+/thinkt-collector
+/thinkt-exporter
 /thinkt-indexer
 /thinkt-indexer.zip
 

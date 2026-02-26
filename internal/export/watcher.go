@@ -2,6 +2,7 @@ package export
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -40,20 +41,42 @@ func NewFileWatcher(dirs []string) (*FileWatcher, error) {
 	}, nil
 }
 
-// Start begins watching directories and returns a channel of file events.
+// Start begins watching directories (recursively) and returns a channel of file events.
 // The returned channel is closed when the context is canceled or Stop is called.
 func (w *FileWatcher) Start(ctx context.Context) (<-chan FileEvent, error) {
 	for _, dir := range w.dirs {
-		if err := w.watcher.Add(dir); err != nil {
-			tuilog.Log.Warn("Failed to watch directory", "dir", dir, "error", err)
-		} else {
-			tuilog.Log.Info("Watching directory", "dir", dir)
-		}
+		w.addRecursive(dir)
 	}
 
 	events := make(chan FileEvent, 64)
 	go w.watchLoop(ctx, events)
 	return events, nil
+}
+
+// addRecursive walks a directory tree and adds all directories to the watcher.
+func (w *FileWatcher) addRecursive(root string) {
+	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // skip inaccessible dirs
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		// Skip hidden subdirectories (except the root itself)
+		if path != root {
+			name := d.Name()
+			if strings.HasPrefix(name, ".") {
+				return filepath.SkipDir
+			}
+		}
+		if err := w.watcher.Add(path); err != nil {
+			tuilog.Log.Warn("Failed to watch directory", "dir", path, "error", err)
+		} else {
+			tuilog.Log.Debug("Watching directory", "dir", path)
+		}
+		return nil
+	})
+	tuilog.Log.Info("Watching directory tree", "root", root)
 }
 
 // Stop stops the file watcher and releases resources.
@@ -74,6 +97,14 @@ func (w *FileWatcher) watchLoop(ctx context.Context, events chan<- FileEvent) {
 		case event, ok := <-w.watcher.Events:
 			if !ok {
 				return
+			}
+
+			// If a new directory was created, watch it recursively
+			if event.Op&fsnotify.Create == fsnotify.Create {
+				if info, err := os.Stat(event.Name); err == nil && info.IsDir() {
+					w.addRecursive(event.Name)
+					continue
+				}
 			}
 
 			// Only care about .jsonl files
