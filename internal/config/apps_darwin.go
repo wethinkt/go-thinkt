@@ -20,7 +20,7 @@ func DefaultApps() []AppConfig {
 			ID:      "terminal",
 			Name:    "Terminal",
 			Exec:    []string{"open", "-a", "Terminal", "{}"},
-			ExecRun: []string{"osascript", "-e", "tell application \"Terminal\"\nactivate\ndo script \"{}\"\nend tell"},
+			ExecRun: []string{"osascript", "-e", "tell application \"Terminal\"\ndo script \"{}\"\nactivate\nend tell"},
 			Enabled: true,
 		},
 		{
@@ -46,7 +46,7 @@ func DefaultApps() []AppConfig {
 			ID:      "ghostty",
 			Name:    "Ghostty",
 			Exec:    []string{"open", "-a", "Ghostty", "{}"},
-			ExecRun: []string{"open", "-a", "Ghostty", "--args", "-e", "sh", "-c", "{}"},
+			ExecRun: []string{"open", "-na", "Ghostty", "--args", "-e", "sh", "-c", "{}"},
 			Enabled: checkAppExists("Ghostty"),
 		},
 		{
@@ -67,7 +67,7 @@ func DefaultApps() []AppConfig {
 			ID:      "alacritty",
 			Name:    "Alacritty",
 			Exec:    []string{"open", "-a", "Alacritty", "{}"},
-			ExecRun: []string{"open", "-a", "Alacritty", "--args", "-e", "sh", "-c", "{}"},
+			ExecRun: []string{"open", "-na", "Alacritty", "--args", "-e", "sh", "-c", "{}"},
 			Enabled: checkAppExists("Alacritty"),
 		},
 	}
