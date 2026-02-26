@@ -41,13 +41,11 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 
 	var entryTexts []embedding.EntryText
 	for _, e := range entries {
-		text := embedding.ExtractText(e)
-		if text == "" {
-			continue
+		for _, tt := range embedding.ExtractTiered(e) {
+			entryTexts = append(entryTexts, embedding.EntryText{
+				UUID: e.UUID, SessionID: "s1", Text: tt.Text, Tier: tt.Tier,
+			})
 		}
-		entryTexts = append(entryTexts, embedding.EntryText{
-			UUID: e.UUID, SessionID: "s1", Text: text,
-		})
 	}
 
 	requests, mapping := embedding.PrepareEntries(entryTexts, 2000, 200)
@@ -77,9 +75,9 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 		}
 		id := requests[idx].ID
 		_, err := embDB.Exec(fmt.Sprintf(`
-			INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
-			VALUES (?, ?, ?, ?, ?, ?, ?::FLOAT[%d], ?)`, embedder.Dim()),
-			id, m.SessionID, m.EntryUUID, m.ChunkIndex, embedder.EmbedModelID(), embedder.Dim(), embedResult.Vectors[idx], m.TextHash)
+			INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, tier, model, dim, embedding, text_hash)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?::FLOAT[%d], ?)`, embedder.Dim()),
+			id, m.SessionID, m.EntryUUID, m.ChunkIndex, string(m.Tier), embedder.EmbedModelID(), embedder.Dim(), embedResult.Vectors[idx], m.TextHash)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -97,6 +95,7 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 		Model:          embedder.EmbedModelID(),
 		Dim:            embedder.Dim(),
 		Limit:          10,
+		FilterTier:     "all",
 	})
 	if err != nil {
 		t.Fatal(err)
