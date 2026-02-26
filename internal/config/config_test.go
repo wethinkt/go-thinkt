@@ -219,9 +219,24 @@ func TestAppInfo(t *testing.T) {
 		t.Error("Info() should copy ID, Name, Enabled")
 	}
 
+	if info.Terminal {
+		t.Error("Info() should set Terminal=false when ExecRun is empty")
+	}
+
+	appWithRun := AppConfig{
+		ID:      "term",
+		Name:    "Terminal",
+		ExecRun: []string{"open", "-a", "Terminal", "{}"},
+		Enabled: true,
+	}
+	infoWithRun := appWithRun.Info()
+	if !infoWithRun.Terminal {
+		t.Error("Info() should set Terminal=true when ExecRun is non-empty")
+	}
+
 	// Verify Exec is not exposed via JSON
 	data, _ := json.Marshal(info)
-	if string(data) != `{"id":"test","name":"Test App","enabled":true}` {
+	if string(data) != `{"id":"test","name":"Test App","enabled":true,"terminal":false}` {
 		t.Errorf("unexpected JSON: %s", data)
 	}
 }

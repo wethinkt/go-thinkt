@@ -77,20 +77,9 @@ func runAppsList(cmd *cobra.Command, args []string) error {
 	}
 
 	if outputJSON {
-		type appJSON struct {
-			ID       string `json:"id"`
-			Name     string `json:"name"`
-			Enabled  bool   `json:"enabled"`
-			Terminal bool   `json:"terminal"`
-		}
-		out := make([]appJSON, len(cfg.AllowedApps))
+		out := make([]config.AppInfo, len(cfg.AllowedApps))
 		for i, app := range cfg.AllowedApps {
-			out[i] = appJSON{
-				ID:       app.ID,
-				Name:     app.Name,
-				Enabled:  app.Enabled,
-				Terminal: len(app.ExecRun) > 0,
-			}
+			out[i] = app.Info()
 		}
 		return json.NewEncoder(os.Stdout).Encode(out)
 	}

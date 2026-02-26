@@ -7,6 +7,8 @@ definitions:
         type: string
       name:
         type: string
+      terminal:
+        type: boolean
     type: object
   server.AllowedAppsResponse:
     properties:
@@ -232,10 +234,10 @@ definitions:
     type: object
   server.StatsResponse:
     properties:
-      tool_usage:
-        additionalProperties:
-          type: integer
-        type: object
+      top_tools:
+        items:
+          $ref: '#/definitions/server.StatsToolCount'
+        type: array
       total_entries:
         type: integer
       total_projects:
@@ -244,6 +246,13 @@ definitions:
         type: integer
       total_tokens:
         type: integer
+    type: object
+  server.StatsToolCount:
+    properties:
+      count:
+        type: integer
+      name:
+        type: string
     type: object
   server.TeamMessagesResponse:
     properties:

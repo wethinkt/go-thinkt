@@ -18,17 +18,19 @@ type AppConfig struct {
 
 // AppInfo is the public API representation of an app (excludes Exec).
 type AppInfo struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Enabled bool   `json:"enabled"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Enabled  bool   `json:"enabled"`
+	Terminal bool   `json:"terminal"`
 }
 
 // Info returns the public API representation of this app.
 func (a AppConfig) Info() AppInfo {
 	return AppInfo{
-		ID:      a.ID,
-		Name:    a.Name,
-		Enabled: a.Enabled,
+		ID:       a.ID,
+		Name:     a.Name,
+		Enabled:  a.Enabled,
+		Terminal: len(a.ExecRun) > 0,
 	}
 }
 

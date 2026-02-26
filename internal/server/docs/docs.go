@@ -1081,6 +1081,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "terminal": {
+                    "type": "boolean"
                 }
             }
         },
@@ -1428,10 +1431,10 @@ const docTemplate = `{
         "server.StatsResponse": {
             "type": "object",
             "properties": {
-                "tool_usage": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "integer"
+                "top_tools": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/server.StatsToolCount"
                     }
                 },
                 "total_entries": {
@@ -1445,6 +1448,17 @@ const docTemplate = `{
                 },
                 "total_tokens": {
                     "type": "integer"
+                }
+            }
+        },
+        "server.StatsToolCount": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },
