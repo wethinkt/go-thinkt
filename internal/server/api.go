@@ -797,7 +797,8 @@ type OpenInResponse struct {
 
 // AllowedAppsResponse lists enabled apps for the open-in feature.
 type AllowedAppsResponse struct {
-	Apps []config.AppInfo `json:"apps"`
+	Apps            []config.AppInfo `json:"apps"`
+	DefaultTerminal string           `json:"default_terminal"`
 }
 
 // handleOpenIn opens a path in the specified application.
@@ -880,7 +881,14 @@ func (s *HTTPServer) handleGetAllowedApps(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	writeJSON(w, http.StatusOK, AllowedAppsResponse{Apps: cfg.GetEnabledApps()})
+	defaultTerminal := "terminal"
+	if t := cfg.GetTerminalApp(); t != nil {
+		defaultTerminal = t.ID
+	}
+	writeJSON(w, http.StatusOK, AllowedAppsResponse{
+		Apps:            cfg.GetEnabledApps(),
+		DefaultTerminal: defaultTerminal,
+	})
 }
 
 // ThemeStyle is the API representation of a theme style.

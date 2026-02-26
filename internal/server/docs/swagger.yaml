@@ -16,6 +16,8 @@ definitions:
         items:
           $ref: '#/definitions/config.AppInfo'
         type: array
+      default_terminal:
+        type: string
     type: object
   server.ErrorResponse:
     properties:

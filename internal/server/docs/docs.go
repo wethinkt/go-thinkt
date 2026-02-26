@@ -1095,6 +1095,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/config.AppInfo"
                     }
+                },
+                "default_terminal": {
+                    "type": "string"
                 }
             }
         },
