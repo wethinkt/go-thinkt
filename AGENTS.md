@@ -38,7 +38,7 @@ Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot|codex|qwen
 | `internal/tui` | BubbleTea terminal UI (shell, pickers, viewer, theme builder) |
 | `internal/server` | HTTP REST API, teams API, indexer API, and MCP server |
 | `internal/server/web` | Full webapp submodule ([thinkt-web](https://github.com/wethinkt/thinkt-web), `dist` branch) |
-| `internal/server/web-lite` | Lite webapp submodule ([thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite)) |
+| `internal/server/web-lite` | Lite webapp submodule ([thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite), `dist` branch) |
 | `internal/indexer` | Indexer ingestion, watching, and search |
 | `internal/indexer/db` | DuckDB database layer with copy-on-read support |
 | `internal/analytics` | Analytics |
@@ -270,7 +270,7 @@ Two web interfaces are embedded into the binary via git submodules:
 | Submodule | Path | Command | Port | Description |
 |-----------|------|---------|------|-------------|
 | [thinkt-web](https://github.com/wethinkt/thinkt-web) (`dist` branch) | `internal/server/web/` | `thinkt server` / `thinkt web` | 8784 | Full webapp for trace exploration |
-| [thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite) | `internal/server/web-lite/` | `thinkt web lite` | 8784 (`/lite/`) | Lightweight debug interface |
+| [thinkt-web-lite](https://github.com/wethinkt/thinkt-web-lite) (`dist` branch) | `internal/server/web-lite/` | `thinkt web lite` | 8784 (`/lite/`) | Lightweight debug interface |
 
 ### Submodule Setup
 

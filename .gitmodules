@@ -4,6 +4,7 @@
 [submodule "internal/server/web-lite"]
 	path = internal/server/web-lite
 	url = git@github.com:wethinkt/thinkt-web-lite.git
+	branch = dist
 [submodule "internal/server/web"]
 	path = internal/server/web
 	url = git@github.com:wethinkt/thinkt-web.git
