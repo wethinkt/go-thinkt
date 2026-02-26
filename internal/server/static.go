@@ -8,7 +8,7 @@ import (
 )
 
 //go:embed web-lite/index.html
-//go:embed web-lite/static/*
+//go:embed web-lite/assets/*
 var webappLiteFS embed.FS
 
 //go:embed web/index.html
