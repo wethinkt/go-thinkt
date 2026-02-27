@@ -53,8 +53,30 @@ func (w *FileWatcher) Start(ctx context.Context) (<-chan FileEvent, error) {
 	return events, nil
 }
 
-// addRecursive walks a directory tree and adds all directories to the watcher.
+// skipDirs are subdirectory names that never contain session JSONL files.
+var skipDirs = map[string]bool{
+	"file-history":       true,
+	"tool-results":       true,
+	"debug":              true,
+	"todos":              true,
+	"ide":                true,
+	"statsig":            true,
+	"browser_recordings": true,
+	"Cache":              true,
+	"Cache_Data":         true,
+	"Default":            true,
+	"antigravity":        true,
+}
+
+// maxWatchDepth is the maximum directory depth to recurse when watching.
+// Session files are typically at depth 2 (e.g., projects/<encoded>/<session>.jsonl).
+const maxWatchDepth = 4
+
+// addRecursive walks a directory tree and adds directories to the watcher,
+// skipping known non-session directories and capping depth to avoid watching
+// browser caches, tool results, and other large trees.
 func (w *FileWatcher) addRecursive(root string) {
+	rootDepth := strings.Count(root, string(filepath.Separator))
 	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil // skip inaccessible dirs
@@ -62,10 +84,19 @@ func (w *FileWatcher) addRecursive(root string) {
 		if !d.IsDir() {
 			return nil
 		}
-		// Skip hidden subdirectories (except the root itself)
 		if path != root {
 			name := d.Name()
+			// Skip hidden subdirectories
 			if strings.HasPrefix(name, ".") {
+				return filepath.SkipDir
+			}
+			// Skip known non-session directories
+			if skipDirs[name] {
+				return filepath.SkipDir
+			}
+			// Cap depth
+			depth := strings.Count(path, string(filepath.Separator)) - rootDepth
+			if depth > maxWatchDepth {
 				return filepath.SkipDir
 			}
 		}
@@ -102,8 +133,11 @@ func (w *FileWatcher) watchLoop(ctx context.Context, events chan<- FileEvent) {
 			// If a new directory was created, watch it recursively
 			if event.Op&fsnotify.Create == fsnotify.Create {
 				if info, err := os.Stat(event.Name); err == nil && info.IsDir() {
-					// Skip lock files and temp directories
-					if !strings.HasSuffix(event.Name, ".lock") {
+					name := filepath.Base(event.Name)
+					// Skip lock files, hidden dirs, and known non-session dirs
+					if !strings.HasSuffix(name, ".lock") &&
+						!strings.HasPrefix(name, ".") &&
+						!skipDirs[name] {
 						w.addRecursive(event.Name)
 					}
 					continue
