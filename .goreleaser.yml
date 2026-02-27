@@ -108,9 +108,12 @@ homebrew_casks:
       - man/man1/thinkt-completion-powershell.1
       - man/man1/thinkt-completion-zsh.1
       - man/man1/thinkt-completion.1
+      - man/man1/thinkt-embeddings.1
+      - man/man1/thinkt-indexer-embeddings.1
       - man/man1/thinkt-indexer-help.1
       - man/man1/thinkt-indexer-logs.1
       - man/man1/thinkt-indexer-search.1
+      - man/man1/thinkt-indexer-semantic.1
       - man/man1/thinkt-indexer-sessions.1
       - man/man1/thinkt-indexer-start.1
       - man/man1/thinkt-indexer-stats.1
@@ -130,6 +133,8 @@ homebrew_casks:
       - man/man1/thinkt-prompts-list.1
       - man/man1/thinkt-prompts-templates.1
       - man/man1/thinkt-prompts.1
+      - man/man1/thinkt-search.1
+      - man/man1/thinkt-semantic.1
       - man/man1/thinkt-server-fingerprint.1
       - man/man1/thinkt-server-http-logs.1
       - man/man1/thinkt-server-logs.1

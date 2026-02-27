@@ -34,6 +34,7 @@ Examples:
 ### SEE ALSO
 
 * [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
+* [thinkt indexer embeddings](thinkt_indexer_embeddings.md)	 - Manage embedding model, storage, and sync
 * [thinkt indexer help](thinkt_indexer_help.md)	 - Help about any command
 * [thinkt indexer logs](thinkt_indexer_logs.md)	 - View indexer logs
 * [thinkt indexer search](thinkt_indexer_search.md)	 - Search for text across indexed sessions

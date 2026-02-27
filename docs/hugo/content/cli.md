@@ -234,11 +234,13 @@ The fingerprint is derived from platform-specific system identifiers:
 | Windows | MachineGuid from registry |
 | Fallback | Generated and cached in `~/.thinkt/machine_id` |
 
+The fingerprint is also available via the REST API at `GET /api/v1/info`.
+
 ---
 
 ## Indexer
 
-The `thinkt-indexer` provides DuckDB-powered indexing and search for your session data:
+The indexer provides DuckDB-powered indexing and search for your session data. Most indexer commands are accessible as top-level aliases through the main `thinkt` CLI, as well as directly via the `thinkt-indexer` binary:
 
 ```bash
 # Start the indexer server (syncs, watches, and serves RPC)
@@ -248,47 +250,62 @@ thinkt indexer start
 thinkt-indexer sync
 
 # Search (case-insensitive by default)
-thinkt-indexer search "authentication"
+thinkt search "authentication"
 
 # Case-sensitive search
-thinkt-indexer search "AuthManager" --case-sensitive
+thinkt search "AuthManager" --case-sensitive
 
 # Regex search (Go RE2 syntax)
-thinkt-indexer search --regex "func\s+Test\w+"
+thinkt search --regex "func\s+Test\w+"
 
 # Filter by project or source
-thinkt-indexer search "TODO" --project my-app --source codex
+thinkt search "TODO" --project my-app --source codex
 
 # Usage statistics
-thinkt-indexer stats
+thinkt indexer stats
+```
+
+### Embeddings
+
+Manage on-device embedding models for semantic search:
+
+```bash
+thinkt embeddings list              # List available models with stats
+thinkt embeddings status            # Show embedding config and status
+thinkt embeddings model             # Switch embedding model (interactive)
+thinkt embeddings model <id>        # Switch to specific model
+thinkt embeddings enable            # Enable semantic embeddings
+thinkt embeddings disable           # Disable semantic embeddings
+thinkt embeddings sync              # Run embedding sync
+thinkt embeddings purge             # Remove old model embeddings
 ```
 
 ### Semantic Search
 
-Search sessions by meaning using on-device embeddings (Qwen3-Embedding model). Disabled by default.
+Search sessions by meaning using on-device embeddings (nomic-embed-text-v1.5 by default, configurable via `thinkt embeddings model`). Disabled by default.
 
 ```bash
-# Enable semantic search (model downloads on first sync, ~600MB)
-thinkt-indexer semantic enable
+# Enable semantic search (model downloads on first sync)
+thinkt embeddings enable
 
 # Search by meaning
-thinkt-indexer semantic search "database migration strategy"
+thinkt semantic search "database migration strategy"
 
 # Filter and options
-thinkt-indexer semantic search "error handling" --project my-app --source claude
-thinkt-indexer semantic search "testing patterns" --diversity --limit 10
-thinkt-indexer semantic search "API design" --max-distance 0.5
+thinkt semantic search "error handling" --project my-app --source claude
+thinkt semantic search "testing patterns" --diversity --limit 10
+thinkt semantic search "API design" --max-distance 0.5
 
 # Output formats
-thinkt-indexer semantic search "query" --list    # Plain text (for scripting)
-thinkt-indexer semantic search "query" --json    # JSON output
+thinkt semantic search "query" --list    # Plain text (for scripting)
+thinkt semantic search "query" --json    # JSON output
 
 # Check status
-thinkt-indexer semantic stats
-thinkt-indexer semantic stats --json
+thinkt embeddings status
+thinkt embeddings status --json
 
 # Disable
-thinkt-indexer semantic disable
+thinkt embeddings disable
 ```
 
 When the indexer server is running, `enable` and `disable` take effect immediately — the server loads or unloads the embedding model at runtime without restart.

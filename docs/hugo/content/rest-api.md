@@ -88,6 +88,36 @@ Download the specification:
 
 **Base URL:** `/api/v1`
 
+### Server Info
+
+#### Get Server Info
+
+Get server identity, version, and runtime metadata.
+
+```
+GET /api/v1/info
+```
+
+**Response:**
+```json
+{
+  "fingerprint": "22414c5f-cfa8-5d30-8eb4-f1a9c49d355c",
+  "version": "0.6.0",
+  "revision": "9834a3d",
+  "started_at": "2026-02-27T10:30:00Z",
+  "uptime_seconds": 3600,
+  "pid": 12345,
+  "authenticated": true
+}
+```
+
+**Example:**
+```bash
+curl http://localhost:8784/api/v1/info
+```
+
+---
+
 ### Sources
 
 #### List Sources
@@ -395,6 +425,29 @@ curl "http://localhost:8784/api/v1/search?q=func\s%2BTest\w%2B&regex=true"
 curl "http://localhost:8784/api/v1/search?q=error&project=my-app"
 ```
 
+#### Semantic Search
+
+Search sessions by meaning using on-device embeddings. Requires embeddings to be enabled.
+
+```
+GET /api/v1/semantic-search?q=query
+```
+
+**Query Parameters:**
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `q` | string | (required) | Natural language search query |
+| `project` | string | | Filter by project name (substring match) |
+| `source` | string | | Filter by source |
+| `limit` | int | 20 | Maximum results |
+| `max_distance` | float | | Cosine distance threshold (0-2, lower is more similar) |
+| `diversity` | bool | false | Spread results across different sessions |
+
+**Example:**
+```bash
+curl "http://localhost:8784/api/v1/semantic-search?q=database+migration"
+```
+
 #### Get Usage Statistics
 
 Get aggregate usage statistics from the index.
@@ -410,11 +463,11 @@ GET /api/v1/stats
   "total_sessions": 156,
   "total_entries": 4200,
   "total_tokens": 1250000,
-  "tool_usage": {
-    "Read": 450,
-    "Edit": 280,
-    "Bash": 190
-  }
+  "top_tools": [
+    {"name": "Read", "count": 450},
+    {"name": "Edit", "count": 280},
+    {"name": "Bash", "count": 190}
+  ]
 }
 ```
 
@@ -434,6 +487,26 @@ GET /api/v1/indexer/health
   "database_accessible": true,
   "indexed_projects": 12,
   "indexed_sessions": 156
+}
+```
+
+#### Indexer Status
+
+Get live indexer server status including sync and embedding progress.
+
+```
+GET /api/v1/indexer/status
+```
+
+**Response:**
+```json
+{
+  "running": true,
+  "state": "idle",
+  "uptime_seconds": 3600,
+  "watching": true,
+  "model": "nomic-embed-text-v1.5",
+  "model_dim": 768
 }
 ```
 
@@ -593,12 +666,11 @@ GET /api/v1/open-in/apps
 ```json
 {
   "apps": [
-    {"id": "finder", "name": "Finder", "enabled": true},
-    {"id": "terminal", "name": "Terminal", "enabled": true},
-    {"id": "vscode", "name": "VS Code", "enabled": true},
-    {"id": "cursor", "name": "Cursor", "enabled": false},
-    {"id": "zed", "name": "Zed", "enabled": false}
-  ]
+    {"id": "finder", "name": "Finder", "enabled": true, "terminal": false},
+    {"id": "terminal", "name": "Terminal", "enabled": true, "terminal": true},
+    {"id": "vscode", "name": "VS Code", "enabled": true, "terminal": false}
+  ],
+  "default_terminal": "terminal"
 }
 ```
 

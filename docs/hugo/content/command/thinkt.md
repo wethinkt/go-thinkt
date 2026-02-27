@@ -43,9 +43,12 @@ thinkt [flags]
 * [thinkt apps](thinkt_apps.md)	 - Manage open-in apps and default terminal
 * [thinkt completion](thinkt_completion.md)	 - Generate the autocompletion script for the specified shell
 * [thinkt docs](thinkt_docs.md)	 - Generate documentation for thinkt
+* [thinkt embeddings](thinkt_embeddings.md)	 - Manage embedding model, storage, and sync
 * [thinkt indexer](thinkt_indexer.md)	 - Specialized indexing and search via DuckDB (requires thinkt-indexer)
 * [thinkt projects](thinkt_projects.md)	 - Manage and view projects
 * [thinkt prompts](thinkt_prompts.md)	 - Extract and manage prompts from trace files
+* [thinkt search](thinkt_search.md)	 - Search for text across indexed sessions
+* [thinkt semantic](thinkt_semantic.md)	 - Search sessions by meaning using on-device embeddings
 * [thinkt server](thinkt_server.md)	 - Manage the local HTTP server for trace exploration
 * [thinkt sessions](thinkt_sessions.md)	 - View and manage sessions across all sources
 * [thinkt sources](thinkt_sources.md)	 - Manage and view available session sources

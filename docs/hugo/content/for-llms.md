@@ -58,6 +58,8 @@ MCP provides direct tool access for AI assistants.
 | `list_sessions` | Sessions for project | `project_id`, `source` |
 | `get_session_metadata` | Session overview | `path`, `summary_only?` |
 | `get_session_entries` | Session content | `path`, `limit`, `offset`, `roles`, `include_thinking` |
+| `search_sessions` | Search across indexed sessions (supports regex) | `query`, `project?`, `source?`, `limit?`, `case_sensitive?`, `regex?` |
+| `semantic_search` | Search by meaning using embeddings | `query`, `project?`, `source?`, `limit?`, `max_distance?`, `diversity?` |
 
 **Best Practices:**
 1. Call `get_session_metadata` with `summary_only: true` first for quick user-intent previews
@@ -78,6 +80,10 @@ thinkt server                        # Start HTTP server (foreground)
 thinkt server start                  # Start HTTP server (background)
 thinkt server status                 # Check server status
 thinkt server stop                   # Stop background server
+thinkt search "query"                # Search indexed sessions
+thinkt semantic search "query"       # Semantic search
+thinkt embeddings list               # List embedding models
+thinkt embeddings status             # Embedding status
 thinkt apps                         # List open-in apps and terminal capability
 thinkt apps set-terminal            # Set default terminal for resume
 ```
@@ -87,11 +93,16 @@ thinkt apps set-terminal            # Set default terminal for resume
 Base: `http://localhost:8784/api/v1`
 
 ```
+GET /info                            # Server fingerprint, version, uptime
 GET /sources
 GET /projects?include_deleted=false
 GET /projects/{source}/{id}/sessions
 GET /sessions/{path}?limit=10&offset=0
 GET /sessions/{path}/metadata?summary_only=true&limit=5
+GET /search?q=query                  # Full-text search
+GET /semantic-search?q=query         # Semantic search
+GET /stats                           # Usage statistics
+GET /indexer/status                  # Live indexer status
 ```
 
 ### 4. Go Library

@@ -32,6 +32,9 @@ thinkt sessions list <project-id>
 
 # View a session
 thinkt sessions view
+
+# Search across sessions
+thinkt search "authentication"
 ```
 
 ## Features
@@ -43,6 +46,9 @@ thinkt sessions view
 - **Prompt Extraction** - Extract user prompts in markdown, JSON, or plain text
 - [**Themes**](/themes) - 14 built-in color schemes (Dracula, Nord, Catppuccin, etc.) with interactive browser and iTerm2 import
 - **App Management** - Configure open-in apps and default terminal via `thinkt apps`
+- **Full-Text Search** - Search across all indexed sessions via `thinkt search`
+- **Semantic Search** - Find sessions by meaning with on-device embeddings via `thinkt semantic search`
+- **Embedding Management** - Configure and manage embedding models via `thinkt embeddings`
 
 - [**REST API**](/rest-api) - Programmatic access with OpenAPI/Swagger documentation
 - [**Web Interface**](/rest-api#server-modes) - Full webapp for visual trace exploration via `thinkt web`

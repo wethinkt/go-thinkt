@@ -165,59 +165,76 @@ thinkt tui --log /tmp/thinkt-debug.log
 | `thinkt apps` | List configured open-in apps |
 | `thinkt apps enable/disable` | Enable or disable an app |
 | `thinkt apps set-terminal` | Set the default terminal app |
-| `thinkt theme` | Display current theme |
+| `thinkt search` | Search for text across indexed sessions |
+| `thinkt semantic search` | Search sessions by meaning using on-device embeddings |
+| `thinkt embeddings` | Manage embedding model, storage, and sync |
+| `thinkt theme` | Browse and manage TUI themes |
+| `thinkt theme list` | List all available themes |
+| `thinkt theme set <name>` | Set the active theme |
+| `thinkt theme import` | Import iTerm2 color scheme |
 | `thinkt theme builder` | Interactive theme editor |
 
 ## Indexer (DuckDB-Powered)
 
-The `thinkt-indexer` provides fast, searchable storage for your conversation traces:
+The `thinkt-indexer` provides fast, searchable storage for your conversation traces. Indexer commands are accessible through the main `thinkt` CLI as well as via the `thinkt-indexer` binary directly:
 
 ```bash
 # Start the indexer server (syncs, watches for changes, and serves RPC)
 thinkt indexer start
 
-# Or run directly
-thinkt-indexer sync
-
 # Search across indexed sessions (case-insensitive by default)
-thinkt-indexer search "authentication"
+thinkt search "authentication"
 
 # Case-sensitive or regex search
-thinkt-indexer search "AuthManager" --case-sensitive
-thinkt-indexer search --regex "func\s+Test\w+"
+thinkt search "AuthManager" --case-sensitive
+thinkt search --regex "func\s+Test\w+"
 
 # Show usage statistics
+thinkt indexer stats
+
+# Manage embeddings
+thinkt embeddings list
+thinkt embeddings status
+thinkt embeddings model
+
+# Or use thinkt-indexer directly
+thinkt-indexer sync
+thinkt-indexer search "authentication"
 thinkt-indexer stats
 ```
 
 ### Semantic Search
 
-On-device semantic search uses the Qwen3-Embedding model to find sessions by meaning, not just keywords:
+On-device semantic search uses on-device embedding models (nomic-embed-text-v1.5 by default) to find sessions by meaning, not just keywords. The model is configurable via `thinkt embeddings model`.
 
 ```bash
 # Enable semantic search (downloads model on first use)
 thinkt-indexer semantic enable
 
 # Search by meaning
-thinkt-indexer semantic search "database migration strategy"
+thinkt semantic search "database migration strategy"
 
 # Filter by project or source
-thinkt-indexer semantic search "error handling" --project my-app --source claude
+thinkt semantic search "error handling" --project my-app --source claude
 
 # Diversity mode spreads results across different sessions
-thinkt-indexer semantic search "testing patterns" --diversity
+thinkt semantic search "testing patterns" --diversity
 
 # Check embedding status
+thinkt embeddings status
+thinkt embeddings status --json
+
+# Or use thinkt-indexer directly
+thinkt-indexer semantic search "database migration strategy"
 thinkt-indexer semantic stats
-thinkt-indexer semantic stats --json
 
 # Disable semantic search
 thinkt-indexer semantic disable
 ```
 
-Semantic search is disabled by default. Enable it with `thinkt-indexer semantic enable` — the embedding model (~600MB) is downloaded automatically on first sync.
+Semantic search is disabled by default. Enable it with `thinkt-indexer semantic enable` — the embedding model is downloaded automatically on first sync.
 
-Indexer data is stored in `~/.thinkt/index.duckdb` (metadata) and `~/.thinkt/embeddings.duckdb` (semantic search vectors).
+Indexer data is stored in `~/.thinkt/index.duckdb` (metadata) and `~/.thinkt/embeddings/` (per-model embedding databases).
 
 ## TUI Keyboard Shortcuts
 
@@ -389,11 +406,16 @@ thinkt server
 | `GET /api/v1/projects` | List all projects |
 | `GET /api/v1/projects/{id}/sessions` | List sessions for a project |
 | `GET /api/v1/sessions/{path}` | Get session content |
+| `GET /api/v1/info` | Server info (fingerprint, version, uptime) |
 | `GET /api/v1/search?q=query` | **Search indexed sessions** |
+| `GET /api/v1/semantic-search` | **Semantic search across sessions** |
 | `GET /api/v1/stats` | **Get usage statistics** |
 | `GET /api/v1/indexer/health` | **Check indexer health** |
+| `GET /api/v1/indexer/status` | **Live indexer status** |
 | `GET /api/v1/teams` | List agent teams |
 | `POST /api/v1/open-in` | Open path in application |
+| `GET /api/v1/open-in/apps` | List allowed apps (with terminal info) |
+| `GET /api/v1/themes` | List available themes |
 
 Swagger documentation is available at `http://localhost:8784/swagger`.
 
