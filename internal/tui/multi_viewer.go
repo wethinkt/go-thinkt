@@ -26,8 +26,8 @@ type MultiViewerModel struct {
 	viewport      viewport.Model
 	width         int
 	height        int
-	ready bool
-	keys  viewerKeyMap
+	ready         bool
+	keys          viewerKeyMap
 	rendered      string
 	loadedCount   int
 	loadingMore   bool
@@ -363,14 +363,32 @@ func (m *MultiViewerModel) rebuildRenderedOutput() {
 		// Session header
 		meta := s.Metadata()
 		sessionName := filepath.Base(meta.FullPath)
-		if len(sessionName) > 40 {
-			sessionName = sessionName[:40] + "..."
-		}
 		timestamp := ""
 		if !meta.CreatedAt.IsZero() {
 			timestamp = meta.CreatedAt.Local().Format("Jan 02, 2006 3:04 PM")
 		}
-		header := separatorStyle.Render(fmt.Sprintf("━━━ %s (%s) ━━━", sessionName, timestamp))
+		// Build label, truncating name only if needed to fit width
+		var label string
+		if timestamp != "" {
+			label = fmt.Sprintf("━━━ %s (%s) ━━━", sessionName, timestamp)
+		} else {
+			label = fmt.Sprintf("━━━ %s ━━━", sessionName)
+		}
+		maxWidth := m.width - 4 // account for border
+		if maxWidth > 0 && len(label) > maxWidth {
+			// Truncate the session name to fit
+			overhead := len(label) - len(sessionName)
+			maxName := maxWidth - overhead
+			if maxName > 3 {
+				sessionName = sessionName[:maxName-3] + "..."
+				if timestamp != "" {
+					label = fmt.Sprintf("━━━ %s (%s) ━━━", sessionName, timestamp)
+				} else {
+					label = fmt.Sprintf("━━━ %s ━━━", sessionName)
+				}
+			}
+		}
+		header := separatorStyle.Render(label)
 		parts = append(parts, header)
 		parts = append(parts, "")
 
@@ -1023,7 +1041,6 @@ func (m MultiViewerModel) renderFilterStatus() string {
 	}
 	return strings.Join(parts, " ")
 }
-
 
 // allSessionsAttempted returns true when every session path has either loaded
 // successfully or failed with an error.
