@@ -62,30 +62,54 @@ func (r *AgentRegistry) Register(reg AgentRegistration) *AgentInfo {
 }
 
 // Heartbeat updates the last heartbeat time for an agent.
-// Returns true if the agent was found, false otherwise.
+// If the agent isn't registered, creates a minimal entry so actively
+// shipping exporters stay visible even without explicit registration.
 func (r *AgentRegistry) Heartbeat(instanceID string) bool {
+	if instanceID == "" {
+		return false
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	now := time.Now()
 	info, ok := r.agents[instanceID]
 	if !ok {
+		r.agents[instanceID] = &AgentInfo{
+			InstanceID:    instanceID,
+			LastHeartbeat: now,
+			Status:        "active",
+		}
 		return false
 	}
-	info.LastHeartbeat = time.Now()
+	info.LastHeartbeat = now
 	info.Status = "active"
 	return true
 }
 
 // IncrementTraceCount adds to the trace count for an agent.
 func (r *AgentRegistry) IncrementTraceCount(instanceID string, count int64) {
+	if instanceID == "" {
+		return
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if info, ok := r.agents[instanceID]; ok {
-		info.TraceCount += count
-		info.LastHeartbeat = time.Now()
-		info.Status = "active"
+	now := time.Now()
+	info, ok := r.agents[instanceID]
+	if !ok {
+		r.agents[instanceID] = &AgentInfo{
+			InstanceID:    instanceID,
+			LastHeartbeat: now,
+			TraceCount:    count,
+			Status:        "active",
+		}
+		return
 	}
+	info.TraceCount += count
+	info.LastHeartbeat = now
+	info.Status = "active"
 }
 
 // List returns a snapshot of all registered agents with current status.

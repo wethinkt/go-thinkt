@@ -116,6 +116,7 @@ func main() {
 		WatchDirs:    dirs,
 		BufferDir:    bufferDir,
 		Quiet:        quiet,
+		Version:      version,
 	}
 
 	exporter, err := export.New(cfg)

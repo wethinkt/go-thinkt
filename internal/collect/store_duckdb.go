@@ -233,7 +233,9 @@ func (s *DuckDBStore) writeRequest(tx *sql.Tx, req IngestRequest) error {
 		ON CONFLICT (id) DO UPDATE SET
 			entry_count = collected_sessions.entry_count + EXCLUDED.entry_count,
 			last_updated = EXCLUDED.last_updated,
-			model = CASE WHEN EXCLUDED.model != '' THEN EXCLUDED.model ELSE collected_sessions.model END
+			model = CASE WHEN EXCLUDED.model != '' THEN EXCLUDED.model ELSE collected_sessions.model END,
+			project_path = CASE WHEN EXCLUDED.project_path != '' THEN EXCLUDED.project_path ELSE collected_sessions.project_path END,
+			instance_id = CASE WHEN EXCLUDED.instance_id != '' THEN EXCLUDED.instance_id ELSE collected_sessions.instance_id END
 	`, req.SessionID, req.ProjectPath, req.Source, req.InstanceID, model, len(req.Entries), now, now)
 	if err != nil {
 		return fmt.Errorf("upsert session: %w", err)

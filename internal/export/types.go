@@ -31,6 +31,9 @@ type ExporterConfig struct {
 
 	// Quiet suppresses non-error output when true.
 	Quiet bool
+
+	// Version is the exporter version string (set via ldflags).
+	Version string
 }
 
 // Defaults applies default values to unset config fields.
@@ -99,6 +102,17 @@ type SessionActivityEvent struct {
 	SessionID   string    `json:"session_id"`
 	Event       string    `json:"event"` // "session_start", "session_active", "session_end"
 	Timestamp   time.Time `json:"timestamp"`
+}
+
+// AgentRegistration is the POST body for /v1/agents/register.
+type AgentRegistration struct {
+	InstanceID string         `json:"instance_id"`
+	Platform   string         `json:"platform"`
+	Hostname   string         `json:"hostname,omitempty"`
+	Version    string         `json:"version,omitempty"`
+	MachineID  string         `json:"machine_id,omitempty"`
+	StartedAt  time.Time      `json:"started_at"`
+	Metadata   map[string]any `json:"metadata,omitempty"`
 }
 
 // CollectorEndpoint holds a discovered collector URL and its origin.

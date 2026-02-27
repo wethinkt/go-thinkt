@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/fingerprint"
+	"github.com/wethinkt/go-thinkt/internal/sources/claude"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -40,7 +42,9 @@ type Exporter struct {
 	sessionActivity   map[string]time.Time // sessionPath -> lastWriteTime
 	sessionActivityMu sync.Mutex
 
-	machineID string // fingerprint of this machine
+	machineID  string // fingerprint of this machine
+	instanceID string // unique ID for this exporter instance
+	startedAt  time.Time
 }
 
 // New creates a new Exporter with the given configuration.
@@ -62,6 +66,7 @@ func New(cfg ExporterConfig) (*Exporter, error) {
 	}
 
 	machineID, _ := fingerprint.GetFingerprint()
+	instanceID := fmt.Sprintf("%s-%d", machineID, os.Getpid())
 
 	return &Exporter{
 		cfg:             cfg,
@@ -69,6 +74,8 @@ func New(cfg ExporterConfig) (*Exporter, error) {
 		offsets:         make(map[string]int64),
 		sessionActivity: make(map[string]time.Time),
 		machineID:       machineID,
+		instanceID:      instanceID,
+		startedAt:       time.Now(),
 	}, nil
 }
 
@@ -85,6 +92,7 @@ func (e *Exporter) Start(ctx context.Context) error {
 		if !e.cfg.Quiet {
 			tuilog.Log.Info("Exporter started", "collector", endpoint.URL, "origin", endpoint.Origin)
 		}
+		e.registerAgent(ctx)
 	} else {
 		tuilog.Log.Info("Exporter started in buffer-only mode (no collector)")
 	}
@@ -220,6 +228,24 @@ func (e *Exporter) resolveCollector() (*CollectorEndpoint, error) {
 	return DiscoverCollector(projectPath)
 }
 
+// registerAgent sends an agent registration to the collector.
+func (e *Exporter) registerAgent(ctx context.Context) {
+	hostname, _ := os.Hostname()
+	reg := AgentRegistration{
+		InstanceID: e.instanceID,
+		Platform:   fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+		Hostname:   hostname,
+		Version:    e.cfg.Version,
+		MachineID:  e.machineID,
+		StartedAt:  e.startedAt,
+	}
+	if err := e.shipper.RegisterAgent(ctx, reg); err != nil {
+		tuilog.Log.Warn("Failed to register agent", "error", err)
+	} else {
+		tuilog.Log.Info("Registered with collector", "instance_id", e.instanceID)
+	}
+}
+
 func (e *Exporter) handleFileEvent(ctx context.Context, event FileEvent) {
 	tuilog.Log.Debug("Processing file event", "path", event.Path, "type", event.EventType)
 
@@ -243,17 +269,19 @@ func (e *Exporter) recordSessionWrite(ctx context.Context, path, source string) 
 	if !existed {
 		// New session detected
 		e.emitSessionEvent(ctx, SessionActivityEvent{
-			Source:    source,
-			SessionID: sessionID,
-			Event:     "session_start",
-			Timestamp: now,
+			InstanceID: e.instanceID,
+			Source:     source,
+			SessionID:  sessionID,
+			Event:      "session_start",
+			Timestamp:  now,
 		})
 	} else {
 		e.emitSessionEvent(ctx, SessionActivityEvent{
-			Source:    source,
-			SessionID: sessionID,
-			Event:     "session_active",
-			Timestamp: now,
+			InstanceID: e.instanceID,
+			Source:     source,
+			SessionID:  sessionID,
+			Event:      "session_active",
+			Timestamp:  now,
 		})
 	}
 }
@@ -294,10 +322,11 @@ func (e *Exporter) doSweep(ctx context.Context) {
 		sessionID := sessionIDFromPath(path)
 		source := detectSource(path)
 		e.emitSessionEvent(ctx, SessionActivityEvent{
-			Source:    source,
-			SessionID: sessionID,
-			Event:     "session_end",
-			Timestamp: now,
+			InstanceID: e.instanceID,
+			Source:     source,
+			SessionID:  sessionID,
+			Event:      "session_end",
+			Timestamp:  now,
 		})
 	}
 }
@@ -373,6 +402,10 @@ func (e *Exporter) processFile(ctx context.Context, path, source string) {
 		sessionID = sessionID[:len(sessionID)-len(ext)]
 	}
 
+	// Extract project path from directory structure.
+	// Claude stores sessions in ~/.claude/projects/<encoded-path>/<session>.jsonl
+	projectPath := extractProjectPath(path)
+
 	// Batch and ship
 	for i := 0; i < len(entries); i += e.cfg.BatchSize {
 		end := i + e.cfg.BatchSize
@@ -381,14 +414,30 @@ func (e *Exporter) processFile(ctx context.Context, path, source string) {
 		}
 
 		payload := TracePayload{
-			Source:    source,
-			SessionID: sessionID,
-			Entries:   entries[i:end],
-			MachineID: e.machineID,
+			InstanceID:  e.instanceID,
+			Source:      source,
+			SessionID:   sessionID,
+			ProjectPath: projectPath,
+			Entries:     entries[i:end],
+			MachineID:   e.machineID,
 		}
 
 		e.shipOrBuffer(ctx, payload)
 	}
+}
+
+// extractProjectPath derives a project path from a session file path.
+// For Claude, sessions are stored in ~/.claude/projects/<encoded-path>/<session>.jsonl
+// where <encoded-path> uses dash-encoded paths (e.g., -Users-evan-my-project).
+func extractProjectPath(filePath string) string {
+	dir := filepath.Dir(filePath)
+	parent := filepath.Base(filepath.Dir(dir)) // e.g., "projects"
+	if parent == "projects" {
+		encoded := filepath.Base(dir)
+		_, fullPath := claude.DecodeDirName(encoded)
+		return fullPath
+	}
+	return ""
 }
 
 // shipOrBuffer tries to ship a payload; on failure, buffers it to disk.

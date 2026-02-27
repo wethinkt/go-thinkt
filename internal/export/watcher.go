@@ -102,7 +102,10 @@ func (w *FileWatcher) watchLoop(ctx context.Context, events chan<- FileEvent) {
 			// If a new directory was created, watch it recursively
 			if event.Op&fsnotify.Create == fsnotify.Create {
 				if info, err := os.Stat(event.Name); err == nil && info.IsDir() {
-					w.addRecursive(event.Name)
+					// Skip lock files and temp directories
+					if !strings.HasSuffix(event.Name, ".lock") {
+						w.addRecursive(event.Name)
+					}
 					continue
 				}
 			}

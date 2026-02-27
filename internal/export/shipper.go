@@ -150,6 +150,37 @@ func (s *Shipper) ShipSessionActivity(ctx context.Context, event SessionActivity
 	return nil
 }
 
+// RegisterAgent sends an agent registration to the collector.
+func (s *Shipper) RegisterAgent(ctx context.Context, reg AgentRegistration) error {
+	body, err := json.Marshal(reg)
+	if err != nil {
+		return fmt.Errorf("marshal agent registration: %w", err)
+	}
+
+	regURL := strings.TrimSuffix(s.collectorURL, "/traces") + "/agents/register"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, regURL, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("create registration request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if s.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+s.apiKey)
+	}
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("register agent: %w", err)
+	}
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("agent registration returned %d", resp.StatusCode)
+	}
+	return nil
+}
+
 // Ping checks if the collector is reachable by sending a GET to the collector URL.
 func (s *Shipper) Ping(ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.collectorURL, nil)
