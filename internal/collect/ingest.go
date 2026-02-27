@@ -9,25 +9,39 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
+// metricsSource returns a safe label value for the source field.
+func metricsSource(s string) string {
+	if s == "" {
+		return "unknown"
+	}
+	return s
+}
+
 // handleIngest processes POST /v1/traces requests from exporters.
 func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
 	var req IngestRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ingestRequestsTotal.WithLabelValues("error").Inc()
 		writeError(w, http.StatusBadRequest, "invalid_json", "Failed to parse request body")
 		return
 	}
 
 	dropped, err := NormalizeRequest(&req)
 	if err != nil {
+		ingestRequestsTotal.WithLabelValues("error").Inc()
 		writeError(w, http.StatusBadRequest, "validation_error", err.Error())
 		return
 	}
 	if dropped > 0 {
+		ingestDroppedTotal.Add(float64(dropped))
 		tuilog.Log.Info("Dropped invalid entries during normalization",
 			"session_id", req.SessionID, "dropped", dropped)
 	}
 
 	if len(req.Entries) == 0 {
+		ingestRequestsTotal.WithLabelValues("ok").Inc()
 		writeJSON(w, http.StatusOK, IngestResponse{Accepted: 0, Message: "all entries dropped during validation"})
 		return
 	}
@@ -37,6 +51,8 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 	s.registry.IncrementTraceCount(req.InstanceID, int64(len(req.Entries)))
 
 	if err := s.store.IngestBatch(r.Context(), req); err != nil {
+		ingestRequestsTotal.WithLabelValues("error").Inc()
+		ingestDurationSeconds.Observe(time.Since(start).Seconds())
 		tuilog.Log.Error("Failed to ingest batch",
 			"session_id", req.SessionID, "error", err)
 		writeError(w, http.StatusInternalServerError, "ingest_error", "Failed to store traces")
@@ -44,6 +60,11 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.pubsub.Publish(req.SessionID, req.Entries)
+
+	src := metricsSource(req.Source)
+	ingestEntriesTotal.WithLabelValues(src).Add(float64(len(req.Entries)))
+	ingestRequestsTotal.WithLabelValues("ok").Inc()
+	ingestDurationSeconds.Observe(time.Since(start).Seconds())
 
 	tuilog.Log.Info("Ingested traces",
 		"session_id", req.SessionID,

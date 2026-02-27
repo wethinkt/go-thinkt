@@ -28,10 +28,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/wethinkt/go-thinkt/internal/export"
 	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -59,6 +61,7 @@ func main() {
 		quiet        bool
 		showVersion  bool
 		logFile      string
+		metricsPort  int
 	)
 
 	allNames := sourceNames()
@@ -69,6 +72,7 @@ func main() {
 	flag.BoolVar(&quiet, "quiet", false, "suppress non-error output")
 	flag.BoolVar(&showVersion, "version", false, "print version and exit")
 	flag.StringVar(&logFile, "log", "", "write debug log to file")
+	flag.IntVar(&metricsPort, "metrics-port", 0, "port for Prometheus /metrics endpoint (0 = disabled)")
 	flag.Parse()
 
 	if showVersion {
@@ -137,6 +141,21 @@ func main() {
 		}
 		cancel()
 	}()
+
+	// Start optional Prometheus metrics server
+	if metricsPort > 0 {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		go func() {
+			addr := fmt.Sprintf(":%d", metricsPort)
+			if !quiet {
+				fmt.Fprintf(os.Stderr, "Metrics: http://localhost%s/metrics\n", addr)
+			}
+			if err := http.ListenAndServe(addr, mux); err != nil {
+				fmt.Fprintf(os.Stderr, "metrics server error: %v\n", err)
+			}
+		}()
+	}
 
 	if !quiet {
 		fmt.Fprintf(os.Stderr, "thinkt-exporter %s\n", version)

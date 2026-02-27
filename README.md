@@ -309,6 +309,8 @@ thinkt server stop                 # Stop background server
 | `thinkt web lite` | 8784 | Lightweight debug webapp (served at `/lite/`) |
 | `thinkt server mcp --port` | 8786 | MCP server over HTTP |
 | [VS Code extension](https://github.com/wethinkt/thinkt-vscode) | 8787 | Reserved for embedded server |
+| `thinkt collect` | 4318 | Trace collector (includes `/metrics`) |
+| `thinkt-exporter --metrics-port` | (disabled) | Exporter Prometheus metrics |
 
 Use `-p` or `--port` to override the default port for any server.
 
@@ -432,6 +434,37 @@ thinkt-exporter --watch-dir ~/.claude/projects --collector-url http://collect.ex
 ```
 
 The exporter auto-discovers the collector via `THINKT_COLLECTOR_URL` env var, `.thinkt/collector.json`, or falls back to local buffering.
+
+### Prometheus Metrics
+
+Both the collector and exporter expose Prometheus metrics for monitoring.
+
+**Collector** — metrics are always available at `/metrics` on the collector port (no auth required):
+
+```bash
+curl -s http://localhost:4318/metrics | grep thinkt_
+```
+
+**Exporter** — opt-in via `--metrics-port`:
+
+```bash
+thinkt-exporter --collector-url http://localhost:4318/v1/traces --metrics-port 9090
+curl -s http://localhost:9090/metrics | grep thinkt_
+```
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `thinkt_collector_ingest_entries_total` | counter | Entries ingested, by source |
+| `thinkt_collector_ingest_requests_total` | counter | Ingest requests, by status |
+| `thinkt_collector_ingest_duration_seconds` | histogram | Ingest request latency |
+| `thinkt_collector_active_agents` | gauge | Currently active agents |
+| `thinkt_collector_db_size_bytes` | gauge | DuckDB file size |
+| `thinkt_collector_ws_connections_active` | gauge | Active WebSocket connections |
+| `thinkt_exporter_entries_shipped_total` | counter | Entries shipped, by source |
+| `thinkt_exporter_entries_failed_total` | counter | Entries that failed to ship |
+| `thinkt_exporter_ship_duration_seconds` | histogram | Ship request latency |
+| `thinkt_exporter_buffer_size_bytes` | gauge | Disk buffer size |
+| `thinkt_exporter_file_events_total` | counter | File events processed |
 
 ## REST API
 

@@ -51,6 +51,7 @@ The core CLI is functional with multi-source support, TUI with tree view navigat
   - `thinkt-exporter` / `thinkt-collector` standalone binaries
   - TUI views: collector status page, exporter status page
   - Collector API: `/v1/traces`, `/v1/traces/search`, `/v1/traces/stats`, `/v1/agents`
+  - Prometheus metrics on `/metrics` (collector) and `--metrics-port` (exporter)
 
 - [x] **Documentation Updates** - AGENTS.md, README.md, and Hugo docs updated
 
@@ -100,7 +101,7 @@ Tag push (v*) → GitHub Actions → goreleaser-cross container
 
 ### Medium Term
 
-- [ ] **Prometheus metrics** - For monitoring
+- [x] **Prometheus metrics** - Collector and exporter expose `/metrics` for Prometheus scraping
 - [ ] **Hugo docs site deployment** - Publish to GitHub Pages
 
 ### Long Term

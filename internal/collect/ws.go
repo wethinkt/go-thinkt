@@ -73,6 +73,8 @@ func (s *Server) handleSessionWS(w http.ResponseWriter, r *http.Request) {
 	ch, unsub := s.pubsub.Subscribe(sessionID)
 	defer unsub()
 
+	wsConnectionsActive.Inc()
+	defer wsConnectionsActive.Dec()
 	tuilog.Log.Info("WebSocket client connected", "session_id", sessionID)
 
 	for {

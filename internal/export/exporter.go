@@ -108,6 +108,7 @@ func (e *Exporter) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("start file watcher: %w", err)
 	}
+	watchedDirs.Set(float64(len(e.cfg.WatchDirs)))
 
 	// Start session activity sweep goroutine
 	go e.sweepInactiveSessions(ctx)
@@ -116,6 +117,10 @@ func (e *Exporter) Start(ctx context.Context) error {
 	drainTicker := time.NewTicker(e.cfg.FlushInterval)
 	defer drainTicker.Stop()
 	defer watcher.Stop()
+
+	// Periodic agent heartbeat (re-registers to keep metadata alive)
+	heartbeatTicker := time.NewTicker(2 * time.Minute)
+	defer heartbeatTicker.Stop()
 
 	for {
 		select {
@@ -127,6 +132,9 @@ func (e *Exporter) Start(ctx context.Context) error {
 
 		case <-drainTicker.C:
 			e.FlushBuffer(ctx)
+
+		case <-heartbeatTicker.C:
+			e.registerAgent(ctx)
 
 		case <-ctx.Done():
 			tuilog.Log.Info("Exporter shutting down")
@@ -193,6 +201,7 @@ func (e *Exporter) FlushBuffer(ctx context.Context) error {
 func (e *Exporter) Stats() ExporterStats {
 	bufSize, _ := e.buffer.Size()
 	bufCount, _ := e.buffer.Count()
+	bufferSizeBytes.Set(float64(bufSize))
 
 	var collectorURL string
 	if e.shipper != nil {
@@ -247,6 +256,11 @@ func (e *Exporter) registerAgent(ctx context.Context) {
 }
 
 func (e *Exporter) handleFileEvent(ctx context.Context, event FileEvent) {
+	src := event.Source
+	if src == "" {
+		src = "unknown"
+	}
+	fileEventsTotal.WithLabelValues(src).Inc()
 	tuilog.Log.Debug("Processing file event", "path", event.Path, "type", event.EventType)
 
 	// Track session activity
@@ -442,19 +456,32 @@ func extractProjectPath(filePath string) string {
 
 // shipOrBuffer tries to ship a payload; on failure, buffers it to disk.
 func (e *Exporter) shipOrBuffer(ctx context.Context, payload TracePayload) {
+	src := payload.Source
+	if src == "" {
+		src = "unknown"
+	}
+	n := float64(len(payload.Entries))
+
 	if e.shipper == nil {
 		// No collector configured, buffer only
 		if err := e.buffer.Write(payload); err != nil {
 			tuilog.Log.Error("Failed to buffer payload", "error", err)
 			e.tracesFailed.Add(int64(len(payload.Entries)))
+			exportEntriesFailed.WithLabelValues(src).Add(n)
 		} else {
 			e.tracesBuffered.Add(int64(len(payload.Entries)))
+			exportEntriesBuffered.Add(n)
 		}
 		return
 	}
 
+	start := time.Now()
 	result, err := e.shipper.Ship(ctx, payload)
+	shipDurationSeconds.Observe(time.Since(start).Seconds())
+
 	if err != nil {
+		shipRequestsTotal.WithLabelValues("error").Inc()
+		exportEntriesFailed.WithLabelValues(src).Add(n)
 		tuilog.Log.Warn("Ship failed, buffering",
 			"entries", len(payload.Entries),
 			"error", err,
@@ -464,10 +491,13 @@ func (e *Exporter) shipOrBuffer(ctx context.Context, payload TracePayload) {
 			tuilog.Log.Error("Failed to buffer payload", "error", bufErr)
 		} else {
 			e.tracesBuffered.Add(int64(len(payload.Entries)))
+			exportEntriesBuffered.Add(n)
 		}
 		return
 	}
 
+	shipRequestsTotal.WithLabelValues("ok").Inc()
+	exportEntriesShipped.WithLabelValues(src).Add(float64(result.Entries))
 	e.tracesShipped.Add(int64(result.Entries))
 	e.lastShipTime.Store(time.Now().UnixNano())
 }

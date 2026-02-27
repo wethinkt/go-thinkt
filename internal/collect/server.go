@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
@@ -85,15 +86,18 @@ func (s *Server) setupRouter() chi.Router {
 		r.Use(middleware.Logger)
 	}
 
-	// Bearer token auth
-	if s.config.Token != "" {
-		tuilog.Log.Info("Collector authentication enabled")
-		r.Use(bearerAuth(s.config.Token))
-	} else {
-		tuilog.Log.Warn("Collector running without authentication - use --token to secure")
-	}
+	// Prometheus metrics — no auth required
+	r.Handle("/metrics", promhttp.Handler())
 
+	// v1 API routes — optionally auth-protected
 	r.Route("/v1", func(r chi.Router) {
+		if s.config.Token != "" {
+			tuilog.Log.Info("Collector authentication enabled")
+			r.Use(bearerAuth(s.config.Token))
+		} else {
+			tuilog.Log.Warn("Collector running without authentication - use --token to secure")
+		}
+
 		r.Post("/traces", s.handleIngest)
 		r.Get("/traces/search", s.handleSearchTraces)
 		r.Get("/traces/stats", s.handleGetUsageStats)
@@ -166,7 +170,7 @@ func (s *Server) Addr() string {
 	return fmt.Sprintf("%s:%d", s.config.Host, s.config.Port)
 }
 
-// cleanStaleAgents periodically removes stale agents from the registry.
+// cleanStaleAgents periodically removes stale agents and updates gauges.
 func (s *Server) cleanStaleAgents(ctx context.Context) {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
@@ -179,7 +183,18 @@ func (s *Server) cleanStaleAgents(ctx context.Context) {
 			if removed := s.registry.CleanStale(StaleAgentThreshold); removed > 0 {
 				tuilog.Log.Info("Cleaned stale agents", "removed", removed)
 			}
+			s.updateGauges(ctx)
 		}
+	}
+}
+
+// updateGauges refreshes Prometheus gauge values from current state.
+func (s *Server) updateGauges(ctx context.Context) {
+	_, active := s.registry.Count()
+	activeAgents.Set(float64(active))
+
+	if stats, err := s.store.GetUsageStats(ctx); err == nil {
+		dbSizeBytes.Set(float64(stats.DBSizeBytes))
 	}
 }
 
