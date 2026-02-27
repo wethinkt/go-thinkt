@@ -1,5 +1,94 @@
 # `go-thinkt` CHANGELOG
 
+## v0.6.0 (2026-02-27)
+
+* **On-Device Semantic Search**
+  - Added in-process embedding via yzma/llama.cpp — no external subprocess needed
+  - Ships with Qwen3-Embedding-0.6B (1024-dim) and nomic-embed-text-v1.5 (768-dim)
+  - Added `semantic search` MCP tool and REST endpoint (`GET /api/v1/semantic-search`)
+  - Added tiered embedding extraction: conversation and reasoning tiers with role prefixes
+  - Added `--tier` filter to `semantic search` (default: conversation)
+  - Interactive TUI picker for semantic search results with session viewer
+
+* **Embedding Management**
+  - Added `embeddings` command tree: `list`, `model`, `status`, `sync`, `enable`, `disable`, `purge`
+  - Per-model DuckDB files — switching models no longer requires re-embedding
+  - `embeddings list` shows tabulated model info: dimensions, pooling, model file size, session count, DB size
+  - `embeddings status` shows active model stats with conversation/reasoning tier breakdown
+  - `embeddings model` interactive picker or direct `embeddings model <id>` switch
+  - `embeddings purge` removes stale embedding databases from previous models
+  - Server cancels and restarts embedding sync on model change
+
+* **Indexer Server (RPC)**
+  - Replaced `indexer watch` with `indexer serve` — persistent Unix socket RPC server
+  - CLI commands (`search`, `semantic search`, `stats`, `embeddings sync`) try RPC first, fall back to inline
+  - Added sync status reporting and progress callbacks over RPC
+  - Added `indexer status` endpoint with embedding progress info
+  - Config reload notification for live model/embedding changes
+
+* **Non-TTY / Pipe-Safe Output**
+  - All interactive TUI commands error with helpful messages when stdout is not a terminal
+  - `search` and `semantic search` auto-fall back to `--list` output when piped
+  - `embeddings list` strips ANSI colors when piped (lipgloss no longer leaks escape codes)
+  - `embeddings model` without args errors in non-TTY instead of hanging
+  - `thinkt` root, `theme browse`, `theme builder`, `apps enable/disable`, `apps set-terminal` all guarded
+
+* **Top-Level CLI Aliases**
+  - `thinkt search`, `thinkt semantic`, and `thinkt embeddings` now work as top-level commands (auto-start indexer)
+  - `thinkt indexer embeddings` forwarding added alongside existing `search`, `stats`, `sessions`, `semantic`
+  - Indexer commands remain available via `thinkt-indexer` for direct use
+
+* **REST API**
+  - Added `GET /api/v1/info` returning fingerprint, version, revision, uptime, PID, and auth status
+  - Added `GET /api/v1/sessions/resolve` to retrieve session ownership metadata (project, source, workspace)
+  - Added `default_terminal` field to `GET /api/v1/open-in/apps` response
+  - Added `terminal` boolean to `AppInfo` for identifying terminal-capable apps
+
+* **CLI Polish**
+  - `stats` top tools sorted descending, limited to top 25 (was unsorted map iteration)
+  - `stats` JSON output changed from `tool_usage` map to `top_tools` array (preserves order)
+  - `embeddings list --json` includes `downloaded` flag and `size_bytes`
+  - Friendly error messages when databases are locked by another process
+  - Added `--json` output to `embeddings status`
+
+* **Security Hardening**
+  - Enhanced session path validation with symlink escape tests
+  - Improved CORS handling and request sanitization for sensitive query parameters
+  - Session resume endpoint restricted to POST-only with same-origin checks
+  - DuckDB `enable_external_access=false` on all connections
+
+* **TUI Polish**
+  - Conversation viewer role filters renamed and reordered: `1:User 2:Assistant 3:Thinking 4:Tools 5:Other`
+  - Role filters color-coded to match conversation view labels
+  - Filters integrated into shell header bar (single-line header with project, session, filters, and branding)
+  - "Other" role filter disabled by default (hides system/summary/progress entries)
+  - Session separator shows full filename, no longer clips UUID-length names
+  - Added `w` key to open current session in thinkt web
+  - Styled loading screen with centered "Loading..." and "🧠 thinkt" branding
+  - Theme browser header shows "🧠 thinkt" right-aligned
+  - Fixed theme browser left/right pane height mismatch
+
+* **Platform Fixes**
+  - Fixed Ghostty and Alacritty open-in on macOS (`open -a` → `open -na` for new instance)
+  - Fixed Terminal.app opening extra window on fresh launch (reordered AppleScript `do script`/`activate`)
+  - Fixed `thinkt-indexer server stop` accepting extra arguments (added `cobra.NoArgs`)
+
+* **Performance and Internals**
+  - Concurrent project and session cache loading with deduplication
+  - Defensive cache copying and invalidation methods
+  - Centralized indexer binary lookup in config package
+  - Removed Apple embedding backend (fully replaced by yzma)
+  - Removed deprecated `ExtractText` in favor of `ExtractTiered`
+  - Added model name validation for synthetic vs real assistant models
+
+* **Web Lite**
+  - Fixed authentication: reads token from URL hash fragment for API requests
+  - Updated embedded web and web-lite assets
+
+* **Docs**
+  - Updated README, Hugo book, and LLM guide with top-level aliases, new API endpoints, and embeddings docs
+  - Regenerated command reference (76 pages, includes new `search`, `semantic`, `embeddings` commands)
+
 ## v0.5.1 (2026-02-23)
 
 * **Server and Indexer Lifecycle**
