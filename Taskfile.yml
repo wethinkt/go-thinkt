@@ -38,7 +38,7 @@ tasks:
 
   build:thinkt:
     desc: Build the thinkt CLI
-    deps: [go-tidy, submodules]
+    deps: [go-tidy, submodules, server:swag-v2]
     sources:
       - ./cmd/thinkt/**/*.go
       - ./internal/**/*.go

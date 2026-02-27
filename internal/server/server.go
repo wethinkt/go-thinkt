@@ -106,6 +106,7 @@ type HTTPServer struct {
 	config        Config
 	pathValidator *thinkt.PathValidator
 	authenticator *BearerAuthenticator
+	startedAt     time.Time
 }
 
 // NewHTTPServer creates a new HTTP server for the REST API.
@@ -164,6 +165,7 @@ func (s *HTTPServer) setupRouter() chi.Router {
 		if s.authenticator.IsEnabled() {
 			r.Use(s.authenticator.Middleware)
 		}
+		r.Get("/info", s.handleGetInfo)
 		r.Get("/sources", s.handleGetSources)
 		r.Get("/projects", s.handleGetProjects)
 		r.Get("/projects/{source}/{projectID}/sessions", s.handleGetProjectSessionsBySource)
@@ -256,6 +258,9 @@ func (s *HTTPServer) ListenAndServe(ctx context.Context) error {
 	if s.config.Port == 0 {
 		s.config.Port = ln.Addr().(*net.TCPAddr).Port
 	}
+
+	// Record start time
+	s.startedAt = time.Now()
 
 	// Register instance for discovery
 	instType := s.config.InstanceType

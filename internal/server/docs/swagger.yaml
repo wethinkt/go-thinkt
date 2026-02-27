@@ -173,6 +173,23 @@ definitions:
       word_count:
         type: integer
     type: object
+  server.ServerInfoResponse:
+    properties:
+      authenticated:
+        type: boolean
+      fingerprint:
+        type: string
+      pid:
+        type: integer
+      revision:
+        type: string
+      started_at:
+        type: string
+      uptime_seconds:
+        type: integer
+      version:
+        type: string
+    type: object
   server.SessionMetadataResponse:
     properties:
       description:
@@ -773,6 +790,26 @@ paths:
       summary: Get indexer server status
       tags:
       - indexer
+  /info:
+    get:
+      description: Returns server fingerprint, version, uptime, and authentication
+        status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.ServerInfoResponse'
+        "401":
+          description: Unauthorized - invalid or missing token
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get server info
+      tags:
+      - server
   /open-in:
     post:
       consumes:

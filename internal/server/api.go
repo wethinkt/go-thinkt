@@ -13,9 +13,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"os"
+	"time"
+
 	"github.com/wethinkt/go-thinkt/internal/config"
+	"github.com/wethinkt/go-thinkt/internal/fingerprint"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
+	"github.com/wethinkt/go-thinkt/internal/version"
 )
 
 // @title Thinkt API
@@ -79,6 +84,41 @@ type SessionMetadataResponse = getSessionMetadataOutput
 type ErrorResponse struct {
 	Error   string `json:"error"`
 	Message string `json:"message,omitempty"`
+}
+
+// ServerInfoResponse contains server identity and runtime metadata.
+type ServerInfoResponse struct {
+	Fingerprint   string    `json:"fingerprint"`
+	Version       string    `json:"version"`
+	Revision      string    `json:"revision,omitempty"`
+	StartedAt     time.Time `json:"started_at"`
+	UptimeSeconds int64     `json:"uptime_seconds"`
+	PID           int       `json:"pid"`
+	Authenticated bool      `json:"authenticated"`
+}
+
+// handleGetInfo returns server identity and runtime metadata.
+// @Summary Get server info
+// @Description Returns server fingerprint, version, uptime, and authentication status
+// @Tags server
+// @Produce json
+// @Success 200 {object} ServerInfoResponse
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
+// @Router /info [get]
+// @Security BearerAuth
+func (s *HTTPServer) handleGetInfo(w http.ResponseWriter, r *http.Request) {
+	fp, _ := fingerprint.GetFingerprint()
+	v := version.GetInfo("thinkt")
+
+	writeJSON(w, http.StatusOK, ServerInfoResponse{
+		Fingerprint:   fp,
+		Version:       v.Version,
+		Revision:      v.Revision,
+		StartedAt:     s.startedAt,
+		UptimeSeconds: int64(time.Since(s.startedAt).Seconds()),
+		PID:           os.Getpid(),
+		Authenticated: s.authenticator.IsEnabled(),
+	})
 }
 
 type ambiguousProjectSessionsError struct {
