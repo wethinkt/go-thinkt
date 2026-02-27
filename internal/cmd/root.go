@@ -195,7 +195,7 @@ func init() {
 	serverRunCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
 	serverRunCmd.Flags().BoolVarP(&serveQuiet, "quiet", "q", false, "suppress HTTP request logging (errors still go to stderr)")
 	serverRunCmd.Flags().StringVar(&serveHTTPLog, "http-log", "", "write HTTP access log to file (default: stdout, unless --quiet)")
-	serverRunCmd.Flags().StringVar(&serveDev, "dev", "", "dev mode: proxy non-API routes to this URL (e.g. http://localhost:5173)")
+	serverRunCmd.Flags().StringVar(&serveDev, "dev", "", "dev mode: proxy non-API routes to this URL (e.g. http://localhost:8784)")
 	serverRunCmd.Flags().StringVar(&apiToken, "token", "", "bearer token for API authentication (default: use THINKT_API_TOKEN env var)")
 	serverRunCmd.Flags().BoolVar(&serveNoAuth, "no-auth", false, "disable authentication (allow unauthenticated access)")
 

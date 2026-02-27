@@ -62,7 +62,7 @@ var (
 // Serve subcommand flags
 var (
 	apiToken    string // Bearer token for API server authentication
-	serveDev    string // Dev proxy URL (e.g. http://localhost:5173)
+	serveDev    string // Dev proxy URL (e.g. http://localhost:8784)
 	serveNoAuth bool   // Disable authentication entirely
 )
 

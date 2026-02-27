@@ -35,7 +35,7 @@ thinkt server -p 8080            # Custom port
 thinkt server --no-open          # Don't auto-open browser
 thinkt server --quiet            # Suppress request logging
 thinkt server --http-log access.log  # Log requests to file
-thinkt server --dev http://localhost:5173  # Proxy to frontend dev server
+thinkt server --dev http://localhost:8784  # Proxy to frontend dev server
 ```
 
 **Features:**

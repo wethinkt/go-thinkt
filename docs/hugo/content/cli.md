@@ -180,7 +180,7 @@ thinkt server                          # Full webapp on port 8784
 thinkt server -p 8080                  # Custom port
 thinkt server --no-open                # Don't open browser
 thinkt server --quiet                  # Suppress request logging
-thinkt server --dev http://localhost:5173  # Proxy to frontend dev server
+thinkt server --dev http://localhost:8784  # Proxy to frontend dev server
 thinkt web                             # Open web interface in browser
 thinkt web lite                        # Lightweight debug interface at /lite/
 ```

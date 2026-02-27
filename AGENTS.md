@@ -136,7 +136,7 @@ thinkt tui --log /tmp/thinkt-debug.log
 | `--http-log <file>` | Write HTTP access log to file |
 | `--log` | Write debug log to file |
 | `--token` | Bearer token for authentication (API and MCP HTTP) |
-| `--dev <url>` | Dev mode: proxy non-API routes to a frontend dev server (e.g. `http://localhost:5173`) |
+| `--dev <url>` | Dev mode: proxy non-API routes to a frontend dev server (e.g. `http://localhost:8784`) |
 
 ### Authentication
 
@@ -294,10 +294,10 @@ Use `--dev` to proxy non-API routes to a local frontend dev server (e.g. Vite). 
 
 ```bash
 # Terminal 1: run the frontend dev server
-cd ../thinkt-web && npm run dev     # e.g. starts on localhost:5173
+cd ../thinkt-web && npm run dev     # e.g. starts on localhost:8784
 
 # Terminal 2: run the Go backend with dev proxy
-thinkt server --dev http://localhost:5173
+thinkt server --dev http://localhost:8784
 ```
 
 All API routes (`/api/*`, `/swagger/*`) are served by Go. Everything else (SPA, assets, HMR websocket) is reverse-proxied to the frontend dev server.

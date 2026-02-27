@@ -13,7 +13,7 @@ thinkt server run [flags]
 ### Options
 
 ```
-      --dev string        dev mode: proxy non-API routes to this URL (e.g. http://localhost:5173)
+      --dev string        dev mode: proxy non-API routes to this URL (e.g. http://localhost:8784)
   -h, --help              help for run
       --host string       server host (default "localhost")
       --http-log string   write HTTP access log to file (default: stdout, unless --quiet)
