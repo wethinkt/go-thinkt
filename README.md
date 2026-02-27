@@ -168,7 +168,7 @@ thinkt tui --log /tmp/thinkt-debug.log
 | `thinkt agents` | List active agents (local and remote) |
 | `thinkt agents --local` | Local agents only |
 | `thinkt agents follow <id>` | Live-tail an agent's conversation |
-| `thinkt collect` | Start trace collector server (port 4318) |
+| `thinkt collect` | Start trace collector server (port 8785) |
 | `thinkt collect --token` | Collector with bearer token auth |
 | `thinkt web` | Open web interface in browser |
 | `thinkt web lite` | Open lightweight debug webapp |
@@ -309,7 +309,7 @@ thinkt server stop                 # Stop background server
 | `thinkt web lite` | 8784 | Lightweight debug webapp (served at `/lite/`) |
 | `thinkt server mcp --port` | 8786 | MCP server over HTTP |
 | [VS Code extension](https://github.com/wethinkt/thinkt-vscode) | 8787 | Reserved for embedded server |
-| `thinkt collect` | 4318 | Trace collector (includes `/metrics`) |
+| `thinkt collect` | 8785 | Trace collector (includes `/metrics`) |
 | `thinkt-exporter --metrics-port` | (disabled) | Exporter Prometheus metrics |
 
 Use `-p` or `--port` to override the default port for any server.
@@ -405,11 +405,11 @@ Aggregate traces from multiple machines with the push-based collector system.
 
 ```bash
 # Start the collector server
-thinkt collect                              # Default port 4318
-thinkt collect --port 4318 --token mytoken  # With authentication
+thinkt collect                              # Default port 8785
+thinkt collect --port 8785 --token mytoken  # With authentication
 
 # Standalone binary
-thinkt-collector --port 4318 --token mytoken
+thinkt-collector --port 8785 --token mytoken
 ```
 
 Collector data is stored in `~/.thinkt/collector.duckdb` (separate from the indexer).
@@ -442,13 +442,13 @@ Both the collector and exporter expose Prometheus metrics for monitoring.
 **Collector** — metrics are always available at `/metrics` on the collector port (no auth required):
 
 ```bash
-curl -s http://localhost:4318/metrics | grep thinkt_
+curl -s http://localhost:8785/metrics | grep thinkt_
 ```
 
 **Exporter** — opt-in via `--metrics-port`:
 
 ```bash
-thinkt-exporter --collector-url http://localhost:4318/v1/traces --metrics-port 9090
+thinkt-exporter --collector-url http://localhost:8785/v1/traces --metrics-port 9090
 curl -s http://localhost:9090/metrics | grep thinkt_
 ```
 

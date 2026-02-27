@@ -5,7 +5,7 @@
 // Usage:
 //
 //	thinkt-collector
-//	thinkt-collector --port 4318 --token mytoken
+//	thinkt-collector --port 8785 --token mytoken
 //	thinkt-collector --storage ./traces.duckdb
 package main
 

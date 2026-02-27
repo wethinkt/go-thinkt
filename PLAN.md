@@ -46,7 +46,7 @@ The core CLI is functional with multi-source support, TUI with tree view navigat
 - [x] **Machine Fingerprint** - `thinkt server fingerprint` for workspace correlation
 
 - [x] **Trace Collector & Exporter** - Push-based trace aggregation
-  - `thinkt collect` — HTTP server on port 4318, DuckDB storage, agent registry
+  - `thinkt collect` — HTTP server on port 8785, DuckDB storage, agent registry
   - `thinkt export` — File watcher, HTTP shipper, disk buffer, discovery cascade
   - `thinkt-exporter` / `thinkt-collector` standalone binaries
   - TUI views: collector status page, exporter status page

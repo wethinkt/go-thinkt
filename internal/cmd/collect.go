@@ -35,8 +35,8 @@ The collector provides:
 All received traces are stored locally in DuckDB for analysis.
 
 Examples:
-  thinkt collect                           # Start collector on port 4318
-  thinkt collect --port 4318               # Custom port
+  thinkt collect                           # Start collector on port 8785
+  thinkt collect --port 8785               # Custom port
   thinkt collect --token mytoken           # Require bearer token auth
   thinkt collect --storage ./traces.duckdb # Custom storage path`,
 	RunE: runCollect,

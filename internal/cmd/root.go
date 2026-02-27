@@ -193,7 +193,7 @@ func init() {
 	rootCmd.AddCommand(teamsCmd)
 	// Collect command flags
 	rootCmd.AddCommand(collectCmd)
-	collectCmd.Flags().IntVarP(&collectPort, "port", "p", 4318, "collector port")
+	collectCmd.Flags().IntVarP(&collectPort, "port", "p", 8785, "collector port")
 	collectCmd.Flags().StringVar(&collectHost, "host", "localhost", "collector host")
 	collectCmd.Flags().StringVar(&collectStorage, "storage", "", "DuckDB storage path")
 	collectCmd.Flags().StringVar(&collectToken, "token", "", "bearer token for authentication")

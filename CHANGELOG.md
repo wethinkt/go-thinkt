@@ -3,7 +3,7 @@
 ## v0.7.0 (2026-03-01)
 
 * **Trace Collector Server**: Push-based trace aggregation via `thinkt collect`
-  - HTTP server with chi router on port 4318 (configurable)
+  - HTTP server with chi router on port 8785 (configurable)
   - `POST /v1/traces` for batch trace ingestion from exporters
   - `GET /v1/traces/search` and `GET /v1/traces/stats` for querying
   - Agent registration with heartbeat tracking and stale cleanup

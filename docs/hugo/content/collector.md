@@ -30,7 +30,7 @@ thinkt includes a push-based trace collection system for aggregating AI coding a
                  │  │ Registry│  │ collector.duckdb│ │
                  │  └─────────┘  └───────────────┘  │
                  │                                   │
-                 │  REST API on port 4318            │
+                 │  REST API on port 8785            │
                  └──────────────────────────────────┘
 ```
 
@@ -44,7 +44,7 @@ The system has two components:
 ### Start a Collector
 
 ```bash
-# Start the collector on the default port (4318)
+# Start the collector on the default port (8785)
 thinkt collect
 
 # With authentication
@@ -64,7 +64,7 @@ thinkt export
 thinkt export --forward
 
 # Export to a specific collector
-thinkt export --collector-url http://collect.example.com:4318/v1/traces
+thinkt export --collector-url http://collect.example.com:8785/v1/traces
 
 # Export only Claude Code traces
 thinkt export --source claude
@@ -84,7 +84,7 @@ thinkt collect [flags]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--port, -p` | Server port | `4318` |
+| `--port, -p` | Server port | `8785` |
 | `--host` | Server host | `localhost` |
 | `--storage` | DuckDB file path | `~/.thinkt/collector.duckdb` |
 | `--token` | Bearer token for authentication | (none) |
@@ -96,7 +96,7 @@ thinkt collect [flags]
 For deployment without the full thinkt CLI:
 
 ```bash
-thinkt-collector --port 4318 --token mytoken --storage ./traces.duckdb
+thinkt-collector --port 8785 --token mytoken --storage ./traces.duckdb
 ```
 
 ### API Endpoints
@@ -231,7 +231,7 @@ When `--token` is provided, all endpoints except `/v1/collector/health` require 
 thinkt collect --token mytoken
 
 # Client request
-curl -H "Authorization: Bearer mytoken" http://localhost:4318/v1/traces/stats
+curl -H "Authorization: Bearer mytoken" http://localhost:8785/v1/traces/stats
 ```
 
 Token comparison uses constant-time comparison to prevent timing attacks.
@@ -292,7 +292,7 @@ thinkt export --flush
 ```bash
 thinkt-exporter --watch-dir ~/.claude/projects \
                 --watch-dir ~/.kimi/sessions \
-                --collector-url http://collect.example.com:4318/v1/traces \
+                --collector-url http://collect.example.com:8785/v1/traces \
                 --api-key mytoken
 ```
 
@@ -317,11 +317,11 @@ The exporter discovers the collector endpoint via a 4-step cascade:
 
 ```bash
 # Via environment variable
-export THINKT_COLLECTOR_URL=http://collect.example.com:4318/v1/traces
+export THINKT_COLLECTOR_URL=http://collect.example.com:8785/v1/traces
 thinkt export --forward
 
 # Via flag (highest priority)
-thinkt export --collector-url http://localhost:4318/v1/traces
+thinkt export --collector-url http://localhost:8785/v1/traces
 ```
 
 ### Disk Buffer
@@ -380,7 +380,7 @@ Keys: `esc` back, `q` quit, `j/k` scroll.
 
 | Service | Port | Description |
 |---------|------|-------------|
-| `thinkt collect` | 4318 | Trace collector HTTP server |
+| `thinkt collect` | 8785 | Trace collector HTTP server |
 | `thinkt serve` | 8784 | Full web interface and REST API |
 | `thinkt serve lite` | 8785 | Lightweight debug webapp |
 | `thinkt serve mcp --port` | 8786 | MCP server over HTTP |
@@ -398,7 +398,7 @@ Run both the collector and exporter on the same machine:
 thinkt collect --token dev-token
 
 # Terminal 2: Watch and forward traces
-thinkt export --forward --api-key dev-token --collector-url http://localhost:4318/v1/traces
+thinkt export --forward --api-key dev-token --collector-url http://localhost:8785/v1/traces
 ```
 
 ### Team Server
@@ -407,10 +407,10 @@ Run a central collector that receives traces from team members:
 
 ```bash
 # On the server
-thinkt-collector --host 0.0.0.0 --port 4318 --token team-secret --storage /data/traces.duckdb
+thinkt-collector --host 0.0.0.0 --port 8785 --token team-secret --storage /data/traces.duckdb
 
 # On each developer machine
-export THINKT_COLLECTOR_URL=http://collect.team.internal:4318/v1/traces
+export THINKT_COLLECTOR_URL=http://collect.team.internal:8785/v1/traces
 export THINKT_API_KEY=team-secret
 thinkt export --forward
 ```
@@ -419,7 +419,7 @@ thinkt export --forward
 
 ```bash
 # Run collector in Docker
-docker run -p 4318:4318 \
+docker run -p 8785:8785 \
   -v /data/collector:/data/.thinkt \
   ghcr.io/wethinkt/thinkt:latest collect --host 0.0.0.0 --token mytoken
 ```

@@ -9,7 +9,7 @@ import (
 
 // Default configuration values for the collector.
 const (
-	DefaultPort          = 4318
+	DefaultPort          = 8785
 	DefaultHost          = "localhost"
 	DefaultBatchSize     = 100
 	DefaultFlushInterval = 2 * time.Second

@@ -247,8 +247,8 @@ Aggregate traces from multiple machines with the push-based collector system. Se
 Start a collector server that receives traces from exporters:
 
 ```bash
-thinkt collect                              # Start on port 4318
-thinkt collect --port 4318                  # Custom port
+thinkt collect                              # Start on port 8785
+thinkt collect --port 8785                  # Custom port
 thinkt collect --token mytoken              # Require bearer token auth
 thinkt collect --storage ./traces.duckdb    # Custom storage path
 ```
@@ -262,7 +262,7 @@ thinkt export                               # One-shot export of all traces
 thinkt export --forward                     # Continuous watch mode
 thinkt export --source claude               # Export only Claude traces
 thinkt export --flush                       # Flush the disk buffer
-thinkt export --collector-url http://host:4318/v1/traces  # Explicit endpoint
+thinkt export --collector-url http://host:8785/v1/traces  # Explicit endpoint
 ```
 
 ### Standalone Binaries
@@ -274,7 +274,7 @@ For deployment without the full CLI:
 thinkt-exporter --watch-dir ~/.claude/projects --collector-url http://collect.example.com/v1/traces
 
 # Collector
-thinkt-collector --port 4318 --token mytoken
+thinkt-collector --port 8785 --token mytoken
 ```
 
 **Reference:** [Collector Guide](/collector), [thinkt export](/command/thinkt_export), [thinkt collect](/command/thinkt_collect)
