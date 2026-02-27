@@ -270,6 +270,7 @@ type pickerKeyMap struct {
 	Sources key.Binding
 	Search  key.Binding // / key for search
 	Resume  key.Binding
+	OpenWeb key.Binding
 }
 
 func defaultPickerKeyMap() pickerKeyMap {
@@ -297,6 +298,10 @@ func defaultPickerKeyMap() pickerKeyMap {
 		Resume: key.NewBinding(
 			key.WithKeys("r"),
 			key.WithHelp("r", "resume"),
+		),
+		OpenWeb: key.NewBinding(
+			key.WithKeys("w"),
+			key.WithHelp("w", "open web"),
 		),
 	}
 }
@@ -524,6 +529,14 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, func() tea.Msg { return ResumeSessionMsg{Session: si.meta} }
 					}
 					tuilog.Log.Info("SessionPicker.Update: source not resumable", "source", si.meta.Source)
+				}
+			}
+			return m, nil
+
+		case key.Matches(msg, keys.OpenWeb):
+			if item := m.list.SelectedItem(); item != nil {
+				if si, ok := item.(pickerSessionItem); ok {
+					openInWeb(si.meta.ProjectPath, si.meta.FullPath)
 				}
 			}
 			return m, nil

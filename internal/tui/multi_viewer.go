@@ -859,6 +859,10 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, m.loadMoreContent())
 			}
 			m.viewport.GotoBottom()
+		case key.Matches(msg, m.keys.OpenWeb):
+			if len(m.sessionPaths) > 0 {
+				openInWeb("", m.sessionPaths[0])
+			}
 		case key.Matches(msg, m.keys.ToggleInput):
 			m.filters.Input = !m.filters.Input
 			if c := m.invalidateCache(); c != nil {

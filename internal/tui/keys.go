@@ -18,6 +18,9 @@ type viewerKeyMap struct {
 	NextMatch key.Binding
 	PrevMatch key.Binding
 
+	// Actions
+	OpenWeb key.Binding
+
 	// Filter toggles
 	ToggleInput    key.Binding
 	ToggleOutput   key.Binding
@@ -74,6 +77,12 @@ func defaultViewerKeyMap() viewerKeyMap {
 		PrevMatch: key.NewBinding(
 			key.WithKeys("N"),
 			key.WithHelp("N", "prev match"),
+		),
+
+		// Actions
+		OpenWeb: key.NewBinding(
+			key.WithKeys("w"),
+			key.WithHelp("w", "open web"),
 		),
 
 		// Filter toggles

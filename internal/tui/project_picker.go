@@ -383,6 +383,7 @@ type projectPickerKeyMap struct {
 	SortName   key.Binding
 	Sources    key.Binding
 	OpenIn     key.Binding
+	OpenWeb    key.Binding
 	Left       key.Binding
 	Right      key.Binding
 	Toggle     key.Binding
@@ -419,6 +420,10 @@ func defaultProjectPickerKeyMap() projectPickerKeyMap {
 		OpenIn: key.NewBinding(
 			key.WithKeys("o"),
 			key.WithHelp("o", "open in"),
+		),
+		OpenWeb: key.NewBinding(
+			key.WithKeys("w"),
+			key.WithHelp("w", "open web"),
 		),
 		Left: key.NewBinding(
 			key.WithKeys("left"),
@@ -793,6 +798,14 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.showApps = true
 						return m, nil
 					}
+				}
+			}
+			return m, nil
+
+		case key.Matches(msg, keys.OpenWeb):
+			if item := m.list.SelectedItem(); item != nil {
+				if ti, ok := item.(treeItem); ok && ti.node.project != nil {
+					openInWeb(ti.node.project.Path, "")
 				}
 			}
 			return m, nil
