@@ -557,7 +557,36 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (s *Shell) View() tea.View {
 	if s.loading {
-		v := tea.NewView("Loading...")
+		t := theme.Current()
+		brandStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(t.TextMuted.Fg))
+		loadingStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(t.TextSecondary.Fg))
+
+		brand := brandStyle.Render("🧠 thinkt")
+		loading := loadingStyle.Render("Loading...")
+
+		// Brand in top-right corner
+		brandWidth := lipgloss.Width(brand)
+		pad := s.width - brandWidth
+		if pad < 0 {
+			pad = 0
+		}
+		header := strings.Repeat(" ", pad) + brand
+
+		// Centered loading text
+		loadingWidth := lipgloss.Width(loading)
+		leftPad := (s.width - loadingWidth) / 2
+		if leftPad < 0 {
+			leftPad = 0
+		}
+		topPad := (s.height - 3) / 2 // -3 for header + loading + buffer
+		if topPad < 0 {
+			topPad = 0
+		}
+		center := strings.Repeat("\n", topPad) + strings.Repeat(" ", leftPad) + loading
+
+		v := tea.NewView(header + center)
 		v.AltScreen = true
 		return v
 	}

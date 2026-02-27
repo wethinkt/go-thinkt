@@ -27,6 +27,7 @@ var noWatch bool
 var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "Run the indexer server with RPC socket, file watcher, and embedding",
+	Args:  cobra.NoArgs,
 	RunE:  runServer,
 }
 

@@ -12,6 +12,8 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
+const listWidthPercent = 35
+
 // themeBrowserItem holds a theme and its metadata for the browser.
 type themeBrowserItem struct {
 	meta   theme.ThemeMeta
@@ -78,9 +80,11 @@ func (m ThemeBrowserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.preview = viewport.New()
 			m.ready = true
 		}
-		previewWidth := m.width * 55 / 100
-		m.preview.SetWidth(previewWidth - 4)
-		m.preview.SetHeight(m.height - 6)
+
+		listWidth := m.width * listWidthPercent / 100
+		previewWidth := m.width - listWidth - 2
+		m.preview.SetWidth(previewWidth)
+		m.preview.SetHeight(m.height - 4) // header/footer/2xborder
 		m.updatePreview()
 
 	case tea.KeyMsg:
@@ -179,8 +183,8 @@ func (m ThemeBrowserModel) View() tea.View {
 		return v
 	}
 
-	listWidth := m.width * 35 / 100
-	previewWidth := m.width - listWidth - 3
+	listWidth := m.width * listWidthPercent / 100
+	previewWidth := m.width - listWidth - 2
 
 	// Determine accent from highlighted theme
 	var accentColor string
@@ -199,7 +203,10 @@ func (m ThemeBrowserModel) View() tea.View {
 	// Header
 	listTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(accentColor)).Render("Themes")
 	previewTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(accentColor)).Render("Preview")
-	header := listTitle + strings.Repeat(" ", max(0, listWidth-lipgloss.Width(listTitle)+3)) + previewTitle
+	brand := lipgloss.NewStyle().Foreground(lipgloss.Color(borderInactive)).Render("🧠 thinkt")
+	midGap := strings.Repeat(" ", max(0, listWidth-lipgloss.Width(listTitle)+3))
+	rightGap := strings.Repeat(" ", max(0, m.width-lipgloss.Width(listTitle)-lipgloss.Width(midGap)-lipgloss.Width(previewTitle)-lipgloss.Width(brand)))
+	header := listTitle + midGap + previewTitle + rightGap + brand
 
 	// Left pane: theme list
 	listContent := m.renderThemeList(accentColor, borderInactive)
@@ -207,7 +214,7 @@ func (m ThemeBrowserModel) View() tea.View {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(borderActive)).
 		Width(listWidth).
-		Height(m.height - 6)
+		Height(m.height - 2)
 	listPane := listBorder.Render(listContent)
 
 	// Right pane: preview
@@ -215,7 +222,7 @@ func (m ThemeBrowserModel) View() tea.View {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(borderInactive)).
 		Width(previewWidth).
-		Height(m.height - 6)
+		Height(m.height - 2)
 	previewPane := previewBorder.Render(m.preview.View())
 
 	// Footer

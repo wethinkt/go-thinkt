@@ -55,6 +55,7 @@ var themeListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all available themes",
 	Long:  `List all built-in and user themes. The active theme is marked with *.`,
+	Args:  cobra.NoArgs,
 	RunE:  runThemeList,
 }
 
@@ -153,6 +154,7 @@ Key bindings:
   e             Edit the highlighted theme in the builder
   n             Create a new theme in the builder
   q/esc         Quit without changing`,
+	Args: cobra.NoArgs,
 	RunE: runThemeBrowse,
 }
 
