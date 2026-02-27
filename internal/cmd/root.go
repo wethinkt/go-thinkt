@@ -160,6 +160,11 @@ func init() {
 	rootCmd.AddCommand(themeCmd)
 	rootCmd.AddCommand(indexerCmd)
 	rootCmd.AddCommand(versionCmd)
+
+	// Top-level aliases for common indexer commands
+	rootCmd.AddCommand(makeIndexerAlias("search", "Search for text across indexed sessions"))
+	rootCmd.AddCommand(makeIndexerAlias("semantic", "Search sessions by meaning using on-device embeddings"))
+	rootCmd.AddCommand(makeIndexerAlias("embeddings", "Manage embedding model, storage, and sync"))
 	rootCmd.AddCommand(teamsCmd)
 	teamsCmd.AddCommand(teamsListCmd)
 	teamsCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "output as JSON")

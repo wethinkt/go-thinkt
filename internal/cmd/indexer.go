@@ -261,6 +261,15 @@ func makeAutoStartingCommand(use, short string) *cobra.Command {
 	return fwd
 }
 
+// makeIndexerAlias creates a top-level command that auto-starts the indexer
+// and forwards to thinkt-indexer. Used for user-facing aliases like
+// "thinkt search" → "thinkt-indexer search".
+func makeIndexerAlias(use, short string) *cobra.Command {
+	cmd := makeAutoStartingCommand(use, short)
+	cmd.Hidden = false
+	return cmd
+}
+
 func init() {
 	// Register persistent flags on the parent command
 	indexerCmd.PersistentFlags().StringVar(&indexerDBPath, "db", "", "path to DuckDB index database file")
@@ -283,6 +292,7 @@ func init() {
 	indexerCmd.AddCommand(makeAutoStartingCommand("search", "Search for text across indexed sessions"))
 	indexerCmd.AddCommand(makeForwardingCommand("stats", "Show usage statistics from the index"))
 	indexerCmd.AddCommand(makeForwardingCommand("sessions", "List sessions for a project from the index"))
+	indexerCmd.AddCommand(makeAutoStartingCommand("embeddings", "Manage embedding model, storage, and sync"))
 	indexerCmd.AddCommand(makeForwardingCommand("semantic", "Semantic search and index management"))
 	indexerCmd.AddCommand(makeForwardingCommand("version", "Print version information"))
 	indexerCmd.AddCommand(makeForwardingCommand("help", "Help about any command"))
