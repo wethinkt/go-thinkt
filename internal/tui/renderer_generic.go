@@ -120,7 +120,7 @@ func renderThinktAssistantEntry(entry *thinkt.Entry, width int, renderer *glamou
 	}
 
 	// Fall back to text field (treated as output)
-	if len(parts) == 0 && entry.Text != "" && (filters == nil || filters.Output) {
+	if len(parts) == 0 && entry.Text != "" && (filters == nil || filters.Assistant) {
 		label := assistantLabel.Render("Assistant")
 		text := entry.Text
 		if useGlamour && renderer != nil {

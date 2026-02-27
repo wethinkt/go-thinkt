@@ -26,9 +26,8 @@ type MultiViewerModel struct {
 	viewport      viewport.Model
 	width         int
 	height        int
-	ready         bool
-	title         string
-	keys          viewerKeyMap
+	ready bool
+	keys  viewerKeyMap
 	rendered      string
 	loadedCount   int
 	loadingMore   bool
@@ -94,7 +93,6 @@ func NewMultiViewerModelWithRegistry(sessionPaths []string, registry *thinkt.Sto
 		sessionPaths:     sessionPaths,
 		sessions:         make([]thinkt.LazySession, len(sessionPaths)),
 		registry:         registry,
-		title:            fmt.Sprintf("All Sessions (%d)", len(sessionPaths)),
 		keys:             defaultViewerKeyMap(),
 		prefetchBytes:    32 * 1024, // Load 32KB chunks when scrolling
 		entryCache:       make([][]string, len(sessionPaths)),
@@ -384,12 +382,10 @@ func (m *MultiViewerModel) rebuildRenderedOutput() {
 			}
 		}
 
-		// Show indicator if there's more content (either unrendered or unloaded)
-		hasMoreToRender := displayed < len(s.Entries())
-		hasMoreToLoad := s.HasMore()
-		if hasMoreToRender || hasMoreToLoad {
+		// Show subtle loading indicator if more content is being loaded
+		if s.HasMore() && m.loadingMore {
 			parts = append(parts, "")
-			parts = append(parts, moreStyle.Render("  ▼ scroll down for more content..."))
+			parts = append(parts, moreStyle.Render("  ..."))
 		}
 	}
 
@@ -864,22 +860,22 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				openInWeb("", m.sessionPaths[0])
 			}
 		case key.Matches(msg, m.keys.ToggleInput):
-			m.filters.Input = !m.filters.Input
+			m.filters.User = !m.filters.User
 			if c := m.invalidateCache(); c != nil {
 				cmds = append(cmds, c)
 			}
 		case key.Matches(msg, m.keys.ToggleOutput):
-			m.filters.Output = !m.filters.Output
-			if c := m.invalidateCache(); c != nil {
-				cmds = append(cmds, c)
-			}
-		case key.Matches(msg, m.keys.ToggleTools):
-			m.filters.Tools = !m.filters.Tools
+			m.filters.Assistant = !m.filters.Assistant
 			if c := m.invalidateCache(); c != nil {
 				cmds = append(cmds, c)
 			}
 		case key.Matches(msg, m.keys.ToggleThinking):
 			m.filters.Thinking = !m.filters.Thinking
+			if c := m.invalidateCache(); c != nil {
+				cmds = append(cmds, c)
+			}
+		case key.Matches(msg, m.keys.ToggleTools):
+			m.filters.Tools = !m.filters.Tools
 			if c := m.invalidateCache(); c != nil {
 				cmds = append(cmds, c)
 			}
@@ -914,29 +910,113 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// renderFilterStatus returns a styled string showing which filters are active.
+// renderHeader builds a single header line: "project > session  >>  filters  << thinkt"
+// The left side is truncated if needed to keep everything on one line.
+func (m MultiViewerModel) renderHeader() string {
+	dim := lipgloss.NewStyle().Faint(true)
+	brand := dim.Render("thinkt")
+	sep := dim.Render(" >> ")
+	sepEnd := dim.Render(" << ")
+	filters := m.renderFilterStatus()
+
+	// Measure the fixed parts (everything except left + padding)
+	fixedWidth := lipgloss.Width(sep) + lipgloss.Width(filters) + lipgloss.Width(sepEnd) + lipgloss.Width(brand)
+
+	// Truncate left portion to fit
+	left := m.renderHeaderLeft()
+	leftRendered := viewerTitleStyle.Render(left)
+	maxLeft := m.width - fixedWidth
+	if maxLeft < 4 {
+		maxLeft = 4
+	}
+	if lipgloss.Width(leftRendered) > maxLeft {
+		left = ansi.Truncate(left, maxLeft-1, "…")
+		leftRendered = viewerTitleStyle.Render(left)
+	}
+
+	// Assemble and pad
+	content := leftRendered + sep + filters + sepEnd + brand
+	contentWidth := lipgloss.Width(content)
+	if m.width > contentWidth {
+		// Insert padding between filters and brand
+		padding := strings.Repeat(" ", m.width-contentWidth)
+		content = leftRendered + sep + filters + padding + sepEnd + brand
+	}
+
+	return content
+}
+
+// renderHeaderLeft returns the "project > session" portion of the header.
+func (m MultiViewerModel) renderHeaderLeft() string {
+	dim := lipgloss.NewStyle().Faint(true)
+	sep := dim.Render(" > ")
+
+	// Single session: show project > session identifier
+	if len(m.sessions) == 1 && m.sessions[0] != nil {
+		meta := m.sessions[0].Metadata()
+		project := filepath.Base(meta.ProjectPath)
+		if project == "" || project == "." {
+			project = "unknown"
+		}
+		session := ""
+		if meta.FirstPrompt != "" {
+			session = meta.FirstPrompt
+			if len(session) > 40 {
+				session = session[:40] + "..."
+			}
+		} else if !meta.CreatedAt.IsZero() {
+			session = meta.CreatedAt.Local().Format("Jan 02 3:04 PM")
+		} else {
+			session = meta.ID
+			if len(session) > 12 {
+				session = session[:12]
+			}
+		}
+		return project + sep + session
+	}
+
+	// Multiple sessions
+	loaded := 0
+	for _, s := range m.sessions {
+		if s != nil {
+			loaded++
+		}
+	}
+	if loaded == 0 {
+		return "Sessions"
+	}
+	return fmt.Sprintf("%d Sessions", loaded)
+}
+
+// FilterStatus returns the rendered filter status string for use by the shell header.
+func (m MultiViewerModel) FilterStatus() string {
+	return m.renderFilterStatus()
+}
+
+// renderFilterStatus returns a styled string showing which filters are active,
+// color-coded to match the conversation view labels.
 func (m MultiViewerModel) renderFilterStatus() string {
+	dim := lipgloss.NewStyle().Faint(true)
+
 	type filterItem struct {
 		key   string
 		label string
 		on    bool
+		style lipgloss.Style // active color from conversation view
 	}
 	items := []filterItem{
-		{"1", "Input", m.filters.Input},
-		{"2", "Output", m.filters.Output},
-		{"3", "Tools", m.filters.Tools},
-		{"4", "Thinking", m.filters.Thinking},
-		{"5", "Other", m.filters.Other},
+		{"1", "User", m.filters.User, userLabel},
+		{"2", "Assistant", m.filters.Assistant, assistantLabel},
+		{"3", "Thinking", m.filters.Thinking, thinkingLabel},
+		{"4", "Tools", m.filters.Tools, toolLabel},
+		{"5", "Other", m.filters.Other, dim},
 	}
-
-	active := lipgloss.NewStyle().Bold(true)
-	dim := lipgloss.NewStyle().Faint(true)
 
 	var parts []string
 	for _, it := range items {
 		label := fmt.Sprintf("%s:%s", it.key, it.label)
 		if it.on {
-			parts = append(parts, active.Render(label))
+			parts = append(parts, it.style.Render(label))
 		} else {
 			parts = append(parts, dim.Render(label))
 		}
@@ -970,22 +1050,11 @@ func (m MultiViewerModel) viewContent() string {
 		return m.renderNoSessionContent()
 	}
 
-	// Header
-	title := viewerTitleStyle.Render(m.title)
-	loadInfo := ""
-	if !allDone {
-		loadInfo = viewerInfoStyle.Render(fmt.Sprintf("  Loading %d/%d...", m.loadedCount+len(m.loadErrors), len(m.sessionPaths)))
-	} else if m.loadingMore {
-		loadInfo = viewerInfoStyle.Render("  Loading more...")
-	} else if m.hasMoreData {
-		loadInfo = viewerInfoStyle.Render("  (scroll for more)")
-	} else {
-		loadInfo = viewerInfoStyle.Render(fmt.Sprintf("  %d sessions", m.loadedCount))
+	// Header (only in standalone mode; shell provides it when embedded)
+	var header string
+	if m.standalone {
+		header = m.renderHeader() + "\n"
 	}
-	if len(m.loadErrors) > 0 {
-		loadInfo += viewerInfoStyle.Render(fmt.Sprintf("  %d failed", len(m.loadErrors)))
-	}
-	header := title + loadInfo + "  " + m.renderFilterStatus()
 
 	// Footer
 	var footer string
@@ -1004,8 +1073,6 @@ func (m MultiViewerModel) viewContent() string {
 			helpText = fmt.Sprintf("%s  ·  n/N: next/prev  ·  /: search  ·  esc: clear", matchInfo)
 		} else if m.searchQuery != "" {
 			helpText = "No matches  ·  /: search  ·  esc: clear"
-		} else if m.hasMoreData {
-			helpText = "↑/↓: scroll • /: search • 1-5: filters • G: load all • esc: back • q: quit"
 		} else {
 			helpText = "↑/↓: scroll • /: search • 1-5: filters • g/G: top/bottom • esc: back • q: quit"
 		}
@@ -1021,7 +1088,7 @@ func (m MultiViewerModel) viewContent() string {
 		Height(contentHeight).
 		Render(m.viewport.View())
 
-	return header + "\n" + content + "\n" + footer
+	return header + content + "\n" + footer
 }
 
 func (m MultiViewerModel) View() tea.View {

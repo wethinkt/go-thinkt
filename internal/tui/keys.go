@@ -24,8 +24,8 @@ type viewerKeyMap struct {
 	// Filter toggles
 	ToggleInput    key.Binding
 	ToggleOutput   key.Binding
-	ToggleTools    key.Binding
 	ToggleThinking key.Binding
+	ToggleTools    key.Binding
 	ToggleOther    key.Binding
 }
 
@@ -88,19 +88,19 @@ func defaultViewerKeyMap() viewerKeyMap {
 		// Filter toggles
 		ToggleInput: key.NewBinding(
 			key.WithKeys("1"),
-			key.WithHelp("1", "toggle input"),
+			key.WithHelp("1", "toggle user"),
 		),
 		ToggleOutput: key.NewBinding(
 			key.WithKeys("2"),
-			key.WithHelp("2", "toggle output"),
-		),
-		ToggleTools: key.NewBinding(
-			key.WithKeys("3"),
-			key.WithHelp("3", "toggle tools"),
+			key.WithHelp("2", "toggle assistant"),
 		),
 		ToggleThinking: key.NewBinding(
+			key.WithKeys("3"),
+			key.WithHelp("3", "toggle thinking"),
+		),
+		ToggleTools: key.NewBinding(
 			key.WithKeys("4"),
-			key.WithHelp("4", "toggle thinking"),
+			key.WithHelp("4", "toggle tools"),
 		),
 		ToggleOther: key.NewBinding(
 			key.WithKeys("5"),

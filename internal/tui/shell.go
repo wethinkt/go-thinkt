@@ -238,6 +238,8 @@ func (s *Shell) renderHeader() string {
 			if left == "" {
 				left = nameStyle.Render(current.Title)
 			}
+			// Append role filters
+			left += "  " + current.Model.(MultiViewerModel).FilterStatus()
 
 		case SearchInputModel:
 			left = actionStyle.Render("Search...")

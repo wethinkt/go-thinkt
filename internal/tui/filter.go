@@ -4,21 +4,21 @@ import "github.com/wethinkt/go-thinkt/internal/thinkt"
 
 // RoleFilterSet controls which entry types are visible in the conversation viewer.
 type RoleFilterSet struct {
-	Input    bool // User entries
-	Output   bool // Assistant text content blocks
-	Tools    bool // tool_use + tool_result content blocks
-	Thinking bool // thinking content blocks
-	Other    bool // system, summary, progress, checkpoint, tool-role entries
+	User      bool // User entries
+	Assistant bool // Assistant text content blocks
+	Thinking  bool // thinking content blocks
+	Tools     bool // tool_use + tool_result content blocks
+	Other     bool // system, summary, progress, checkpoint, tool-role entries
 }
 
 // NewRoleFilterSet returns a RoleFilterSet with all toggles enabled.
 func NewRoleFilterSet() RoleFilterSet {
 	return RoleFilterSet{
-		Input:    true,
-		Output:   true,
-		Tools:    true,
-		Thinking: true,
-		Other:    true,
+		User:      true,
+		Assistant: true,
+		Thinking:  true,
+		Tools:     true,
+		Other:     false,
 	}
 }
 
@@ -27,11 +27,11 @@ func NewRoleFilterSet() RoleFilterSet {
 func (f *RoleFilterSet) EntryVisible(entry *thinkt.Entry) bool {
 	switch entry.Role {
 	case thinkt.RoleUser:
-		return f.Input
+		return f.User
 	case thinkt.RoleAssistant:
 		// Assistant entries may contain a mix of block types.
 		// Return true here; block-level filtering happens in BlockVisible.
-		return f.Output || f.Tools || f.Thinking
+		return f.Assistant || f.Tools || f.Thinking
 	case thinkt.RoleTool:
 		return f.Other
 	case thinkt.RoleSystem, thinkt.RoleSummary, thinkt.RoleProgress, thinkt.RoleCheckpoint:
@@ -45,7 +45,7 @@ func (f *RoleFilterSet) EntryVisible(entry *thinkt.Entry) bool {
 func (f *RoleFilterSet) BlockVisible(blockType string) bool {
 	switch blockType {
 	case "text":
-		return f.Output
+		return f.Assistant
 	case "thinking":
 		return f.Thinking
 	case "tool_use", "tool_result":
