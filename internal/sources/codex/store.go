@@ -339,9 +339,9 @@ func (s *Store) readSessionMeta(path, workspaceID string) (*thinkt.SessionMeta, 
 			if payload.CWD != "" {
 				meta.ProjectPath = payload.CWD
 			}
-			if payload.Model != "" {
+			if thinkt.IsRealModel(payload.Model) {
 				meta.Model = payload.Model
-			} else if meta.Model == "" && payload.ModelProvider != "" {
+			} else if !thinkt.IsRealModel(meta.Model) && payload.ModelProvider != "" {
 				meta.Model = payload.ModelProvider
 			}
 			if payload.Git.Branch != "" {
@@ -369,8 +369,11 @@ func (s *Store) readSessionMeta(path, workspaceID string) (*thinkt.SessionMeta, 
 				if meta.ProjectPath == "" {
 					meta.ProjectPath = readString(payload, "cwd")
 				}
-				if meta.Model == "" {
-					meta.Model = readString(payload, "model")
+				if !thinkt.IsRealModel(meta.Model) {
+					m := readString(payload, "model")
+					if thinkt.IsRealModel(m) {
+						meta.Model = m
+					}
 				}
 			}
 

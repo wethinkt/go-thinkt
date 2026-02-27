@@ -131,8 +131,8 @@ func (ls *LazySession) extractMetadata(entry *Entry) {
 	if ls.CWD == "" && entry.CWD != "" {
 		ls.CWD = entry.CWD
 	}
-	if ls.Model == "" {
-		if msg := entry.GetAssistantMessage(); msg != nil && msg.Model != "" {
+	if !thinkt.IsRealModel(ls.Model) {
+		if msg := entry.GetAssistantMessage(); msg != nil && thinkt.IsRealModel(msg.Model) {
 			ls.Model = msg.Model
 		}
 	}

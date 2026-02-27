@@ -239,12 +239,12 @@ func ListProjectSessionsBackfill(projectDir string) ([]SessionMeta, error) {
 	}
 
 	for i := range sessions {
-		if sessions[i].FullPath != "" && (sessions[i].FirstPrompt == "" || sessions[i].Model == "") {
+		if sessions[i].FullPath != "" && (sessions[i].FirstPrompt == "" || !thinkt.IsRealModel(sessions[i].Model)) {
 			prompt, model := extractSessionHints(sessions[i].FullPath)
 			if sessions[i].FirstPrompt == "" {
 				sessions[i].FirstPrompt = prompt
 			}
-			if sessions[i].Model == "" {
+			if !thinkt.IsRealModel(sessions[i].Model) {
 				sessions[i].Model = model
 			}
 		}
@@ -341,8 +341,8 @@ func extractSessionHints(path string) (firstPrompt, model string) {
 			}
 		}
 
-		// Extract first model from assistant entry
-		if model == "" && strings.Contains(lineStr, `"type":"assistant"`) {
+		// Extract first real model from assistant entry
+		if !thinkt.IsRealModel(model) && strings.Contains(lineStr, `"type":"assistant"`) {
 			var entry struct {
 				Type    string          `json:"type"`
 				Message json.RawMessage `json:"message"`
@@ -351,13 +351,13 @@ func extractSessionHints(path string) (firstPrompt, model string) {
 				var msg struct {
 					Model string `json:"model"`
 				}
-				if json.Unmarshal(entry.Message, &msg) == nil && msg.Model != "" {
+				if json.Unmarshal(entry.Message, &msg) == nil && thinkt.IsRealModel(msg.Model) {
 					model = msg.Model
 				}
 			}
 		}
 
-		if firstPrompt != "" && model != "" {
+		if firstPrompt != "" && thinkt.IsRealModel(model) {
 			break
 		}
 	}

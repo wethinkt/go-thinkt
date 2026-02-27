@@ -216,7 +216,7 @@ type SessionMeta struct {
 	CreatedAt   time.Time `json:"created_at"`
 	ModifiedAt  time.Time `json:"modified_at"`
 	GitBranch   string    `json:"git_branch,omitempty"`
-	Model       string    `json:"model,omitempty"`
+	Model       string    `json:"model,omitempty"` // First real (non-synthetic) assistant model
 	Source      Source    `json:"source"`       // Which tool (kimi, claude)
 	WorkspaceID string    `json:"workspace_id"` // Which machine/host
 	ChunkCount  int       `json:"chunk_count"`  // Number of files: 0=unknown, 1=single, 2+=chunked

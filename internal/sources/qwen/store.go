@@ -315,7 +315,7 @@ func (s *Store) readSessionMeta(path, projectHash string, size int64, modTime ti
 		}
 
 		// Extract model
-		if meta.Model == "" && entry.Model != "" {
+		if !thinkt.IsRealModel(meta.Model) && thinkt.IsRealModel(entry.Model) {
 			meta.Model = entry.Model
 		}
 

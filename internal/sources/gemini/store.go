@@ -240,7 +240,7 @@ func (s *Store) readSessionMeta(path, projectID string, size int64, modTime time
 		if msg.Type == "user" && meta.FirstPrompt == "" {
 			meta.FirstPrompt = msg.Content
 		}
-		if msg.Type == "gemini" && msg.Model != "" {
+		if msg.Type == "gemini" && thinkt.IsRealModel(msg.Model) {
 			meta.Model = msg.Model
 		}
 	}

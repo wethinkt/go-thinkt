@@ -138,8 +138,8 @@ func (p *Parser) ReadSession(path string) (*Session, error) {
 		if session.CWD == "" && e.CWD != "" {
 			session.CWD = e.CWD
 		}
-		if session.Model == "" {
-			if msg := e.GetAssistantMessage(); msg != nil && msg.Model != "" {
+		if !thinkt.IsRealModel(session.Model) {
+			if msg := e.GetAssistantMessage(); msg != nil && thinkt.IsRealModel(msg.Model) {
 				session.Model = msg.Model
 			}
 		}
@@ -417,8 +417,8 @@ func (p *Parser) ReadSessionPreview(path string, maxEntries int) (*Session, erro
 		if session.CWD == "" && e.CWD != "" {
 			session.CWD = e.CWD
 		}
-		if session.Model == "" {
-			if msg := e.GetAssistantMessage(); msg != nil && msg.Model != "" {
+		if !thinkt.IsRealModel(session.Model) {
+			if msg := e.GetAssistantMessage(); msg != nil && thinkt.IsRealModel(msg.Model) {
 				session.Model = msg.Model
 			}
 		}

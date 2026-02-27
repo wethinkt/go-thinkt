@@ -128,6 +128,69 @@ func TestParser_ReadSession(t *testing.T) {
 	}
 }
 
+func TestReadSession_SyntheticModelSkipped(t *testing.T) {
+	// First assistant has synthetic model, second has real model -> real wins
+	jsonl := `{"type":"user","uuid":"1","sessionId":"sess-1","timestamp":"2026-01-24T10:00:00Z","message":{"role":"user","content":"hello"}}
+{"type":"assistant","uuid":"2","timestamp":"2026-01-24T10:00:01Z","message":{"role":"assistant","model":"<synthetic>","content":[{"type":"text","text":"hi"}]}}
+{"type":"assistant","uuid":"3","timestamp":"2026-01-24T10:00:02Z","message":{"role":"assistant","model":"claude-sonnet-4-5-20251101","content":[{"type":"text","text":"real response"}]}}
+`
+	parser := NewParser(strings.NewReader(jsonl))
+	session, err := parser.ReadSession("/fake/path.jsonl")
+	if err != nil {
+		t.Fatalf("ReadSession() error = %v", err)
+	}
+	if session.Model != "claude-sonnet-4-5-20251101" {
+		t.Errorf("session.Model = %q, want %q", session.Model, "claude-sonnet-4-5-20251101")
+	}
+}
+
+func TestReadSession_OnlySyntheticModel(t *testing.T) {
+	// Only synthetic models -> model stays empty
+	jsonl := `{"type":"user","uuid":"1","sessionId":"sess-1","timestamp":"2026-01-24T10:00:00Z","message":{"role":"user","content":"hello"}}
+{"type":"assistant","uuid":"2","timestamp":"2026-01-24T10:00:01Z","message":{"role":"assistant","model":"<synthetic>","content":[{"type":"text","text":"hi"}]}}
+{"type":"assistant","uuid":"3","timestamp":"2026-01-24T10:00:02Z","message":{"role":"assistant","model":"synthetic","content":[{"type":"text","text":"also synthetic"}]}}
+`
+	parser := NewParser(strings.NewReader(jsonl))
+	session, err := parser.ReadSession("/fake/path.jsonl")
+	if err != nil {
+		t.Fatalf("ReadSession() error = %v", err)
+	}
+	if session.Model != "" {
+		t.Errorf("session.Model = %q, want empty", session.Model)
+	}
+}
+
+func TestReadSession_RealModelFirst(t *testing.T) {
+	// Real model first -> unchanged (no regression)
+	jsonl := `{"type":"user","uuid":"1","sessionId":"sess-1","timestamp":"2026-01-24T10:00:00Z","message":{"role":"user","content":"hello"}}
+{"type":"assistant","uuid":"2","timestamp":"2026-01-24T10:00:01Z","message":{"role":"assistant","model":"claude-opus-4-5-20251101","content":[{"type":"text","text":"hi"}]}}
+`
+	parser := NewParser(strings.NewReader(jsonl))
+	session, err := parser.ReadSession("/fake/path.jsonl")
+	if err != nil {
+		t.Fatalf("ReadSession() error = %v", err)
+	}
+	if session.Model != "claude-opus-4-5-20251101" {
+		t.Errorf("session.Model = %q, want %q", session.Model, "claude-opus-4-5-20251101")
+	}
+}
+
+func TestReadSession_SyntheticMixedCase(t *testing.T) {
+	// Mixed case/whitespace synthetic values are skipped
+	jsonl := `{"type":"user","uuid":"1","sessionId":"sess-1","timestamp":"2026-01-24T10:00:00Z","message":{"role":"user","content":"hello"}}
+{"type":"assistant","uuid":"2","timestamp":"2026-01-24T10:00:01Z","message":{"role":"assistant","model":"  <SYNTHETIC>  ","content":[{"type":"text","text":"hi"}]}}
+{"type":"assistant","uuid":"3","timestamp":"2026-01-24T10:00:02Z","message":{"role":"assistant","model":"gpt-4o","content":[{"type":"text","text":"real"}]}}
+`
+	parser := NewParser(strings.NewReader(jsonl))
+	session, err := parser.ReadSession("/fake/path.jsonl")
+	if err != nil {
+		t.Fatalf("ReadSession() error = %v", err)
+	}
+	if session.Model != "gpt-4o" {
+		t.Errorf("session.Model = %q, want %q", session.Model, "gpt-4o")
+	}
+}
+
 func TestEntry_GetThinkingBlocks(t *testing.T) {
 	jsonl := `{"type":"assistant","uuid":"1","timestamp":"2026-01-24T10:00:00Z","message":{"role":"assistant","content":[{"type":"thinking","thinking":"let me think..."},{"type":"text","text":"response"}]}}`
 

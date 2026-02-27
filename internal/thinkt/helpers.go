@@ -82,6 +82,20 @@ func ValidateSessionPath(sessionID, baseDir string) error {
 	return nil
 }
 
+// IsSyntheticModel returns true if the model string is a synthetic placeholder
+// (e.g. "<synthetic>", "synthetic") rather than a real model identifier.
+// Comparison is case-insensitive and ignores surrounding whitespace.
+func IsSyntheticModel(model string) bool {
+	m := strings.TrimSpace(model)
+	m = strings.ToLower(m)
+	return m == "synthetic" || m == "<synthetic>"
+}
+
+// IsRealModel returns true if the model string is non-empty and not a synthetic placeholder.
+func IsRealModel(model string) bool {
+	return model != "" && !IsSyntheticModel(model)
+}
+
 // NewScannerWithMaxCapacity creates a bufio.Scanner with optimized buffer settings
 // for reading large JSONL files. Uses a 64KB initial buffer and 10MB max line capacity.
 func NewScannerWithMaxCapacity(r io.Reader) *bufio.Scanner {
