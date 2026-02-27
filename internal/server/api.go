@@ -86,6 +86,18 @@ type ErrorResponse struct {
 	Message string `json:"message,omitempty"`
 }
 
+// SessionResolveResponse contains canonical project/session ownership for a session path.
+// Clients can use this to immediately synchronize sidebar/header state for deep-links
+// instead of scanning projects and sessions client-side.
+type SessionResolveResponse struct {
+	ProjectID     string       `json:"project_id"`
+	ProjectName   string       `json:"project_name"`
+	ProjectSource thinkt.Source `json:"project_source"`
+	SessionID     string       `json:"session_id"`
+	SessionPath   string       `json:"session_path"`
+	WorkspaceID   string       `json:"workspace_id,omitempty"`
+}
+
 // ServerInfoResponse contains server identity and runtime metadata.
 type ServerInfoResponse struct {
 	Fingerprint   string    `json:"fingerprint"`
@@ -119,6 +131,70 @@ func (s *HTTPServer) handleGetInfo(w http.ResponseWriter, r *http.Request) {
 		PID:           os.Getpid(),
 		Authenticated: s.authenticator.IsEnabled(),
 	})
+}
+
+// handleResolveSession resolves a session file path to its canonical project/session ownership.
+// @Summary Resolve session ownership
+// @Description Resolves an absolute session file path to its canonical project and session metadata.
+// @Description Use this for deep-link synchronization: given a session path, immediately know
+// @Description which project and source it belongs to without scanning all projects/sessions.
+// @Tags sessions
+// @Produce json
+// @Param path query string true "Absolute session file path"
+// @Success 200 {object} SessionResolveResponse
+// @Failure 400 {object} ErrorResponse "Missing or invalid path"
+// @Failure 404 {object} ErrorResponse "Session not found or not in any registered source"
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
+// @Failure 500 {object} ErrorResponse
+// @Router /sessions/resolve [get]
+// @Security BearerAuth
+func (s *HTTPServer) handleResolveSession(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimSpace(r.URL.Query().Get("path"))
+	if path == "" {
+		writeError(w, http.StatusBadRequest, "missing_path", "Query parameter 'path' is required")
+		return
+	}
+
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+
+	ctx := r.Context()
+
+	store, meta, err := s.registry.ResolveSessionByPath(ctx, path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			writeError(w, http.StatusNotFound, "session_not_found", "No session found at the given path")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "resolve_failed", err.Error())
+		return
+	}
+	if store == nil || meta == nil {
+		writeError(w, http.StatusNotFound, "session_not_found", "No session found at the given path")
+		return
+	}
+
+	resp := SessionResolveResponse{
+		ProjectSource: meta.Source,
+		SessionID:     meta.ID,
+		SessionPath:   meta.FullPath,
+		WorkspaceID:   meta.WorkspaceID,
+	}
+
+	// Resolve project details from the session's ProjectPath.
+	if meta.ProjectPath != "" {
+		project, err := store.GetProject(ctx, meta.ProjectPath)
+		if err == nil && project != nil {
+			resp.ProjectID = project.ID
+			resp.ProjectName = project.Name
+		} else {
+			// Fallback: use the session's ProjectPath as the project ID.
+			resp.ProjectID = meta.ProjectPath
+		}
+	}
+
+	writeJSON(w, http.StatusOK, resp)
 }
 
 type ambiguousProjectSessionsError struct {

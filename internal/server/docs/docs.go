@@ -536,6 +536,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/sessions/resolve": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Resolves an absolute session file path to its canonical project and session metadata.\nUse this for deep-link synchronization: given a session path, immediately know\nwhich project and source it belongs to without scanning all projects/sessions.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "Resolve session ownership",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Absolute session file path",
+                        "name": "path",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.SessionResolveResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or invalid path",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing token",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Session not found or not in any registered source",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/sessions/{path}": {
             "get": {
                 "security": [
@@ -1429,6 +1487,29 @@ const docTemplate = `{
                 }
             }
         },
+        "server.SessionResolveResponse": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "string"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "project_source": {
+                    "$ref": "#/definitions/thinkt.Source"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "session_path": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "string"
+                }
+            }
+        },
         "server.SessionResponse": {
             "type": "object",
             "properties": {
@@ -1985,6 +2066,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "model": {
+                    "description": "First real (non-synthetic) assistant model",
                     "type": "string"
                 },
                 "modified_at": {
