@@ -349,3 +349,4 @@ func (m *mockActiveStore) LoadSession(_ context.Context, _ string) (*Session, er
 func (m *mockActiveStore) OpenSession(_ context.Context, _ string) (SessionReader, error) {
 	return nil, nil
 }
+func (m *mockActiveStore) WatchConfig() WatchConfig { return DefaultWatchConfig() }

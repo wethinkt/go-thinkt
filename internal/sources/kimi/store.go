@@ -891,3 +891,11 @@ func (s *Store) scanProjects(sessionsDir string) ([]thinkt.Project, error) {
 
 	return projects, nil
 }
+
+// WatchConfig returns the watch configuration for Kimi session files.
+func (s *Store) WatchConfig() thinkt.WatchConfig {
+	return thinkt.WatchConfig{
+		IncludeDirs: []string{"sessions"},
+		MaxDepth:    3,
+	}
+}

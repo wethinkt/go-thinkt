@@ -60,6 +60,7 @@ func (m *resolverMockStore) OpenSession(ctx context.Context, sessionID string) (
 	}
 	return resp.reader, resp.err
 }
+func (m *resolverMockStore) WatchConfig() WatchConfig { return DefaultWatchConfig() }
 
 type staticSessionReader struct {
 	meta SessionMeta

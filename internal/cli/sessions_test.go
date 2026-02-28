@@ -54,6 +54,7 @@ func (s *testSessionStore) LoadSession(ctx context.Context, sessionID string) (*
 func (s *testSessionStore) OpenSession(ctx context.Context, sessionID string) (thinkt.SessionReader, error) {
 	return &noopSessionReader{}, nil
 }
+func (s *testSessionStore) WatchConfig() thinkt.WatchConfig { return thinkt.DefaultWatchConfig() }
 
 type noopSessionReader struct{}
 

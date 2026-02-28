@@ -161,7 +161,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "thinkt-exporter %s\n", version)
 		fmt.Fprintf(os.Stderr, "Watching %d directories\n", len(dirs))
 		for _, d := range dirs {
-			fmt.Fprintf(os.Stderr, "  %s\n", d)
+			fmt.Fprintf(os.Stderr, "  [%s] %s\n", d.Source, d.Path)
 		}
 		if collectorURL != "" {
 			fmt.Fprintf(os.Stderr, "Collector: %s\n", collectorURL)
@@ -178,14 +178,14 @@ func main() {
 
 // discoverWatchDirs uses the source registry to find session directories.
 // If filter is non-empty, only sources in the filter are included.
-func discoverWatchDirs(filter map[thinkt.Source]bool, quiet bool) []string {
+func discoverWatchDirs(filter map[thinkt.Source]bool, quiet bool) []export.WatchDir {
 	discovery := thinkt.NewDiscovery(sources.AllFactories()...)
 	registry, err := discovery.Discover(context.Background())
 	if err != nil {
 		return nil
 	}
 
-	var dirs []string
+	var dirs []export.WatchDir
 	for _, store := range registry.All() {
 		src := store.Source()
 		if len(filter) > 0 && !filter[src] {
@@ -198,7 +198,11 @@ func discoverWatchDirs(filter map[thinkt.Source]bool, quiet bool) []string {
 		if _, err := os.Stat(ws.BasePath); err != nil {
 			continue
 		}
-		dirs = append(dirs, ws.BasePath)
+		dirs = append(dirs, export.WatchDir{
+			Path:   ws.BasePath,
+			Source: string(src),
+			Config: store.WatchConfig(),
+		})
 		if !quiet {
 			fmt.Fprintf(os.Stderr, "Discovered %s: %s\n", src, ws.BasePath)
 		}

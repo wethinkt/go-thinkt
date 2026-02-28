@@ -449,3 +449,11 @@ func convertSession(g *Session, meta *thinkt.SessionMeta) *thinkt.Session {
 		Entries: entries,
 	}
 }
+
+// WatchConfig returns the watch configuration for Gemini session files.
+func (s *Store) WatchConfig() thinkt.WatchConfig {
+	return thinkt.WatchConfig{
+		IncludeDirs: []string{"sessions"},
+		MaxDepth:    2,
+	}
+}

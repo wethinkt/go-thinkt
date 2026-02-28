@@ -19,6 +19,7 @@ func (m *mockStore) ListSessions(ctx context.Context, projectID string) ([]Sessi
 func (m *mockStore) GetSessionMeta(ctx context.Context, sessionID string) (*SessionMeta, error) { return nil, nil }
 func (m *mockStore) LoadSession(ctx context.Context, sessionID string) (*Session, error) { return nil, nil }
 func (m *mockStore) OpenSession(ctx context.Context, sessionID string) (SessionReader, error) { return nil, nil }
+func (m *mockStore) WatchConfig() WatchConfig { return DefaultWatchConfig() }
 
 func TestRegistry_RegisterAndGet(t *testing.T) {
 	reg := NewRegistry()

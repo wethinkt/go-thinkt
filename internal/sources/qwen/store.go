@@ -707,3 +707,11 @@ func convertQwenRole(role string) thinkt.Role {
 		return thinkt.RoleSystem
 	}
 }
+
+// WatchConfig returns the watch configuration for Qwen session files.
+func (s *Store) WatchConfig() thinkt.WatchConfig {
+	return thinkt.WatchConfig{
+		IncludeDirs: []string{"projects"},
+		MaxDepth:    4,
+	}
+}

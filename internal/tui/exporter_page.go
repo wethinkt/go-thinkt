@@ -128,8 +128,8 @@ func (m ExporterPageModel) renderContent() string {
 		b.WriteString(mutedStyle.Render("  None."))
 		b.WriteString("\n")
 	} else {
-		for _, dir := range m.stats.Watching {
-			b.WriteString("  " + valueStyle.Render(shortenPath(dir)) + "\n")
+		for _, wd := range m.stats.Watching {
+			b.WriteString("  " + valueStyle.Render(fmt.Sprintf("[%s] %s", wd.Source, shortenPath(wd.Path))) + "\n")
 		}
 	}
 	b.WriteString("\n")

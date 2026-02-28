@@ -2,7 +2,18 @@
 // and ships them to a remote collector endpoint via HTTP POST.
 package export
 
-import "time"
+import (
+	"time"
+
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
+)
+
+// WatchDir pairs a directory path with its source identity and watch configuration.
+type WatchDir struct {
+	Path   string            // Absolute path to the source's base directory
+	Source string            // Source name (e.g. "claude", "kimi")
+	Config thinkt.WatchConfig // Per-source watch configuration
+}
 
 // ExporterConfig holds configuration for the trace exporter.
 type ExporterConfig struct {
@@ -18,7 +29,7 @@ type ExporterConfig struct {
 	BufferDir string
 
 	// WatchDirs are directories to watch for new/modified JSONL session files.
-	WatchDirs []string
+	WatchDirs []WatchDir
 
 	// MaxBufferMB is the maximum buffer size in megabytes. Default: 100.
 	MaxBufferMB int
@@ -91,7 +102,7 @@ type ExporterStats struct {
 	BufferSizeBytes int64
 	LastShipTime    time.Time
 	CollectorURL    string
-	Watching        []string
+	Watching        []WatchDir
 }
 
 // SessionActivityEvent is sent to the collector to report session lifecycle changes.

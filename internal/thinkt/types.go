@@ -243,6 +243,28 @@ type Project struct {
 	PathExists     bool      `json:"path_exists"`                // Whether the project directory still exists on disk
 }
 
+// WatchConfig controls which subdirectories the exporter watches for session
+// files under a source's base path.
+type WatchConfig struct {
+	// IncludeDirs are first-level subdirectory names under BasePath to enter.
+	// If non-empty, only these directories are recursed into at depth 1.
+	// If empty, the root itself is watched without recursion.
+	IncludeDirs []string
+
+	// ExcludeDirs are directory names to skip at any depth during recursion.
+	ExcludeDirs []string
+
+	// MaxDepth is the maximum directory depth to recurse below BasePath.
+	// 0 means watch BasePath only (no recursion).
+	MaxDepth int
+}
+
+// DefaultWatchConfig returns a safe fallback config that watches only the root
+// directory to a shallow depth.
+func DefaultWatchConfig() WatchConfig {
+	return WatchConfig{MaxDepth: 2}
+}
+
 // Store provides access to projects and sessions from a single workspace.
 type Store interface {
 	// Source returns the type of this store (kimi, claude).
@@ -270,6 +292,9 @@ type Store interface {
 	// OpenSession returns a reader for streaming session entries.
 	// Preferred for large sessions or when only partial access is needed.
 	OpenSession(ctx context.Context, sessionID string) (SessionReader, error)
+
+	// WatchConfig returns the directory watch configuration for the exporter.
+	WatchConfig() WatchConfig
 }
 
 // SessionReader provides streaming access to session entries.

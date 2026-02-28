@@ -67,7 +67,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 	}
 
 	// Auto-discover watch directories from source registry
-	var watchDirs []string
+	var watchDirs []export.WatchDir
 	registry := CreateSourceRegistry()
 	for _, store := range registry.All() {
 		// Filter by source if specified
@@ -76,7 +76,11 @@ func runExport(cmd *cobra.Command, args []string) error {
 		}
 		ws := store.Workspace()
 		if ws.BasePath != "" {
-			watchDirs = append(watchDirs, ws.BasePath)
+			watchDirs = append(watchDirs, export.WatchDir{
+				Path:   ws.BasePath,
+				Source: string(store.Source()),
+				Config: store.WatchConfig(),
+			})
 		}
 	}
 
@@ -130,8 +134,8 @@ func runExport(cmd *cobra.Command, args []string) error {
 	if exportForward {
 		if !exportQuiet {
 			fmt.Fprintf(os.Stderr, "Exporter watching %d directories (forward mode)\n", len(watchDirs))
-			for _, dir := range watchDirs {
-				fmt.Fprintf(os.Stderr, "  %s\n", dir)
+			for _, wd := range watchDirs {
+				fmt.Fprintf(os.Stderr, "  [%s] %s\n", wd.Source, wd.Path)
 			}
 			if collectorURL != "" {
 				fmt.Fprintf(os.Stderr, "Collector: %s\n", collectorURL)

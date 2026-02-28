@@ -605,3 +605,12 @@ func parseTimestamp(ts string) time.Time {
 	t, _ := time.Parse(time.RFC3339, ts)
 	return t
 }
+
+// WatchConfig returns the watch configuration for Claude session files.
+func (s *Store) WatchConfig() thinkt.WatchConfig {
+	return thinkt.WatchConfig{
+		IncludeDirs: []string{"projects"},
+		ExcludeDirs: []string{"file-history", "tool-results", "debug", "todos"},
+		MaxDepth:    4,
+	}
+}

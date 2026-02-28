@@ -435,3 +435,11 @@ func (r *sessionReader) Metadata() thinkt.SessionMeta {
 func (r *sessionReader) Close() error {
 	return r.file.Close()
 }
+
+// WatchConfig returns the watch configuration for Codex session files.
+func (s *Store) WatchConfig() thinkt.WatchConfig {
+	return thinkt.WatchConfig{
+		IncludeDirs: []string{"sessions"},
+		MaxDepth:    5,
+	}
+}

@@ -110,6 +110,11 @@ func (e *Exporter) Start(ctx context.Context) error {
 	}
 	watchedDirs.Set(float64(len(e.cfg.WatchDirs)))
 
+	// Log watched directories
+	for _, wd := range e.cfg.WatchDirs {
+		tuilog.Log.Info("Watching", "source", wd.Source, "dir", wd.Path)
+	}
+
 	// Start session activity sweep goroutine
 	go e.sweepInactiveSessions(ctx)
 
@@ -154,10 +159,10 @@ func (e *Exporter) ExportOnce(ctx context.Context) error {
 		e.shipper = NewShipper(endpoint.URL, e.cfg.APIKey)
 	}
 
-	for _, dir := range e.cfg.WatchDirs {
-		entries, err := os.ReadDir(dir)
+	for _, wd := range e.cfg.WatchDirs {
+		entries, err := os.ReadDir(wd.Path)
 		if err != nil {
-			tuilog.Log.Warn("Failed to read watch dir", "dir", dir, "error", err)
+			tuilog.Log.Warn("Failed to read watch dir", "dir", wd.Path, "error", err)
 			continue
 		}
 
@@ -166,8 +171,8 @@ func (e *Exporter) ExportOnce(ctx context.Context) error {
 				continue
 			}
 
-			path := filepath.Join(dir, entry.Name())
-			e.processFile(ctx, path, detectSource(path))
+			path := filepath.Join(wd.Path, entry.Name())
+			e.processFile(ctx, path, wd.Source)
 		}
 	}
 
@@ -232,7 +237,7 @@ func (e *Exporter) resolveCollector() (*CollectorEndpoint, error) {
 	// Use first watch dir as project path hint for discovery
 	projectPath := ""
 	if len(e.cfg.WatchDirs) > 0 {
-		projectPath = e.cfg.WatchDirs[0]
+		projectPath = e.cfg.WatchDirs[0].Path
 	}
 	return DiscoverCollector(projectPath)
 }

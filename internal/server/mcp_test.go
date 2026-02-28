@@ -97,6 +97,7 @@ func newSessionFixtureStore(path string) thinkt.Store {
 		},
 	}
 }
+func (s *testStore) WatchConfig() thinkt.WatchConfig { return thinkt.DefaultWatchConfig() }
 
 // newTestMCPServer creates an MCPServer with the given stores registered.
 func newTestMCPServer(stores ...thinkt.Store) *MCPServer {
