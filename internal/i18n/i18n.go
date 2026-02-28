@@ -139,6 +139,7 @@ type LangInfo struct {
 var knownLanguages = map[string][2]string{
 	"en":      {"English", "English"},
 	"zh-Hans": {"简体中文", "Chinese (Simplified)"},
+	"es":      {"Español", "Spanish"},
 }
 
 // AvailableLanguages returns info about all languages with embedded locale files.

@@ -1,0 +1,970 @@
+# Spanish Translation
+
+[common.loading]
+other = "Cargando..."
+
+[common.time.justNow]
+other = "ahora mismo"
+
+[common.time.oneMinAgo]
+other = "hace 1 min"
+
+[common.time.oneHourAgo]
+other = "hace 1 hora"
+
+[common.time.oneDayAgo]
+other = "hace 1 día"
+
+[common.time.short.now]
+other = "ahora"
+
+[tui.shell.selectProject]
+other = "Seleccionar proyecto..."
+
+[tui.shell.selectSession]
+other = "Seleccionar sesión..."
+
+[tui.filter.user]
+other = "Usuario"
+
+[tui.filter.assistant]
+other = "Asistente"
+
+[tui.filter.thinking]
+other = "Pensamiento"
+
+[tui.filter.tools]
+other = "Herramientas"
+
+[tui.filter.media]
+other = "Multimedia"
+
+[tui.filter.other]
+other = "Otros"
+
+[tui.search.title]
+other = "Buscar sesiones"
+
+[tui.help.scrollUp]
+other = "desplazar arriba"
+
+[tui.help.scrollDown]
+other = "desplazar abajo"
+
+[cmd.language.current]
+other = "Actual:"
+
+[cmd.language.terminal]
+other = "Terminal:"
+
+[cmd.language.header.active]
+other = "Activo"
+
+[cmd.language.header.tag]
+other = "Etiqueta"
+
+[cmd.language.header.name]
+other = "Nombre"
+
+[cmd.language.header.englishName]
+other = "Nombre en inglés"
+
+[cmd.language.setSuccess]
+other = "Idioma establecido a: %s"
+
+[tui.langPicker.title]
+other = "Idioma"
+
+[tui.langPicker.preview]
+other = "Vista previa"
+
+[tui.langPicker.filterLabels]
+other = "Filtrar etiquetas"
+
+[tui.langPicker.search]
+other = "Buscar"
+
+[tui.langPicker.loading]
+other = "Cargando"
+
+[tui.langPicker.time]
+other = "Tiempo"
+
+[tui.langPicker.help]
+other = "Ayuda"
+
+[tui.langPicker.helpText]
+other = "↑/↓: navegar • intro: seleccionar • q/esc: cancelar"
+
+[cmd.server.starting]
+other = "🚀 Iniciando servidor en segundo plano..."
+
+# --- Renderer labels ---
+
+[tui.renderer.noContent]
+other = "Sin contenido"
+
+[tui.label.user]
+other = "USUARIO"
+
+[tui.label.assistant]
+other = "ASISTENTE"
+
+[tui.label.thinking]
+other = "PENSAMIENTO"
+
+[tui.label.tool]
+other = "herramienta: %s"
+
+[tui.label.toolID]
+other = "id: %s"
+
+[tui.label.toolResult]
+other = "resultado de herramienta"
+
+[tui.label.image]
+other = "imagen"
+
+# --- Theme browser ---
+
+[tui.themeBrowser.title]
+other = "Temas"
+
+[tui.themeBrowser.preview]
+other = "Vista previa"
+
+[tui.themeBrowser.helpText]
+other = "↑/↓: navegar • intro: activar • e: editar • n: nuevo tema • q/esc: cancelar"
+
+[tui.themeBrowser.newThemeName]
+other = "Nombre del nuevo tema: "
+
+[cmd.theme.setSuccess]
+other = "Tema establecido a: %s"
+
+# --- Theme builder ---
+
+[tui.themeBuilder.preview]
+other = "Vista previa"
+
+[tui.themeBuilder.title]
+other = "Tema: %s"
+
+[tui.themeBuilder.helpText]
+other = "↑/↓: seleccionar • e/E: editar fg/bg • b/i/u: negrita/cursiva/subrayado • tab: paneles • ctrl+s: guardar • esc/q: salir"
+
+[tui.themeBuilder.foreground]
+other = "Primer plano"
+
+[tui.themeBuilder.background]
+other = "Fondo"
+
+[tui.themeBuilder.editing]
+other = "Editando: %s (%s)"
+
+[tui.themeBuilder.saveError]
+other = "Error al guardar: %s"
+
+[tui.themeBuilder.saveSuccess]
+other = "Tema guardado: %s"
+
+# --- Shell ---
+
+[tui.shell.sessions]
+other = "Sesiones"
+
+[tui.shell.projects]
+other = "Proyectos"
+
+[tui.shell.search]
+other = "Buscar"
+
+[tui.shell.searchQuery]
+other = "Buscar: %s"
+
+[tui.shell.searchAction]
+other = "Buscar..."
+
+[tui.shell.noPages]
+other = "No hay páginas para mostrar"
+
+# --- Search picker ---
+
+[tui.searchPicker.titleWithQuery]
+other = "Resultados para %q (%d)"
+
+[tui.searchPicker.title]
+other = "Resultados de búsqueda (%d)"
+
+# --- Semantic search picker ---
+
+[tui.semanticPicker.title]
+other = "Resultados semánticos para %q (%d)"
+
+# --- Help keys ---
+
+[tui.help.view]
+other = "ver"
+
+[tui.help.viewSession]
+other = "ver sesión"
+
+[tui.help.back]
+other = "volver"
+
+[tui.help.quit]
+other = "salir"
+
+[tui.help.toggle]
+other = "alternar"
+
+[tui.help.submit]
+other = "enviar"
+
+[tui.help.cancel]
+other = "cancelar"
+
+[tui.help.abort]
+other = "abortar"
+
+# --- Confirm dialog ---
+
+[tui.confirm.yes]
+other = "sí"
+
+[tui.confirm.no]
+other = "no"
+
+# --- Model picker ---
+
+[tui.modelPicker.active]
+other = "(activo)"
+
+[tui.modelPicker.helpText]
+other = "↑/↓ navegar • intro seleccionar • esc cancelar"
+
+# --- Multi viewer ---
+
+[tui.viewer.noSessions]
+other = "No hay sesiones cargadas con éxito"
+
+[tui.viewer.debugLoadErrors]
+other = "Depuración (errores de carga):"
+
+[tui.viewer.logHint]
+other = "Establece THINKT_LOG_FILE=/tmp/thinkt.log para registros completos."
+
+[tui.viewer.sessions]
+other = "Sesiones"
+
+[tui.viewer.sessionsCount]
+other = "%d sesiones"
+
+[tui.viewer.searchPlaceholder]
+other = "Buscar..."
+
+[tui.viewer.matchInfo]
+other = "Coincidencia %d/%d"
+
+[tui.viewer.helpWithMatches]
+other = "%s  ·  n/N: sig/ant  ·  /: buscar  ·  esc: borrar"
+
+[tui.viewer.helpNoMatches]
+other = "Sin coincidencias  ·  /: buscar  ·  esc: borrar"
+
+[tui.viewer.help]
+other = "↑/↓: desplazarse • /: buscar • 1-6: filtros • g/G: inicio/fin • esc: volver • q: salir"
+
+# --- Color picker ---
+
+[tui.colorPicker.title]
+other = "Selector de color"
+
+[tui.colorPicker.current]
+other = "Actual: "
+
+[tui.colorPicker.orig]
+other = "Orig"
+
+[tui.colorPicker.sliders]
+other = "Deslizadores"
+
+[tui.colorPicker.hex]
+other = "Hex"
+
+[tui.colorPicker.palette]
+other = "Paleta"
+
+[tui.colorPicker.enterHex]
+other = "Introduce color hexadecimal:"
+
+[tui.colorPicker.format]
+other = "Formato: #RRGGBB"
+
+[tui.colorPicker.selected]
+other = "Seleccionado: %s (espacio para aplicar)"
+
+[tui.colorPicker.helpSliders]
+other = "↑/↓: canal • h/l: ±5% • H/L: ±1 • 0-9: establecer • r: restablecer • tab: modo • intro: ok • esc: cancelar"
+
+[tui.colorPicker.helpHex]
+other = "Escribe hexadecimal • ←/→: cursor • r: restablecer • tab: modo • intro: ok • esc: cancelar"
+
+[tui.colorPicker.helpPalette]
+other = "↑/↓/←/→: seleccionar • p/n: paleta • espacio: aplicar • r: restablecer • tab: modo • intro: ok • esc: cancelar"
+
+# --- Indexer CLI ---
+
+# Sync
+
+[indexer.sync.complete]
+other = "Indexación completada."
+
+[indexer.sync.completeViaServer]
+other = "Indexación completada (vía servidor)."
+
+[indexer.sync.noProjects]
+other = "No se encontraron proyectos para indexar."
+
+[indexer.sync.indexingProject]
+other = "Indexando proyecto: %s (%s)\n"
+
+[indexer.sync.projectError]
+other = "Error indexando proyecto %s: %v\n"
+
+[indexer.sync.rpcFallback]
+other = "Fallo en sincronización RPC, volviendo a modo local: %v\n"
+
+# Sync status
+
+[indexer.syncStatus.notRunning]
+other = "El servidor de indexación no está en ejecución."
+
+[indexer.syncStatus.state]
+other = "Estado:        %s\n"
+
+[indexer.syncStatus.uptime]
+other = "Tiempo activ.: %ds\n"
+
+[indexer.syncStatus.watcher]
+other = "Vigilante:     %v\n"
+
+[indexer.syncStatus.model]
+other = "Modelo:        %s (%d dim)\n"
+
+# Search
+
+[indexer.search.noMatches]
+other = "No se encontraron coincidencias."
+
+[indexer.search.searching]
+other = "Buscando %q...\n"
+
+# Semantic search
+
+[indexer.semantic.noMatches]
+other = "No se encontraron coincidencias semánticas."
+
+[indexer.semantic.notifyFailed]
+other = "ADVERTENCIA: Fallo al notificar al servidor: %v\n"
+
+[indexer.semantic.serverNotified]
+other = "Servidor notificado."
+
+# Server
+
+[indexer.server.running]
+other = "Servidor de indexación en ejecución (PID: %d). Presiona Ctrl+C para detener.\n"
+
+# Stats
+
+[indexer.stats.projects]
+other = "Proyectos:      %d\n"
+
+[indexer.stats.sessions]
+other = "Sesiones:       %d\n"
+
+[indexer.stats.entries]
+other = "Entradas:       %d\n"
+
+[indexer.stats.tokens]
+other = "Tokens:         %d\n"
+
+[indexer.stats.topTools]
+other = "Herramientas principales:"
+
+[indexer.stats.database]
+other = "Base de datos:  %s\n"
+
+[indexer.stats.embedderAvailable]
+other = "Incrustador:    %s (disponible)\n"
+
+[indexer.stats.embedderNotDownloaded]
+other = "Incrustador:    %s (modelo no descargado)\n"
+
+[indexer.stats.embeddings]
+other = "Incrustaciones: %d\n"
+
+# Progress display
+
+[indexer.progress.download]
+other = "Descarga"
+
+[indexer.progress.downloading]
+other = "Descargando %s: %.0f%%"
+
+[indexer.progress.indexing]
+other = "Indexando"
+
+[indexer.progress.embedding]
+other = "Incrustando"
+
+# Embeddings — enable/disable
+
+[indexer.embeddings.alreadyEnabled]
+other = "Incrustaciones ya habilitadas (modelo: %s).\n"
+
+[indexer.embeddings.enabled]
+other = "Incrustaciones habilitadas (modelo: %s).\n"
+
+[indexer.embeddings.alreadyDisabled]
+other = "Incrustaciones ya deshabilitadas."
+
+[indexer.embeddings.disabled]
+other = "Incrustaciones deshabilitadas."
+
+# Embeddings — purge
+
+[indexer.embeddings.purge.removeWarning]
+other = "ADVERTENCIA: No se pudo eliminar %s: %v\n"
+
+[indexer.embeddings.purge.removed]
+other = "Eliminado: %s\n"
+
+[indexer.embeddings.purge.noneFound]
+other = "No se encontraron bases de datos de incrustaciones obsoletas para purgar."
+
+[indexer.embeddings.purge.complete]
+other = "Purga de %d bases de datos de incrustaciones obsoletas completada.\n"
+
+# Embeddings — model
+
+[indexer.embeddings.model.noTerminal]
+other = "Se requiere una terminal para la selección interactiva de modelos; proporciona un ID de modelo como argumento"
+
+[indexer.embeddings.model.unknown]
+other = "Modelo desconocido %q. Modelos disponibles:\n\n"
+
+[indexer.embeddings.model.alreadyUsing]
+other = "Ya se está usando %s.\n"
+
+[indexer.embeddings.model.switched]
+other = "Modelo de incrustación cambiado: %s → %s\n"
+
+[indexer.embeddings.model.downloadHint]
+other = "El modelo se descargará bajo demanda en la próxima sincronización."
+
+# Embeddings — list table headers
+
+[indexer.embeddings.header.model]
+other = "Modelo"
+
+[indexer.embeddings.header.dim]
+other = "Dimensiones"
+
+[indexer.embeddings.header.pooling]
+other = "Pooling"
+
+[indexer.embeddings.header.modelSize]
+other = "Tamaño Modelo"
+
+[indexer.embeddings.header.sessions]
+other = "Sesiones"
+
+[indexer.embeddings.header.dbSize]
+other = "Tamaño DB"
+
+[indexer.embeddings.notDownloaded]
+other = "No descargado"
+
+# Embeddings — status
+
+[indexer.embeddings.status.ready]
+other = "Listo"
+
+[indexer.embeddings.status.embeddingLabel]
+other = "Incrustación:"
+
+[indexer.embeddings.status.modelLabel]
+other = "Modelo:"
+
+[indexer.embeddings.status.downloadLabel]
+other = "Descarga:"
+
+[indexer.embeddings.status.storedLabel]
+other = "Almacenado:"
+
+[indexer.embeddings.status.zeroEmbeddings]
+other = "0 incrustaciones"
+
+[indexer.embeddings.status.storedCount]
+other = "%d incrustaciones en %d sesiones"
+
+[indexer.embeddings.status.serverNotRunning]
+other = "No en ejecución"
+
+[indexer.embeddings.status.serverRunningModel]
+other = "En ejecución (modelo: %s)"
+
+[indexer.embeddings.status.serverEmbedding]
+other = "Incrustando"
+
+[indexer.embeddings.status.serverIdle]
+other = "Inactivo"
+
+[indexer.embeddings.status.serverLabel]
+other = "Servidor:"
+
+# Embeddings — sync
+
+[indexer.embeddings.sync.rpcFallback]
+other = "Fallo en sincronización RPC de incrustaciones, volviendo a modo local: %v\n"
+
+[indexer.embeddings.sync.completeViaServer]
+other = "Sincronización de incrustaciones completada (vía servidor)."
+
+[indexer.embeddings.sync.notEnabled]
+other = "Incrustaciones no habilitadas (ejecuta: thinkt-indexer embeddings enable)"
+
+[indexer.embeddings.sync.dbLocked]
+other = "Base de datos de índice bloqueada por otro proceso (posiblemente 'thinkt-indexer serve'); usa la sincronización de incrustaciones del servidor"
+
+[indexer.embeddings.sync.embDbLocked]
+other = "Base de datos de incrustaciones bloqueada por otro proceso; usa 'thinkt-indexer serve' para acceso concurrente"
+
+[indexer.embeddings.sync.complete]
+other = "Sincronización de incrustaciones completada."
+
+# --- CLI: delete ---
+
+[cli.delete.confirmProject]
+other = "¿Borrar permanentemente todos los datos de sesión para este proyecto?"
+
+[cli.delete.hintListProjects]
+other = "Usa 'thinkt projects list' para ver los proyectos disponibles"
+
+[cli.delete.noSessions]
+other = "No se encontraron sesiones en %s"
+
+
+# --- CLI: sessions ---
+
+[cli.sessions.ambiguous]
+other = "Consulta de sesión ambigua, coincide con múltiples sesiones:"
+
+[cli.sessions.confirmDelete]
+other = "¿Borrar permanentemente esta sesión?"
+
+[cli.sessions.hintList]
+other = "Usa 'thinkt sessions list' o 'thinkt sessions resolve <query>' para encontrar una sesión válida"
+
+[cli.sessions.hintListProject]
+other = "Usa 'thinkt sessions list -p %s' para ver sesiones disponibles"
+
+[cli.sessions.notFound]
+other = "Sesión no encontrada: %s"
+
+[cli.sessions.notFoundInSources]
+other = "Sesión no encontrada en fuentes conocidas: %s"
+
+[cli.sessions.projectNotFound]
+other = "Proyecto no encontrado: %s\n\nUsa 'thinkt projects' para listar los disponibles"
+
+
+# --- cmd: apps ---
+
+[cmd.apps.allDisabled]
+other = "Todas las aplicaciones deshabilitadas."
+
+[cmd.apps.allEnabled]
+other = "Todas las aplicaciones habilitadas."
+
+[cmd.apps.appToggled]
+other = "Aplicación %q %s."
+
+[cmd.apps.header.enabled]
+other = "Habilitado"
+
+[cmd.apps.header.id]
+other = "ID"
+
+[cmd.apps.header.name]
+other = "Nombre"
+
+[cmd.apps.header.terminal]
+other = "Terminal"
+
+[cmd.apps.noApps]
+other = "No hay aplicaciones configuradas."
+
+[cmd.apps.terminalSet]
+other = "Terminal por defecto establecida a %q."
+
+# --- cmd: server ---
+
+[cmd.server.alreadyRunning]
+other = "El servidor ya está en ejecución (PID: %d, dirección: http://%s:%d)"
+
+[cmd.server.autoToken]
+other = "Token de autenticación generado automáticamente: %s"
+
+[cmd.server.devProxy]
+other = "Modo desarrollo: proxy a %s"
+
+[cmd.server.httpLogPath]
+other = "   HTTP: %s"
+
+[cmd.server.httpStarting]
+other = "🚀 Iniciando servidor Thinkt..."
+
+[cmd.server.indexerAlreadyRunning]
+other = "📇 El indexador ya está en ejecución (PID: %d)"
+
+[cmd.server.indexerExited]
+other = "⚠️ El subproceso indexador se inició pero salió inmediatamente (revisa los registros del servidor)"
+
+[cmd.server.indexerNotStarted]
+other = "⚠️ El subproceso indexador no se inició (revisa %s)"
+
+[cmd.server.indexerRunning]
+other = "📇 Subproceso indexador en ejecución (PID: %d)"
+
+[cmd.server.indexerStarted]
+other = "📇 Subproceso indexador iniciado (PID: %d)"
+
+[cmd.server.indexerStopped]
+other = "📇 Subproceso indexador detenido"
+
+[cmd.server.logPath]
+other = "   Registro: %s"
+
+[cmd.server.mcpStdio]
+other = "Iniciando servidor MCP vía stdio..."
+
+[cmd.server.notRunning]
+other = "El servidor no está en ejecución."
+
+[cmd.server.openingBrowser]
+other = "🌐 Abriendo %s en el navegador..."
+
+[cmd.server.pleaseOpenBrowser]
+other = "Por favor abre %s en tu navegador"
+
+[cmd.server.serverRunning]
+other = "✅ Servidor en ejecución (PID: %d, http://%s:%d)"
+
+[cmd.server.serverStarting]
+other = "✅ Servidor iniciando (PID: %d)"
+
+[cmd.server.servingTraces]
+other = "📁 Sirviendo trazas desde fuentes locales"
+
+[cmd.server.shuttingDown]
+other = "\nCerrando..."
+
+[cmd.server.status.address]
+other = "   Dirección: http://%s:%d"
+
+[cmd.server.status.header]
+other = "● thinkt-server.service - Interfaz Web y API"
+
+[cmd.server.status.httpLog]
+other = "   Registro HTTP: %s"
+
+[cmd.server.status.log]
+other = "   Registro: %s"
+
+[cmd.server.status.notRunning]
+other = "   Estado: No en ejecución"
+
+[cmd.server.status.running]
+other = "   Estado: En ejecución (PID: %d)"
+
+[cmd.server.status.token]
+other = "   Token: %s"
+
+[cmd.server.status.uptime]
+other = "   Tiempo activo: %s"
+
+[cmd.server.stopped]
+other = "✅ Servidor detenido."
+
+[cmd.server.stopping]
+other = "🛑 Deteniendo servidor (PID: %d)..."
+
+[cmd.server.stoppingIndexer]
+other = "📇 Deteniendo subproceso indexador (PID: %d)..."
+
+# --- cmd: sessions ---
+
+[cmd.sessions.noSessions]
+other = "No se encontraron sesiones"
+
+# --- cmd: sources ---
+
+[cmd.sources.detail.basePath]
+other = "Ruta base:   %s"
+
+[cmd.sources.detail.description]
+other = "Descripción: %s"
+
+[cmd.sources.detail.id]
+other = "ID:          %s"
+
+[cmd.sources.detail.projects]
+other = "Proyectos:   %d"
+
+[cmd.sources.detail.source]
+other = "Fuente:      %s"
+
+[cmd.sources.detail.status]
+other = "Estado:      %s"
+
+[cmd.sources.detail.workspace]
+other = "Espacio trab: %s"
+
+[cmd.sources.expectedSources]
+other = "\nFuentes esperadas:"
+
+[cmd.sources.header.basePath]
+other = "Ruta base"
+
+[cmd.sources.header.projects]
+other = "Proyectos"
+
+[cmd.sources.header.workspace]
+other = "Espacio trab"
+
+[cmd.sources.noSources]
+other = "No se encontraron fuentes."
+
+# --- cmd: teams ---
+
+[cmd.teams.header.created]
+other = "Creado"
+
+[cmd.teams.header.lastActivity]
+other = "Última actividad"
+
+[cmd.teams.header.members]
+other = "Miembros"
+
+[cmd.teams.header.tasks]
+other = "Tareas"
+
+[cmd.teams.header.team]
+other = "Equipo"
+
+[cmd.teams.noSources]
+other = "No se encontraron fuentes con soporte para equipos."
+
+[cmd.teams.noTeams]
+other = "No se encontraron equipos."
+
+[cmd.teams.tasksLegend]
+other = "Tareas: Hecho/Haciendo/Pendiente"
+
+# --- cmd: theme ---
+
+[cmd.theme.activateHint]
+other = "Activa con: thinkt theme set %s"
+
+[cmd.theme.importSuccess]
+other = "Tema %q importado con éxito."
+
+# --- common ---
+
+[common.action.cancel]
+other = "cancelar"
+
+[common.action.delete]
+other = "borrar"
+
+[common.cancelled]
+other = "Cancelado."
+
+[common.header.source]
+other = "Fuente"
+
+[common.header.status]
+other = "Estado"
+
+[common.no]
+other = "no"
+
+[common.noProjects]
+other = "No se encontraron proyectos"
+
+[common.noProjectsFromSources]
+other = "No se encontraron proyectos en las fuentes: %v"
+
+[common.sourceNotAvailable]
+other = "Fuente no disponible: %s"
+
+[common.status.available]
+other = "Disponible"
+
+[common.status.disabled]
+other = "Deshabilitado"
+
+[common.status.enabled]
+other = "Habilitado"
+
+[common.status.noData]
+other = "Sin datos"
+
+[common.time.daysAgo]
+other = "hace %d días"
+
+[common.time.hoursAgo]
+other = "hace %d horas"
+
+[common.time.minsAgo]
+other = "hace %d min"
+
+[common.time.short.oneDayAgo]
+other = "hace 1 día"
+
+[common.time.short.today]
+other = "hoy"
+
+[common.yes]
+other = "sí"
+
+# --- TUI ---
+
+[tui.appPicker.title]
+other = "Abrir en:"
+
+[tui.help.all]
+other = "todos"
+
+[tui.help.collapse]
+other = "colapsar"
+
+[tui.help.collapseExpand]
+other = "colapsar/expandir"
+
+[tui.help.confirm]
+other = "confirmar"
+
+[tui.help.down]
+other = "abajo"
+
+[tui.help.expand]
+other = "expandir"
+
+[tui.help.flatView]
+other = "vista plana"
+
+[tui.help.goToBottom]
+other = "ir al final"
+
+[tui.help.goToTop]
+other = "ir al inicio"
+
+[tui.help.nextMatch]
+other = "siguiente"
+
+[tui.help.none]
+other = "ninguno"
+
+[tui.help.openIn]
+other = "abrir en"
+
+[tui.help.openWeb]
+other = "abrir web"
+
+[tui.help.pageDown]
+other = "pág abajo"
+
+[tui.help.pageUp]
+other = "pág arriba"
+
+[tui.help.prevMatch]
+other = "anterior"
+
+[tui.help.resume]
+other = "continuar"
+
+[tui.help.search]
+other = "buscar"
+
+[tui.help.select]
+other = "seleccionar"
+
+[tui.help.sortDate]
+other = "ordenar fecha"
+
+[tui.help.sortName]
+other = "ordenar nombre"
+
+[tui.help.sources]
+other = "fuentes"
+
+[tui.help.toggleAssistant]
+other = "alternar asistente"
+
+[tui.help.toggleMedia]
+other = "alternar multimedia"
+
+[tui.help.toggleOther]
+other = "alternar otros"
+
+[tui.help.toggleThinking]
+other = "alternar pensamiento"
+
+[tui.help.toggleTools]
+other = "alternar herram"
+
+[tui.help.toggleUser]
+other = "alternar usuario"
+
+[tui.help.treeFlat]
+other = "árbol/plano"
+
+[tui.help.treeView]
+other = "vista árbol"
+
+[tui.help.up]
+other = "arriba"
+
+[tui.projectPicker.title]
+other = "%d proyectos · %s %s"
+
+[tui.search.help]
+other = "intro: buscar  ·  esc: cancelar"
+
+[tui.search.placeholder]
+other = "Escribe para buscar..."
+
+[tui.session.untitled]
+other = "(sin título)"
+
+[tui.sessionPicker.title]
+other = "%d sesiones"
+
+[tui.sourcePicker.filterTitle]
+other = "Filtrar por fuente"
+
+[tui.sourcePicker.helpMulti]
+other = "espacio alternar • a todos • n ninguno • intro confirmar • esc cancelar"
+
+[tui.sourcePicker.helpSingle]
+other = "intro seleccionar • esc cancelar"
+
+[tui.sourcePicker.noData]
+other = "(sin datos)"
+
+[tui.sourcePicker.selectTitle]
+other = "Seleccionar fuentes"

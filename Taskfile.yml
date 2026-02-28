@@ -42,8 +42,9 @@ tasks:
     sources:
       - ./cmd/thinkt/**/*.go
       - ./internal/**/*.go
-      - ./internal/server/web/**/*
+      - ./internal/i18n/locales/*.toml
       - ./internal/server/web-lite/**/*
+      - ./internal/server/web/**/*
       - go.mod
       - go.sum
     generates:
@@ -58,6 +59,7 @@ tasks:
       - ./cmd/thinkt-indexer/**/*.go
       - ./cmd/thinkt-indexer/**/*.sql
       - ./internal/**/*.go
+      - ./internal/i18n/locales/*.toml
       - go.mod
       - go.sum
     generates:
