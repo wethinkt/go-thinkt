@@ -28,6 +28,16 @@ COMMENT ON COLUMN embeddings.dim IS 'The number of dimensions in the embedding v
 COMMENT ON COLUMN embeddings.embedding IS 'The fixed-size float array representing the vector embedding.';
 COMMENT ON COLUMN embeddings.text_hash IS 'Hash of the source text to detect changes and avoid redundant re-embedding.';
 
+-- Migration tracking
+CREATE TABLE IF NOT EXISTS migrations (
+    version    INTEGER PRIMARY KEY,
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE migrations IS 'Tracks schema versioning for database upgrades.';
+COMMENT ON COLUMN migrations.version IS 'The migration version number.';
+COMMENT ON COLUMN migrations.applied_at IS 'Timestamp when the migration was applied.';
+
 CREATE INDEX IF NOT EXISTS idx_embeddings_session ON embeddings(session_id);
 CREATE INDEX IF NOT EXISTS idx_embeddings_entry ON embeddings(session_id, entry_uuid);
 CREATE INDEX IF NOT EXISTS idx_embeddings_tier ON embeddings(tier);

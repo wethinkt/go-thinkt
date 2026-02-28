@@ -101,6 +101,12 @@ func openWithSchema(path, schema string) (*DB, error) {
 		return nil, fmt.Errorf("failed to initialize schema: %w", err)
 	}
 
+	// Apply migrations.
+	if err := migrate(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migration failed: %w", err)
+	}
+
 	// Security hardening: Disable external access to prevent SQL injection attacks
 	// from reading/writing arbitrary files or accessing network resources
 	if _, err := db.Exec("SET enable_external_access=false"); err != nil {
@@ -112,6 +118,35 @@ func openWithSchema(path, schema string) (*DB, error) {
 		DB:   db,
 		path: path,
 	}, nil
+}
+
+// migrate runs necessary schema updates.
+func migrate(db *sql.DB) error {
+	// Ensure migrations table exists (already in schema, but defensive)
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS migrations (version INTEGER PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`)
+	if err != nil {
+		return err
+	}
+
+	var currentVersion int
+	err = db.QueryRow(`SELECT COALESCE(max(version), 0) FROM migrations`).Scan(&currentVersion)
+	if err != nil {
+		return err
+	}
+
+	// Version 1: Initial schema with comments (applied via init.sql/embeddings.sql)
+	// We just record it if not already present.
+	if currentVersion < 1 {
+		if _, err := db.Exec(`INSERT INTO migrations (version) VALUES (1)`); err != nil {
+			return err
+		}
+		currentVersion = 1
+	}
+
+	// Future migrations go here:
+	// if currentVersion < 2 { ... }
+
+	return nil
 }
 
 // Retry/copy-on-read constants for OpenReadOnly.

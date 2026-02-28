@@ -33,6 +33,16 @@ COMMENT ON COLUMN projects.name IS 'Human-readable project name (e.g. repository
 COMMENT ON COLUMN projects.source IS 'Trace source provider (e.g. claude, kimi, gemini).';
 COMMENT ON COLUMN projects.workspace_id IS 'Source-specific workspace or organization identifier.';
 
+-- Migration tracking
+CREATE TABLE IF NOT EXISTS migrations (
+    version    INTEGER PRIMARY KEY,
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE migrations IS 'Tracks schema versioning for database upgrades.';
+COMMENT ON COLUMN migrations.version IS 'The migration version number.';
+COMMENT ON COLUMN migrations.applied_at IS 'Timestamp when the migration was applied.';
+
 -- Session metadata
 CREATE TABLE IF NOT EXISTS sessions (
     id            VARCHAR PRIMARY KEY,
