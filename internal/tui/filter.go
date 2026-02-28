@@ -8,6 +8,7 @@ type RoleFilterSet struct {
 	Assistant bool // Assistant text content blocks
 	Thinking  bool // thinking content blocks
 	Tools     bool // tool_use + tool_result content blocks
+	Media     bool // image + document content blocks
 	Other     bool // system, summary, progress, checkpoint, tool-role entries
 }
 
@@ -18,6 +19,7 @@ func NewRoleFilterSet() RoleFilterSet {
 		Assistant: true,
 		Thinking:  true,
 		Tools:     true,
+		Media:     true,
 		Other:     false,
 	}
 }
@@ -31,7 +33,7 @@ func (f *RoleFilterSet) EntryVisible(entry *thinkt.Entry) bool {
 	case thinkt.RoleAssistant:
 		// Assistant entries may contain a mix of block types.
 		// Return true here; block-level filtering happens in BlockVisible.
-		return f.Assistant || f.Tools || f.Thinking
+		return f.Assistant || f.Tools || f.Thinking || f.Media
 	case thinkt.RoleTool:
 		return f.Other
 	case thinkt.RoleSystem, thinkt.RoleSummary, thinkt.RoleProgress, thinkt.RoleCheckpoint:
@@ -50,6 +52,8 @@ func (f *RoleFilterSet) BlockVisible(blockType string) bool {
 		return f.Thinking
 	case "tool_use", "tool_result":
 		return f.Tools
+	case "image", "document":
+		return f.Media
 	default:
 		return f.Other
 	}

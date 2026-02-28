@@ -24,12 +24,15 @@ type Styles struct {
 	ThinkingBlock   lipgloss.Style
 	ToolCallBlock   lipgloss.Style
 	ToolResultBlock lipgloss.Style
+	ImageBlock      lipgloss.Style
 
 	// Block labels
 	UserLabel      lipgloss.Style
 	AssistantLabel lipgloss.Style
 	ThinkingLabel  lipgloss.Style
 	ToolLabel      lipgloss.Style
+	ImageLabel     lipgloss.Style
+	OtherLabel     lipgloss.Style
 
 	// Viewer styles
 	ViewerTitle  lipgloss.Style
@@ -90,6 +93,15 @@ func applyStyle(s lipgloss.Style, ts theme.Style) lipgloss.Style {
 	return s
 }
 
+// otherLabelStyle returns the OtherLabel theme style, falling back to a
+// muted secondary color if the theme doesn't define one.
+func otherLabelStyle(t theme.Theme) theme.Style {
+	if t.OtherLabel.Fg != "" {
+		return t.OtherLabel
+	}
+	return theme.Style{Fg: t.TextSecondary.Fg, Bold: true}
+}
+
 // buildStyles creates Styles from a Theme.
 func buildStyles(t theme.Theme) Styles {
 	return Styles{
@@ -130,11 +142,17 @@ func buildStyles(t theme.Theme) Styles {
 			Padding(0, 1).
 			MarginBottom(1),
 
+		ImageBlock: applyStyle(lipgloss.NewStyle(), t.ThinkingBlock).
+			Padding(0, 1).
+			MarginBottom(1),
+
 		// Block labels
 		UserLabel:      applyStyle(lipgloss.NewStyle(), t.UserLabel),
 		AssistantLabel: applyStyle(lipgloss.NewStyle(), t.AssistantLabel),
 		ThinkingLabel:  applyStyle(lipgloss.NewStyle(), t.ThinkingLabel),
 		ToolLabel:      applyStyle(lipgloss.NewStyle(), t.ToolLabel),
+		ImageLabel:     applyStyle(lipgloss.NewStyle(), t.ThinkingLabel),
+		OtherLabel:     applyStyle(lipgloss.NewStyle(), otherLabelStyle(t)),
 
 		// Viewer styles
 		ViewerTitle: lipgloss.NewStyle().
@@ -202,11 +220,14 @@ var (
 	thinkingBlockStyle   = lipgloss.Style{}
 	toolCallBlockStyle   = lipgloss.Style{}
 	toolResultBlockStyle = lipgloss.Style{}
+	imageBlockStyle      = lipgloss.Style{}
 
 	userLabel      = lipgloss.Style{}
 	assistantLabel = lipgloss.Style{}
 	thinkingLabel  = lipgloss.Style{}
 	toolLabel      = lipgloss.Style{}
+	imageLabel     = lipgloss.Style{}
+	otherLabel     = lipgloss.Style{}
 
 	viewerTitleStyle  = lipgloss.Style{}
 	viewerInfoStyle   = lipgloss.Style{}
@@ -222,11 +243,14 @@ func init() {
 	thinkingBlockStyle = s.ThinkingBlock
 	toolCallBlockStyle = s.ToolCallBlock
 	toolResultBlockStyle = s.ToolResultBlock
+	imageBlockStyle = s.ImageBlock
 
 	userLabel = s.UserLabel
 	assistantLabel = s.AssistantLabel
 	thinkingLabel = s.ThinkingLabel
 	toolLabel = s.ToolLabel
+	imageLabel = s.ImageLabel
+	otherLabel = s.OtherLabel
 
 	viewerTitleStyle = s.ViewerTitle
 	viewerInfoStyle = s.ViewerInfo

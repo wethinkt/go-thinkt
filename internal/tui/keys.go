@@ -26,6 +26,7 @@ type viewerKeyMap struct {
 	ToggleOutput   key.Binding
 	ToggleThinking key.Binding
 	ToggleTools    key.Binding
+	ToggleMedia    key.Binding
 	ToggleOther    key.Binding
 }
 
@@ -102,9 +103,13 @@ func defaultViewerKeyMap() viewerKeyMap {
 			key.WithKeys("4"),
 			key.WithHelp("4", "toggle tools"),
 		),
-		ToggleOther: key.NewBinding(
+		ToggleMedia: key.NewBinding(
 			key.WithKeys("5"),
-			key.WithHelp("5", "toggle other"),
+			key.WithHelp("5", "toggle media"),
+		),
+		ToggleOther: key.NewBinding(
+			key.WithKeys("6"),
+			key.WithHelp("6", "toggle other"),
 		),
 	}
 }

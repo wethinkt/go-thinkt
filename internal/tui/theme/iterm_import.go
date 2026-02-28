@@ -249,6 +249,7 @@ func ImportIterm(r io.Reader, name string) (Theme, error) {
 		ToolLabel:      Style{Fg: ansi(3), Bold: true},
 		ToolCallBlock:  Style{Fg: blendColors(fg, ansi(3), 0.3), Bg: blendColors(bg, ansi(3), 0.12)},
 		ToolResultBlock: Style{Fg: blendColors(fg, ansi(6), 0.3), Bg: blendColors(bg, ansi(6), 0.12)},
+		OtherLabel:      Style{Fg: textSecondary, Bold: true},
 
 		ConfirmPrompt:     Style{Fg: fg},
 		ConfirmSelected:   Style{Bg: accent, Fg: colorpicker.ContrastColorHex(accent)},

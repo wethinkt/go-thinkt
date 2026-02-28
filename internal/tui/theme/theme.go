@@ -51,6 +51,7 @@ type Theme struct {
 	AssistantLabel Style `json:"assistant_label,omitempty"`
 	ThinkingLabel  Style `json:"thinking_label,omitempty"`
 	ToolLabel      Style `json:"tool_label,omitempty"`
+	OtherLabel     Style `json:"other_label,omitempty"`
 
 	// Confirm dialog
 	ConfirmPrompt     Style `json:"confirm_prompt,omitempty"`

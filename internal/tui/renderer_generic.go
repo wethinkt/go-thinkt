@@ -72,7 +72,7 @@ func renderThinktEntry(entry *thinkt.Entry, width int, renderer *glamour.TermRen
 
 	switch entry.Role {
 	case thinkt.RoleUser:
-		return renderThinktUserEntry(entry, width)
+		return renderThinktUserEntry(entry, width, filters)
 	case thinkt.RoleAssistant:
 		return renderThinktAssistantEntry(entry, width, renderer, useGlamour, filters)
 	case thinkt.RoleSystem, thinkt.RoleSummary, thinkt.RoleProgress, thinkt.RoleCheckpoint, thinkt.RoleTool:
@@ -82,10 +82,11 @@ func renderThinktEntry(entry *thinkt.Entry, width int, renderer *glamour.TermRen
 	}
 }
 
-func renderThinktUserEntry(entry *thinkt.Entry, width int) string {
+func renderThinktUserEntry(entry *thinkt.Entry, width int, filters *RoleFilterSet) string {
+	var parts []string
+
 	text := entry.Text
 	if text == "" {
-		// Try to extract from content blocks
 		for _, cb := range entry.ContentBlocks {
 			if cb.Type == "text" && cb.Text != "" {
 				text = cb.Text
@@ -93,13 +94,28 @@ func renderThinktUserEntry(entry *thinkt.Entry, width int) string {
 			}
 		}
 	}
-	if text == "" {
-		return ""
+	if text != "" {
+		label := userLabel.Render("User")
+		content := userBlockStyle.Width(width).Render(text)
+		parts = append(parts, label+"\n"+content)
 	}
 
-	label := userLabel.Render("User")
-	content := userBlockStyle.Width(width).Render(text)
-	return label + "\n" + content
+	// Render image/document blocks from user entries
+	if filters == nil || filters.Media {
+		for _, cb := range entry.ContentBlocks {
+			if (cb.Type == "image" || cb.Type == "document") && cb.MediaData != "" {
+				s := renderImageBlock(cb.MediaType, cb.MediaData, width)
+				if s != "" {
+					parts = append(parts, s)
+				}
+			}
+		}
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, "\n")
 }
 
 func renderThinktAssistantEntry(entry *thinkt.Entry, width int, renderer *glamour.TermRenderer, useGlamour bool, filters *RoleFilterSet) string {
@@ -181,6 +197,9 @@ func renderThinktContentBlock(block *thinkt.ContentBlock, width int, renderer *g
 		}
 		content := toolResultBlockStyle.Width(width).Render(text)
 		return label + "\n" + content
+
+	case "image", "document":
+		return renderImageBlock(block.MediaType, block.MediaData, width)
 
 	default:
 		return ""

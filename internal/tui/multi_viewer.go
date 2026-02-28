@@ -685,6 +685,13 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.inputSettled = true
 		}
 
+		// Transmit any pending images via kitty graphics protocol
+		if pending := globalImageTracker.drainPending(); len(pending) > 0 {
+			if transmitCmd := kittyTransmitCmd(pending); transmitCmd != nil {
+				cmds = append(cmds, transmitCmd)
+			}
+		}
+
 		// Queue another batch if we need more
 		if renderCmd := m.asyncRenderNextBatch(); renderCmd != nil {
 			cmds = append(cmds, renderCmd)
@@ -733,6 +740,12 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.loaded > 0 && m.ready {
 			// New entries loaded, render more if we need them
 			m.renderMoreForScroll()
+			// Transmit any pending images from synchronous rendering
+			if pending := globalImageTracker.drainPending(); len(pending) > 0 {
+				if transmitCmd := kittyTransmitCmd(pending); transmitCmd != nil {
+					cmds = append(cmds, transmitCmd)
+				}
+			}
 		}
 
 	case tea.WindowSizeMsg:
@@ -897,6 +910,11 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if c := m.invalidateCache(); c != nil {
 				cmds = append(cmds, c)
 			}
+		case key.Matches(msg, m.keys.ToggleMedia):
+			m.filters.Media = !m.filters.Media
+			if c := m.invalidateCache(); c != nil {
+				cmds = append(cmds, c)
+			}
 		case key.Matches(msg, m.keys.ToggleOther):
 			m.filters.Other = !m.filters.Other
 			if c := m.invalidateCache(); c != nil {
@@ -916,6 +934,12 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.hasUnrenderedEntries() {
 				tuilog.Log.Info("MultiViewer.Update: scroll threshold, rendering more entries", "scrollPercent", scrollPercent)
 				m.renderMoreForScroll()
+				// Transmit any pending images from synchronous rendering
+				if pending := globalImageTracker.drainPending(); len(pending) > 0 {
+					if transmitCmd := kittyTransmitCmd(pending); transmitCmd != nil {
+						cmds = append(cmds, transmitCmd)
+					}
+				}
 			} else if m.hasMoreData && !m.loadingMore {
 				// No unrendered entries, need to load more from disk
 				tuilog.Log.Info("MultiViewer.Update: scroll threshold, loading more from disk", "scrollPercent", scrollPercent)
@@ -1027,7 +1051,8 @@ func (m MultiViewerModel) renderFilterStatus() string {
 		{"2", "Assistant", m.filters.Assistant, assistantLabel},
 		{"3", "Thinking", m.filters.Thinking, thinkingLabel},
 		{"4", "Tools", m.filters.Tools, toolLabel},
-		{"5", "Other", m.filters.Other, dim},
+		{"5", "Media", m.filters.Media, imageLabel},
+		{"6", "Other", m.filters.Other, otherLabel},
 	}
 
 	var parts []string

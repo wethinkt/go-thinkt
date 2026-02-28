@@ -366,6 +366,25 @@ func ViewSessionRawWithRegistry(path string, registry *thinkt.StoreRegistry, w i
 				fmt.Fprintln(w, entry.Text)
 				fmt.Fprintln(w)
 			}
+			for _, block := range entry.ContentBlocks {
+				if (block.Type == "image" || block.Type == "document") && block.MediaData != "" {
+					// Try sixel rendering
+					imgStr, err := encodeImage(block.MediaData, 80, 8)
+					if err == nil {
+						fmt.Fprint(w, imgStr)
+						fmt.Fprintln(w)
+					} else {
+						// Fallback to text placeholder
+						rawBytes := len(block.MediaData) * 3 / 4
+						dims := decodeImageDimensions(block.MediaType, block.MediaData)
+						if dims != "" {
+							fmt.Fprintf(w, "[%s %s, %s]\n\n", block.MediaType, dims, formatByteSize(rawBytes))
+						} else {
+							fmt.Fprintf(w, "[%s %s]\n\n", block.MediaType, formatByteSize(rawBytes))
+						}
+					}
+				}
+			}
 		case thinkt.RoleAssistant:
 			// For assistant, output text content
 			if entry.Text != "" {

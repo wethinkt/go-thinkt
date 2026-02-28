@@ -50,6 +50,10 @@
     "fg": "#d79921",
     "bold": true
   },
+  "other_label": {
+    "fg": "#928374",
+    "bold": true
+  },
   "confirm_prompt": {
     "fg": "#3c3836"
   },

@@ -20,6 +20,7 @@
   "assistant_label": { "fg": "#388e3c", "bold": true },
   "thinking_label": { "fg": "#8e24aa", "bold": true },
   "tool_label": { "fg": "#f57c00", "bold": true },
+  "other_label": { "fg": "#666666", "bold": true },
 
   "confirm_prompt": { "fg": "#1a1a1a" },
   "confirm_selected": { "fg": "#ffffff", "bg": "#6941C6" },

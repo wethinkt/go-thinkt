@@ -44,7 +44,7 @@ type Entry struct {
 	PermissionMode            string            `json:"permissionMode,omitempty"`
 	ToolUseResult             json.RawMessage   `json:"toolUseResult,omitempty"` // string | []any | object
 	SourceToolAssistantUUID   string            `json:"sourceToolAssistantUUID,omitempty"`
-	ImagePasteIDs             []string          `json:"imagePasteIds,omitempty"`
+	ImagePasteIDs             []any             `json:"imagePasteIds,omitempty"`
 	IsMeta                    bool              `json:"isMeta,omitempty"`
 	IsVisibleInTranscriptOnly bool              `json:"isVisibleInTranscriptOnly,omitempty"`
 	IsCompactSummary          bool              `json:"isCompactSummary,omitempty"`
@@ -338,6 +338,14 @@ func (e *Entry) ToThinktEntry() thinkt.Entry {
 	if e.Timestamp != "" {
 		if t, err := time.Parse(time.RFC3339, e.Timestamp); err == nil {
 			entry.Timestamp = t
+		}
+	}
+
+	// Convert content blocks from user messages
+	if e.Type == EntryTypeUser {
+		msg := e.GetUserMessage()
+		if msg != nil && len(msg.Content.Blocks) > 0 {
+			entry.ContentBlocks = convertUserBlocks(msg.Content.Blocks)
 		}
 	}
 
