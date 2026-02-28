@@ -36,7 +36,7 @@ func DefaultEmbeddingsDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "dbs", "embeddings"), nil
+	return filepath.Join(dir, "embeddings"), nil
 }
 
 // EmbeddingsPathForModel returns the DB file path for a given model inside dir.
