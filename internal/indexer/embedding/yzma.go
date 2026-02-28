@@ -15,6 +15,7 @@ import (
 
 	"github.com/hybridgroup/yzma/pkg/download"
 	"github.com/hybridgroup/yzma/pkg/llama"
+	"github.com/wethinkt/go-thinkt/internal/config"
 )
 
 const (
@@ -300,11 +301,11 @@ func ModelPathForID(modelID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	home, err := os.UserHomeDir()
+	configDir, err := config.Dir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".thinkt", DefaultModelDir, spec.FileName), nil
+	return filepath.Join(configDir, DefaultModelDir, spec.FileName), nil
 }
 
 // DefaultModelPath returns the path for the default model.

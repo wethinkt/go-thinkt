@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/wethinkt/go-thinkt/internal/config"
 )
 
 // Info contains detailed information about the fingerprint.
@@ -149,11 +151,11 @@ func generateFingerprint() (string, error) {
 
 // getMachineIDPath returns the path to thinkt's machine_id file.
 var getMachineIDPath = func() (string, error) {
-	home, err := os.UserHomeDir()
+	configDir, err := config.Dir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".thinkt", "machine_id"), nil
+	return filepath.Join(configDir, "machine_id"), nil
 }
 
 // normalizeFingerprint ensures consistent format (lowercase, no dashes for hashing).

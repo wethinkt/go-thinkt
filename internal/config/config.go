@@ -8,6 +8,17 @@ import (
 	"time"
 )
 
+const (
+	envHome             = "THINKT_HOME"
+	defaultDirName      = ".thinkt"
+	defaultConfigFile   = "config.json"
+	defaultTheme        = "dark"
+	defaultEmbedModel   = "nomic-embed-text-v1.5"
+	defaultDebounce     = "2s"
+	defaultDirPerms     = 0755
+	defaultFilePerms    = 0600
+)
+
 // Config holds the thinkt configuration.
 type Config struct {
 	Theme       string          `json:"theme"`                  // Name of the active theme
@@ -42,12 +53,16 @@ func (c IndexerConfig) DebounceDuration() time.Duration {
 }
 
 // Dir returns the path to the .thinkt directory.
+// It checks the THINKT_HOME environment variable first, then defaults to ~/.thinkt.
 func Dir() (string, error) {
+	if v := os.Getenv(envHome); v != "" {
+		return v, nil
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".thinkt"), nil
+	return filepath.Join(home, defaultDirName), nil
 }
 
 // Path returns the path to the main config file.
@@ -56,7 +71,7 @@ func Path() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(configDir, "config.json"), nil
+	return filepath.Join(configDir, defaultConfigFile), nil
 }
 
 // Load loads the configuration from ~/.thinkt/config.json.
@@ -87,7 +102,7 @@ func Load() (Config, error) {
 	}
 
 	if config.Theme == "" {
-		config.Theme = "dark"
+		config.Theme = defaultTheme
 	}
 
 	// Validate apps against the trusted list.
@@ -102,16 +117,16 @@ func Load() (Config, error) {
 // Default returns a default configuration with all defaults set.
 func Default() Config {
 	return Config{
-		Theme:       "dark",
+		Theme:       defaultTheme,
 		AllowedApps: DefaultApps(),
 		Embedding: EmbeddingConfig{
 			Enabled: false,
-			Model:   "nomic-embed-text-v1.5",
+			Model:   defaultEmbedModel,
 		},
 		Indexer: IndexerConfig{
 			Sources:  []string{},
 			Watch:    true,
-			Debounce: "2s",
+			Debounce: defaultDebounce,
 		},
 	}
 }
@@ -125,7 +140,7 @@ func Save(config Config) error {
 
 	// Ensure directory exists
 	dir := filepath.Dir(configPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, defaultDirPerms); err != nil {
 		return err
 	}
 
@@ -134,5 +149,5 @@ func Save(config Config) error {
 		return err
 	}
 
-	return os.WriteFile(configPath, data, 0600)
+	return os.WriteFile(configPath, data, defaultFilePerms)
 }

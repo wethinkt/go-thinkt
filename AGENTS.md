@@ -190,14 +190,20 @@ The fingerprint is normalized to a consistent UUID format (lowercase, 8-4-4-4-12
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `THINKT_KIMI_HOME` | Kimi Code data directory | `~/.kimi` |
+| `THINKT_HOME` | thinkt config and data directory | `~/.thinkt` |
 | `THINKT_CLAUDE_HOME` | Claude Code data directory | `~/.claude` |
+| `THINKT_KIMI_HOME` | Kimi Code data directory | `~/.kimi` |
 | `THINKT_GEMINI_HOME` | Gemini CLI data directory | `~/.gemini` |
 | `THINKT_COPILOT_HOME` | Copilot data directory | `~/.copilot` |
 | `THINKT_CODEX_HOME` | Codex CLI data directory | `~/.codex` |
 | `THINKT_QWEN_HOME` | Qwen Code data directory | `~/.qwen` |
+| `THINKT_LANG` | Override UI language (BCP 47 tag) | auto-detected |
+| `THINKT_LOG_FILE` | Write debug logs to this file path | (disabled) |
 | `THINKT_API_TOKEN` | Bearer token for API server authentication | (none) |
 | `THINKT_MCP_TOKEN` | Bearer token for MCP server authentication | (none) |
+| `THINKT_MCP_ALLOW_TOOLS` | Comma-separated list of allowed MCP tools | (all) |
+| `THINKT_MCP_DENY_TOOLS` | Comma-separated list of denied MCP tools | (none) |
+| `THINKT_CORS_ORIGIN` | CORS `Access-Control-Allow-Origin` header | `*` (unauthenticated) |
 | `THINKT_PROFILE` | Write CPU profiling to this file path | (disabled) |
 
 ### Instance Registry

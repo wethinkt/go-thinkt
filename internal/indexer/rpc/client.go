@@ -5,18 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/wethinkt/go-thinkt/internal/config"
 )
 
 // DefaultSocketPath returns the default Unix socket path for the indexer server.
 func DefaultSocketPath() string {
-	home, err := os.UserHomeDir()
+	configDir, err := config.Dir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".thinkt", "indexer.sock")
+	return filepath.Join(configDir, "indexer.sock")
 }
 
 // ServerAvailable checks whether a server is listening on the default socket.
