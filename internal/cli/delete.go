@@ -42,7 +42,7 @@ func (d *ProjectDeleter) Delete(projectPath string) error {
 
 	store, ok := d.registry.Get(project.Source)
 	if !ok {
-		return fmt.Errorf(thinktI18n.T("cli.delete.sourceNotAvailable", "source not available: %s"), project.Source)
+		return fmt.Errorf(thinktI18n.T("common.sourceNotAvailable", "source not available: %s"), project.Source)
 	}
 
 	sessions, err := store.ListSessions(context.Background(), project.ID)
@@ -66,13 +66,13 @@ func (d *ProjectDeleter) Delete(projectPath string) error {
 
 		result, err := tui.Confirm(tui.ConfirmOptions{
 			Prompt:      thinktI18n.T("cli.delete.confirmProject", "Permanently delete all session data for this project?"),
-			Affirmative: thinktI18n.T("cli.delete.confirmYes", "Delete"),
-			Negative:    thinktI18n.T("cli.delete.confirmNo", "Cancel"),
+			Affirmative: thinktI18n.T("common.action.delete", "Delete"),
+			Negative:    thinktI18n.T("common.action.cancel", "Cancel"),
 			Default:     false, // Default to Cancel
 		})
 
 		if err != nil || result != tui.ConfirmYes {
-			fmt.Fprintf(d.opts.Stdout, "%s\n", thinktI18n.T("cli.delete.cancelled", "Cancelled."))
+			fmt.Fprintf(d.opts.Stdout, "%s\n", thinktI18n.T("common.cancelled", "Cancelled."))
 			return nil
 		}
 	}

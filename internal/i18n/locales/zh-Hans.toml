@@ -185,9 +185,6 @@ other = "搜索: %s"
 [tui.shell.searchAction]
 other = "搜索..."
 
-[tui.shell.loading]
-other = "加载中..."
-
 [tui.shell.noPages]
 other = "没有页面可显示"
 
@@ -256,9 +253,6 @@ other = "调试 (加载错误):"
 
 [tui.viewer.logHint]
 other = "设置 THINKT_LOG_FILE=/tmp/thinkt.log 获取完整日志。"
-
-[tui.viewer.loading]
-other = "加载中..."
 
 [tui.viewer.sessions]
 other = "会话"
@@ -495,15 +489,6 @@ other = "未下载"
 
 # Embeddings — status
 
-[indexer.embeddings.status.disabled]
-other = "已禁用"
-
-[indexer.embeddings.status.enabled]
-other = "已启用"
-
-[indexer.embeddings.status.notDownloaded]
-other = "未下载"
-
 [indexer.embeddings.status.ready]
 other = "就绪"
 
@@ -562,17 +547,8 @@ other = "嵌入同步完成。"
 
 # --- CLI: delete ---
 
-[cli.delete.cancelled]
-other = "已取消。"
-
-[cli.delete.confirmNo]
-other = "取消"
-
 [cli.delete.confirmProject]
 other = "永久删除此项目的所有会话数据？"
-
-[cli.delete.confirmYes]
-other = "删除"
 
 [cli.delete.hintListProjects]
 other = "使用 'thinkt projects list' 查看可用项目"
@@ -580,25 +556,14 @@ other = "使用 'thinkt projects list' 查看可用项目"
 [cli.delete.noSessions]
 other = "在 %s 中未找到会话"
 
-[cli.delete.sourceNotAvailable]
-other = "数据源不可用: %s"
 
 # --- CLI: sessions ---
 
 [cli.sessions.ambiguous]
 other = "会话查询不明确，匹配到多个会话:"
 
-[cli.sessions.cancelled]
-other = "已取消。"
-
 [cli.sessions.confirmDelete]
 other = "永久删除此会话？"
-
-[cli.sessions.confirmDeleteNo]
-other = "取消"
-
-[cli.sessions.confirmDeleteYes]
-other = "删除"
 
 [cli.sessions.hintList]
 other = "使用 'thinkt sessions list' 或 'thinkt sessions resolve <查询>' 查找有效会话"
@@ -615,8 +580,6 @@ other = "在已知数据源中未找到会话: %s"
 [cli.sessions.projectNotFound]
 other = "未找到项目: %s\n\n使用 'thinkt projects' 列出可用项目"
 
-[cli.sessions.sourceNotAvailable]
-other = "数据源不可用: %s"
 
 # --- cmd: apps ---
 
@@ -646,14 +609,6 @@ other = "未配置应用。"
 
 [cmd.apps.terminalSet]
 other = "默认终端已设置为 %q。"
-
-# --- cmd: projects ---
-
-[cmd.projects.noProjects]
-other = "未找到项目"
-
-[cmd.projects.noProjectsFromSources]
-other = "未从数据源找到项目: %v"
 
 # --- cmd: server ---
 
@@ -752,12 +707,6 @@ other = "📇 正在停止索引器附属进程 (PID: %d)..."
 
 # --- cmd: sessions ---
 
-[cmd.sessions.noProjects]
-other = "未找到项目"
-
-[cmd.sessions.noProjectsFromSources]
-other = "未从数据源找到项目: %v"
-
 [cmd.sessions.noSessions]
 other = "未找到会话"
 
@@ -793,12 +742,6 @@ other = "基础路径"
 [cmd.sources.header.projects]
 other = "项目数"
 
-[cmd.sources.header.source]
-other = "数据源"
-
-[cmd.sources.header.status]
-other = "状态"
-
 [cmd.sources.header.workspace]
 other = "工作区"
 
@@ -815,12 +758,6 @@ other = "最近活动"
 
 [cmd.teams.header.members]
 other = "成员"
-
-[cmd.teams.header.source]
-other = "数据源"
-
-[cmd.teams.header.status]
-other = "状态"
 
 [cmd.teams.header.tasks]
 other = "任务"
@@ -847,8 +784,32 @@ other = "主题 %q 导入成功。"
 
 # --- common ---
 
+[common.action.cancel]
+other = "取消"
+
+[common.action.delete]
+other = "删除"
+
+[common.cancelled]
+other = "已取消。"
+
+[common.header.source]
+other = "数据源"
+
+[common.header.status]
+other = "状态"
+
 [common.no]
 other = "否"
+
+[common.noProjects]
+other = "未找到项目"
+
+[common.noProjectsFromSources]
+other = "未从数据源找到项目: %v"
+
+[common.sourceNotAvailable]
+other = "数据源不可用: %s"
 
 [common.status.available]
 other = "可用"
@@ -978,12 +939,6 @@ other = "树形视图"
 [tui.help.up]
 other = "上"
 
-[tui.loading]
-other = "加载中..."
-
-[tui.projectPicker.loading]
-other = "加载中..."
-
 [tui.projectPicker.title]
 other = "%d 个项目 · %s %s"
 
@@ -996,17 +951,8 @@ other = "输入搜索内容..."
 [tui.session.untitled]
 other = "(无标题)"
 
-[tui.sessionPicker.loading]
-other = "加载中..."
-
 [tui.sessionPicker.title]
 other = "%d 个会话"
-
-# NOTE: [tui.sessions] omitted — conflicts with [tui.sessions.title] in TOML
-# (a section header can't be both a message and a parent of sub-sections).
-
-[tui.sessions.title]
-other = "会话"
 
 [tui.sourcePicker.filterTitle]
 other = "按数据源筛选"

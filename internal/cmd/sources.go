@@ -77,8 +77,8 @@ func runSourcesList(cmd *cobra.Command, args []string) error {
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-		thinktI18n.T("cmd.sources.header.source", "SOURCE"),
-		thinktI18n.T("cmd.sources.header.status", "STATUS"),
+		thinktI18n.T("common.header.source", "SOURCE"),
+		thinktI18n.T("common.header.status", "STATUS"),
 		thinktI18n.T("cmd.sources.header.projects", "PROJECTS"),
 		thinktI18n.T("cmd.sources.header.basePath", "BASE PATH"),
 		thinktI18n.T("cmd.sources.header.workspace", "WORKSPACE"))

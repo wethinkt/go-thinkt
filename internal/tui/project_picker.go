@@ -892,7 +892,7 @@ var projectPickerStyle = lipgloss.NewStyle().Padding(1, 2)
 
 func (m ProjectPickerModel) viewContent() string {
 	if !m.ready {
-		return thinktI18n.T("tui.projectPicker.loading", "Loading...")
+		return thinktI18n.T("common.loading", "Loading...")
 	}
 	if m.quitting {
 		return ""

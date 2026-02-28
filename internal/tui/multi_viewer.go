@@ -1156,7 +1156,7 @@ func (m MultiViewerModel) viewContent() string {
 			progress = fmt.Sprintf(" (%d/%d)", m.currentIdx, len(m.sessionPaths))
 		}
 		tuilog.Log.Debug("MultiViewer.View: still loading", "ready", m.ready, "renderedLen", len(m.rendered), "loadedCount", m.loadedCount, "allDone", allDone)
-		return thinktI18n.T("tui.viewer.loading", "Loading...") + progress
+		return thinktI18n.T("common.loading", "Loading...") + progress
 	}
 
 	// Handle case where content couldn't be rendered (e.g., all sessions failed)

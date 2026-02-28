@@ -443,11 +443,11 @@ var embeddingsStatusCmd = &cobra.Command{
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
-		enabled := thinktI18n.T("indexer.embeddings.status.disabled", "disabled")
+		enabled := thinktI18n.T("common.status.disabled", "disabled")
 		if cfg.Embedding.Enabled {
-			enabled = thinktI18n.T("indexer.embeddings.status.enabled", "enabled")
+			enabled = thinktI18n.T("common.status.enabled", "enabled")
 		}
-		download := thinktI18n.T("indexer.embeddings.status.notDownloaded", "not downloaded")
+		download := thinktI18n.T("indexer.embeddings.notDownloaded", "not downloaded")
 		if modelDownloaded {
 			download = thinktI18n.T("indexer.embeddings.status.ready", "ready")
 		}

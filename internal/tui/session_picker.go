@@ -572,7 +572,7 @@ var pickerStyle = lipgloss.NewStyle().Padding(1, 2)
 
 func (m SessionPickerModel) viewContent() string {
 	if !m.ready {
-		return thinktI18n.T("tui.sessionPicker.loading", "Loading...")
+		return thinktI18n.T("common.loading", "Loading...")
 	}
 	if m.quitting {
 		return ""

@@ -171,9 +171,9 @@ func runProjectsList(cmd *cobra.Command, args []string) error {
 
 	if len(projects) == 0 {
 		if len(projectSources) > 0 {
-			fmt.Println(thinktI18n.Tf("cmd.projects.noProjectsFromSources", "No projects found from sources: %v", projectSources))
+			fmt.Println(thinktI18n.Tf("common.noProjectsFromSources", "No projects found from sources: %v", projectSources))
 		} else {
-			fmt.Println(thinktI18n.T("cmd.projects.noProjects", "No projects found"))
+			fmt.Println(thinktI18n.T("common.noProjects", "No projects found"))
 		}
 		return nil
 	}
@@ -206,9 +206,9 @@ func runProjectsTree(cmd *cobra.Command, args []string) error {
 
 	if len(projects) == 0 {
 		if len(projectSources) > 0 {
-			fmt.Println(thinktI18n.Tf("cmd.projects.noProjectsFromSources", "No projects found from sources: %v", projectSources))
+			fmt.Println(thinktI18n.Tf("common.noProjectsFromSources", "No projects found from sources: %v", projectSources))
 		} else {
-			fmt.Println(thinktI18n.T("cmd.projects.noProjects", "No projects found"))
+			fmt.Println(thinktI18n.T("common.noProjects", "No projects found"))
 		}
 		return nil
 	}
@@ -231,9 +231,9 @@ func runProjectsSummary(cmd *cobra.Command, args []string) error {
 
 	if len(projects) == 0 {
 		if len(projectSources) > 0 {
-			fmt.Println(thinktI18n.Tf("cmd.projects.noProjectsFromSources", "No projects found from sources: %v", projectSources))
+			fmt.Println(thinktI18n.Tf("common.noProjectsFromSources", "No projects found from sources: %v", projectSources))
 		} else {
-			fmt.Println(thinktI18n.T("cmd.projects.noProjects", "No projects found"))
+			fmt.Println(thinktI18n.T("common.noProjects", "No projects found"))
 		}
 		return nil
 	}

@@ -102,8 +102,8 @@ func runTeamsList(cmd *cobra.Command, args []string) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 		thinktI18n.T("cmd.teams.header.team", "TEAM"),
-		thinktI18n.T("cmd.teams.header.source", "SOURCE"),
-		thinktI18n.T("cmd.teams.header.status", "STATUS"),
+		thinktI18n.T("common.header.source", "SOURCE"),
+		thinktI18n.T("common.header.status", "STATUS"),
 		thinktI18n.T("cmd.teams.header.members", "MEMBERS"),
 		thinktI18n.T("cmd.teams.header.tasks", "TASKS"),
 		thinktI18n.T("cmd.teams.header.created", "CREATED"),

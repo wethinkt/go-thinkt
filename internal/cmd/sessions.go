@@ -236,9 +236,9 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 
 		if len(projects) == 0 {
 			if len(sessionSources) > 0 {
-				fmt.Println(thinktI18n.Tf("cmd.sessions.noProjectsFromSources", "No projects found from sources: %v", sessionSources))
+				fmt.Println(thinktI18n.Tf("common.noProjectsFromSources", "No projects found from sources: %v", sessionSources))
 			} else {
-				fmt.Println(thinktI18n.T("cmd.sessions.noProjects", "No projects found"))
+				fmt.Println(thinktI18n.T("common.noProjects", "No projects found"))
 			}
 			return nil
 		}
@@ -304,9 +304,9 @@ func runSessionsSummary(cmd *cobra.Command, args []string) error {
 
 		if len(projects) == 0 {
 			if len(sessionSources) > 0 {
-				fmt.Println(thinktI18n.Tf("cmd.sessions.noProjectsFromSources", "No projects found from sources: %v", sessionSources))
+				fmt.Println(thinktI18n.Tf("common.noProjectsFromSources", "No projects found from sources: %v", sessionSources))
 			} else {
-				fmt.Println(thinktI18n.T("cmd.sessions.noProjects", "No projects found"))
+				fmt.Println(thinktI18n.T("common.noProjects", "No projects found"))
 			}
 			return nil
 		}
@@ -442,9 +442,9 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 
 		if len(projects) == 0 {
 			if len(sessionSources) > 0 {
-				fmt.Println(thinktI18n.Tf("cmd.sessions.noProjectsFromSources", "No projects found from sources: %v", sessionSources))
+				fmt.Println(thinktI18n.Tf("common.noProjectsFromSources", "No projects found from sources: %v", sessionSources))
 			} else {
-				fmt.Println(thinktI18n.T("cmd.sessions.noProjects", "No projects found"))
+				fmt.Println(thinktI18n.T("common.noProjects", "No projects found"))
 			}
 			return nil
 		}
@@ -565,7 +565,7 @@ func runSessionsResume(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		if len(projects) == 0 {
-			fmt.Println(thinktI18n.T("cmd.sessions.noProjects", "No projects found"))
+			fmt.Println(thinktI18n.T("common.noProjects", "No projects found"))
 			return nil
 		}
 		if !term.IsTerminal(int(os.Stdin.Fd())) {

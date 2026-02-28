@@ -571,7 +571,7 @@ func (s *Shell) View() tea.View {
 			Foreground(lipgloss.Color(t.TextSecondary.Fg))
 
 		brand := brandStyle.Render("🧠 thinkt")
-		loading := loadingStyle.Render(thinktI18n.T("tui.shell.loading", "Loading..."))
+		loading := loadingStyle.Render(thinktI18n.T("common.loading", "Loading..."))
 
 		// Brand in top-right corner
 		brandWidth := lipgloss.Width(brand)

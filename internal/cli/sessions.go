@@ -264,7 +264,7 @@ func ListSessionsForProject(registry *thinkt.StoreRegistry, projectID string) ([
 	// Get the appropriate store
 	store, ok := registry.Get(targetProject.Source)
 	if !ok {
-		return nil, fmt.Errorf(thinktI18n.T("cli.sessions.sourceNotAvailable", "source not available: %s"), targetProject.Source)
+		return nil, fmt.Errorf(thinktI18n.T("common.sourceNotAvailable", "source not available: %s"), targetProject.Source)
 	}
 
 	return store.ListSessions(ctx, targetProject.ID)
@@ -319,13 +319,13 @@ func (d *SessionDeleter) Delete(sessionPath string) error {
 
 		result, err := tui.Confirm(tui.ConfirmOptions{
 			Prompt:      thinktI18n.T("cli.sessions.confirmDelete", "Permanently delete this session?"),
-			Affirmative: thinktI18n.T("cli.sessions.confirmDeleteYes", "Delete"),
-			Negative:    thinktI18n.T("cli.sessions.confirmDeleteNo", "Cancel"),
+			Affirmative: thinktI18n.T("common.action.delete", "Delete"),
+			Negative:    thinktI18n.T("common.action.cancel", "Cancel"),
 			Default:     false,
 		})
 
 		if err != nil || result != tui.ConfirmYes {
-			fmt.Fprintf(d.opts.Stdout, "%s\n", thinktI18n.T("cli.sessions.cancelled", "Cancelled."))
+			fmt.Fprintf(d.opts.Stdout, "%s\n", thinktI18n.T("common.cancelled", "Cancelled."))
 			return nil
 		}
 	}

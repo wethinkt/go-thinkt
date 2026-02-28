@@ -3,9 +3,9 @@
 // Usage:
 //
 //	i18n.Init("en")                                              // at startup
-//	i18n.T("tui.loading", "Loading...")                          // simple string
-//	i18n.Tf("tui.sessions.title", "%d sessions", count)          // with fmt args
-//	i18n.Tn("tui.sessions", "{{.Count}} session", "{{.Count}} sessions", n) // plural
+//	i18n.T("common.loading", "Loading...")                         // simple string
+//	i18n.Tf("tui.filter.user", "User: %s", name)                 // with fmt args
+//	i18n.Tn("tui.viewer.sessionsCount", "{{.Count}} session", "{{.Count}} sessions", n) // plural
 package i18n
 
 import (
