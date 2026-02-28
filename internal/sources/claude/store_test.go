@@ -789,3 +789,86 @@ func TestStore_GetProject(t *testing.T) {
 		t.Error("expected nil for non-existent project")
 	}
 }
+
+func TestStore_ListSessions_EntryCount_NoIndex(t *testing.T) {
+	tmp := t.TempDir()
+	mockStatsigStableID(t, tmp, "ws-entry-count")
+
+	projectDir := filepath.Join(tmp, "projects", "-Users-evan-testproject")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatalf("creating project dir: %v", err)
+	}
+
+	// Create a session file with 3 entries but NO sessions-index.json.
+	createTestSessionFile(t, filepath.Join(projectDir, "no-index-session.jsonl"), []map[string]any{
+		{"type": "user", "uuid": "u1", "timestamp": "2024-01-15T10:00:00Z", "message": map[string]any{"content": "hello"}},
+		{"type": "assistant", "uuid": "a1", "timestamp": "2024-01-15T10:00:01Z", "message": map[string]any{"content": []map[string]any{{"type": "text", "text": "hi"}}, "model": "claude-sonnet-4-20250514"}},
+		{"type": "user", "uuid": "u2", "timestamp": "2024-01-15T10:00:02Z", "message": map[string]any{"content": "thanks"}},
+	})
+
+	store := NewStore(tmp)
+	sessions, err := store.ListSessions(context.Background(), projectDir)
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("expected 1 session, got %d", len(sessions))
+	}
+	if sessions[0].EntryCount == 0 {
+		t.Errorf("EntryCount should not be 0 when JSONL file has entries (got %d)", sessions[0].EntryCount)
+	}
+	if sessions[0].EntryCount != 3 {
+		t.Errorf("expected EntryCount=3, got %d", sessions[0].EntryCount)
+	}
+}
+
+func TestStore_ListSessions_EntryCount_IndexZero(t *testing.T) {
+	tmp := t.TempDir()
+	mockStatsigStableID(t, tmp, "ws-entry-count-2")
+
+	projectDir := filepath.Join(tmp, "projects", "-Users-evan-testproject")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatalf("creating project dir: %v", err)
+	}
+
+	// Create a session file with 4 entries.
+	createTestSessionFile(t, filepath.Join(projectDir, "zero-count-session.jsonl"), []map[string]any{
+		{"type": "user", "uuid": "u1", "timestamp": "2024-01-15T10:00:00Z", "message": map[string]any{"content": "start"}},
+		{"type": "assistant", "uuid": "a1", "timestamp": "2024-01-15T10:00:01Z", "message": map[string]any{"content": []map[string]any{{"type": "text", "text": "ok"}}, "model": "claude-sonnet-4-20250514"}},
+		{"type": "user", "uuid": "u2", "timestamp": "2024-01-15T10:00:02Z", "message": map[string]any{"content": "more"}},
+		{"type": "assistant", "uuid": "a2", "timestamp": "2024-01-15T10:00:03Z", "message": map[string]any{"content": []map[string]any{{"type": "text", "text": "done"}}, "model": "claude-sonnet-4-20250514"}},
+	})
+
+	// Create sessions-index.json with messageCount: 0 (the bug scenario).
+	indexData := map[string]any{
+		"version": 1,
+		"entries": []map[string]any{
+			{
+				"sessionId":    "zero-count-session",
+				"created":      "2024-01-15T10:00:00Z",
+				"modified":     "2024-01-15T10:00:03Z",
+				"messageCount": 0,
+				"firstPrompt":  "start",
+			},
+		},
+	}
+	indexBytes, _ := json.Marshal(indexData)
+	if err := os.WriteFile(filepath.Join(projectDir, "sessions-index.json"), indexBytes, 0644); err != nil {
+		t.Fatalf("writing sessions-index.json: %v", err)
+	}
+
+	store := NewStore(tmp)
+	sessions, err := store.ListSessions(context.Background(), projectDir)
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("expected 1 session, got %d", len(sessions))
+	}
+	if sessions[0].EntryCount == 0 {
+		t.Errorf("EntryCount should not be 0 when index has messageCount:0 but JSONL has entries (got %d)", sessions[0].EntryCount)
+	}
+	if sessions[0].EntryCount != 4 {
+		t.Errorf("expected EntryCount=4, got %d", sessions[0].EntryCount)
+	}
+}
