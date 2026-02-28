@@ -12,6 +12,8 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 	"sync"
 
 	"github.com/BurntSushi/toml"
@@ -122,6 +124,136 @@ func ResolveLocale(configLang string) string {
 		return normalizeLocale(v)
 	}
 	return "en"
+}
+
+// LangInfo describes an available language.
+type LangInfo struct {
+	Tag         string `json:"tag"`
+	Name        string `json:"name"`
+	EnglishName string `json:"english_name"`
+	Active      bool   `json:"active"`
+	Coverage    int    `json:"coverage"`
+}
+
+// knownLanguages maps BCP 47 tags to [native name, English name].
+var knownLanguages = map[string][2]string{
+	"en":      {"English", "English"},
+	"zh-Hans": {"简体中文", "Chinese (Simplified)"},
+}
+
+// AvailableLanguages returns info about all languages with embedded locale files.
+// English is always included even without a locale file.
+func AvailableLanguages(activeTag string) []LangInfo {
+	entries, _ := localeFS.ReadDir("locales")
+
+	seen := make(map[string]bool)
+	var langs []LangInfo
+
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasSuffix(name, ".toml") {
+			continue
+		}
+		tag := strings.TrimSuffix(name, ".toml")
+		seen[tag] = true
+
+		coverage := countMessageIDs(name)
+		names := knownLanguages[tag]
+		if names[0] == "" {
+			names = [2]string{tag, tag}
+		}
+
+		langs = append(langs, LangInfo{
+			Tag:         tag,
+			Name:        names[0],
+			EnglishName: names[1],
+			Active:      tag == activeTag,
+			Coverage:    coverage,
+		})
+	}
+
+	// Ensure English is always listed
+	if !seen["en"] {
+		names := knownLanguages["en"]
+		langs = append(langs, LangInfo{
+			Tag:         "en",
+			Name:        names[0],
+			EnglishName: names[1],
+			Active:      "en" == activeTag,
+			Coverage:    0,
+		})
+	}
+
+	sort.Slice(langs, func(i, j int) bool {
+		return langs[i].Tag < langs[j].Tag
+	})
+	return langs
+}
+
+// countMessageIDs counts [section] headers in a TOML locale file as a rough coverage metric.
+func countMessageIDs(filename string) int {
+	data, err := localeFS.ReadFile("locales/" + filename)
+	if err != nil {
+		return 0
+	}
+	count := 0
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "[") && !strings.HasPrefix(line, "[[") {
+			count++
+		}
+	}
+	return count
+}
+
+// previewKeys are the message IDs and defaults used for the language picker preview.
+var previewKeys = [][2]string{
+	{"tui.filter.user", "User"},
+	{"tui.filter.assistant", "Assistant"},
+	{"tui.filter.thinking", "Thinking"},
+	{"tui.filter.tools", "Tools"},
+	{"tui.search.title", "Search sessions"},
+	{"common.loading", "Loading..."},
+	{"common.time.justNow", "just now"},
+	{"common.time.oneMinAgo", "1 min ago"},
+	{"common.time.oneHourAgo", "1 hour ago"},
+	{"tui.help.scrollUp", "scroll up"},
+	{"tui.help.scrollDown", "scroll down"},
+}
+
+// PreviewStrings creates a temporary localizer for the given tag and returns
+// sample key→translated string pairs for the TUI preview.
+func PreviewStrings(tag string) map[string]string {
+	mu.RLock()
+	b := bundle
+	mu.RUnlock()
+
+	if b == nil {
+		// Bundle not initialized; return defaults.
+		result := make(map[string]string, len(previewKeys))
+		for _, kv := range previewKeys {
+			result[kv[0]] = kv[1]
+		}
+		return result
+	}
+
+	loc := i18n.NewLocalizer(b, tag)
+	result := make(map[string]string, len(previewKeys))
+	for _, kv := range previewKeys {
+		s, err := loc.Localize(&i18n.LocalizeConfig{
+			DefaultMessage: &i18n.Message{ID: kv[0], Other: kv[1]},
+		})
+		if err != nil {
+			s = kv[1]
+		}
+		result[kv[0]] = s
+	}
+	return result
+}
+
+// PreviewKeys returns the ordered list of preview key IDs and their labels.
+func PreviewKeys() [][2]string {
+	return previewKeys
 }
 
 // normalizeLocale converts POSIX locale format to BCP 47.

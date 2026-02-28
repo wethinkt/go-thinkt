@@ -178,6 +178,10 @@ func init() {
 	rootCmd.AddCommand(sessionsCmd)
 	rootCmd.AddCommand(sourcesCmd)
 	rootCmd.AddCommand(themeCmd)
+	// Language subcommands
+	languageCmd.AddCommand(languageGetCmd, languageListCmd, languageSetCmd)
+	languageGetCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
+	languageListCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
 	rootCmd.AddCommand(languageCmd)
 	rootCmd.AddCommand(indexerCmd)
 	rootCmd.AddCommand(versionCmd)
