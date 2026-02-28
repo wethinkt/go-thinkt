@@ -95,8 +95,22 @@ func Execute() error {
 	cfg, _ := config.Load()
 	locale := thinktI18n.ResolveLocale(cfg.Language)
 	thinktI18n.Init(locale)
+	localizeCommands(rootCmd)
 
 	return rootCmd.Execute()
+}
+
+// localizeCommands walks the command tree and localizes Short/Long descriptions.
+func localizeCommands(cmd *cobra.Command) {
+	if cmd.Short != "" {
+		cmd.Short = thinktI18n.T("cmd."+cmd.Name()+".short", cmd.Short)
+	}
+	if cmd.Long != "" {
+		cmd.Long = thinktI18n.T("cmd."+cmd.Name()+".long", cmd.Long)
+	}
+	for _, sub := range cmd.Commands() {
+		localizeCommands(sub)
+	}
 }
 
 func init() {
@@ -164,6 +178,7 @@ func init() {
 	rootCmd.AddCommand(sessionsCmd)
 	rootCmd.AddCommand(sourcesCmd)
 	rootCmd.AddCommand(themeCmd)
+	rootCmd.AddCommand(languageCmd)
 	rootCmd.AddCommand(indexerCmd)
 	rootCmd.AddCommand(versionCmd)
 

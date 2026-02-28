@@ -11,6 +11,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/wethinkt/go-thinkt/internal/cli"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
@@ -170,9 +171,9 @@ func runProjectsList(cmd *cobra.Command, args []string) error {
 
 	if len(projects) == 0 {
 		if len(projectSources) > 0 {
-			fmt.Printf("No projects found from sources: %v\n", projectSources)
+			fmt.Println(thinktI18n.Tf("cmd.projects.noProjectsFromSources", "No projects found from sources: %v", projectSources))
 		} else {
-			fmt.Println("No projects found")
+			fmt.Println(thinktI18n.T("cmd.projects.noProjects", "No projects found"))
 		}
 		return nil
 	}
@@ -205,9 +206,9 @@ func runProjectsTree(cmd *cobra.Command, args []string) error {
 
 	if len(projects) == 0 {
 		if len(projectSources) > 0 {
-			fmt.Printf("No projects found from sources: %v\n", projectSources)
+			fmt.Println(thinktI18n.Tf("cmd.projects.noProjectsFromSources", "No projects found from sources: %v", projectSources))
 		} else {
-			fmt.Println("No projects found")
+			fmt.Println(thinktI18n.T("cmd.projects.noProjects", "No projects found"))
 		}
 		return nil
 	}
@@ -230,9 +231,9 @@ func runProjectsSummary(cmd *cobra.Command, args []string) error {
 
 	if len(projects) == 0 {
 		if len(projectSources) > 0 {
-			fmt.Printf("No projects found from sources: %v\n", projectSources)
+			fmt.Println(thinktI18n.Tf("cmd.projects.noProjectsFromSources", "No projects found from sources: %v", projectSources))
 		} else {
-			fmt.Println("No projects found")
+			fmt.Println(thinktI18n.T("cmd.projects.noProjects", "No projects found"))
 		}
 		return nil
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/wethinkt/go-thinkt/internal/cli"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
@@ -136,7 +137,7 @@ func runThemeSet(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to set theme: %w", err)
 	}
 
-	fmt.Printf("Theme set to: %s\n", name)
+	fmt.Println(thinktI18n.Tf("cmd.theme.setSuccess", "Theme set to: %s", name))
 	return nil
 }
 
@@ -208,8 +209,8 @@ func runThemeImport(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("save theme: %w", err)
 	}
 
-	fmt.Printf("Theme %q imported successfully.\n", name)
-	fmt.Printf("Activate it with: thinkt theme set %s\n", name)
+	fmt.Println(thinktI18n.Tf("cmd.theme.importSuccess", "Theme %q imported successfully.", name))
+	fmt.Println(thinktI18n.Tf("cmd.theme.activateHint", "Activate it with: thinkt theme set %s", name))
 	return nil
 }
 

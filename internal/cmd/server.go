@@ -21,6 +21,7 @@ import (
 
 	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/fingerprint"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/server"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
@@ -234,7 +235,7 @@ func runWebOpen(isLite bool) error {
 		openURL += "#token=" + url.QueryEscape(inst.Token)
 	}
 
-	fmt.Printf("🌐 Opening %s in browser...\n", targetURL)
+	fmt.Println(thinktI18n.Tf("cmd.server.openingBrowser", "🌐 Opening %s in browser...", targetURL))
 	openBrowser(openURL)
 	return nil
 }
@@ -242,11 +243,11 @@ func runWebOpen(isLite bool) error {
 func runServerStart(cmd *cobra.Command, args []string) error {
 	// Check if already running
 	if inst := config.FindInstanceByType(config.InstanceServer); inst != nil {
-		fmt.Printf("Server is already running (PID: %d, Address: http://%s:%d)\n", inst.PID, inst.Host, inst.Port)
+		fmt.Println(thinktI18n.Tf("cmd.server.alreadyRunning", "Server is already running (PID: %d, Address: http://%s:%d)", inst.PID, inst.Host, inst.Port))
 		return nil
 	}
 
-	fmt.Println("🚀 Starting server in background...")
+	fmt.Println(thinktI18n.T("cmd.server.starting", "🚀 Starting server in background..."))
 
 	confDir, err := config.Dir()
 	if err != nil {
@@ -313,40 +314,40 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 
 	if inst == nil {
 		// Process is alive but hasn't registered yet — report what we can.
-		fmt.Printf("✅ Server starting (PID: %d)\n", c.Process.Pid)
+		fmt.Println(thinktI18n.Tf("cmd.server.serverStarting", "✅ Server starting (PID: %d)", c.Process.Pid))
 	} else {
-		fmt.Printf("✅ Server running (PID: %d, http://%s:%d)\n", inst.PID, inst.Host, inst.Port)
+		fmt.Println(thinktI18n.Tf("cmd.server.serverRunning", "✅ Server running (PID: %d, http://%s:%d)", inst.PID, inst.Host, inst.Port))
 		if inst.IndexerPID > 0 {
-			fmt.Printf("📇 Indexer sidecar running (PID: %d)\n", inst.IndexerPID)
+			fmt.Println(thinktI18n.Tf("cmd.server.indexerRunning", "📇 Indexer sidecar running (PID: %d)", inst.IndexerPID))
 		} else if !serveNoIndexer {
-			fmt.Printf("⚠️  Indexer sidecar not started (check %s)\n", serverLog)
+			fmt.Println(thinktI18n.Tf("cmd.server.indexerNotStarted", "⚠️  Indexer sidecar not started (check %s)", serverLog))
 		}
 	}
-	fmt.Printf("   Log:  %s\n", serverLog)
-	fmt.Printf("   HTTP: %s\n", filepath.Join(logsDir, "server.http.log"))
+	fmt.Println(thinktI18n.Tf("cmd.server.logPath", "   Log:  %s", serverLog))
+	fmt.Println(thinktI18n.Tf("cmd.server.httpLogPath", "   HTTP: %s", filepath.Join(logsDir, "server.http.log")))
 	return nil
 }
 
 func runServerStop(cmd *cobra.Command, args []string) error {
 	inst := config.FindInstanceByType(config.InstanceServer)
 	if inst == nil {
-		fmt.Println("Server is not running.")
+		fmt.Println(thinktI18n.T("cmd.server.notRunning", "Server is not running."))
 		return nil
 	}
 
 	// Stop the indexer sidecar first if the server started one
 	if inst.IndexerPID > 0 && config.IsProcessAlive(inst.IndexerPID) {
-		fmt.Printf("📇 Stopping indexer sidecar (PID: %d)...\n", inst.IndexerPID)
+		fmt.Println(thinktI18n.Tf("cmd.server.stoppingIndexer", "📇 Stopping indexer sidecar (PID: %d)...", inst.IndexerPID))
 		if proc, err := os.FindProcess(inst.IndexerPID); err == nil {
 			_ = proc.Kill()
 		}
 	}
 
-	fmt.Printf("🛑 Stopping server (PID: %d)...\n", inst.PID)
+	fmt.Println(thinktI18n.Tf("cmd.server.stopping", "🛑 Stopping server (PID: %d)...", inst.PID))
 	if err := config.StopInstance(*inst); err != nil {
 		return fmt.Errorf("failed to stop server: %w", err)
 	}
-	fmt.Println("✅ Server stopped.")
+	fmt.Println(thinktI18n.T("cmd.server.stopped", "✅ Server stopped."))
 	return nil
 }
 
@@ -374,27 +375,27 @@ func runServerStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	if inst == nil {
-		fmt.Println("● thinkt-server.service - Web Interface & API")
-		fmt.Println("   Status: Not running")
+		fmt.Println(thinktI18n.T("cmd.server.status.header", "● thinkt-server.service - Web Interface & API"))
+		fmt.Println(thinktI18n.T("cmd.server.status.notRunning", "   Status: Not running"))
 		return nil
 	}
 
-	fmt.Println("● thinkt-server.service - Web Interface & API")
-	fmt.Printf("   Status: Running (PID: %d)\n", inst.PID)
-	fmt.Printf("   Address: http://%s:%d\n", inst.Host, inst.Port)
-	fmt.Printf("   Uptime: %s\n", time.Since(inst.StartedAt).Round(time.Second))
+	fmt.Println(thinktI18n.T("cmd.server.status.header", "● thinkt-server.service - Web Interface & API"))
+	fmt.Println(thinktI18n.Tf("cmd.server.status.running", "   Status: Running (PID: %d)", inst.PID))
+	fmt.Println(thinktI18n.Tf("cmd.server.status.address", "   Address: http://%s:%d", inst.Host, inst.Port))
+	fmt.Println(thinktI18n.Tf("cmd.server.status.uptime", "   Uptime: %s", time.Since(inst.StartedAt).Round(time.Second)))
 	if inst.Token != "" {
 		if len(inst.Token) > 14 {
-			fmt.Printf("   Token: %s...\n", inst.Token[:14])
+			fmt.Println(thinktI18n.Tf("cmd.server.status.token", "   Token: %s...", inst.Token[:14]))
 		} else {
-			fmt.Printf("   Token: %s\n", inst.Token)
+			fmt.Println(thinktI18n.Tf("cmd.server.status.token", "   Token: %s", inst.Token))
 		}
 	}
 	if inst.LogPath != "" {
-		fmt.Printf("   Log: %s\n", inst.LogPath)
+		fmt.Println(thinktI18n.Tf("cmd.server.status.log", "   Log: %s", inst.LogPath))
 	}
 	if inst.HTTPLogPath != "" {
-		fmt.Printf("   HTTP Log: %s\n", inst.HTTPLogPath)
+		fmt.Println(thinktI18n.Tf("cmd.server.status.httpLog", "   HTTP Log: %s", inst.HTTPLogPath))
 	}
 
 	return nil
@@ -497,7 +498,7 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 				Token: token,
 				Realm: "thinkt-api",
 			}
-			fmt.Fprintf(os.Stderr, "Auto-generated auth token: %s\n", token)
+			fmt.Fprintln(os.Stderr, thinktI18n.Tf("cmd.server.autoToken", "Auto-generated auth token: %s", token))
 		}
 	}
 
@@ -520,7 +521,7 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 	go func() {
 		<-sigCh
 		tuilog.Log.Info("Received interrupt signal, shutting down")
-		fmt.Fprintln(os.Stderr, "\nShutting down...")
+		fmt.Fprintln(os.Stderr, thinktI18n.T("cmd.server.shuttingDown", "\nShutting down..."))
 		cancel()
 	}()
 
@@ -531,7 +532,7 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("invalid --dev URL %q: %w", serveDev, err)
 		}
-		fmt.Fprintf(os.Stderr, "Dev mode: proxying to %s\n", target)
+		fmt.Fprintln(os.Stderr, thinktI18n.Tf("cmd.server.devProxy", "Dev mode: proxying to %s", target))
 		staticHandler = httputil.NewSingleHostReverseProxy(target)
 	} else {
 		staticHandler = server.StaticWebAppHandler()
@@ -559,7 +560,7 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 			indexerPID = sidecar.Process.Pid
 			defer func() {
 				tuilog.Log.Info("Stopping indexer sidecar")
-				fmt.Fprintln(os.Stderr, "📇 Indexer sidecar stopped")
+				fmt.Fprintln(os.Stderr, thinktI18n.T("cmd.server.indexerStopped", "📇 Indexer sidecar stopped"))
 				_ = sidecar.Process.Kill()
 			}()
 		}
@@ -586,8 +587,8 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 	}
 
 	// Print startup message
-	fmt.Println("🚀 Thinkt server starting...")
-	fmt.Println("📁 Serving traces from local sources")
+	fmt.Println(thinktI18n.T("cmd.server.httpStarting", "🚀 Thinkt server starting..."))
+	fmt.Println(thinktI18n.T("cmd.server.servingTraces", "📁 Serving traces from local sources"))
 
 	// Auto-open browser if requested (after small delay for server to start)
 	if !serveNoOpen {
@@ -597,7 +598,7 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 			if resolvedToken != "" {
 				openURL += "#token=" + url.QueryEscape(resolvedToken)
 			}
-			fmt.Printf("🌐 Opening %s in browser...\n", displayURL)
+			fmt.Println(thinktI18n.Tf("cmd.server.openingBrowser", "🌐 Opening %s in browser...", displayURL))
 			openBrowser(openURL)
 		}()
 	}
@@ -650,7 +651,7 @@ func startIndexerSidecar(appLogPath string) *exec.Cmd {
 	// Skip if an indexer is already registered (e.g. via `thinkt indexer start`)
 	if inst := config.FindInstanceByType(config.InstanceIndexerServer); inst != nil {
 		tuilog.Log.Info("Indexer already running, skipping sidecar", "pid", inst.PID)
-		fmt.Fprintf(os.Stderr, "📇 Indexer already running (PID: %d)\n", inst.PID)
+		fmt.Fprintln(os.Stderr, thinktI18n.Tf("cmd.server.indexerAlreadyRunning", "📇 Indexer already running (PID: %d)", inst.PID))
 		return nil
 	}
 
@@ -691,12 +692,12 @@ func startIndexerSidecar(appLogPath string) *exec.Cmd {
 		time.Sleep(100 * time.Millisecond)
 		if !config.IsProcessAlive(cmd.Process.Pid) {
 			tuilog.Log.Error("Indexer sidecar exited immediately", "pid", cmd.Process.Pid)
-			fmt.Fprintf(os.Stderr, "⚠️  Indexer sidecar started but exited immediately (check server log for errors)\n")
+			fmt.Fprintln(os.Stderr, thinktI18n.T("cmd.server.indexerExited", "⚠️  Indexer sidecar started but exited immediately (check server log for errors)"))
 			return nil
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "📇 Indexer sidecar started (PID: %d)\n", cmd.Process.Pid)
+	fmt.Fprintln(os.Stderr, thinktI18n.Tf("cmd.server.indexerStarted", "📇 Indexer sidecar started (PID: %d)", cmd.Process.Pid))
 
 	return cmd
 }
@@ -707,7 +708,7 @@ func runServerMCP(cmd *cobra.Command, args []string) error {
 		if sidecar := startIndexerSidecar(logPath); sidecar != nil {
 			defer func() {
 				tuilog.Log.Info("Stopping indexer sidecar")
-				fmt.Fprintln(os.Stderr, "📇 Indexer sidecar stopped")
+				fmt.Fprintln(os.Stderr, thinktI18n.T("cmd.server.indexerStopped", "📇 Indexer sidecar stopped"))
 				_ = sidecar.Process.Kill()
 			}()
 		}
@@ -732,7 +733,7 @@ func runServerMCP(cmd *cobra.Command, args []string) error {
 	go func() {
 		<-sigCh
 		tuilog.Log.Info("Received interrupt signal, shutting down")
-		fmt.Fprintln(os.Stderr, "\nShutting down...")
+		fmt.Fprintln(os.Stderr, thinktI18n.T("cmd.server.shuttingDown", "\nShutting down..."))
 		cancel()
 	}()
 
@@ -762,7 +763,7 @@ func runServerMCP(cmd *cobra.Command, args []string) error {
 	mcpServer.SetToolFilters(allowTools, denyTools)
 
 	if useStdio {
-		fmt.Fprintln(os.Stderr, "Starting MCP server on stdio...")
+		fmt.Fprintln(os.Stderr, thinktI18n.T("cmd.server.mcpStdio", "Starting MCP server on stdio..."))
 		tuilog.Log.Info("Running MCP server on stdio")
 		err := mcpServer.RunStdio(ctx)
 		tuilog.Log.Info("MCP server exited", "error", err)
@@ -806,7 +807,7 @@ func openBrowser(url string) {
 	case "windows":
 		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
 	default:
-		fmt.Printf("Please open %s in your browser\n", url)
+		fmt.Println(thinktI18n.Tf("cmd.server.pleaseOpenBrowser", "Please open %s in your browser", url))
 		return
 	}
 	_ = cmd.Start()

@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
@@ -85,20 +86,24 @@ func runAppsList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(cfg.AllowedApps) == 0 {
-		fmt.Println("No apps configured.")
+		fmt.Println(thinktI18n.T("cmd.apps.noApps", "No apps configured."))
 		return nil
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tENABLED\tTERMINAL")
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+		thinktI18n.T("cmd.apps.header.id", "ID"),
+		thinktI18n.T("cmd.apps.header.name", "NAME"),
+		thinktI18n.T("cmd.apps.header.enabled", "ENABLED"),
+		thinktI18n.T("cmd.apps.header.terminal", "TERMINAL"))
 	for _, app := range cfg.AllowedApps {
-		enabled := "no"
+		enabled := thinktI18n.T("common.no", "no")
 		if app.Enabled {
-			enabled = "yes"
+			enabled = thinktI18n.T("common.yes", "yes")
 		}
-		terminal := "no"
+		terminal := thinktI18n.T("common.no", "no")
 		if len(app.ExecRun) > 0 {
-			terminal = "yes"
+			terminal = thinktI18n.T("common.yes", "yes")
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", app.ID, app.Name, enabled, terminal)
 	}
@@ -120,7 +125,7 @@ func runAppsEnable(cmd *cobra.Command, args []string) error {
 		}
 	}
 	if len(disabled) == 0 {
-		fmt.Println("All apps are already enabled.")
+		fmt.Println(thinktI18n.T("cmd.apps.allEnabled", "All apps are already enabled."))
 		return nil
 	}
 	picked, err := pickApp(disabled, "Enable which app?")
@@ -148,7 +153,7 @@ func runAppsDisable(cmd *cobra.Command, args []string) error {
 		}
 	}
 	if len(enabled) == 0 {
-		fmt.Println("All apps are already disabled.")
+		fmt.Println(thinktI18n.T("cmd.apps.allDisabled", "All apps are already disabled."))
 		return nil
 	}
 	picked, err := pickApp(enabled, "Disable which app?")
@@ -197,11 +202,11 @@ func setAppEnabled(id string, enabled bool) error {
 		return json.NewEncoder(os.Stdout).Encode(map[string]bool{"enabled": enabled})
 	}
 
-	action := "enabled"
+	action := thinktI18n.T("common.status.enabled", "enabled")
 	if !enabled {
-		action = "disabled"
+		action = thinktI18n.T("common.status.disabled", "disabled")
 	}
-	fmt.Printf("App %q %s.\n", id, action)
+	fmt.Println(thinktI18n.Tf("cmd.apps.appToggled", "App %q %s.", id, action))
 	return nil
 }
 
@@ -290,7 +295,7 @@ func runAppsSetTerminal(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Printf("Default terminal set to %q.\n", id)
+	fmt.Println(thinktI18n.Tf("cmd.apps.terminalSet", "Default terminal set to %q.", id))
 	return nil
 }
 

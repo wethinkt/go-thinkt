@@ -12,6 +12,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/wethinkt/go-thinkt/internal/cli"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 )
@@ -235,9 +236,9 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 
 		if len(projects) == 0 {
 			if len(sessionSources) > 0 {
-				fmt.Printf("No projects found from sources: %v\n", sessionSources)
+				fmt.Println(thinktI18n.Tf("cmd.sessions.noProjectsFromSources", "No projects found from sources: %v", sessionSources))
 			} else {
-				fmt.Println("No projects found")
+				fmt.Println(thinktI18n.T("cmd.sessions.noProjects", "No projects found"))
 			}
 			return nil
 		}
@@ -267,7 +268,7 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(sessions) == 0 {
-		fmt.Println("No sessions found")
+		fmt.Println(thinktI18n.T("cmd.sessions.noSessions", "No sessions found"))
 		return nil
 	}
 
@@ -303,9 +304,9 @@ func runSessionsSummary(cmd *cobra.Command, args []string) error {
 
 		if len(projects) == 0 {
 			if len(sessionSources) > 0 {
-				fmt.Printf("No projects found from sources: %v\n", sessionSources)
+				fmt.Println(thinktI18n.Tf("cmd.sessions.noProjectsFromSources", "No projects found from sources: %v", sessionSources))
 			} else {
-				fmt.Println("No projects found")
+				fmt.Println(thinktI18n.T("cmd.sessions.noProjects", "No projects found"))
 			}
 			return nil
 		}
@@ -335,7 +336,7 @@ func runSessionsSummary(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(sessions) == 0 {
-		fmt.Println("No sessions found")
+		fmt.Println(thinktI18n.T("cmd.sessions.noSessions", "No sessions found"))
 		return nil
 	}
 
@@ -441,9 +442,9 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 
 		if len(projects) == 0 {
 			if len(sessionSources) > 0 {
-				fmt.Printf("No projects found from sources: %v\n", sessionSources)
+				fmt.Println(thinktI18n.Tf("cmd.sessions.noProjectsFromSources", "No projects found from sources: %v", sessionSources))
 			} else {
-				fmt.Println("No projects found")
+				fmt.Println(thinktI18n.T("cmd.sessions.noProjects", "No projects found"))
 			}
 			return nil
 		}
@@ -564,7 +565,7 @@ func runSessionsResume(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		if len(projects) == 0 {
-			fmt.Println("No projects found")
+			fmt.Println(thinktI18n.T("cmd.sessions.noProjects", "No projects found"))
 			return nil
 		}
 		if !term.IsTerminal(int(os.Stdin.Fd())) {

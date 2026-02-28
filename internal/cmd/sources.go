@@ -8,6 +8,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 )
 
 // Source management commands
@@ -62,8 +64,8 @@ func runSourcesList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(sources) == 0 {
-		fmt.Println("No sources found.")
-		fmt.Println("\nExpected sources:")
+		fmt.Println(thinktI18n.T("cmd.sources.noSources", "No sources found."))
+		fmt.Println(thinktI18n.T("cmd.sources.expectedSources", "\nExpected sources:"))
 		fmt.Println("  - Kimi Code: ~/.kimi/")
 		fmt.Println("  - Claude Code: ~/.claude/")
 		fmt.Println("  - Gemini CLI: ~/.gemini/")
@@ -74,13 +76,18 @@ func runSourcesList(cmd *cobra.Command, args []string) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "SOURCE\tSTATUS\tPROJECTS\tBASE PATH\tWORKSPACE")
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		thinktI18n.T("cmd.sources.header.source", "SOURCE"),
+		thinktI18n.T("cmd.sources.header.status", "STATUS"),
+		thinktI18n.T("cmd.sources.header.projects", "PROJECTS"),
+		thinktI18n.T("cmd.sources.header.basePath", "BASE PATH"),
+		thinktI18n.T("cmd.sources.header.workspace", "WORKSPACE"))
 
 	const workspaceColumnWidth = 40
 	for _, s := range sources {
-		status := "no data"
+		status := thinktI18n.T("common.status.noData", "no data")
 		if s.Available {
-			status = "available"
+			status = thinktI18n.T("common.status.available", "available")
 		}
 		projects := fmt.Sprintf("%d", s.ProjectCount)
 		workspace := s.WorkspaceID
@@ -106,7 +113,7 @@ func runSourcesStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(sources) == 0 {
-		fmt.Println("No sources found.")
+		fmt.Println(thinktI18n.T("cmd.sources.noSources", "No sources found."))
 		return nil
 	}
 
@@ -117,15 +124,19 @@ func runSourcesStatus(cmd *cobra.Command, args []string) error {
 			fmt.Println()
 		}
 
-		fmt.Printf("Source:      %s\n", s.Name)
-		fmt.Printf("ID:          %s\n", s.Source)
-		fmt.Printf("Description: %s\n", s.Description)
-		fmt.Printf("Status:      %s\n", map[bool]string{true: "available", false: "no data"}[s.Available])
+		fmt.Println(thinktI18n.Tf("cmd.sources.detail.source", "Source:      %s", s.Name))
+		fmt.Println(thinktI18n.Tf("cmd.sources.detail.id", "ID:          %s", s.Source))
+		fmt.Println(thinktI18n.Tf("cmd.sources.detail.description", "Description: %s", s.Description))
+		statusStr := thinktI18n.T("common.status.noData", "no data")
+		if s.Available {
+			statusStr = thinktI18n.T("common.status.available", "available")
+		}
+		fmt.Println(thinktI18n.Tf("cmd.sources.detail.status", "Status:      %s", statusStr))
 
 		if s.Available {
-			fmt.Printf("Workspace:   %s\n", s.WorkspaceID)
-			fmt.Printf("Base Path:   %s\n", s.BasePath)
-			fmt.Printf("Projects:    %d\n", s.ProjectCount)
+			fmt.Println(thinktI18n.Tf("cmd.sources.detail.workspace", "Workspace:   %s", s.WorkspaceID))
+			fmt.Println(thinktI18n.Tf("cmd.sources.detail.basePath", "Base Path:   %s", s.BasePath))
+			fmt.Println(thinktI18n.Tf("cmd.sources.detail.projects", "Projects:    %d", s.ProjectCount))
 		}
 	}
 

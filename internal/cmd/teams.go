@@ -60,7 +60,7 @@ func runTeamsList(cmd *cobra.Command, args []string) error {
 
 	teamStores := registry.TeamStores()
 	if len(teamStores) == 0 {
-		fmt.Fprintf(os.Stderr, "No sources with team support found.\n")
+		fmt.Fprintln(os.Stderr, thinktI18n.T("cmd.teams.noSources", "No sources with team support found."))
 		return nil
 	}
 
@@ -95,12 +95,19 @@ func runTeamsList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(summaries) == 0 {
-		fmt.Println("No teams found.")
+		fmt.Println(thinktI18n.T("cmd.teams.noTeams", "No teams found."))
 		return nil
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "TEAM\tSOURCE\tSTATUS\tMEMBERS\tTASKS\tCREATED\tLAST ACTIVITY")
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		thinktI18n.T("cmd.teams.header.team", "TEAM"),
+		thinktI18n.T("cmd.teams.header.source", "SOURCE"),
+		thinktI18n.T("cmd.teams.header.status", "STATUS"),
+		thinktI18n.T("cmd.teams.header.members", "MEMBERS"),
+		thinktI18n.T("cmd.teams.header.tasks", "TASKS"),
+		thinktI18n.T("cmd.teams.header.created", "CREATED"),
+		thinktI18n.T("cmd.teams.header.lastActivity", "LAST ACTIVITY"))
 
 	for _, s := range summaries {
 		status := string(s.Status)
@@ -125,7 +132,7 @@ func runTeamsList(cmd *cobra.Command, args []string) error {
 	w.Flush()
 
 	fmt.Println()
-	fmt.Println("Tasks: completed/active/pending")
+	fmt.Println(thinktI18n.T("cmd.teams.tasksLegend", "Tasks: completed/active/pending"))
 
 	return nil
 }
