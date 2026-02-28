@@ -96,13 +96,28 @@ func runLanguageGet(cmd *cobra.Command, args []string) error {
 	currentLabel := thinktI18n.T("cmd.language.current", "Current:")
 	terminalLabel := thinktI18n.T("cmd.language.terminal", "Terminal:")
 
+	// Justify columns
+	labelWidth := lipgloss.Width(currentLabel)
+	if w := lipgloss.Width(terminalLabel); w > labelWidth {
+		labelWidth = w
+	}
+	labelWidth += 1 // add one space gap
+
+	pad := func(s string, width int) string {
+		sw := lipgloss.Width(s)
+		if sw >= width {
+			return s
+		}
+		return s + strings.Repeat(" ", width-sw)
+	}
+
 	if !isTTY() {
 		display := activeTag
 		if activeName != "" {
 			display += " (" + activeName + ")"
 		}
-		fmt.Printf("%s  %s\n", currentLabel, display)
-		fmt.Printf("%s %s\n", terminalLabel, terminalLang)
+		fmt.Printf("%s %s\n", pad(currentLabel, labelWidth), display)
+		fmt.Printf("%s %s\n", pad(terminalLabel, labelWidth), terminalLang)
 		return nil
 	}
 
@@ -113,8 +128,8 @@ func runLanguageGet(cmd *cobra.Command, args []string) error {
 			display += " " + labelStyle.Render("("+activeEnglish+")")
 		}
 	}
-	fmt.Printf("%s  %s\n", labelStyle.Render(currentLabel), display)
-	fmt.Printf("%s %s\n", labelStyle.Render(terminalLabel), tagStyle.Render(terminalLang))
+	fmt.Printf("%s %s\n", labelStyle.Render(pad(currentLabel, labelWidth)), display)
+	fmt.Printf("%s %s\n", labelStyle.Render(pad(terminalLabel, labelWidth)), tagStyle.Render(terminalLang))
 	return nil
 }
 
