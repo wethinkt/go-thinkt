@@ -10,6 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/server"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
@@ -90,6 +92,10 @@ Examples:
 
 // Execute runs the root command.
 func Execute() error {
+	cfg, _ := config.Load()
+	locale := thinktI18n.ResolveLocale(cfg.Language)
+	thinktI18n.Init(locale)
+
 	return rootCmd.Execute()
 }
 
