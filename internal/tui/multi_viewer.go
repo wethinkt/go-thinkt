@@ -748,6 +748,23 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+	case scrollbarClickMsg:
+		// Map click position to scroll offset
+		contentHeight := m.height - 4
+		totalLines := m.viewport.TotalLineCount()
+		visibleLines := m.viewport.VisibleLineCount()
+		if totalLines > visibleLines && contentHeight > 0 {
+			maxOffset := totalLines - visibleLines
+			offset := msg.y * maxOffset / contentHeight
+			if offset < 0 {
+				offset = 0
+			}
+			if offset > maxOffset {
+				offset = maxOffset
+			}
+			m.viewport.SetYOffset(offset)
+		}
+
 	case tea.WindowSizeMsg:
 		tuilog.Log.Info("MultiViewer.Update: WindowSizeMsg", "width", msg.Width, "height", msg.Height, "wasReady", m.ready)
 		m.width = msg.Width
@@ -757,9 +774,15 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		footerHeight := 2
 		contentHeight := m.height - headerHeight - footerHeight
 
+		// Reserve scrollbar gutter (always, to avoid content reflow)
+		vpWidth := m.width - 2 - scrollbarWidth
+		if vpWidth < 10 {
+			vpWidth = m.width - 2
+		}
+
 		if !m.ready {
 			m.viewport = viewport.New()
-			m.viewport.SetWidth(m.width - 2)
+			m.viewport.SetWidth(vpWidth)
 			m.viewport.SetHeight(contentHeight)
 			m.ready = true
 
@@ -771,7 +794,7 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		} else {
-			m.viewport.SetWidth(m.width - 2)
+			m.viewport.SetWidth(vpWidth)
 			m.viewport.SetHeight(contentHeight)
 		}
 
@@ -1073,6 +1096,54 @@ func (m MultiViewerModel) allSessionsAttempted() bool {
 	return m.loadedCount+len(m.loadErrors) >= len(m.sessionPaths)
 }
 
+// scrollbarClickMsg is sent when the user clicks on the scrollbar track.
+type scrollbarClickMsg struct {
+	y int // y position within the scrollbar track (0-indexed)
+}
+
+// scrollbarWidth is the fixed width of the scrollbar gutter.
+const scrollbarWidth = 1
+
+// renderScrollbar returns a single-column string showing the scrollbar.
+// Returns "" if there's not enough content to scroll.
+func (m MultiViewerModel) renderScrollbar(height int) string {
+	totalLines := m.viewport.TotalLineCount()
+	visibleLines := m.viewport.VisibleLineCount()
+	if totalLines <= visibleLines || height < 3 {
+		return ""
+	}
+
+	trackHeight := height
+
+	// Thumb size: proportional to visible/total, minimum 3
+	thumbSize := max(3, trackHeight*visibleLines/totalLines)
+	if thumbSize >= trackHeight {
+		return ""
+	}
+
+	// Thumb position
+	scrollPct := m.viewport.ScrollPercent()
+	maxThumbTop := trackHeight - thumbSize
+	thumbTop := int(float64(maxThumbTop) * scrollPct)
+
+	accentColor := GetStyles().ActiveBorder.GetBorderTopForeground()
+	thumbStyle := lipgloss.NewStyle().Foreground(accentColor)
+	trackStyle := lipgloss.NewStyle().Faint(true)
+
+	var lines []string
+	lines = append(lines, " ") // align with border top
+	for i := range trackHeight {
+		if i >= thumbTop && i < thumbTop+thumbSize {
+			lines = append(lines, thumbStyle.Render("█"))
+		} else {
+			lines = append(lines, trackStyle.Render("│"))
+		}
+	}
+	lines = append(lines, " ") // align with border bottom
+
+	return strings.Join(lines, "\n")
+}
+
 func (m MultiViewerModel) viewContent() string {
 	allDone := m.allSessionsAttempted()
 
@@ -1116,26 +1187,54 @@ func (m MultiViewerModel) viewContent() string {
 		} else if m.searchQuery != "" {
 			helpText = "No matches  ·  /: search  ·  esc: clear"
 		} else {
-			helpText = "↑/↓: scroll • /: search • 1-5: filters • g/G: top/bottom • esc: back • q: quit"
+			helpText = "↑/↓: scroll • /: search • 1-6: filters • g/G: top/bottom • esc: back • q: quit"
 		}
 		help := viewerHelpStyle.Render(helpText)
 		footerWidth := m.width - lipgloss.Width(position) - 4
 		footer = help + lipgloss.NewStyle().Width(footerWidth).Align(lipgloss.Right).Render(position)
 	}
 
-	// Content
+	// Content with scrollbar
 	contentHeight := m.height - 4
+	scrollbar := m.renderScrollbar(contentHeight)
+	borderWidth := m.width - 2 - scrollbarWidth
 	content := viewerBorderStyle.
-		Width(m.width - 2).
+		Width(borderWidth).
 		Height(contentHeight).
 		Render(m.viewport.View())
+	if scrollbar != "" {
+		content = lipgloss.JoinHorizontal(lipgloss.Top, content, scrollbar)
+	}
 
 	return header + content + "\n" + footer
+}
+
+// configureMouseView sets up mouse handling on a tea.View for the scrollbar.
+func (m MultiViewerModel) configureMouseView(v *tea.View) {
+	v.MouseMode = tea.MouseModeCellMotion
+
+	// Scrollbar is the rightmost column.
+	// The track starts at y=2: header (y=0) + border top (y=1) + first track line (y=2).
+	scrollbarX := m.width - 1
+	trackTop := 2
+	v.OnMouse = func(msg tea.MouseMsg) tea.Cmd {
+		mouse := msg.Mouse()
+		switch msg.(type) {
+		case tea.MouseClickMsg, tea.MouseMotionMsg:
+			if mouse.X == scrollbarX && mouse.Y >= trackTop {
+				return func() tea.Msg {
+					return scrollbarClickMsg{y: mouse.Y - trackTop}
+				}
+			}
+		}
+		return nil
+	}
 }
 
 func (m MultiViewerModel) View() tea.View {
 	v := tea.NewView(m.viewContent())
 	v.AltScreen = true
+	m.configureMouseView(&v)
 	return v
 }
 

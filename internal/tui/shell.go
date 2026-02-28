@@ -25,6 +25,11 @@ type shellContent interface {
 	viewContent() string
 }
 
+// mouseConfigProvider is optionally implemented by child models that need mouse support.
+type mouseConfigProvider interface {
+	configureMouseView(v *tea.View)
+}
+
 // NavItem represents a page in the navigation stack
 type NavItem struct {
 	Title string
@@ -607,6 +612,10 @@ func (s *Shell) View() tea.View {
 		content := cv.viewContent()
 		v := tea.NewView(header + "\n" + content)
 		v.AltScreen = true
+		// Inherit mouse support from the child model
+		if mc, ok := current.Model.(mouseConfigProvider); ok {
+			mc.configureMouseView(&v)
+		}
 		return v
 	}
 
