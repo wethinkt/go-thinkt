@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
+	"github.com/wethinkt/go-thinkt/internal/indexer/db"
 )
 
 // indexerStatusJSON is the JSON schema for thinkt indexer status --json.
@@ -181,9 +182,7 @@ func runIndexerStatus(cmd *cobra.Command, args []string) error {
 			status.UptimeSeconds = int(time.Since(inst.StartedAt).Seconds())
 			dbFile := indexerDBPath
 			if dbFile == "" {
-				if confDir, err := config.Dir(); err == nil {
-					dbFile = filepath.Join(confDir, "index.duckdb")
-				}
+				dbFile, _ = db.DefaultPath()
 			}
 			status.Database = dbFile
 		}

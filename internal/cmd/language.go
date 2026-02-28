@@ -28,6 +28,7 @@ Examples:
   thinkt language list         # list available languages
   thinkt language set zh-Hans  # set directly
   thinkt language set          # interactive picker`,
+	Args: cobra.NoArgs,
 	RunE: runLanguageGet,
 }
 
@@ -46,6 +47,7 @@ var languageListCmd = &cobra.Command{
 }
 
 var languageSetCmd = &cobra.Command{
+
 	Use:   "set [lang]",
 	Short: "Set the display language",
 	Long: `Set the display language. Use a BCP 47 tag (e.g., en, zh-Hans).
@@ -152,15 +154,21 @@ func runLanguageList(cmd *cobra.Command, args []string) error {
 	hTag := thinktI18n.T("cmd.language.header.tag", "TAG")
 	hName := thinktI18n.T("cmd.language.header.name", "NAME")
 	hEnglish := thinktI18n.T("cmd.language.header.englishName", "ENGLISH NAME")
+
 	colActive := lipgloss.Width(hActive)
 	colTag := lipgloss.Width(hTag)
 	colName := lipgloss.Width(hName)
+	colEnglish := lipgloss.Width(hEnglish)
+
 	for _, l := range langs {
 		if w := lipgloss.Width(l.Tag); w > colTag {
 			colTag = w
 		}
 		if w := lipgloss.Width(l.Name); w > colName {
 			colName = w
+		}
+		if w := lipgloss.Width(l.EnglishName); w > colEnglish {
+			colEnglish = w
 		}
 	}
 

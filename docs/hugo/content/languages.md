@@ -31,6 +31,10 @@ THINKT_LANG=zh-Hans thinkt
 You can permanently set your preferred language via the CLI:
 
 ```bash
+# Show the current language
+thinkt language
+thinkt language get
+
 # List available languages and coverage
 thinkt language list
 

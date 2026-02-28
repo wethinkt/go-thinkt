@@ -87,7 +87,7 @@ Provides: TUI, project/session browsing, team inspection, prompt extraction, HTT
 
 DuckDB-powered indexer for search and analytics. Requires CGO (`CGO_ENABLED=1`) for DuckDB C bindings. Available on Linux and macOS only.
 
-Provides: `server`, `sync`, `search`, `semantic`, `stats` commands. The `server` command runs as a long-lived process with Unix socket RPC, file watching, and on-device embedding via Qwen3-Embedding. Data stored in `~/.thinkt/index.duckdb` (metadata) and `~/.thinkt/embeddings.duckdb` (semantic search vectors). Semantic search is disabled by default — enable with `thinkt-indexer semantic enable`.
+Provides: `server`, `sync`, `search`, `semantic`, `stats` commands. The `server` command runs as a long-lived process with Unix socket RPC, file watching, and on-device embedding via Qwen3-Embedding. Data stored in `~/.thinkt/dbs/indexer.duckdb` (metadata) and `~/.thinkt/dbs/embeddings/` (semantic search vectors). Semantic search is disabled by default — enable with `thinkt-indexer semantic enable`.
 
 ## Prerequisites
 

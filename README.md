@@ -234,7 +234,7 @@ thinkt-indexer semantic disable
 
 Semantic search is disabled by default. Enable it with `thinkt-indexer semantic enable` — the embedding model is downloaded automatically on first sync.
 
-Indexer data is stored in `~/.thinkt/index.duckdb` (metadata) and `~/.thinkt/embeddings/` (per-model embedding databases).
+Indexer data is stored in `~/.thinkt/dbs/indexer.duckdb` (metadata) and `~/.thinkt/dbs/embeddings/` (per-model embedding databases).
 
 ## TUI Keyboard Shortcuts
 

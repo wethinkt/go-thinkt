@@ -21,13 +21,13 @@ var (
 )
 
 // DefaultPath returns the default filesystem path for the DuckDB index.
-// It uses the standard ~/.thinkt directory.
+// It uses the standard ~/.thinkt/dbs directory.
 func DefaultPath() (string, error) {
 	dir, err := config.Dir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "index.duckdb"), nil
+	return filepath.Join(dir, "dbs", "indexer.duckdb"), nil
 }
 
 // DefaultEmbeddingsDir returns the directory that holds per-model embedding databases.
@@ -36,7 +36,7 @@ func DefaultEmbeddingsDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "embeddings"), nil
+	return filepath.Join(dir, "dbs", "embeddings"), nil
 }
 
 // EmbeddingsPathForModel returns the DB file path for a given model inside dir.
@@ -151,9 +151,9 @@ func migrate(db *sql.DB) error {
 
 // Retry/copy-on-read constants for OpenReadOnly.
 const (
-	readOnlyRetries = 5                // direct-open retries before falling back to copy
+	readOnlyRetries = 5 // direct-open retries before falling back to copy
 	retryDelay      = 100 * time.Millisecond
-	copyRetries     = 10               // how many times to try copy-then-validate
+	copyRetries     = 10 // how many times to try copy-then-validate
 )
 
 // OpenReadOnly opens a DuckDB database at the given path in read-only mode.

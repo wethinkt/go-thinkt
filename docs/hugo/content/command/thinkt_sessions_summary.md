@@ -18,14 +18,14 @@ Sorting:
 Output can be customized with a Go text/template via --template.
 
 Template variables:
-  {{.Path}}       Full path to session file
-  {{.SessionID}}  Session identifier
-  {{.Source}}     Source type (kimi, claude)
-  {{.Summary}}    First prompt summary (if available)
-  {{.Messages}}   Number of messages
-  {{.Created}}    Creation time (time.Time)
-  {{.Modified}}   Last modified time (time.Time)
-  {{.Branch}}     Git branch (if available)
+  <no value>       Full path to session file
+  <no value>  Session identifier
+  <no value>     Source type (kimi, claude)
+  <no value>    First prompt summary (if available)
+  <no value>   Number of messages
+  <no value>    Creation time (time.Time)
+  <no value>   Last modified time (time.Time)
+  <no value>     Git branch (if available)
 
 ```
 thinkt sessions summary [flags]

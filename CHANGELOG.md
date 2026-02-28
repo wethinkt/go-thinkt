@@ -1,7 +1,31 @@
 # `go-thinkt` CHANGELOG
 
+## v0.6.3 (2026-02-28)
+
+* **Internationalization (i18n)**
+  - Full i18n support across CLI, TUI, and server messages
+  - Added **Spanish** (`es`) translation with 100% coverage
+  - Added **Chinese (Simplified)** (`zh-Hans`) translation subset
+  - Added `thinkt language` command tree: `get`, `list`, `set` (defaults to `get`)
+  - Automatic locale detection from system environment (`LANG`, `LC_ALL`)
+  - Support for overriding locale via `THINKT_LANG` environment variable
+  - Standardized message ID patterns and fallback to English for missing translations
+  - Created comprehensive i18n documentation (`docs/I18N.md`) and Hugo book page (`docs/hugo/content/languages.md`)
+
+* **REST API**
+  - Added `GET /api/v1/languages` returning the active language and list of supported languages
+
+* **TUI**
+  - Interactive language picker in TUI (`thinkt language set`)
+
 ## v0.6.2 (2026-02-28)
 
+* **Developer Tools & Quality**
+  - Add comments to schema mostly for llms
+  - Add simple database migration system
+  - Added TOML syntax validation test to ensure translation files are correctly formatted
+  - Added automated translation coverage test to identify missing keys in locale files
+ 
 * **TUI**
   - Add scrollbar and mouse scroll support to the conversation viewer
 

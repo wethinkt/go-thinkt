@@ -10,13 +10,13 @@ We leverage DuckDB's native JSON support to maintain flexibility while ensuring 
 
 ### Key Tables
 
-**Index database** (`~/.thinkt/index.duckdb`):
+**Index database** (`~/.thinkt/dbs/indexer.duckdb`):
 - `sync_state`: Tracks file modification times and line offsets for incremental indexing.
 - `projects`: Normalizes workspace paths.
 - `sessions`: High-level conversation metadata.
 - `entries`: Individual turns, with the full structure stored as a JSON blob.
 
-**Embeddings database** (`~/.thinkt/embeddings.duckdb`):
+**Embeddings database** (`~/.thinkt/dbs/embeddings/`):
 - `embeddings`: Float vectors for semantic search. Stored separately because embeddings are large, have a different lifecycle (model changes invalidate them), and are essentially a derived cache.
 
 ## 3. Indexing Pipeline
@@ -49,7 +49,7 @@ On-device semantic search uses the Qwen3-Embedding model (0.6B parameters, 1024-
 - [x] Long-running server with Unix socket RPC
 - [x] On-device embedding (Qwen3-Embedding via yzma)
 - [x] Semantic search (cosine distance + diversity scoring)
-- [x] Split databases (index.duckdb + embeddings.duckdb)
+- [x] Split databases (indexer.duckdb + embeddings/)
 - [x] Runtime enable/disable of embedding via config reload RPC
 
 ## 7. REST API Endpoints

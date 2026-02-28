@@ -60,7 +60,7 @@ Shutdown (SIGTERM/SIGINT): unregister instance, remove socket file, unload model
 ### Flags
 
 - `--no-watch` — disable fsnotify file watching
-- `--db <path>` — DuckDB path (default `~/.thinkt/index.duckdb`)
+- `--db <path>` — DuckDB path (default `~/.thinkt/dbs/indexer.duckdb`)
 - `--log <path>` — log file
 
 ## Unix Socket RPC Protocol
