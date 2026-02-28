@@ -1,0 +1,55 @@
+# Chinese Simplified — partial translation to validate the i18n pipeline.
+
+[common.loading]
+other = "加载中..."
+
+[common.time.justNow]
+other = "刚刚"
+
+[common.time.oneMinAgo]
+other = "1 分钟前"
+
+[common.time.oneHourAgo]
+other = "1 小时前"
+
+[common.time.oneDayAgo]
+other = "1 天前"
+
+[common.time.short.now]
+other = "现在"
+
+[tui.shell.selectProject]
+other = "选择项目..."
+
+[tui.shell.selectSession]
+other = "选择会话..."
+
+[tui.filter.user]
+other = "用户"
+
+[tui.filter.assistant]
+other = "助手"
+
+[tui.filter.thinking]
+other = "思考"
+
+[tui.filter.tools]
+other = "工具"
+
+[tui.filter.media]
+other = "媒体"
+
+[tui.filter.other]
+other = "其他"
+
+[tui.search.title]
+other = "搜索会话"
+
+[tui.help.scrollUp]
+other = "向上滚动"
+
+[tui.help.scrollDown]
+other = "向下滚动"
+
+[cmd.server.starting]
+other = "🚀 正在后台启动服务器..."
