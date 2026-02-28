@@ -318,3 +318,244 @@ other = "输入十六进制 • ←/→: 光标 • r: 重置 • tab: 模式 �
 
 [tui.colorPicker.helpPalette]
 other = "↑/↓/←/→: 选择 • p/n: 调色板 • 空格: 应用 • r: 重置 • tab: 模式 • 回车: 确定 • esc: 取消"
+
+# --- Indexer CLI ---
+
+# Sync
+
+[indexer.sync.complete]
+other = "索引完成。"
+
+[indexer.sync.completeViaServer]
+other = "索引完成（通过服务器）。"
+
+[indexer.sync.noProjects]
+other = "未找到可索引的项目。"
+
+[indexer.sync.indexingProject]
+other = "正在索引项目: %s (%s)\n"
+
+[indexer.sync.projectError]
+other = "索引项目 %s 出错: %v\n"
+
+[indexer.sync.rpcFallback]
+other = "RPC 同步失败，回退到本地模式: %v\n"
+
+# Sync status
+
+[indexer.syncStatus.notRunning]
+other = "索引服务器未运行。"
+
+[indexer.syncStatus.state]
+other = "状态:   %s\n"
+
+[indexer.syncStatus.uptime]
+other = "运行时间: %ds\n"
+
+[indexer.syncStatus.watcher]
+other = "文件监控: %v\n"
+
+[indexer.syncStatus.model]
+other = "模型:   %s (%d 维)\n"
+
+# Search
+
+[indexer.search.noMatches]
+other = "未找到匹配结果。"
+
+[indexer.search.searching]
+other = "正在搜索 %q...\n"
+
+# Semantic search
+
+[indexer.semantic.noMatches]
+other = "未找到语义匹配结果。"
+
+[indexer.semantic.notifyFailed]
+other = "警告: 通知服务器失败: %v\n"
+
+[indexer.semantic.serverNotified]
+other = "已通知服务器。"
+
+# Server
+
+[indexer.server.running]
+other = "索引服务器运行中 (PID: %d)。按 Ctrl+C 停止。\n"
+
+# Stats
+
+[indexer.stats.projects]
+other = "项目数: %d\n"
+
+[indexer.stats.sessions]
+other = "会话数: %d\n"
+
+[indexer.stats.entries]
+other = "条目数: %d\n"
+
+[indexer.stats.tokens]
+other = "Token 数: %d\n"
+
+[indexer.stats.topTools]
+other = "常用工具:"
+
+[indexer.stats.database]
+other = "数据库:    %s\n"
+
+[indexer.stats.embedderAvailable]
+other = "嵌入器:    %s (可用)\n"
+
+[indexer.stats.embedderNotDownloaded]
+other = "嵌入器:    %s (模型未下载)\n"
+
+[indexer.stats.embeddings]
+other = "嵌入数:    %d\n"
+
+# Progress display
+
+[indexer.progress.download]
+other = "下载"
+
+[indexer.progress.downloading]
+other = "正在下载 %s: %.0f%%"
+
+[indexer.progress.indexing]
+other = "索引"
+
+[indexer.progress.embedding]
+other = "嵌入"
+
+# Embeddings — enable/disable
+
+[indexer.embeddings.alreadyEnabled]
+other = "嵌入已启用 (模型: %s)。\n"
+
+[indexer.embeddings.enabled]
+other = "嵌入已启用 (模型: %s)。\n"
+
+[indexer.embeddings.alreadyDisabled]
+other = "嵌入已禁用。"
+
+[indexer.embeddings.disabled]
+other = "嵌入已禁用。"
+
+# Embeddings — purge
+
+[indexer.embeddings.purge.removeWarning]
+other = "警告: 无法删除 %s: %v\n"
+
+[indexer.embeddings.purge.removed]
+other = "已删除: %s\n"
+
+[indexer.embeddings.purge.noneFound]
+other = "没有过期的嵌入数据库需要清理。"
+
+[indexer.embeddings.purge.complete]
+other = "已清理 %d 个过期嵌入数据库。\n"
+
+# Embeddings — model
+
+[indexer.embeddings.model.noTerminal]
+other = "交互式模型选择需要终端；请传入模型 ID 作为参数"
+
+[indexer.embeddings.model.unknown]
+other = "未知模型 %q。可用模型:\n\n"
+
+[indexer.embeddings.model.alreadyUsing]
+other = "当前已在使用 %s。\n"
+
+[indexer.embeddings.model.switched]
+other = "嵌入模型已切换: %s → %s\n"
+
+[indexer.embeddings.model.downloadHint]
+other = "模型将在下次同步时按需下载。"
+
+# Embeddings — list table headers
+
+[indexer.embeddings.header.model]
+other = "模型"
+
+[indexer.embeddings.header.dim]
+other = "维度"
+
+[indexer.embeddings.header.pooling]
+other = "池化"
+
+[indexer.embeddings.header.modelSize]
+other = "模型大小"
+
+[indexer.embeddings.header.sessions]
+other = "会话数"
+
+[indexer.embeddings.header.dbSize]
+other = "数据库大小"
+
+[indexer.embeddings.notDownloaded]
+other = "未下载"
+
+# Embeddings — status
+
+[indexer.embeddings.status.disabled]
+other = "已禁用"
+
+[indexer.embeddings.status.enabled]
+other = "已启用"
+
+[indexer.embeddings.status.notDownloaded]
+other = "未下载"
+
+[indexer.embeddings.status.ready]
+other = "就绪"
+
+[indexer.embeddings.status.embeddingLabel]
+other = "嵌入:"
+
+[indexer.embeddings.status.modelLabel]
+other = "模型:"
+
+[indexer.embeddings.status.downloadLabel]
+other = "下载:"
+
+[indexer.embeddings.status.storedLabel]
+other = "存储:"
+
+[indexer.embeddings.status.zeroEmbeddings]
+other = "0 条嵌入"
+
+[indexer.embeddings.status.storedCount]
+other = "%d 条嵌入，涵盖 %d 个会话"
+
+[indexer.embeddings.status.serverNotRunning]
+other = "未运行"
+
+[indexer.embeddings.status.serverRunningModel]
+other = "运行中 (模型: %s)"
+
+[indexer.embeddings.status.serverEmbedding]
+other = "嵌入中"
+
+[indexer.embeddings.status.serverIdle]
+other = "空闲"
+
+[indexer.embeddings.status.serverLabel]
+other = "服务器:"
+
+# Embeddings — sync
+
+[indexer.embeddings.sync.rpcFallback]
+other = "RPC 嵌入同步失败，回退到本地模式: %v\n"
+
+[indexer.embeddings.sync.completeViaServer]
+other = "嵌入同步完成（通过服务器）。"
+
+[indexer.embeddings.sync.notEnabled]
+other = "嵌入未启用（运行: thinkt-indexer embeddings enable）"
+
+[indexer.embeddings.sync.dbLocked]
+other = "索引数据库被另一个进程锁定（可能是 'thinkt-indexer serve'）；请使用服务器的嵌入同步"
+
+[indexer.embeddings.sync.embDbLocked]
+other = "嵌入数据库被另一个进程锁定；请使用 'thinkt-indexer serve' 以支持并发访问"
+
+[indexer.embeddings.sync.complete]
+other = "嵌入同步完成。"
