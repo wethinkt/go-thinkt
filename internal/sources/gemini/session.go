@@ -1,6 +1,8 @@
 package gemini
 
 import (
+	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -23,6 +25,51 @@ type Message struct {
 	Thoughts  []Thought  `json:"thoughts,omitempty"`
 	Tokens    *Tokens    `json:"tokens,omitempty"`
 	Model     string     `json:"model,omitempty"`
+}
+
+// contentPart represents a single part in a multi-part content array.
+type contentPart struct {
+	Text string `json:"text"`
+}
+
+// UnmarshalJSON handles content being either a string or an array of {text} objects.
+func (m *Message) UnmarshalJSON(data []byte) error {
+	type messageAlias Message
+	aux := &struct {
+		Content json.RawMessage `json:"content"`
+		*messageAlias
+	}{
+		messageAlias: (*messageAlias)(m),
+	}
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+
+	if len(aux.Content) == 0 {
+		return nil
+	}
+
+	// Try string first.
+	var s string
+	if err := json.Unmarshal(aux.Content, &s); err == nil {
+		m.Content = s
+		return nil
+	}
+
+	// Try array of parts.
+	var parts []contentPart
+	if err := json.Unmarshal(aux.Content, &parts); err == nil {
+		texts := make([]string, 0, len(parts))
+		for _, p := range parts {
+			if p.Text != "" {
+				texts = append(texts, p.Text)
+			}
+		}
+		m.Content = strings.Join(texts, "\n")
+		return nil
+	}
+
+	return nil
 }
 
 // ToolCall represents a tool execution.
