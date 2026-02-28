@@ -17,6 +17,17 @@ CREATE TABLE IF NOT EXISTS embeddings (
     UNIQUE(session_id, entry_uuid, chunk_index, tier, model)
 );
 
+COMMENT ON TABLE embeddings IS 'Vector store for conversation snippets and reasoning blocks.';
+COMMENT ON COLUMN embeddings.id IS 'Globally unique identifier for the embedding chunk.';
+COMMENT ON COLUMN embeddings.session_id IS 'Unique identifier for the parent session.';
+COMMENT ON COLUMN embeddings.entry_uuid IS 'Unique identifier for the specific message entry.';
+COMMENT ON COLUMN embeddings.chunk_index IS 'Position of the chunk if the source text was split.';
+COMMENT ON COLUMN embeddings.tier IS 'Source of the text: "conversation" (messages) or "reasoning" (internal thinking).';
+COMMENT ON COLUMN embeddings.model IS 'The embedding model name used to generate this vector.';
+COMMENT ON COLUMN embeddings.dim IS 'The number of dimensions in the embedding vector.';
+COMMENT ON COLUMN embeddings.embedding IS 'The fixed-size float array representing the vector embedding.';
+COMMENT ON COLUMN embeddings.text_hash IS 'Hash of the source text to detect changes and avoid redundant re-embedding.';
+
 CREATE INDEX IF NOT EXISTS idx_embeddings_session ON embeddings(session_id);
 CREATE INDEX IF NOT EXISTS idx_embeddings_entry ON embeddings(session_id, entry_uuid);
 CREATE INDEX IF NOT EXISTS idx_embeddings_tier ON embeddings(tier);
