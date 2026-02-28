@@ -69,5 +69,15 @@ func normalizeEntry(e *IngestEntry) error {
 	if e.ThinkingLen < 0 {
 		e.ThinkingLen = 0
 	}
+
+	// Derive classification flags if not already set by the exporter.
+	// This ensures older exporters that don't send these flags still get
+	// correct classification from whatever data they do send.
+	if !e.HasThinking && e.ThinkingLen > 0 {
+		e.HasThinking = true
+	}
+	if !e.HasToolUse && e.ToolName != "" {
+		e.HasToolUse = true
+	}
 	return nil
 }

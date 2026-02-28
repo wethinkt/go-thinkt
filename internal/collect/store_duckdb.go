@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS collected_entries (
     input_tokens INTEGER DEFAULT 0,
     output_tokens INTEGER DEFAULT 0,
     thinking_len INTEGER DEFAULT 0,
+    has_thinking BOOLEAN DEFAULT FALSE,
+    has_tool_use BOOLEAN DEFAULT FALSE,
     ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -96,6 +98,18 @@ func NewDuckDBStore(dbPath string, batchSize int, flushInterval time.Duration) (
 	if _, err := db.Exec(collectorSchema); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("initialize collector schema: %w", err)
+	}
+
+	// Schema migrations for existing databases.
+	migrations := []string{
+		"ALTER TABLE collected_entries ADD COLUMN IF NOT EXISTS has_thinking BOOLEAN DEFAULT FALSE",
+		"ALTER TABLE collected_entries ADD COLUMN IF NOT EXISTS has_tool_use BOOLEAN DEFAULT FALSE",
+	}
+	for _, m := range migrations {
+		if _, err := db.Exec(m); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("run migration: %w", err)
+		}
 	}
 
 	// Security hardening
@@ -249,10 +263,10 @@ func (s *DuckDBStore) writeRequest(tx *sql.Tx, req IngestRequest) error {
 	for _, e := range req.Entries {
 		_, err := tx.Exec(`
 			INSERT OR IGNORE INTO collected_entries
-				(uuid, session_id, role, timestamp, model, text, tool_name, is_error, input_tokens, output_tokens, thinking_len, ingested_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				(uuid, session_id, role, timestamp, model, text, tool_name, is_error, input_tokens, output_tokens, thinking_len, has_thinking, has_tool_use, ingested_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, e.UUID, req.SessionID, e.Role, e.Timestamp, e.Model, e.Text, e.ToolName,
-			e.IsError, e.InputTokens, e.OutputTokens, e.ThinkingLen, now)
+			e.IsError, e.InputTokens, e.OutputTokens, e.ThinkingLen, e.HasThinking, e.HasToolUse, now)
 		if err != nil {
 			return fmt.Errorf("insert entry %s: %w", e.UUID, err)
 		}
@@ -319,7 +333,8 @@ func (s *DuckDBStore) QueryEntries(ctx context.Context, sessionID string, limit,
 	}
 
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT uuid, role, timestamp, model, text, tool_name, is_error, input_tokens, output_tokens, thinking_len
+		SELECT uuid, role, timestamp, model, text, tool_name, is_error,
+			input_tokens, output_tokens, thinking_len, has_thinking, has_tool_use
 		FROM collected_entries
 		WHERE session_id = ?
 		ORDER BY timestamp ASC
@@ -334,7 +349,8 @@ func (s *DuckDBStore) QueryEntries(ctx context.Context, sessionID string, limit,
 	for rows.Next() {
 		var e IngestEntry
 		if err := rows.Scan(&e.UUID, &e.Role, &e.Timestamp, &e.Model, &e.Text,
-			&e.ToolName, &e.IsError, &e.InputTokens, &e.OutputTokens, &e.ThinkingLen); err != nil {
+			&e.ToolName, &e.IsError, &e.InputTokens, &e.OutputTokens,
+			&e.ThinkingLen, &e.HasThinking, &e.HasToolUse); err != nil {
 			return nil, fmt.Errorf("scan entry: %w", err)
 		}
 		entries = append(entries, e)

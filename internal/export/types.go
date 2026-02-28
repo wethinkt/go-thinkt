@@ -83,8 +83,12 @@ type TraceEntry struct {
 	Model        string    `json:"model,omitempty"`
 	ToolName     string    `json:"tool_name,omitempty"`
 	AgentID      string    `json:"agent_id,omitempty"`
+	IsError      bool      `json:"is_error,omitempty"`
 	InputTokens  int       `json:"input_tokens,omitempty"`
 	OutputTokens int       `json:"output_tokens,omitempty"`
+	ThinkingLen  int       `json:"thinking_len,omitempty"`
+	HasThinking  bool      `json:"has_thinking,omitempty"`
+	HasToolUse   bool      `json:"has_tool_use,omitempty"`
 }
 
 // ShipResult tracks the result of shipping a batch.

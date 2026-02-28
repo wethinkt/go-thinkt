@@ -519,6 +519,7 @@ type rawEntry struct {
 	Model     string          `json:"model,omitempty"`
 	Text      string          `json:"text,omitempty"`
 	AgentID   string          `json:"agentId,omitempty"`
+	IsError   bool            `json:"isError,omitempty"`   // Claude: tool_result error flag
 	Message   json.RawMessage `json:"message,omitempty"`
 }
 
@@ -574,8 +575,12 @@ func parseRawEntry(line []byte) (TraceEntry, bool) {
 		Model:        model,
 		ToolName:     info.ToolName,
 		AgentID:      raw.AgentID,
+		IsError:      raw.IsError,
 		InputTokens:  info.InputTokens,
 		OutputTokens: info.OutputTokens,
+		ThinkingLen:  info.ThinkingLen,
+		HasThinking:  info.HasThinking,
+		HasToolUse:   info.HasToolUse,
 	}, true
 }
 
@@ -586,6 +591,9 @@ type messageInfo struct {
 	ToolName     string
 	InputTokens  int
 	OutputTokens int
+	ThinkingLen  int
+	HasThinking  bool
+	HasToolUse   bool
 }
 
 // extractFromMessage extracts text, model, tool name, and token usage from a message JSON blob.
@@ -640,9 +648,13 @@ func extractFromMessage(msg json.RawMessage, fallbackText string) messageInfo {
 				info.Text = b.Text
 			}
 		case "tool_use":
+			info.HasToolUse = true
 			if info.ToolName == "" {
 				info.ToolName = b.Name
 			}
+		case "thinking":
+			info.HasThinking = true
+			info.ThinkingLen += len(b.Thinking)
 		}
 	}
 	return info
