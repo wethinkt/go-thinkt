@@ -49,9 +49,10 @@ Examples:
 }
 
 var indexerLogsCmd = &cobra.Command{
-	Use:   "logs",
-	Short: "View indexer logs",
-	RunE:  runIndexerLogs,
+	Use:          "logs",
+	Short:        "View indexer logs",
+	SilenceUsage: true,
+	RunE:         runIndexerLogs,
 }
 
 func runIndexerLogs(cmd *cobra.Command, args []string) error {
@@ -77,21 +78,24 @@ func runIndexerLogs(cmd *cobra.Command, args []string) error {
 }
 
 var indexerStartCmd = &cobra.Command{
-	Use:   "start",
-	Short: "Start indexer in background",
-	RunE:  runIndexerStart,
+	Use:          "start",
+	Short:        "Start indexer in background",
+	SilenceUsage: true,
+	RunE:         runIndexerStart,
 }
 
 var indexerStopCmd = &cobra.Command{
-	Use:   "stop",
-	Short: "Stop background indexer",
-	RunE:  runIndexerStop,
+	Use:          "stop",
+	Short:        "Stop background indexer",
+	SilenceUsage: true,
+	RunE:         runIndexerStop,
 }
 
 var indexerStatusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Show indexer status",
-	RunE:  runIndexerStatus,
+	Use:          "status",
+	Short:        "Show indexer status",
+	SilenceUsage: true,
+	RunE:         runIndexerStatus,
 }
 
 func runIndexerStart(cmd *cobra.Command, args []string) error {

@@ -96,39 +96,45 @@ Examples:
 }
 
 var serverRunCmd = &cobra.Command{
-	Use:   "run",
-	Short: "Start server in foreground",
-	RunE:  runServerHTTP,
+	Use:          "run",
+	Short:        "Start server in foreground",
+	SilenceUsage: true,
+	RunE:         runServerHTTP,
 }
 
 var serverStartCmd = &cobra.Command{
-	Use:   "start",
-	Short: "Start server in background",
-	RunE:  runServerStart,
+	Use:          "start",
+	Short:        "Start server in background",
+	SilenceUsage: true,
+	RunE:         runServerStart,
 }
 
 var serverStopCmd = &cobra.Command{
-	Use:   "stop",
-	Short: "Stop background server",
-	RunE:  runServerStop,
+	Use:          "stop",
+	Short:        "Stop background server",
+	SilenceUsage: true,
+	RunE:         runServerStop,
 }
 
 var serverStatusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Show server status",
-	RunE:  runServerStatus,
+	Use:          "status",
+	Short:        "Show server status",
+	SilenceUsage: true,
+	RunE:         runServerStatus,
 }
 
 var serverLogsCmd = &cobra.Command{
-	Use:   "logs",
-	Short: "View server logs",
-	RunE:  runServerLogs,
+	Use:          "logs",
+	Short:        "View server logs",
+	SilenceUsage: true,
+	RunE:         runServerLogs,
 }
 
 var serverHTTPLogsCmd = &cobra.Command{
-	Use:   "http-logs",
-	Short: "View HTTP access logs",
-	RunE:  runServerHTTPLogs,
+	Use:          "http-logs",
+	Short:        "View HTTP access logs",
+	SilenceUsage: true,
+	RunE:         runServerHTTPLogs,
 }
 
 func runServerLogs(cmd *cobra.Command, args []string) error {
@@ -206,7 +212,7 @@ func runWebOpen(isLite bool) error {
 			return err
 		}
 		// Wait a bit for it to register
-		for i := 0; i < 20; i++ {
+		for range 20 {
 			time.Sleep(100 * time.Millisecond)
 			inst = config.FindInstanceByType(config.InstanceServer)
 			if inst != nil {
@@ -273,14 +279,50 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 		runArgs = append(runArgs, "--no-indexer")
 	}
 
-	// Run in background
-	c := exec.Command(executable, runArgs...)
-	if err := config.StartBackground(c); err != nil {
-		return fmt.Errorf("failed to start server: %w", err)
+	// Redirect stdout/stderr to server log so panics (e.g. indexer sidecar
+	// crashes) are captured instead of silently lost.
+	serverLog := filepath.Join(logsDir, "server.log")
+	logFile, err := os.OpenFile(serverLog, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open server log: %w", err)
 	}
 
-	fmt.Printf("✅ Server starting (PID: %d)\n", c.Process.Pid)
-	fmt.Printf("   Log:  %s\n", filepath.Join(logsDir, "server.log"))
+	// Run in background
+	c := exec.Command(executable, runArgs...)
+	c.Stdout = logFile
+	c.Stderr = logFile
+	if err := config.StartBackground(c); err != nil {
+		logFile.Close()
+		return fmt.Errorf("failed to start server: %w", err)
+	}
+	logFile.Close() // child has inherited the fd
+
+	// Wait for the server to register itself in the instance registry so we
+	// can report its address and whether the indexer sidecar started.
+	var inst *config.Instance
+	for range 30 {
+		time.Sleep(200 * time.Millisecond)
+		if !config.IsProcessAlive(c.Process.Pid) {
+			return fmt.Errorf("server exited immediately (check %s for errors)", serverLog)
+		}
+		inst = config.FindInstanceByType(config.InstanceServer)
+		if inst != nil {
+			break
+		}
+	}
+
+	if inst == nil {
+		// Process is alive but hasn't registered yet — report what we can.
+		fmt.Printf("✅ Server starting (PID: %d)\n", c.Process.Pid)
+	} else {
+		fmt.Printf("✅ Server running (PID: %d, http://%s:%d)\n", inst.PID, inst.Host, inst.Port)
+		if inst.IndexerPID > 0 {
+			fmt.Printf("📇 Indexer sidecar running (PID: %d)\n", inst.IndexerPID)
+		} else if !serveNoIndexer {
+			fmt.Printf("⚠️  Indexer sidecar not started (check %s)\n", serverLog)
+		}
+	}
+	fmt.Printf("   Log:  %s\n", serverLog)
 	fmt.Printf("   HTTP: %s\n", filepath.Join(logsDir, "server.http.log"))
 	return nil
 }
@@ -641,6 +683,17 @@ func startIndexerSidecar(appLogPath string) *exec.Cmd {
 	if err := cmd.Start(); err != nil {
 		tuilog.Log.Error("Failed to start indexer sidecar", "error", err)
 		return nil
+	}
+
+	// Wait briefly to detect immediate crashes (e.g. missing shared libraries).
+	// Use short retries so we don't block startup longer than necessary.
+	for range 5 {
+		time.Sleep(100 * time.Millisecond)
+		if !config.IsProcessAlive(cmd.Process.Pid) {
+			tuilog.Log.Error("Indexer sidecar exited immediately", "pid", cmd.Process.Pid)
+			fmt.Fprintf(os.Stderr, "⚠️  Indexer sidecar started but exited immediately (check server log for errors)\n")
+			return nil
+		}
 	}
 
 	fmt.Fprintf(os.Stderr, "📇 Indexer sidecar started (PID: %d)\n", cmd.Process.Pid)
