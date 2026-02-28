@@ -202,26 +202,54 @@ func ListProjects(baseDir string) ([]Project, error) {
 }
 
 // ListProjectSessions returns session metadata for a project directory.
-// Uses sessions-index.json when available for fast metadata access,
-// falls back to stat-based listing.
+// Always enumerates .jsonl files on disk to avoid missing sessions when
+// sessions-index.json is stale. Index metadata (timestamps, prompts) is
+// used to enrich results when available.
 func ListProjectSessions(projectDir string) ([]SessionMeta, error) {
-	var sessions []SessionMeta
+	// Always scan the filesystem for the authoritative list of sessions.
+	sessions, err := statBasedSessions(projectDir)
+	if err != nil {
+		return nil, err
+	}
 
-	// Try sessions-index.json first
+	// Enrich with index metadata when available.
 	indexPath := filepath.Join(projectDir, "sessions-index.json")
 	if data, err := os.ReadFile(indexPath); err == nil {
 		var idx sessionsIndex
 		if err := json.Unmarshal(data, &idx); err == nil {
-			sessions = parseIndexEntries(idx.Entries, projectDir)
-		}
-	}
-
-	// Fall back to stat-based listing
-	if sessions == nil {
-		var err error
-		sessions, err = statBasedSessions(projectDir)
-		if err != nil {
-			return nil, err
+			indexed := parseIndexEntries(idx.Entries, projectDir)
+			byID := make(map[string]SessionMeta, len(indexed))
+			for _, m := range indexed {
+				byID[m.SessionID] = m
+			}
+			for i, s := range sessions {
+				if rich, ok := byID[s.SessionID]; ok {
+					if !rich.Created.IsZero() {
+						sessions[i].Created = rich.Created
+					}
+					if !rich.Modified.IsZero() {
+						sessions[i].Modified = rich.Modified
+					}
+					if rich.FirstPrompt != "" {
+						sessions[i].FirstPrompt = rich.FirstPrompt
+					}
+					if rich.Model != "" {
+						sessions[i].Model = rich.Model
+					}
+					if rich.Summary != "" {
+						sessions[i].Summary = rich.Summary
+					}
+					if rich.GitBranch != "" {
+						sessions[i].GitBranch = rich.GitBranch
+					}
+					if rich.MessageCount > 0 {
+						sessions[i].MessageCount = rich.MessageCount
+					}
+					if rich.ProjectPath != "" {
+						sessions[i].ProjectPath = rich.ProjectPath
+					}
+				}
+			}
 		}
 	}
 
