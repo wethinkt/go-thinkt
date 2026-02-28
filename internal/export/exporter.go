@@ -197,6 +197,7 @@ func (e *Exporter) FlushBuffer(ctx context.Context) error {
 
 	if shipped > 0 {
 		e.tracesBuffered.Add(-int64(shipped))
+		bufferDrainedTotal.Add(float64(shipped))
 		tuilog.Log.Info("Drained buffer", "shipped", shipped)
 	}
 	return err
@@ -554,52 +555,71 @@ func parseRawEntry(line []byte) (TraceEntry, bool) {
 
 	text := raw.Text
 
-	// Try to extract text and model from assistant message content
-	var model string
-	var toolName string
+	// Try to extract text, model, tokens from assistant message content
+	var info messageInfo
 	if raw.Message != nil {
-		text, model, toolName = extractFromMessage(raw.Message, text)
+		info = extractFromMessage(raw.Message, text)
+		text = info.Text
 	}
+	model := info.Model
 	if raw.Model != "" {
 		model = raw.Model
 	}
 
 	return TraceEntry{
-		UUID:      raw.UUID,
-		Role:      role,
-		Timestamp: raw.Timestamp,
-		Text:      text,
-		Model:     model,
-		ToolName:  toolName,
-		AgentID:   raw.AgentID,
+		UUID:         raw.UUID,
+		Role:         role,
+		Timestamp:    raw.Timestamp,
+		Text:         text,
+		Model:        model,
+		ToolName:     info.ToolName,
+		AgentID:      raw.AgentID,
+		InputTokens:  info.InputTokens,
+		OutputTokens: info.OutputTokens,
 	}, true
 }
 
-// extractFromMessage extracts text, model, and tool name from a message JSON blob.
-func extractFromMessage(msg json.RawMessage, fallbackText string) (text, model, toolName string) {
-	text = fallbackText
+// messageInfo holds extracted fields from a message JSON blob.
+type messageInfo struct {
+	Text         string
+	Model        string
+	ToolName     string
+	InputTokens  int
+	OutputTokens int
+}
 
-	// Try to parse as {"role": "...", "model": "...", "content": [...]}
+// extractFromMessage extracts text, model, tool name, and token usage from a message JSON blob.
+func extractFromMessage(msg json.RawMessage, fallbackText string) messageInfo {
+	info := messageInfo{Text: fallbackText}
+
 	var parsed struct {
 		Model   string          `json:"model"`
 		Content json.RawMessage `json:"content"`
+		Usage   *struct {
+			InputTokens  int `json:"input_tokens"`
+			OutputTokens int `json:"output_tokens"`
+		} `json:"usage"`
 	}
 	if err := json.Unmarshal(msg, &parsed); err != nil {
-		return
+		return info
 	}
-	model = parsed.Model
+	info.Model = parsed.Model
+	if parsed.Usage != nil {
+		info.InputTokens = parsed.Usage.InputTokens
+		info.OutputTokens = parsed.Usage.OutputTokens
+	}
 
 	if parsed.Content == nil {
-		return
+		return info
 	}
 
 	// Content can be a string or an array of blocks
 	var contentStr string
 	if err := json.Unmarshal(parsed.Content, &contentStr); err == nil {
-		if text == "" {
-			text = contentStr
+		if info.Text == "" {
+			info.Text = contentStr
 		}
-		return
+		return info
 	}
 
 	// Parse as array of content blocks
@@ -610,21 +630,21 @@ func extractFromMessage(msg json.RawMessage, fallbackText string) (text, model, 
 		Thinking string `json:"thinking"`
 	}
 	if err := json.Unmarshal(parsed.Content, &blocks); err != nil {
-		return
+		return info
 	}
 
 	for _, b := range blocks {
 		switch b.Type {
 		case "text":
-			if text == "" {
-				text = b.Text
+			if info.Text == "" {
+				info.Text = b.Text
 			}
 		case "tool_use":
-			if toolName == "" {
-				toolName = b.Name
+			if info.ToolName == "" {
+				info.ToolName = b.Name
 			}
 		}
 	}
-	return
+	return info
 }
 

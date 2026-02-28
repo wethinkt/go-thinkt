@@ -66,6 +66,19 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 	ingestRequestsTotal.WithLabelValues("ok").Inc()
 	ingestDurationSeconds.Observe(time.Since(start).Seconds())
 
+	// Accumulate token counts
+	var inputTokens, outputTokens float64
+	for _, e := range req.Entries {
+		inputTokens += float64(e.InputTokens)
+		outputTokens += float64(e.OutputTokens)
+	}
+	if inputTokens > 0 {
+		ingestTokensTotal.WithLabelValues("input").Add(inputTokens)
+	}
+	if outputTokens > 0 {
+		ingestTokensTotal.WithLabelValues("output").Add(outputTokens)
+	}
+
 	tuilog.Log.Info("Ingested traces",
 		"session_id", req.SessionID,
 		"source", req.Source,

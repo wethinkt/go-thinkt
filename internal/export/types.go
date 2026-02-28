@@ -76,13 +76,15 @@ type TracePayload struct {
 
 // TraceEntry is a single trace entry in the payload.
 type TraceEntry struct {
-	UUID      string    `json:"uuid"`
-	Role      string    `json:"role"`
-	Timestamp time.Time `json:"timestamp"`
-	Text      string    `json:"text,omitempty"`
-	Model     string    `json:"model,omitempty"`
-	ToolName  string    `json:"tool_name,omitempty"`
-	AgentID   string    `json:"agent_id,omitempty"`
+	UUID         string    `json:"uuid"`
+	Role         string    `json:"role"`
+	Timestamp    time.Time `json:"timestamp"`
+	Text         string    `json:"text,omitempty"`
+	Model        string    `json:"model,omitempty"`
+	ToolName     string    `json:"tool_name,omitempty"`
+	AgentID      string    `json:"agent_id,omitempty"`
+	InputTokens  int       `json:"input_tokens,omitempty"`
+	OutputTokens int       `json:"output_tokens,omitempty"`
 }
 
 // ShipResult tracks the result of shipping a batch.

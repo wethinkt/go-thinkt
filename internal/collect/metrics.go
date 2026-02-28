@@ -35,6 +35,21 @@ var (
 		Buckets:   prometheus.DefBuckets,
 	})
 
+	ingestTokensTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "thinkt",
+		Subsystem: "collector",
+		Name:      "ingest_tokens_total",
+		Help:      "Total tokens ingested, by type (input or output).",
+	}, []string{"type"})
+
+	batchFlushDurationSeconds = promauto.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "thinkt",
+		Subsystem: "collector",
+		Name:      "batch_flush_duration_seconds",
+		Help:      "Batch flush duration to DuckDB in seconds.",
+		Buckets:   prometheus.DefBuckets,
+	})
+
 	activeSessions = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: "thinkt",
 		Subsystem: "collector",

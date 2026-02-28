@@ -196,6 +196,10 @@ func (s *Server) updateGauges(ctx context.Context) {
 	if stats, err := s.store.GetUsageStats(ctx); err == nil {
 		dbSizeBytes.Set(float64(stats.DBSizeBytes))
 	}
+
+	if sessions, err := s.store.QueryActiveSessions(ctx); err == nil {
+		activeSessions.Set(float64(len(sessions)))
+	}
 }
 
 // bearerAuth returns middleware that validates a bearer token using

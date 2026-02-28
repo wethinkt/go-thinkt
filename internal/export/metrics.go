@@ -62,4 +62,11 @@ var (
 		Name:      "file_events_total",
 		Help:      "Total file events processed, by source.",
 	}, []string{"source"})
+
+	bufferDrainedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "thinkt",
+		Subsystem: "exporter",
+		Name:      "buffer_drained_total",
+		Help:      "Total payloads successfully drained from disk buffer.",
+	})
 )

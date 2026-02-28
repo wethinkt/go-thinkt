@@ -187,6 +187,8 @@ func (s *DuckDBStore) flushBatch(batch []IngestRequest) {
 		return
 	}
 
+	start := time.Now()
+
 	ctx := context.Background()
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -207,6 +209,8 @@ func (s *DuckDBStore) flushBatch(batch []IngestRequest) {
 		tuilog.Log.Error("Failed to commit batch", "error", err)
 		return
 	}
+
+	batchFlushDurationSeconds.Observe(time.Since(start).Seconds())
 
 	total := s.batchEntryCount(batch)
 	tuilog.Log.Debug("Flushed batch",
