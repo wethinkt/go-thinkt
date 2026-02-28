@@ -45,6 +45,7 @@ thinkt search "authentication"
 - **Agent Teams** - Inspect multi-agent teams (Claude Code), including members, tasks, and messages
 - **Prompt Extraction** - Extract user prompts in markdown, JSON, or plain text
 - [**Themes**](/themes) - 14 built-in color schemes (Dracula, Nord, Catppuccin, etc.) with interactive browser and iTerm2 import
+- [**Languages**](/languages) - Support for English, Chinese, and Spanish with easy switching
 - **App Management** - Configure open-in apps and default terminal via `thinkt apps`
 - **Full-Text Search** - Search across all indexed sessions via `thinkt search`
 - **Semantic Search** - Find sessions by meaning with on-device embeddings via `thinkt semantic search`
