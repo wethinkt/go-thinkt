@@ -13,6 +13,7 @@ import (
 	"text/template"
 	"time"
 
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 )
@@ -52,7 +53,7 @@ func ResolveSession(registry *thinkt.StoreRegistry, projectID, query string) (*t
 		if err != nil && err != os.ErrNotExist {
 			return nil, fmt.Errorf("resolve session path: %w", err)
 		}
-		return nil, fmt.Errorf("session not found in known sources: %s", query)
+		return nil, fmt.Errorf(thinktI18n.T("cli.sessions.notFoundInSources", "session not found in known sources: %s"), query)
 	}
 
 	candidates, err := collectCandidateSessions(registry, projectID)
@@ -69,12 +70,12 @@ func ResolveSession(registry *thinkt.StoreRegistry, projectID, query string) (*t
 
 	switch len(matches) {
 	case 0:
-		return nil, fmt.Errorf("session not found: %s", query)
+		return nil, fmt.Errorf(thinktI18n.T("cli.sessions.notFound", "session not found: %s"), query)
 	case 1:
 		return &matches[0], nil
 	default:
 		var b strings.Builder
-		b.WriteString("session query is ambiguous, matched multiple sessions:\n")
+		b.WriteString(thinktI18n.T("cli.sessions.ambiguous", "session query is ambiguous, matched multiple sessions:") + "\n")
 		max := len(matches)
 		if max > 5 {
 			max = 5
@@ -257,13 +258,13 @@ func ListSessionsForProject(registry *thinkt.StoreRegistry, projectID string) ([
 	}
 
 	if targetProject == nil {
-		return nil, fmt.Errorf("project not found: %s\n\nUse 'thinkt projects' to list available projects", projectID)
+		return nil, fmt.Errorf(thinktI18n.T("cli.sessions.projectNotFound", "project not found: %s\n\nUse 'thinkt projects' to list available projects"), projectID)
 	}
 
 	// Get the appropriate store
 	store, ok := registry.Get(targetProject.Source)
 	if !ok {
-		return nil, fmt.Errorf("source not available: %s", targetProject.Source)
+		return nil, fmt.Errorf(thinktI18n.T("cli.sessions.sourceNotAvailable", "source not available: %s"), targetProject.Source)
 	}
 
 	return store.ListSessions(ctx, targetProject.ID)
@@ -317,14 +318,14 @@ func (d *SessionDeleter) Delete(sessionPath string) error {
 		fmt.Fprintln(d.opts.Stdout)
 
 		result, err := tui.Confirm(tui.ConfirmOptions{
-			Prompt:      "Permanently delete this session?",
-			Affirmative: "Delete",
-			Negative:    "Cancel",
+			Prompt:      thinktI18n.T("cli.sessions.confirmDelete", "Permanently delete this session?"),
+			Affirmative: thinktI18n.T("cli.sessions.confirmDeleteYes", "Delete"),
+			Negative:    thinktI18n.T("cli.sessions.confirmDeleteNo", "Cancel"),
 			Default:     false,
 		})
 
 		if err != nil || result != tui.ConfirmYes {
-			fmt.Fprintf(d.opts.Stdout, "Cancelled.\n")
+			fmt.Fprintf(d.opts.Stdout, "%s\n", thinktI18n.T("cli.sessions.cancelled", "Cancelled."))
 			return nil
 		}
 	}
@@ -343,9 +344,9 @@ func (d *SessionDeleter) findSession(sessionPath string) (*thinkt.SessionMeta, e
 	meta, err := ResolveSession(d.registry, d.opts.Project, sessionPath)
 	if err != nil {
 		if d.opts.Project != "" {
-			return nil, fmt.Errorf("%w\n\nUse 'thinkt sessions list -p %s' to see available sessions", err, d.opts.Project)
+			return nil, fmt.Errorf("%w\n\n%s", err, thinktI18n.Tf("cli.sessions.hintListProject", "Use 'thinkt sessions list -p %s' to see available sessions", d.opts.Project))
 		}
-		return nil, fmt.Errorf("%w\n\nUse 'thinkt sessions list' or 'thinkt sessions resolve <query>' to find valid sessions", err)
+		return nil, fmt.Errorf("%w\n\n%s", err, thinktI18n.T("cli.sessions.hintList", "Use 'thinkt sessions list' or 'thinkt sessions resolve <query>' to find valid sessions"))
 	}
 	return meta, nil
 }
@@ -410,9 +411,9 @@ func (c *SessionCopier) findSession(sessionPath string) (*thinkt.SessionMeta, er
 	meta, err := ResolveSession(c.registry, c.opts.Project, sessionPath)
 	if err != nil {
 		if c.opts.Project != "" {
-			return nil, fmt.Errorf("%w\n\nUse 'thinkt sessions list -p %s' to see available sessions", err, c.opts.Project)
+			return nil, fmt.Errorf("%w\n\n%s", err, thinktI18n.Tf("cli.sessions.hintListProject", "Use 'thinkt sessions list -p %s' to see available sessions", c.opts.Project))
 		}
-		return nil, fmt.Errorf("%w\n\nUse 'thinkt sessions list' or 'thinkt sessions resolve <query>' to find valid sessions", err)
+		return nil, fmt.Errorf("%w\n\n%s", err, thinktI18n.T("cli.sessions.hintList", "Use 'thinkt sessions list' or 'thinkt sessions resolve <query>' to find valid sessions"))
 	}
 	return meta, nil
 }

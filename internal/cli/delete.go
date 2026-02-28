@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 )
@@ -41,7 +42,7 @@ func (d *ProjectDeleter) Delete(projectPath string) error {
 
 	store, ok := d.registry.Get(project.Source)
 	if !ok {
-		return fmt.Errorf("source not available: %s", project.Source)
+		return fmt.Errorf(thinktI18n.T("cli.delete.sourceNotAvailable", "source not available: %s"), project.Source)
 	}
 
 	sessions, err := store.ListSessions(context.Background(), project.ID)
@@ -49,7 +50,7 @@ func (d *ProjectDeleter) Delete(projectPath string) error {
 		return fmt.Errorf("list project sessions: %w", err)
 	}
 	if len(sessions) == 0 {
-		return fmt.Errorf("no sessions found in %s", project.Path)
+		return fmt.Errorf(thinktI18n.T("cli.delete.noSessions", "no sessions found in %s"), project.Path)
 	}
 
 	// Show info and confirm
@@ -64,14 +65,14 @@ func (d *ProjectDeleter) Delete(projectPath string) error {
 		fmt.Fprintln(d.opts.Stdout)
 
 		result, err := tui.Confirm(tui.ConfirmOptions{
-			Prompt:      "Permanently delete all session data for this project?",
-			Affirmative: "Delete",
-			Negative:    "Cancel",
+			Prompt:      thinktI18n.T("cli.delete.confirmProject", "Permanently delete all session data for this project?"),
+			Affirmative: thinktI18n.T("cli.delete.confirmYes", "Delete"),
+			Negative:    thinktI18n.T("cli.delete.confirmNo", "Cancel"),
 			Default:     false, // Default to Cancel
 		})
 
 		if err != nil || result != tui.ConfirmYes {
-			fmt.Fprintf(d.opts.Stdout, "Cancelled.\n")
+			fmt.Fprintf(d.opts.Stdout, "%s\n", thinktI18n.T("cli.delete.cancelled", "Cancelled."))
 			return nil
 		}
 	}
@@ -98,7 +99,7 @@ func (d *ProjectDeleter) Delete(projectPath string) error {
 func (d *ProjectDeleter) findProject(targetPath string) (*thinkt.Project, error) {
 	project, err := ResolveProject(d.registry, targetPath)
 	if err != nil {
-		return nil, fmt.Errorf("%w\n\nUse 'thinkt projects list' to see available projects", err)
+		return nil, fmt.Errorf("%w\n\n%s", err, thinktI18n.T("cli.delete.hintListProjects", "Use 'thinkt projects list' to see available projects"))
 	}
 	return project, nil
 }
