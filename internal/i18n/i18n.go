@@ -158,6 +158,7 @@ func AvailableLanguages(activeTag string) []LangInfo {
 
 	seen := make(map[string]bool)
 	var langs []LangInfo
+	maxCoverage := 0
 
 	for _, e := range entries {
 		name := e.Name()
@@ -168,6 +169,9 @@ func AvailableLanguages(activeTag string) []LangInfo {
 		seen[tag] = true
 
 		coverage := countMessageIDs(name)
+		if coverage > maxCoverage {
+			maxCoverage = coverage
+		}
 		names := knownLanguages[tag]
 		if names[0] == "" {
 			names = [2]string{tag, tag}
@@ -190,8 +194,15 @@ func AvailableLanguages(activeTag string) []LangInfo {
 			Name:        names[0],
 			EnglishName: names[1],
 			Active:      "en" == activeTag,
-			Coverage:    0,
+			Coverage:    maxCoverage,
 		})
+	} else {
+		// If en.toml exists, update its coverage to max if it's the baseline
+		for i := range langs {
+			if langs[i].Tag == "en" && (langs[i].Coverage == 0 || langs[i].Coverage < maxCoverage) {
+				langs[i].Coverage = maxCoverage
+			}
+		}
 	}
 
 	sort.Slice(langs, func(i, j int) bool {
