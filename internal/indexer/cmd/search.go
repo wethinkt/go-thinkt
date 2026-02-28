@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/tui"
@@ -65,7 +66,7 @@ Use --list to output results directly to the terminal (useful for scripting).`,
 			}
 
 			if totalMatches == 0 {
-				fmt.Println("No matches found.")
+				fmt.Println(thinktI18n.T("indexer.search.noMatches", "No matches found."))
 			}
 			return nil
 		}
@@ -80,13 +81,13 @@ Use --list to output results directly to the terminal (useful for scripting).`,
 				}
 			}
 			if totalMatches == 0 {
-				fmt.Println("No matches found.")
+				fmt.Println(thinktI18n.T("indexer.search.noMatches", "No matches found."))
 			}
 			return nil
 		}
 
 		if len(results) == 0 {
-			fmt.Println("No matches found.")
+			fmt.Println(thinktI18n.T("indexer.search.noMatches", "No matches found."))
 			return nil
 		}
 
@@ -156,7 +157,7 @@ func doSearch(queryText string) ([]search.SessionResult, int, error) {
 	svc := search.NewService(db, nil)
 
 	if verbose && !searchJSON && !searchList {
-		fmt.Printf("Searching for %q...\n", queryText)
+		fmt.Print(thinktI18n.Tf("indexer.search.searching", "Searching for %q...\n", queryText))
 	}
 
 	return svc.Search(opts)

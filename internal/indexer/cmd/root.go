@@ -7,6 +7,8 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/indexer/db"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
@@ -58,7 +60,27 @@ AI assistant sessions using DuckDB.`,
 }
 
 func Execute() error {
+	cfg, _ := config.Load()
+	locale := thinktI18n.ResolveLocale(cfg.Language)
+	thinktI18n.Init(locale)
+	localizeCommands(rootCmd, "indexer")
+
 	return rootCmd.Execute()
+}
+
+// localizeCommands walks the command tree and localizes Short/Long descriptions.
+// Uses path-based keys (e.g., "indexer.sync.status.short") to avoid conflicts
+// with duplicate command names at different levels.
+func localizeCommands(cmd *cobra.Command, prefix string) {
+	if cmd.Short != "" {
+		cmd.Short = thinktI18n.T(prefix+".short", cmd.Short)
+	}
+	if cmd.Long != "" {
+		cmd.Long = thinktI18n.T(prefix+".long", cmd.Long)
+	}
+	for _, sub := range cmd.Commands() {
+		localizeCommands(sub, prefix+"."+sub.Name())
+	}
 }
 
 func init() {

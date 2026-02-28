@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"golang.org/x/term"
 
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
@@ -116,11 +117,11 @@ func (sp *SyncProgress) renderLine(phase, count, detail string, pct float64) {
 // RenderDownload renders a model download progress line.
 func (sp *SyncProgress) RenderDownload(modelID string, pct float64) {
 	if !sp.isTTY {
-		sp.Print(fmt.Sprintf("Downloading %s: %.0f%%", modelID, pct*100))
+		sp.Print(thinktI18n.Tf("indexer.progress.downloading", "Downloading %s: %.0f%%", modelID, pct*100))
 		return
 	}
 
-	sp.renderLine("Download", modelID, fmt.Sprintf("%.0f%%", pct*100), pct)
+	sp.renderLine(thinktI18n.T("indexer.progress.download", "Download"), modelID, fmt.Sprintf("%.0f%%", pct*100), pct)
 }
 
 // RenderIndexing renders an indexing progress line.
@@ -140,7 +141,7 @@ func (sp *SyncProgress) RenderIndexing(pIdx, pTotal, sIdx, sTotal int, message s
 		count = fmt.Sprintf("%d/%d projects  %d/%d sessions", pIdx, pTotal, sIdx, sTotal)
 	}
 
-	sp.renderLine("Indexing", count, message, pct)
+	sp.renderLine(thinktI18n.T("indexer.progress.indexing", "Indexing"), count, message, pct)
 }
 
 // RenderEmbedding renders an embedding progress line.
@@ -155,7 +156,7 @@ func (sp *SyncProgress) RenderEmbedding(done, total int, detail string) {
 		pct = float64(done) / float64(total)
 	}
 
-	sp.renderLine("Embedding", fmt.Sprintf("%d/%d sessions", done, total), detail, pct)
+	sp.renderLine(thinktI18n.T("indexer.progress.embedding", "Embedding"), fmt.Sprintf("%d/%d sessions", done, total), detail, pct)
 }
 
 // Print outputs a progress line, using carriage return + clear on TTY.

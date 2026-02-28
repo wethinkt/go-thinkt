@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wethinkt/go-thinkt/internal/config"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 )
@@ -29,12 +30,12 @@ var statsCmd = &cobra.Command{
 		}
 
 		// Human readable output
-		fmt.Printf("Projects: %d\n", stats.TotalProjects)
-		fmt.Printf("Sessions: %d\n", stats.TotalSessions)
-		fmt.Printf("Entries:  %d\n", stats.TotalEntries)
-		fmt.Printf("Tokens:   %d\n", stats.TotalTokens)
+		fmt.Print(thinktI18n.Tf("indexer.stats.projects", "Projects: %d\n", stats.TotalProjects))
+		fmt.Print(thinktI18n.Tf("indexer.stats.sessions", "Sessions: %d\n", stats.TotalSessions))
+		fmt.Print(thinktI18n.Tf("indexer.stats.entries", "Entries:  %d\n", stats.TotalEntries))
+		fmt.Print(thinktI18n.Tf("indexer.stats.tokens", "Tokens:   %d\n", stats.TotalTokens))
 		if len(stats.TopTools) > 0 {
-			fmt.Println("Top Tools:")
+			fmt.Println(thinktI18n.T("indexer.stats.topTools", "Top Tools:"))
 			for _, tc := range stats.TopTools {
 				fmt.Printf("  %-30s %d\n", tc.Name, tc.Count)
 			}
@@ -42,15 +43,15 @@ var statsCmd = &cobra.Command{
 
 		// Indexer status
 		fmt.Println("----")
-		fmt.Printf("Database:    %s\n", dbPath)
+		fmt.Print(thinktI18n.Tf("indexer.stats.database", "Database:    %s\n", dbPath))
 		if stats.EmbedModel != "" {
-			fmt.Printf("Embedder:    %s (available)\n", stats.EmbedModel)
+			fmt.Print(thinktI18n.Tf("indexer.stats.embedderAvailable", "Embedder:    %s (available)\n", stats.EmbedModel))
 		} else if stats.EmbedderAvail {
-			fmt.Printf("Embedder:    %s (available)\n", embedding.DefaultModelID)
+			fmt.Print(thinktI18n.Tf("indexer.stats.embedderAvailable", "Embedder:    %s (available)\n", embedding.DefaultModelID))
 		} else {
-			fmt.Printf("Embedder:    %s (model not downloaded)\n", embedding.DefaultModelID)
+			fmt.Print(thinktI18n.Tf("indexer.stats.embedderNotDownloaded", "Embedder:    %s (model not downloaded)\n", embedding.DefaultModelID))
 		}
-		fmt.Printf("Embeddings:  %d\n", stats.TotalEmbeddings)
+		fmt.Print(thinktI18n.Tf("indexer.stats.embeddings", "Embeddings:  %d\n", stats.TotalEmbeddings))
 
 		return nil
 	},

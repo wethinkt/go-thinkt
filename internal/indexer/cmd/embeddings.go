@@ -16,6 +16,7 @@ import (
 
 	"github.com/wethinkt/go-thinkt/internal/cmd"
 	"github.com/wethinkt/go-thinkt/internal/config"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	indexer "github.com/wethinkt/go-thinkt/internal/indexer"
 	"github.com/wethinkt/go-thinkt/internal/indexer/db"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
@@ -81,17 +82,17 @@ var embeddingsPurgeCmd = &cobra.Command{
 				continue
 			}
 			if err := os.Remove(f); err != nil {
-				fmt.Fprintf(os.Stderr, "warning: could not remove %s: %v\n", f, err)
+				fmt.Fprint(os.Stderr, thinktI18n.Tf("indexer.embeddings.purge.removeWarning", "warning: could not remove %s: %v\n", f, err))
 			} else {
 				purged++
-				fmt.Printf("Removed: %s\n", filepath.Base(f))
+				fmt.Print(thinktI18n.Tf("indexer.embeddings.purge.removed", "Removed: %s\n", filepath.Base(f)))
 			}
 		}
 
 		if purged == 0 {
-			fmt.Println("No stale embedding databases to purge.")
+			fmt.Println(thinktI18n.T("indexer.embeddings.purge.noneFound", "No stale embedding databases to purge."))
 		} else {
-			fmt.Printf("Purged %d stale embedding database(s).\n", purged)
+			fmt.Print(thinktI18n.Tf("indexer.embeddings.purge.complete", "Purged %d stale embedding database(s).\n", purged))
 		}
 		return nil
 	},
@@ -107,14 +108,14 @@ var embeddingsEnableCmd = &cobra.Command{
 			cfg = config.Default()
 		}
 		if cfg.Embedding.Enabled {
-			fmt.Printf("Embedding is already enabled (model: %s).\n", cfg.Embedding.Model)
+			fmt.Print(thinktI18n.Tf("indexer.embeddings.alreadyEnabled", "Embedding is already enabled (model: %s).\n", cfg.Embedding.Model))
 			return nil
 		}
 		cfg.Embedding.Enabled = true
 		if err := config.Save(cfg); err != nil {
 			return fmt.Errorf("failed to save config: %w", err)
 		}
-		fmt.Printf("Embedding enabled (model: %s).\n", cfg.Embedding.Model)
+		fmt.Print(thinktI18n.Tf("indexer.embeddings.enabled", "Embedding enabled (model: %s).\n", cfg.Embedding.Model))
 		notifyServerConfigReload()
 		return nil
 	},
@@ -130,14 +131,14 @@ var embeddingsDisableCmd = &cobra.Command{
 			cfg = config.Default()
 		}
 		if !cfg.Embedding.Enabled {
-			fmt.Println("Embedding is already disabled.")
+			fmt.Println(thinktI18n.T("indexer.embeddings.alreadyDisabled", "Embedding is already disabled."))
 			return nil
 		}
 		cfg.Embedding.Enabled = false
 		if err := config.Save(cfg); err != nil {
 			return fmt.Errorf("failed to save config: %w", err)
 		}
-		fmt.Println("Embedding disabled.")
+		fmt.Println(thinktI18n.T("indexer.embeddings.disabled", "Embedding disabled."))
 		notifyServerConfigReload()
 		return nil
 	},
@@ -162,7 +163,7 @@ With an argument, switches directly to the specified model.`,
 			newModel = args[0]
 		} else {
 			if !isTTY() {
-				return fmt.Errorf("interactive model picker requires a terminal; pass model ID as argument")
+				return fmt.Errorf("%s", thinktI18n.T("indexer.embeddings.model.noTerminal", "interactive model picker requires a terminal; pass model ID as argument"))
 			}
 			selected, err := pickEmbeddingModel(cfg.Embedding.Model)
 			if err != nil {
@@ -174,14 +175,14 @@ With an argument, switches directly to the specified model.`,
 			newModel = *selected
 		}
 		if _, err := embedding.LookupModel(newModel); err != nil {
-			fmt.Fprintf(os.Stderr, "Unknown model %q. Available models:\n\n", newModel)
+			fmt.Fprint(os.Stderr, thinktI18n.Tf("indexer.embeddings.model.unknown", "Unknown model %q. Available models:\n\n", newModel))
 			printModelList(cfg.Embedding.Model)
 			cmd.SilenceErrors = true
 			return fmt.Errorf("unknown model %q", newModel)
 		}
 
 		if cfg.Embedding.Model == newModel {
-			fmt.Printf("Already using %s.\n", newModel)
+			fmt.Print(thinktI18n.Tf("indexer.embeddings.model.alreadyUsing", "Already using %s.\n", newModel))
 			return nil
 		}
 
@@ -191,9 +192,9 @@ With an argument, switches directly to the specified model.`,
 			return fmt.Errorf("failed to save config: %w", err)
 		}
 
-		fmt.Printf("Switched embedding model: %s → %s\n", old, newModel)
+		fmt.Print(thinktI18n.Tf("indexer.embeddings.model.switched", "Switched embedding model: %s → %s\n", old, newModel))
 		if cfg.Embedding.Enabled {
-			fmt.Println("The model will be downloaded on next sync if needed.")
+			fmt.Println(thinktI18n.T("indexer.embeddings.model.downloadHint", "The model will be downloaded on next sync if needed."))
 			notifyServerConfigReload()
 		}
 		return nil
@@ -242,7 +243,14 @@ func printModelList(activeModel string) {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "  MODEL\tDIM\tPOOLING\tMODEL SIZE\tSESSIONS\tDB SIZE")
+	fmt.Fprintf(w, "  %s\t%s\t%s\t%s\t%s\t%s\n",
+		thinktI18n.T("indexer.embeddings.header.model", "MODEL"),
+		thinktI18n.T("indexer.embeddings.header.dim", "DIM"),
+		thinktI18n.T("indexer.embeddings.header.pooling", "POOLING"),
+		thinktI18n.T("indexer.embeddings.header.modelSize", "MODEL SIZE"),
+		thinktI18n.T("indexer.embeddings.header.sessions", "SESSIONS"),
+		thinktI18n.T("indexer.embeddings.header.dbSize", "DB SIZE"),
+	)
 
 	for _, id := range ids {
 		spec := embedding.KnownModels[id]
@@ -251,7 +259,7 @@ func printModelList(activeModel string) {
 			pooling = "last-token"
 		}
 
-		modelSize := "not downloaded"
+		modelSize := thinktI18n.T("indexer.embeddings.notDownloaded", "not downloaded")
 		if size := modelFileSize(id); size >= 0 {
 			modelSize = formatBytes(size)
 		}
@@ -435,36 +443,36 @@ var embeddingsStatusCmd = &cobra.Command{
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
-		enabled := "disabled"
+		enabled := thinktI18n.T("indexer.embeddings.status.disabled", "disabled")
 		if cfg.Embedding.Enabled {
-			enabled = "enabled"
+			enabled = thinktI18n.T("indexer.embeddings.status.enabled", "enabled")
 		}
-		download := "not downloaded"
+		download := thinktI18n.T("indexer.embeddings.status.notDownloaded", "not downloaded")
 		if modelDownloaded {
-			download = "ready"
+			download = thinktI18n.T("indexer.embeddings.status.ready", "ready")
 		}
 
-		fmt.Fprintf(w, "Embedding:\t%s\n", enabled)
-		fmt.Fprintf(w, "Model:\t%s (%d dim)\n", modelID, spec.Dim)
-		fmt.Fprintf(w, "Download:\t%s\n", download)
+		fmt.Fprintf(w, "%s\t%s\n", thinktI18n.T("indexer.embeddings.status.embeddingLabel", "Embedding:"), enabled)
+		fmt.Fprintf(w, "%s\t%s (%d dim)\n", thinktI18n.T("indexer.embeddings.status.modelLabel", "Model:"), modelID, spec.Dim)
+		fmt.Fprintf(w, "%s\t%s\n", thinktI18n.T("indexer.embeddings.status.downloadLabel", "Download:"), download)
 		if activeStats.Count == 0 {
-			fmt.Fprintf(w, "Stored:\t0 embeddings\n")
+			fmt.Fprintf(w, "%s\t%s\n", thinktI18n.T("indexer.embeddings.status.storedLabel", "Stored:"), thinktI18n.T("indexer.embeddings.status.zeroEmbeddings", "0 embeddings"))
 		} else {
-			stored := fmt.Sprintf("%d embeddings across %d sessions", activeStats.Count, activeStats.Sessions)
+			stored := thinktI18n.Tf("indexer.embeddings.status.storedCount", "%d embeddings across %d sessions", activeStats.Count, activeStats.Sessions)
 			if activeStats.Size > 0 {
-				stored += fmt.Sprintf(" (%s on disk)", formatBytes(activeStats.Size))
+				stored += fmt.Sprintf(" (%s)", formatBytes(activeStats.Size))
 			}
-			fmt.Fprintf(w, "Stored:\t%s\n", stored)
+			fmt.Fprintf(w, "%s\t%s\n", thinktI18n.T("indexer.embeddings.status.storedLabel", "Stored:"), stored)
 			fmt.Fprintf(w, " conversation:\t%d\n", activeStats.Conversation)
 			fmt.Fprintf(w, " reasoning:\t%d\n", activeStats.Reasoning)
 		}
 
-		serverStatus := "not running"
+		serverStatus := thinktI18n.T("indexer.embeddings.status.serverNotRunning", "not running")
 		if serverRunning {
 			if serverModel != "" && serverModel != modelID {
-				serverStatus = fmt.Sprintf("running (model: %s)", serverModel)
+				serverStatus = thinktI18n.Tf("indexer.embeddings.status.serverRunningModel", "running (model: %s)", serverModel)
 			} else if serverEmbedding {
-				serverStatus = "embedding"
+				serverStatus = thinktI18n.T("indexer.embeddings.status.serverEmbedding", "embedding")
 				if embedProgress != nil {
 					serverStatus += fmt.Sprintf(" %d/%d sessions", embedProgress.Done, embedProgress.Total)
 					if embedProgress.ChunksTotal > 0 {
@@ -479,10 +487,10 @@ var embeddingsStatusCmd = &cobra.Command{
 					}
 				}
 			} else {
-				serverStatus = "idle"
+				serverStatus = thinktI18n.T("indexer.embeddings.status.serverIdle", "idle")
 			}
 		}
-		fmt.Fprintf(w, "Server:\t%s\n", serverStatus)
+		fmt.Fprintf(w, "%s\t%s\n", thinktI18n.T("indexer.embeddings.status.serverLabel", "Server:"), serverStatus)
 		w.Flush()
 
 		return nil
@@ -561,7 +569,7 @@ var embeddingsSyncCmd = &cobra.Command{
 				if sp.ShouldShowProgress(quiet, verbose) {
 					sp.Finish()
 				}
-				fmt.Fprintf(os.Stderr, "RPC embed_sync failed, falling back to inline: %v\n", err)
+				fmt.Fprint(os.Stderr, thinktI18n.Tf("indexer.embeddings.sync.rpcFallback", "RPC embed_sync failed, falling back to inline: %v\n", err))
 			} else if !resp.OK {
 				if sp.ShouldShowProgress(quiet, verbose) {
 					sp.Finish()
@@ -572,7 +580,7 @@ var embeddingsSyncCmd = &cobra.Command{
 					sp.Finish()
 				}
 				if !quiet {
-					fmt.Println("Embedding sync complete (via server).")
+					fmt.Println(thinktI18n.T("indexer.embeddings.sync.completeViaServer", "Embedding sync complete (via server)."))
 				}
 				return nil
 			}
@@ -581,7 +589,7 @@ var embeddingsSyncCmd = &cobra.Command{
 		// Inline fallback
 
 		if !cfg.Embedding.Enabled {
-			return fmt.Errorf("embedding is not enabled (run: thinkt-indexer embeddings enable)")
+			return fmt.Errorf("%s", thinktI18n.T("indexer.embeddings.sync.notEnabled", "embedding is not enabled (run: thinkt-indexer embeddings enable)"))
 		}
 
 		modelID := cfg.Embedding.Model
@@ -605,13 +613,13 @@ var embeddingsSyncCmd = &cobra.Command{
 
 		database, err := getDB()
 		if err != nil {
-			return fmt.Errorf("index database is locked by another process (likely 'thinkt-indexer serve'); use the server's embed sync instead")
+			return fmt.Errorf("%s", thinktI18n.T("indexer.embeddings.sync.dbLocked", "index database is locked by another process (likely 'thinkt-indexer serve'); use the server's embed sync instead"))
 		}
 		defer database.Close()
 
 		embDB, err := getEmbeddingsDB(modelID, embedder.Dim())
 		if err != nil {
-			return fmt.Errorf("embeddings database is locked by another process; use 'thinkt-indexer serve' to allow concurrent access")
+			return fmt.Errorf("%s", thinktI18n.T("indexer.embeddings.sync.embDbLocked", "embeddings database is locked by another process; use 'thinkt-indexer serve' to allow concurrent access"))
 		}
 		defer embDB.Close()
 
@@ -658,7 +666,7 @@ var embeddingsSyncCmd = &cobra.Command{
 		}
 
 		if !quiet {
-			fmt.Println("Embedding sync complete.")
+			fmt.Println(thinktI18n.T("indexer.embeddings.sync.complete", "Embedding sync complete."))
 		}
 		return nil
 	},

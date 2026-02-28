@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 )
 
@@ -22,7 +23,7 @@ var syncStatusCmd = &cobra.Command{
 					"state":   "stopped",
 				})
 			}
-			fmt.Println("Indexer server is not running.")
+			fmt.Println(thinktI18n.T("indexer.syncStatus.notRunning", "Indexer server is not running."))
 			return nil
 		}
 
@@ -57,11 +58,11 @@ var syncStatusCmd = &cobra.Command{
 			return json.NewEncoder(os.Stdout).Encode(out)
 		}
 
-		fmt.Printf("State:   %s\n", status.State)
-		fmt.Printf("Uptime:  %ds\n", status.UptimeSeconds)
-		fmt.Printf("Watcher: %v\n", status.Watching)
+		fmt.Print(thinktI18n.Tf("indexer.syncStatus.state", "State:   %s\n", status.State))
+		fmt.Print(thinktI18n.Tf("indexer.syncStatus.uptime", "Uptime:  %ds\n", status.UptimeSeconds))
+		fmt.Print(thinktI18n.Tf("indexer.syncStatus.watcher", "Watcher: %v\n", status.Watching))
 		if status.Model != "" {
-			fmt.Printf("Model:   %s (%d dim)\n", status.Model, status.ModelDim)
+			fmt.Print(thinktI18n.Tf("indexer.syncStatus.model", "Model:   %s (%d dim)\n", status.Model, status.ModelDim))
 		}
 		if status.SyncProgress != nil {
 			p := status.SyncProgress

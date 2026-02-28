@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wethinkt/go-thinkt/internal/cmd"
 	"github.com/wethinkt/go-thinkt/internal/config"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/indexer"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 )
@@ -61,7 +62,7 @@ func runIndexSync() error {
 			if sp.ShouldShowProgress(quiet, verbose) {
 				sp.Finish()
 			}
-			fmt.Fprintf(os.Stderr, "RPC sync failed, falling back to inline: %v\n", err)
+			fmt.Fprint(os.Stderr, thinktI18n.Tf("indexer.sync.rpcFallback", "RPC sync failed, falling back to inline: %v\n", err))
 		} else if !resp.OK {
 			if sp.ShouldShowProgress(quiet, verbose) {
 				sp.Finish()
@@ -72,7 +73,7 @@ func runIndexSync() error {
 				sp.Finish()
 			}
 			if !quiet {
-				fmt.Println("Indexing complete (via server).")
+				fmt.Println(thinktI18n.T("indexer.sync.completeViaServer", "Indexing complete (via server)."))
 			}
 			return nil
 		}
@@ -109,7 +110,7 @@ func runIndexSync() error {
 
 	if len(projects) == 0 {
 		if !quiet {
-			fmt.Println("No projects found to index.")
+			fmt.Println(thinktI18n.T("indexer.sync.noProjects", "No projects found to index."))
 		}
 		return nil
 	}
@@ -117,13 +118,13 @@ func runIndexSync() error {
 	totalProjects := len(projects)
 	for idx, p := range projects {
 		if verbose && !sp.IsTTY() {
-			fmt.Printf("Indexing project: %s (%s)\n", p.Name, p.Path)
+			fmt.Print(thinktI18n.Tf("indexer.sync.indexingProject", "Indexing project: %s (%s)\n", p.Name, p.Path))
 		}
 		if err := ingester.IngestProject(ctx, p, idx+1, totalProjects); err != nil {
 			if sp.IsTTY() {
 				sp.Finish()
 			}
-			fmt.Fprintf(os.Stderr, "Error indexing project %s: %v\n", p.Name, err)
+			fmt.Fprint(os.Stderr, thinktI18n.Tf("indexer.sync.projectError", "Error indexing project %s: %v\n", p.Name, err))
 		}
 	}
 
@@ -132,7 +133,7 @@ func runIndexSync() error {
 	}
 
 	if !quiet {
-		fmt.Println("Indexing complete.")
+		fmt.Println(thinktI18n.T("indexer.sync.complete", "Indexing complete."))
 	}
 	return nil
 }

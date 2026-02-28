@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
@@ -20,9 +21,9 @@ func notifyServerConfigReload() {
 	if rpc.ServerAvailable() {
 		resp, err := rpc.Call(rpc.MethodConfigReload, nil, nil)
 		if err != nil {
-			fmt.Printf("Warning: failed to notify server: %v\n", err)
+			fmt.Print(thinktI18n.Tf("indexer.semantic.notifyFailed", "Warning: failed to notify server: %v\n", err))
 		} else if resp != nil && resp.OK {
-			fmt.Println("Server notified.")
+			fmt.Println(thinktI18n.T("indexer.semantic.serverNotified", "Server notified."))
 		}
 	}
 }
@@ -74,7 +75,7 @@ Use --list to output results directly to the terminal (useful for scripting).`,
 		// List output
 		if semList {
 			if len(results) == 0 {
-				fmt.Println("No semantic matches found.")
+				fmt.Println(thinktI18n.T("indexer.semantic.noMatches", "No semantic matches found."))
 				return nil
 			}
 			for _, r := range results {
@@ -96,7 +97,7 @@ Use --list to output results directly to the terminal (useful for scripting).`,
 		// TUI mode (default) — fall back to list when not a TTY
 		if !isTTY() {
 			if len(results) == 0 {
-				fmt.Println("No semantic matches found.")
+				fmt.Println(thinktI18n.T("indexer.semantic.noMatches", "No semantic matches found."))
 				return nil
 			}
 			for _, r := range results {
@@ -116,7 +117,7 @@ Use --list to output results directly to the terminal (useful for scripting).`,
 		}
 
 		if len(results) == 0 {
-			fmt.Println("No semantic matches found.")
+			fmt.Println(thinktI18n.T("indexer.semantic.noMatches", "No semantic matches found."))
 			return nil
 		}
 

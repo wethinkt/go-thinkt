@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wethinkt/go-thinkt/internal/cmd"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/indexer"
 	"github.com/wethinkt/go-thinkt/internal/indexer/db"
@@ -754,7 +755,7 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 	}()
 
 	if !quiet {
-		fmt.Fprintf(os.Stderr, "Indexer server running (PID: %d). Press Ctrl+C to stop.\n", os.Getpid())
+		fmt.Fprint(os.Stderr, thinktI18n.Tf("indexer.server.running", "Indexer server running (PID: %d). Press Ctrl+C to stop.\n", os.Getpid()))
 	}
 
 	// 10. Wait for signal
