@@ -70,6 +70,11 @@ tasks:
     cmds:
       - go test ./...
 
+  i18n:coverage:
+    desc: Show translation coverage per locale
+    cmds:
+      - go test ./internal/i18n/ -run TestTranslationCoverage -v
+
   go-tidy:
     desc: Tidy Go modules
     cmds:
