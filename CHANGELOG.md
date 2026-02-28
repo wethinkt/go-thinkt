@@ -1,5 +1,13 @@
 # `go-thinkt` CHANGELOG
 
+## v0.6.2 (2026-02-28)
+
+* **TUI**
+  - Add scrollbar and mouse scroll support to the conversation viewer
+
+* **Bug Fixes**
+  - Fix sessions showing `0 msgs` in web UI: backfill `EntryCount` by counting JSONL lines when `sessions-index.json` is missing or has `messageCount: 0`
+
 ## v0.6.1 (2026-02-28)
 
 * **Inline Image Rendering**
