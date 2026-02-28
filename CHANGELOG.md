@@ -1,5 +1,24 @@
 # `go-thinkt` CHANGELOG
 
+## v0.6.1 (2026-02-28)
+
+* **Inline Image Rendering**
+  - Display embedded images (screenshots pasted into Claude Code) directly in the TUI conversation viewer
+  - Uses Kitty Unicode placeholder protocol for terminals that support it (Ghostty, Kitty, WezTerm)
+  - Falls back to text placeholder with dimensions and size for unsupported terminals
+  - `--raw` mode renders images via Kitty graphics or Sixel protocols
+  - Added `5:Media` filter toggle to show/hide image and document blocks independently
+
+* **Build & Distribution**
+  - Added macOS entitlements (`com.apple.security.cs.disable-library-validation`) for notarized builds, allowing the unsigned libffi library used by yzma to load
+  - Cleaner CLI output: suppress cobra usage on errors for `server` and `indexer` commands
+  - Better stderr handling when launching the indexer subprocess
+
+* **Bug Fixes**
+  - Fix missing Claude sessions: `sessions-index.json` was trusted as sole source of truth; now always scans filesystem and uses the index only to enrich metadata
+  - Fix image entries silently dropped from Claude sessions due to `imagePasteIds` type mismatch (integer vs string)
+  - Fix user content blocks (images) not converted in lazy session path (`ToThinktEntry`)
+
 ## v0.6.0 (2026-02-27)
 
 * **On-Device Semantic Search**
