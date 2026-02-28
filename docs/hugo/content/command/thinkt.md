@@ -45,6 +45,7 @@ thinkt [flags]
 * [thinkt docs](thinkt_docs.md)	 - Generate documentation for thinkt
 * [thinkt embeddings](thinkt_embeddings.md)	 - Manage embedding model, storage, and sync
 * [thinkt indexer](thinkt_indexer.md)	 - Specialized indexing and search via DuckDB (requires thinkt-indexer)
+* [thinkt language](thinkt_language.md)	 - Get or set the display language
 * [thinkt projects](thinkt_projects.md)	 - Manage and view projects
 * [thinkt prompts](thinkt_prompts.md)	 - Extract and manage prompts from trace files
 * [thinkt search](thinkt_search.md)	 - Search for text across indexed sessions

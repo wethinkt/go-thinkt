@@ -123,6 +123,10 @@ homebrew_casks:
       - man/man1/thinkt-indexer-sync.1
       - man/man1/thinkt-indexer-version.1
       - man/man1/thinkt-indexer.1
+      - man/man1/thinkt-language-get.1
+      - man/man1/thinkt-language-list.1
+      - man/man1/thinkt-language-set.1
+      - man/man1/thinkt-language.1
       - man/man1/thinkt-projects-copy.1
       - man/man1/thinkt-projects-list.1
       - man/man1/thinkt-projects-summary.1
