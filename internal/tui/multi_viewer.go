@@ -13,6 +13,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
@@ -624,20 +625,21 @@ func (m *MultiViewerModel) appendLoadError(idx int, err error) {
 }
 
 func (m MultiViewerModel) renderNoSessionContent() string {
+	noSessionsMsg := thinktI18n.T("tui.viewer.noSessions", "No sessions loaded successfully")
 	if len(m.loadErrors) == 0 {
-		return "No sessions loaded successfully"
+		return noSessionsMsg
 	}
 
 	lines := []string{
-		"No sessions loaded successfully",
+		noSessionsMsg,
 		"",
-		"Debug (load errors):",
+		thinktI18n.T("tui.viewer.debugLoadErrors", "Debug (load errors):"),
 	}
 	for _, errLine := range m.loadErrors {
 		lines = append(lines, " - "+truncateDebugLine(errLine, m.width-6))
 	}
 	lines = append(lines, "")
-	lines = append(lines, "Set THINKT_LOG_FILE=/tmp/thinkt.log for full logs.")
+	lines = append(lines, thinktI18n.T("tui.viewer.logHint", "Set THINKT_LOG_FILE=/tmp/thinkt.log for full logs."))
 	return strings.Join(lines, "\n")
 }
 
@@ -851,7 +853,7 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.searchMode = true
 			m.searchInput = textinput.New()
 			m.searchInput.Prompt = ""
-			m.searchInput.Placeholder = "Search..."
+			m.searchInput.Placeholder = thinktI18n.T("tui.viewer.searchPlaceholder", "Search...")
 			m.searchInput.Focus()
 			m.searchInput.CharLimit = 256
 			m.searchInput.SetWidth(m.width - 4)
@@ -1048,9 +1050,9 @@ func (m MultiViewerModel) renderHeaderLeft() string {
 		}
 	}
 	if loaded == 0 {
-		return "Sessions"
+		return thinktI18n.T("tui.viewer.sessions", "Sessions")
 	}
-	return fmt.Sprintf("%d Sessions", loaded)
+	return thinktI18n.Tf("tui.viewer.sessionsCount", "%d Sessions", loaded)
 }
 
 // FilterStatus returns the rendered filter status string for use by the shell header.
@@ -1070,12 +1072,12 @@ func (m MultiViewerModel) renderFilterStatus() string {
 		style lipgloss.Style // active color from conversation view
 	}
 	items := []filterItem{
-		{"1", "User", m.filters.User, userLabel},
-		{"2", "Assistant", m.filters.Assistant, assistantLabel},
-		{"3", "Thinking", m.filters.Thinking, thinkingLabel},
-		{"4", "Tools", m.filters.Tools, toolLabel},
-		{"5", "Media", m.filters.Media, imageLabel},
-		{"6", "Other", m.filters.Other, otherLabel},
+		{"1", thinktI18n.T("tui.filter.user", "User"), m.filters.User, userLabel},
+		{"2", thinktI18n.T("tui.filter.assistant", "Assistant"), m.filters.Assistant, assistantLabel},
+		{"3", thinktI18n.T("tui.filter.thinking", "Thinking"), m.filters.Thinking, thinkingLabel},
+		{"4", thinktI18n.T("tui.filter.tools", "Tools"), m.filters.Tools, toolLabel},
+		{"5", thinktI18n.T("tui.filter.media", "Media"), m.filters.Media, imageLabel},
+		{"6", thinktI18n.T("tui.filter.other", "Other"), m.filters.Other, otherLabel},
 	}
 
 	var parts []string
@@ -1154,7 +1156,7 @@ func (m MultiViewerModel) viewContent() string {
 			progress = fmt.Sprintf(" (%d/%d)", m.currentIdx, len(m.sessionPaths))
 		}
 		tuilog.Log.Debug("MultiViewer.View: still loading", "ready", m.ready, "renderedLen", len(m.rendered), "loadedCount", m.loadedCount, "allDone", allDone)
-		return "Loading..." + progress
+		return thinktI18n.T("tui.viewer.loading", "Loading...") + progress
 	}
 
 	// Handle case where content couldn't be rendered (e.g., all sessions failed)
@@ -1185,9 +1187,9 @@ func (m MultiViewerModel) viewContent() string {
 			matchInfo := fmt.Sprintf("Match %d/%d", m.currentMatch+1, len(m.searchMatches))
 			helpText = fmt.Sprintf("%s  ·  n/N: next/prev  ·  /: search  ·  esc: clear", matchInfo)
 		} else if m.searchQuery != "" {
-			helpText = "No matches  ·  /: search  ·  esc: clear"
+			helpText = thinktI18n.T("tui.viewer.helpNoMatches", "No matches  ·  /: search  ·  esc: clear")
 		} else {
-			helpText = "↑/↓: scroll • /: search • 1-6: filters • g/G: top/bottom • esc: back • q: quit"
+			helpText = thinktI18n.T("tui.viewer.help", "↑/↓: scroll • /: search • 1-6: filters • g/G: top/bottom • esc: back • q: quit")
 		}
 		help := viewerHelpStyle.Render(helpText)
 		footerWidth := m.width - lipgloss.Width(position) - 4

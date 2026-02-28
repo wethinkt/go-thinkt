@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
@@ -50,33 +51,33 @@ func defaultSourcePickerKeyMap(multi bool) sourcePickerKeyMap {
 	km := sourcePickerKeyMap{
 		Up: key.NewBinding(
 			key.WithKeys("up", "k"),
-			key.WithHelp("↑/k", "up"),
+			key.WithHelp("↑/k", thinktI18n.T("tui.help.up", "up")),
 		),
 		Down: key.NewBinding(
 			key.WithKeys("down", "j"),
-			key.WithHelp("↓/j", "down"),
+			key.WithHelp("↓/j", thinktI18n.T("tui.help.down", "down")),
 		),
 		Enter: key.NewBinding(
 			key.WithKeys("enter"),
-			key.WithHelp("enter", "confirm"),
+			key.WithHelp("enter", thinktI18n.T("tui.help.confirm", "confirm")),
 		),
 		Quit: key.NewBinding(
 			key.WithKeys("esc", "q"),
-			key.WithHelp("esc", "cancel"),
+			key.WithHelp("esc", thinktI18n.T("tui.help.cancel", "cancel")),
 		),
 	}
 	if multi {
 		km.Toggle = key.NewBinding(
 			key.WithKeys("space"),
-			key.WithHelp("space", "toggle"),
+			key.WithHelp("space", thinktI18n.T("tui.help.toggle", "toggle")),
 		)
 		km.All = key.NewBinding(
 			key.WithKeys("a"),
-			key.WithHelp("a", "all"),
+			key.WithHelp("a", thinktI18n.T("tui.help.all", "all")),
 		)
 		km.None = key.NewBinding(
 			key.WithKeys("n"),
-			key.WithHelp("n", "none"),
+			key.WithHelp("n", thinktI18n.T("tui.help.none", "none")),
 		)
 	}
 	return km
@@ -219,9 +220,9 @@ func (m SourcePickerModel) viewContent() string {
 	var b strings.Builder
 
 	if m.multiSelect {
-		b.WriteString(spTitleStyle.Render("Filter by Source"))
+		b.WriteString(spTitleStyle.Render(thinktI18n.T("tui.sourcePicker.filterTitle", "Filter by Source")))
 	} else {
-		b.WriteString(spTitleStyle.Render("Select a Source"))
+		b.WriteString(spTitleStyle.Render(thinktI18n.T("tui.sourcePicker.selectTitle", "Select a Source")))
 	}
 	b.WriteString("\n")
 
@@ -247,7 +248,7 @@ func (m SourcePickerModel) viewContent() string {
 		// Source name with color
 		name := string(o.Source)
 		if !o.Enabled {
-			b.WriteString(spDisabledStyle.Render(name + " (no data)"))
+			b.WriteString(spDisabledStyle.Render(name + " " + thinktI18n.T("tui.sourcePicker.noData", "(no data)")))
 		} else {
 			style := lipgloss.NewStyle().Foreground(lipgloss.Color(SourceColorHex(o.Source)))
 			if isCursor {
@@ -261,9 +262,9 @@ func (m SourcePickerModel) viewContent() string {
 
 	// Help line
 	if m.multiSelect {
-		b.WriteString(spHelpStyle.Render("space toggle • a all • n none • enter confirm • esc cancel"))
+		b.WriteString(spHelpStyle.Render(thinktI18n.T("tui.sourcePicker.helpMulti", "space toggle • a all • n none • enter confirm • esc cancel")))
 	} else {
-		b.WriteString(spHelpStyle.Render("enter select • esc cancel"))
+		b.WriteString(spHelpStyle.Render(thinktI18n.T("tui.sourcePicker.helpSingle", "enter select • esc cancel")))
 	}
 
 	inner := lipgloss.NewStyle().Padding(1, 3).Render(b.String())

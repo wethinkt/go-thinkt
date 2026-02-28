@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/indexer/db"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
@@ -32,7 +33,7 @@ type SearchInputModel struct {
 // NewSearchInputModel creates a new search input model.
 func NewSearchInputModel() SearchInputModel {
 	ti := textinput.New()
-	ti.Placeholder = "Enter search query..."
+	ti.Placeholder = thinktI18n.T("tui.search.placeholder", "Enter search query...")
 	ti.Focus()
 	ti.CharLimit = 156
 
@@ -91,8 +92,8 @@ func (m SearchInputModel) viewContent() string {
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(theme.Current().TextMuted.Fg))
 
-	title := titleStyle.Render("Search Sessions")
-	help := helpStyle.Render("enter: search  ·  esc: cancel")
+	title := titleStyle.Render(thinktI18n.T("tui.search.title", "Search Sessions"))
+	help := helpStyle.Render(thinktI18n.T("tui.search.help", "enter: search  ·  esc: cancel"))
 
 	content := fmt.Sprintf("%s\n\n%s\n\n%s", title, m.input.View(), help)
 

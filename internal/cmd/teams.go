@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
@@ -166,35 +167,9 @@ func buildTeamSummary(ctx context.Context, ts thinkt.TeamStore, team thinkt.Team
 	}
 
 	if !latestTaskTime.IsZero() {
-		s.LastActivity = humanizeTime(latestTaskTime)
+		s.LastActivity = thinktI18n.RelativeTime(latestTaskTime)
 	}
 
 	return s
 }
 
-// humanizeTime returns a human-friendly relative time string.
-func humanizeTime(t time.Time) string {
-	d := time.Since(t)
-	switch {
-	case d < time.Minute:
-		return "just now"
-	case d < time.Hour:
-		mins := int(d.Minutes())
-		if mins == 1 {
-			return "1 min ago"
-		}
-		return fmt.Sprintf("%d mins ago", mins)
-	case d < 24*time.Hour:
-		hours := int(d.Hours())
-		if hours == 1 {
-			return "1 hour ago"
-		}
-		return fmt.Sprintf("%d hours ago", hours)
-	default:
-		days := int(d.Hours() / 24)
-		if days == 1 {
-			return "1 day ago"
-		}
-		return fmt.Sprintf("%d days ago", days)
-	}
-}

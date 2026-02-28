@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -223,13 +224,13 @@ func (s *Shell) renderHeader() string {
 
 		switch current.Model.(type) {
 		case ProjectPickerModel:
-			left = actionStyle.Render("Select project...")
+			left = actionStyle.Render(thinktI18n.T("tui.shell.selectProject", "Select project..."))
 
 		case SessionPickerModel:
 			if current.Title == "Sessions" {
-				left = actionStyle.Render("Select session...")
+				left = actionStyle.Render(thinktI18n.T("tui.shell.selectSession", "Select session..."))
 			} else {
-				left = nameStyle.Render(current.Title) + sep + actionStyle.Render("Select session...")
+				left = nameStyle.Render(current.Title) + sep + actionStyle.Render(thinktI18n.T("tui.shell.selectSession", "Select session..."))
 			}
 
 		case MultiViewerModel:
@@ -247,7 +248,7 @@ func (s *Shell) renderHeader() string {
 			left += "  " + current.Model.(MultiViewerModel).FilterStatus()
 
 		case SearchInputModel:
-			left = actionStyle.Render("Search...")
+			left = actionStyle.Render(thinktI18n.T("tui.shell.searching", "Search..."))
 
 		case SearchPickerModel:
 			left = nameStyle.Render(current.Title)
@@ -571,7 +572,7 @@ func (s *Shell) View() tea.View {
 			Foreground(lipgloss.Color(t.TextSecondary.Fg))
 
 		brand := brandStyle.Render("🧠 thinkt")
-		loading := loadingStyle.Render("Loading...")
+		loading := loadingStyle.Render(thinktI18n.T("tui.shell.loading", "Loading..."))
 
 		// Brand in top-right corner
 		brandWidth := lipgloss.Width(brand)
@@ -599,7 +600,7 @@ func (s *Shell) View() tea.View {
 	}
 
 	if s.stack.IsEmpty() {
-		v := tea.NewView("No pages to display")
+		v := tea.NewView(thinktI18n.T("tui.shell.noPages", "No pages to display"))
 		v.AltScreen = true
 		return v
 	}

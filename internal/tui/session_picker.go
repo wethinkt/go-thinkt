@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
@@ -64,7 +65,7 @@ func (i pickerSessionItem) sessionTitle(maxLen int) string {
 		title = i.meta.ID
 	}
 	if title == "" {
-		title = "(untitled)"
+		title = thinktI18n.T("tui.session.untitled", "(untitled)")
 	}
 
 	runes := []rune(title)
@@ -138,9 +139,9 @@ func (d sessionDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 // ShortHelp returns key bindings for the help bar.
 func (d sessionDelegate) ShortHelp() []key.Binding {
 	return []key.Binding{
-		key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "resume")),
-		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "sources")),
-		key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "search")),
+		key.NewBinding(key.WithKeys("r"), key.WithHelp("r", thinktI18n.T("tui.help.resume", "resume"))),
+		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", thinktI18n.T("tui.help.sources", "sources"))),
+		key.NewBinding(key.WithKeys("/"), key.WithHelp("/", thinktI18n.T("tui.help.search", "search"))),
 	}
 }
 
@@ -189,7 +190,7 @@ func (d sessionDelegate) Render(w io.Writer, m list.Model, index int, item list.
 		ts = meta.CreatedAt
 	}
 	if !ts.IsZero() {
-		detailParts = append(detailParts, relativeDate(ts))
+		detailParts = append(detailParts, thinktI18n.RelativeTimeShort(ts))
 	}
 	if meta.Source != "" {
 		sourceStr := lipgloss.NewStyle().
@@ -277,31 +278,31 @@ func defaultPickerKeyMap() pickerKeyMap {
 	return pickerKeyMap{
 		Enter: key.NewBinding(
 			key.WithKeys("enter"),
-			key.WithHelp("enter", "select"),
+			key.WithHelp("enter", thinktI18n.T("tui.help.select", "select")),
 		),
 		Back: key.NewBinding(
 			key.WithKeys("esc"),
-			key.WithHelp("esc", "back"),
+			key.WithHelp("esc", thinktI18n.T("tui.help.back", "back")),
 		),
 		Quit: key.NewBinding(
 			key.WithKeys("q", "ctrl+c"),
-			key.WithHelp("q", "quit"),
+			key.WithHelp("q", thinktI18n.T("tui.help.quit", "quit")),
 		),
 		Sources: key.NewBinding(
 			key.WithKeys("s"),
-			key.WithHelp("s", "sources"),
+			key.WithHelp("s", thinktI18n.T("tui.help.sources", "sources")),
 		),
 		Search: key.NewBinding(
 			key.WithKeys("/"),
-			key.WithHelp("/", "search"),
+			key.WithHelp("/", thinktI18n.T("tui.help.search", "search")),
 		),
 		Resume: key.NewBinding(
 			key.WithKeys("r"),
-			key.WithHelp("r", "resume"),
+			key.WithHelp("r", thinktI18n.T("tui.help.resume", "resume")),
 		),
 		OpenWeb: key.NewBinding(
 			key.WithKeys("w"),
-			key.WithHelp("w", "open web"),
+			key.WithHelp("w", thinktI18n.T("tui.help.openWeb", "open web")),
 		),
 	}
 }
@@ -358,7 +359,7 @@ func (m *SessionPickerModel) SetTitle(title string) {
 }
 
 func sessionPickerTitle(count int, sourceFilter []thinkt.Source) string {
-	title := fmt.Sprintf("%d sessions", count)
+	title := thinktI18n.Tf("tui.sessionPicker.title", "%d sessions", count)
 	if len(sourceFilter) > 0 {
 		names := make([]string, len(sourceFilter))
 		for i, s := range sourceFilter {
@@ -571,7 +572,7 @@ var pickerStyle = lipgloss.NewStyle().Padding(1, 2)
 
 func (m SessionPickerModel) viewContent() string {
 	if !m.ready {
-		return "Loading..."
+		return thinktI18n.T("tui.sessionPicker.loading", "Loading...")
 	}
 	if m.quitting {
 		return ""

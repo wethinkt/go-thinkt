@@ -10,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
@@ -52,8 +53,8 @@ func (d appDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd {
 
 func (d appDelegate) ShortHelp() []key.Binding {
 	return []key.Binding{
-		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
-		key.NewBinding(key.WithKeys("esc", "q"), key.WithHelp("esc/q", "cancel")),
+		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", thinktI18n.T("tui.help.select", "select"))),
+		key.NewBinding(key.WithKeys("esc", "q"), key.WithHelp("esc/q", thinktI18n.T("tui.help.cancel", "cancel"))),
 	}
 }
 
@@ -205,7 +206,7 @@ func (m AppPickerModel) viewContent() string {
 		Foreground(accent)
 
 	// Build Content
-	title := labelStyle.Render("Open Project In:")
+	title := labelStyle.Render(thinktI18n.T("tui.appPicker.title", "Open Project In:"))
 	path := pathStyle.Render(m.target)
 
 	// Add a distinct border or separator for the list area

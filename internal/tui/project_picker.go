@@ -14,6 +14,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
@@ -123,27 +124,6 @@ func shortenPath(path string) string {
 	return path
 }
 
-// relativeDate formats a time as a short relative string.
-func relativeDate(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-	now := time.Now()
-	d := now.Sub(t)
-	switch {
-	case d < 24*time.Hour:
-		return "today"
-	case d < 48*time.Hour:
-		return "1d ago"
-	case d < 30*24*time.Hour:
-		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
-	case d < 365*24*time.Hour:
-		return fmt.Sprintf("%dmo ago", int(d.Hours()/(24*30)))
-	default:
-		return fmt.Sprintf("%dy ago", int(d.Hours()/(24*365)))
-	}
-}
-
 // flatProjectDelegate renders projects as a flat single-line list (no tree structure).
 type flatProjectDelegate struct {
 	normalStyle   lipgloss.Style
@@ -172,10 +152,10 @@ func (d flatProjectDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd {
 
 func (d flatProjectDelegate) ShortHelp() []key.Binding {
 	return []key.Binding{
-		key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "sort date")),
-		key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "sort name")),
-		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "sources")),
-		key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "tree view")),
+		key.NewBinding(key.WithKeys("d"), key.WithHelp("d", thinktI18n.T("tui.help.sortDate", "sort date"))),
+		key.NewBinding(key.WithKeys("n"), key.WithHelp("n", thinktI18n.T("tui.help.sortName", "sort name"))),
+		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", thinktI18n.T("tui.help.sources", "sources"))),
+		key.NewBinding(key.WithKeys("t"), key.WithHelp("t", thinktI18n.T("tui.help.treeView", "tree view"))),
 	}
 }
 
@@ -205,7 +185,7 @@ func (d flatProjectDelegate) Render(w io.Writer, m list.Model, index int, item l
 		badges = append(badges, badge)
 	}
 	badgeStr := strings.Join(badges, "  ")
-	dateStr := relativeDate(agg.LastModified)
+	dateStr := thinktI18n.RelativeTimeShort(agg.LastModified)
 
 	var line string
 	if emptyFilter {
@@ -257,12 +237,12 @@ func (d treeProjectDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd {
 // ShortHelp returns key bindings for the short help view.
 func (d treeProjectDelegate) ShortHelp() []key.Binding {
 	return []key.Binding{
-		key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "sort date")),
-		key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "sort name")),
-		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "sources")),
-		key.NewBinding(key.WithKeys("left", "right", "space"), key.WithHelp("←/→/space", "collapse/expand")),
-		key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "flat view")),
-		key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "search")),
+		key.NewBinding(key.WithKeys("d"), key.WithHelp("d", thinktI18n.T("tui.help.sortDate", "sort date"))),
+		key.NewBinding(key.WithKeys("n"), key.WithHelp("n", thinktI18n.T("tui.help.sortName", "sort name"))),
+		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", thinktI18n.T("tui.help.sources", "sources"))),
+		key.NewBinding(key.WithKeys("left", "right", "space"), key.WithHelp("←/→/space", thinktI18n.T("tui.help.collapseExpand", "collapse/expand"))),
+		key.NewBinding(key.WithKeys("t"), key.WithHelp("t", thinktI18n.T("tui.help.flatView", "flat view"))),
+		key.NewBinding(key.WithKeys("/"), key.WithHelp("/", thinktI18n.T("tui.help.search", "search"))),
 	}
 }
 
@@ -326,7 +306,7 @@ func (d treeProjectDelegate) Render(w io.Writer, m list.Model, index int, item l
 	}
 	badgeStr := strings.Join(badges, "  ")
 
-	dateStr := relativeDate(agg.LastModified)
+	dateStr := thinktI18n.RelativeTimeShort(agg.LastModified)
 
 	var line string
 	if emptyFilter {
@@ -395,62 +375,62 @@ func defaultProjectPickerKeyMap() projectPickerKeyMap {
 	return projectPickerKeyMap{
 		Enter: key.NewBinding(
 			key.WithKeys("enter"),
-			key.WithHelp("enter", "select"),
+			key.WithHelp("enter", thinktI18n.T("tui.help.select", "select")),
 		),
 		Back: key.NewBinding(
 			key.WithKeys("esc"),
-			key.WithHelp("esc", "back"),
+			key.WithHelp("esc", thinktI18n.T("tui.help.back", "back")),
 		),
 		Quit: key.NewBinding(
 			key.WithKeys("q", "ctrl+c"),
-			key.WithHelp("q", "quit"),
+			key.WithHelp("q", thinktI18n.T("tui.help.quit", "quit")),
 		),
 		SortDate: key.NewBinding(
 			key.WithKeys("d"),
-			key.WithHelp("d", "sort date"),
+			key.WithHelp("d", thinktI18n.T("tui.help.sortDate", "sort date")),
 		),
 		SortName: key.NewBinding(
 			key.WithKeys("n"),
-			key.WithHelp("n", "sort name"),
+			key.WithHelp("n", thinktI18n.T("tui.help.sortName", "sort name")),
 		),
 		Sources: key.NewBinding(
 			key.WithKeys("s"),
-			key.WithHelp("s", "sources"),
+			key.WithHelp("s", thinktI18n.T("tui.help.sources", "sources")),
 		),
 		OpenIn: key.NewBinding(
 			key.WithKeys("o"),
-			key.WithHelp("o", "open in"),
+			key.WithHelp("o", thinktI18n.T("tui.help.openIn", "open in")),
 		),
 		OpenWeb: key.NewBinding(
 			key.WithKeys("w"),
-			key.WithHelp("w", "open web"),
+			key.WithHelp("w", thinktI18n.T("tui.help.openWeb", "open web")),
 		),
 		Left: key.NewBinding(
 			key.WithKeys("left"),
-			key.WithHelp("←", "collapse"),
+			key.WithHelp("←", thinktI18n.T("tui.help.collapse", "collapse")),
 		),
 		Right: key.NewBinding(
 			key.WithKeys("right"),
-			key.WithHelp("→", "expand"),
+			key.WithHelp("→", thinktI18n.T("tui.help.expand", "expand")),
 		),
 		Toggle: key.NewBinding(
 			key.WithKeys("space"),
-			key.WithHelp("space", "toggle"),
+			key.WithHelp("space", thinktI18n.T("tui.help.toggle", "toggle")),
 		),
 		TreeToggle: key.NewBinding(
 			key.WithKeys("t"),
-			key.WithHelp("t", "tree/flat"),
+			key.WithHelp("t", thinktI18n.T("tui.help.treeFlat", "tree/flat")),
 		),
 		Search: key.NewBinding(
 			key.WithKeys("/"),
-			key.WithHelp("/", "search"),
+			key.WithHelp("/", thinktI18n.T("tui.help.search", "search")),
 		),
 	}
 }
 
 // pickerTitle returns the list title with sort info, item count, and source filter.
 func pickerTitle(field sortField, dir sortDir, count int, sourceFilter []thinkt.Source) string {
-	title := fmt.Sprintf("%d projects · %s %s", count, field, dir.arrow())
+	title := thinktI18n.Tf("tui.projectPicker.title", "%d projects · %s %s", count, field, dir.arrow())
 	if len(sourceFilter) > 0 {
 		names := make([]string, len(sourceFilter))
 		for i, s := range sourceFilter {
@@ -912,7 +892,7 @@ var projectPickerStyle = lipgloss.NewStyle().Padding(1, 2)
 
 func (m ProjectPickerModel) viewContent() string {
 	if !m.ready {
-		return "Loading..."
+		return thinktI18n.T("tui.projectPicker.loading", "Loading...")
 	}
 	if m.quitting {
 		return ""
