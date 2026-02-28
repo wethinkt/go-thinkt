@@ -9,6 +9,8 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 )
 
 // ConfirmResult represents the outcome of a confirmation dialog.
@@ -33,10 +35,10 @@ type ConfirmOptions struct {
 // This is the main entry point for using the confirm component.
 func Confirm(opts ConfirmOptions) (ConfirmResult, error) {
 	if opts.Affirmative == "" {
-		opts.Affirmative = "Yes"
+		opts.Affirmative = thinktI18n.T("tui.confirm.yes", "Yes")
 	}
 	if opts.Negative == "" {
-		opts.Negative = "No"
+		opts.Negative = thinktI18n.T("tui.confirm.no", "No")
 	}
 	if opts.Output == nil {
 		opts.Output = os.Stdout
@@ -82,11 +84,11 @@ func defaultConfirmKeyMap(affirmative, negative string) confirmKeyMap {
 	return confirmKeyMap{
 		Toggle: key.NewBinding(
 			key.WithKeys("left", "right", "h", "l", "tab", "shift+tab"),
-			key.WithHelp("←/→", "toggle"),
+			key.WithHelp("←/→", thinktI18n.T("tui.help.toggle", "toggle")),
 		),
 		Submit: key.NewBinding(
 			key.WithKeys("enter"),
-			key.WithHelp("enter", "submit"),
+			key.WithHelp("enter", thinktI18n.T("tui.help.submit", "submit")),
 		),
 		Affirmative: key.NewBinding(
 			key.WithKeys("y", "Y"),
@@ -98,11 +100,11 @@ func defaultConfirmKeyMap(affirmative, negative string) confirmKeyMap {
 		),
 		Quit: key.NewBinding(
 			key.WithKeys("q", "esc"),
-			key.WithHelp("esc", "cancel"),
+			key.WithHelp("esc", thinktI18n.T("tui.help.cancel", "cancel")),
 		),
 		Abort: key.NewBinding(
 			key.WithKeys("ctrl+c"),
-			key.WithHelp("ctrl+c", "abort"),
+			key.WithHelp("ctrl+c", thinktI18n.T("tui.help.abort", "abort")),
 		),
 	}
 }

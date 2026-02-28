@@ -51,5 +51,270 @@ other = "向上滚动"
 [tui.help.scrollDown]
 other = "向下滚动"
 
+[cmd.language.current]
+other = "当前:"
+
+[cmd.language.terminal]
+other = "终端:"
+
+[cmd.language.header.active]
+other = "激活"
+
+[cmd.language.header.tag]
+other = "标签"
+
+[cmd.language.header.name]
+other = "名称"
+
+[cmd.language.header.englishName]
+other = "英文名称"
+
+[cmd.language.setSuccess]
+other = "语言已设置为: %s"
+
+[tui.langPicker.title]
+other = "语言"
+
+[tui.langPicker.preview]
+other = "预览"
+
+[tui.langPicker.filterLabels]
+other = "过滤标签"
+
+[tui.langPicker.search]
+other = "搜索"
+
+[tui.langPicker.loading]
+other = "加载"
+
+[tui.langPicker.time]
+other = "时间"
+
+[tui.langPicker.help]
+other = "帮助"
+
+[tui.langPicker.helpText]
+other = "↑/↓: 导航 • 回车: 选择 • q/esc: 取消"
+
 [cmd.server.starting]
 other = "🚀 正在后台启动服务器..."
+
+# --- Renderer labels ---
+
+[tui.renderer.noContent]
+other = "无内容"
+
+[tui.label.user]
+other = "用户"
+
+[tui.label.assistant]
+other = "助手"
+
+[tui.label.thinking]
+other = "思考"
+
+[tui.label.tool]
+other = "工具: %s"
+
+[tui.label.toolID]
+other = "id: %s"
+
+[tui.label.toolResult]
+other = "工具结果"
+
+[tui.label.image]
+other = "图片"
+
+# --- Theme browser ---
+
+[tui.themeBrowser.title]
+other = "主题"
+
+[tui.themeBrowser.preview]
+other = "预览"
+
+[tui.themeBrowser.helpText]
+other = "↑/↓: 导航 • 回车: 激活 • e: 编辑 • n: 新建主题 • q/esc: 取消"
+
+[tui.themeBrowser.newThemeName]
+other = "新主题名称: "
+
+[cmd.theme.setSuccess]
+other = "主题已设置为: %s"
+
+# --- Theme builder ---
+
+[tui.themeBuilder.preview]
+other = "预览"
+
+[tui.themeBuilder.title]
+other = "主题: %s"
+
+[tui.themeBuilder.helpText]
+other = "↑/↓: 选择 • e/E: 编辑前景/背景 • b/i/u: 粗体/斜体/下划线 • tab: 面板 • ctrl+s: 保存 • esc/q: 退出"
+
+[tui.themeBuilder.foreground]
+other = "前景"
+
+[tui.themeBuilder.background]
+other = "背景"
+
+[tui.themeBuilder.editing]
+other = "编辑: %s (%s)"
+
+[tui.themeBuilder.saveError]
+other = "保存失败: %s"
+
+[tui.themeBuilder.saveSuccess]
+other = "主题已保存: %s"
+
+# --- Shell ---
+
+[tui.shell.sessions]
+other = "会话"
+
+[tui.shell.projects]
+other = "项目"
+
+[tui.shell.search]
+other = "搜索"
+
+[tui.shell.searchQuery]
+other = "搜索: %s"
+
+[tui.shell.searchAction]
+other = "搜索..."
+
+[tui.shell.loading]
+other = "加载中..."
+
+[tui.shell.noPages]
+other = "没有页面可显示"
+
+# --- Search picker ---
+
+[tui.searchPicker.titleWithQuery]
+other = "搜索结果 %q (%d)"
+
+[tui.searchPicker.title]
+other = "搜索结果 (%d)"
+
+# --- Semantic search picker ---
+
+[tui.semanticPicker.title]
+other = "语义搜索结果 %q (%d)"
+
+# --- Help keys ---
+
+[tui.help.view]
+other = "查看"
+
+[tui.help.viewSession]
+other = "查看会话"
+
+[tui.help.back]
+other = "返回"
+
+[tui.help.quit]
+other = "退出"
+
+[tui.help.toggle]
+other = "切换"
+
+[tui.help.submit]
+other = "提交"
+
+[tui.help.cancel]
+other = "取消"
+
+[tui.help.abort]
+other = "中止"
+
+# --- Confirm dialog ---
+
+[tui.confirm.yes]
+other = "是"
+
+[tui.confirm.no]
+other = "否"
+
+# --- Model picker ---
+
+[tui.modelPicker.active]
+other = "(活动)"
+
+[tui.modelPicker.helpText]
+other = "↑/↓ 导航 • 回车 选择 • esc 取消"
+
+# --- Multi viewer ---
+
+[tui.viewer.noSessions]
+other = "没有成功加载的会话"
+
+[tui.viewer.debugLoadErrors]
+other = "调试 (加载错误):"
+
+[tui.viewer.logHint]
+other = "设置 THINKT_LOG_FILE=/tmp/thinkt.log 获取完整日志。"
+
+[tui.viewer.loading]
+other = "加载中..."
+
+[tui.viewer.sessions]
+other = "会话"
+
+[tui.viewer.sessionsCount]
+other = "%d 个会话"
+
+[tui.viewer.searchPlaceholder]
+other = "搜索..."
+
+[tui.viewer.matchInfo]
+other = "匹配 %d/%d"
+
+[tui.viewer.helpWithMatches]
+other = "%s  ·  n/N: 下一个/上一个  ·  /: 搜索  ·  esc: 清除"
+
+[tui.viewer.helpNoMatches]
+other = "无匹配  ·  /: 搜索  ·  esc: 清除"
+
+[tui.viewer.help]
+other = "↑/↓: 滚动 • /: 搜索 • 1-6: 过滤器 • g/G: 顶部/底部 • esc: 返回 • q: 退出"
+
+# --- Color picker ---
+
+[tui.colorPicker.title]
+other = "颜色选择器"
+
+[tui.colorPicker.current]
+other = "当前: "
+
+[tui.colorPicker.orig]
+other = "原始"
+
+[tui.colorPicker.sliders]
+other = "滑块"
+
+[tui.colorPicker.hex]
+other = "十六进制"
+
+[tui.colorPicker.palette]
+other = "调色板"
+
+[tui.colorPicker.enterHex]
+other = "输入十六进制颜色:"
+
+[tui.colorPicker.format]
+other = "格式: #RRGGBB"
+
+[tui.colorPicker.selected]
+other = "已选择: %s (空格应用)"
+
+[tui.colorPicker.helpSliders]
+other = "↑/↓: 通道 • h/l: ±5% • H/L: ±1 • 0-9: 设置 • r: 重置 • tab: 模式 • 回车: 确定 • esc: 取消"
+
+[tui.colorPicker.helpHex]
+other = "输入十六进制 • ←/→: 光标 • r: 重置 • tab: 模式 • 回车: 确定 • esc: 取消"
+
+[tui.colorPicker.helpPalette]
+other = "↑/↓/←/→: 选择 • p/n: 调色板 • 空格: 应用 • r: 重置 • tab: 模式 • 回车: 确定 • esc: 取消"

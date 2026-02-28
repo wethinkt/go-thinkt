@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
@@ -119,7 +120,8 @@ func (m ModelPickerModel) View() tea.View {
 			maxIDLen = len(o.ID)
 		}
 	}
-	nameCol := maxIDLen + len(" (active)") + 1 // +1 for spacing before tag
+	activeTag := " " + thinktI18n.T("tui.modelPicker.active", "(active)")
+	nameCol := maxIDLen + len(activeTag) + 1 // +1 for spacing before tag
 
 	for i, o := range m.options {
 		isCursor := i == m.cursor
@@ -133,7 +135,7 @@ func (m ModelPickerModel) View() tea.View {
 		// Model name + active tag, padded to fixed column width.
 		nameStr := o.ID
 		if o.Active {
-			nameStr += " (active)"
+			nameStr += " " + thinktI18n.T("tui.modelPicker.active", "(active)")
 		}
 		nameStr = fmt.Sprintf("%-*s", nameCol, nameStr)
 		if isCursor {
@@ -148,7 +150,7 @@ func (m ModelPickerModel) View() tea.View {
 		b.WriteString("\n")
 	}
 
-	b.WriteString(m.helpStyle.Render("  ↑/↓ navigate • enter select • esc cancel"))
+	b.WriteString(m.helpStyle.Render("  " + thinktI18n.T("tui.modelPicker.helpText", "↑/↓ navigate • enter select • esc cancel")))
 
 	return tea.NewView(b.String())
 }

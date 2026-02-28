@@ -20,6 +20,8 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 )
 
 // Mode represents the current picker mode
@@ -305,7 +307,7 @@ func (m Model) View() string {
 
 	// Title
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.AccentColor))
-	b.WriteString(titleStyle.Render("Color Picker") + "\n\n")
+	b.WriteString(titleStyle.Render(thinktI18n.T("tui.colorPicker.title", "Color Picker")) + "\n\n")
 
 	// Current color preview
 	currentHex := RGBToHex(m.R, m.G, m.B)
@@ -320,9 +322,9 @@ func (m Model) View() string {
 		Background(lipgloss.Color(origHex)).
 		Foreground(lipgloss.Color(ContrastColorHex(origHex))).
 		Padding(0, 2).
-		Render("orig")
+		Render(thinktI18n.T("tui.colorPicker.orig", "orig"))
 
-	b.WriteString("Current: " + preview + "  " + origPreview + "\n\n")
+	b.WriteString(thinktI18n.T("tui.colorPicker.current", "Current: ") + preview + "  " + origPreview + "\n\n")
 
 	// Mode tabs
 	b.WriteString(m.renderModeTabs() + "\n\n")
@@ -347,7 +349,11 @@ func (m Model) View() string {
 }
 
 func (m Model) renderModeTabs() string {
-	tabs := []string{"Sliders", "Hex", "Palette"}
+	tabs := []string{
+		thinktI18n.T("tui.colorPicker.sliders", "Sliders"),
+		thinktI18n.T("tui.colorPicker.hex", "Hex"),
+		thinktI18n.T("tui.colorPicker.palette", "Palette"),
+	}
 	var parts []string
 
 	for i, tab := range tabs {
@@ -427,7 +433,7 @@ func (m Model) renderSliders() string {
 func (m Model) renderHexInput() string {
 	var b strings.Builder
 
-	b.WriteString("Enter hex color:\n\n")
+	b.WriteString(thinktI18n.T("tui.colorPicker.enterHex", "Enter hex color:") + "\n\n")
 
 	// Render input with cursor
 	inputStyle := lipgloss.NewStyle().
@@ -460,7 +466,7 @@ func (m Model) renderHexInput() string {
 		b.WriteString(validStyle.Render("✓ Valid hex color"))
 	} else {
 		invalidStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555"))
-		b.WriteString(invalidStyle.Render("Format: #RRGGBB"))
+		b.WriteString(invalidStyle.Render(thinktI18n.T("tui.colorPicker.format", "Format: #RRGGBB")))
 	}
 
 	return b.String()
@@ -511,7 +517,7 @@ func (m Model) renderPalette() string {
 	selectedColor := palette.Colors[m.ColorIndex]
 	b.WriteString("\n")
 	infoStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.MutedColor))
-	b.WriteString(infoStyle.Render(fmt.Sprintf("Selected: %s (space to apply)", selectedColor)))
+	b.WriteString(infoStyle.Render(thinktI18n.Tf("tui.colorPicker.selected", "Selected: %s (space to apply)", selectedColor)))
 
 	return b.String()
 }
@@ -519,11 +525,11 @@ func (m Model) renderPalette() string {
 func (m Model) getHelp() string {
 	switch m.Mode {
 	case ModeSliders:
-		return "↑/↓: channel • h/l: ±5% • H/L: ±1 • 0-9: set • r: reset • tab: mode • enter: ok • esc: cancel"
+		return thinktI18n.T("tui.colorPicker.helpSliders", "↑/↓: channel • h/l: ±5% • H/L: ±1 • 0-9: set • r: reset • tab: mode • enter: ok • esc: cancel")
 	case ModeHex:
-		return "type hex • ←/→: cursor • r: reset • tab: mode • enter: ok • esc: cancel"
+		return thinktI18n.T("tui.colorPicker.helpHex", "type hex • ←/→: cursor • r: reset • tab: mode • enter: ok • esc: cancel")
 	case ModePalette:
-		return "↑/↓/←/→: select • p/n: palette • space: apply • r: reset • tab: mode • enter: ok • esc: cancel"
+		return thinktI18n.T("tui.colorPicker.helpPalette", "↑/↓/←/→: select • p/n: palette • space: apply • r: reset • tab: mode • enter: ok • esc: cancel")
 	}
 	return ""
 }

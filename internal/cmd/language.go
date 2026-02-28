@@ -93,13 +93,16 @@ func runLanguageGet(cmd *cobra.Command, args []string) error {
 	valueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg)).Bold(true)
 	tagStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent()))
 
+	currentLabel := thinktI18n.T("cmd.language.current", "Current:")
+	terminalLabel := thinktI18n.T("cmd.language.terminal", "Terminal:")
+
 	if !isTTY() {
 		display := activeTag
 		if activeName != "" {
 			display += " (" + activeName + ")"
 		}
-		fmt.Printf("Current:  %s\n", display)
-		fmt.Printf("Terminal: %s\n", terminalLang)
+		fmt.Printf("%s  %s\n", currentLabel, display)
+		fmt.Printf("%s %s\n", terminalLabel, terminalLang)
 		return nil
 	}
 
@@ -110,8 +113,8 @@ func runLanguageGet(cmd *cobra.Command, args []string) error {
 			display += " " + labelStyle.Render("("+activeEnglish+")")
 		}
 	}
-	fmt.Printf("%s  %s\n", labelStyle.Render("Current:"), display)
-	fmt.Printf("%s %s\n", labelStyle.Render("Terminal:"), tagStyle.Render(terminalLang))
+	fmt.Printf("%s  %s\n", labelStyle.Render(currentLabel), display)
+	fmt.Printf("%s %s\n", labelStyle.Render(terminalLabel), tagStyle.Render(terminalLang))
 	return nil
 }
 
@@ -130,9 +133,13 @@ func runLanguageList(cmd *cobra.Command, args []string) error {
 
 	// Compute column widths using display width (handles wide chars).
 	const gap = 2
-	colActive := len("ACTIVE")
-	colTag := len("TAG")
-	colName := len("NAME")
+	hActive := thinktI18n.T("cmd.language.header.active", "ACTIVE")
+	hTag := thinktI18n.T("cmd.language.header.tag", "TAG")
+	hName := thinktI18n.T("cmd.language.header.name", "NAME")
+	hEnglish := thinktI18n.T("cmd.language.header.englishName", "ENGLISH NAME")
+	colActive := lipgloss.Width(hActive)
+	colTag := lipgloss.Width(hTag)
+	colName := lipgloss.Width(hName)
 	for _, l := range langs {
 		if w := lipgloss.Width(l.Tag); w > colTag {
 			colTag = w
@@ -151,7 +158,7 @@ func runLanguageList(cmd *cobra.Command, args []string) error {
 	}
 
 	if !isTTY() {
-		fmt.Println(pad("ACTIVE", colActive+gap) + pad("TAG", colTag+gap) + pad("NAME", colName+gap) + "ENGLISH NAME")
+		fmt.Println(pad(hActive, colActive+gap) + pad(hTag, colTag+gap) + pad(hName, colName+gap) + hEnglish)
 		for _, l := range langs {
 			active := ""
 			if l.Active {
@@ -170,7 +177,7 @@ func runLanguageList(cmd *cobra.Command, args []string) error {
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
 
 	// Pad first, then apply style — ANSI escapes don't affect column alignment this way.
-	fmt.Println(headerStyle.Render(pad("ACTIVE", colActive+gap) + pad("TAG", colTag+gap) + pad("NAME", colName+gap) + "ENGLISH NAME"))
+	fmt.Println(headerStyle.Render(pad(hActive, colActive+gap) + pad(hTag, colTag+gap) + pad(hName, colName+gap) + hEnglish))
 	for _, l := range langs {
 		active := pad("", colActive+gap)
 		if l.Active {
@@ -233,9 +240,9 @@ func runLanguageSet(cmd *cobra.Command, args []string) error {
 	if isTTY() {
 		t := theme.Current()
 		accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true)
-		fmt.Printf("Language set to: %s\n", accentStyle.Render(tag))
+		fmt.Println(thinktI18n.Tf("cmd.language.setSuccess", "Language set to: %s", accentStyle.Render(tag)))
 	} else {
-		fmt.Printf("Language set to: %s\n", tag)
+		fmt.Println(thinktI18n.Tf("cmd.language.setSuccess", "Language set to: %s", tag))
 	}
 	return nil
 }

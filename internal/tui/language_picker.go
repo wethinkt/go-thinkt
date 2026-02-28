@@ -125,11 +125,11 @@ func (m *LanguagePickerModel) updatePreview() {
 	}
 
 	rows := []row{
-		{"Filter labels", nil},
-		{"Search", nil},
-		{"Loading", nil},
-		{"Time", nil},
-		{"Help", nil},
+		{thinktI18n.T("tui.langPicker.filterLabels", "Filter labels"), nil},
+		{thinktI18n.T("tui.langPicker.search", "Search"), nil},
+		{thinktI18n.T("tui.langPicker.loading", "Loading"), nil},
+		{thinktI18n.T("tui.langPicker.time", "Time"), nil},
+		{thinktI18n.T("tui.langPicker.help", "Help"), nil},
 	}
 
 	for _, kv := range keys {
@@ -164,7 +164,7 @@ func (m *LanguagePickerModel) updatePreview() {
 
 func (m LanguagePickerModel) View() tea.View {
 	if !m.ready {
-		v := tea.NewView("Loading...")
+		v := tea.NewView(thinktI18n.T("common.loading", "Loading..."))
 		v.AltScreen = true
 		return v
 	}
@@ -173,8 +173,8 @@ func (m LanguagePickerModel) View() tea.View {
 	previewWidth := m.width - listWidth - 2
 
 	// Header
-	listTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.accentColor)).Render("Languages")
-	previewTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.accentColor)).Render("Preview")
+	listTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.accentColor)).Render(thinktI18n.T("tui.langPicker.title", "Languages"))
+	previewTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.accentColor)).Render(thinktI18n.T("tui.langPicker.preview", "Preview"))
 	brand := lipgloss.NewStyle().Foreground(lipgloss.Color(m.borderInactive)).Render("🧠 thinkt")
 	midGap := strings.Repeat(" ", max(0, listWidth-lipgloss.Width(listTitle)+3))
 	rightGap := strings.Repeat(" ", max(0, m.width-lipgloss.Width(listTitle)-lipgloss.Width(midGap)-lipgloss.Width(previewTitle)-lipgloss.Width(brand)))
@@ -198,7 +198,7 @@ func (m LanguagePickerModel) View() tea.View {
 	previewPane := previewBorder.Render(m.preview.View())
 
 	// Footer
-	helpText := "↑/↓: navigate • enter: select • q/esc: cancel"
+	helpText := thinktI18n.T("tui.langPicker.helpText", "↑/↓: navigate • enter: select • q/esc: cancel")
 	footer := lipgloss.NewStyle().Foreground(lipgloss.Color(m.borderInactive)).Render(helpText)
 
 	content := header + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, listPane, " ", previewPane) + "\n" + footer

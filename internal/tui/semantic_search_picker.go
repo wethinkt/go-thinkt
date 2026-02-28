@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
@@ -210,7 +211,7 @@ func NewSemanticPickerModel(results []search.SemanticResult, query string) Seman
 
 	delegate := newSemanticResultDelegate()
 	l := list.New(items, delegate, 0, 0)
-	l.Title = fmt.Sprintf("Semantic Search Results for %q (%d)", query, len(results))
+	l.Title = thinktI18n.Tf("tui.semanticPicker.title", "Semantic Search Results for %q (%d)", query, len(results))
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(true)
 	l.SetFilteringEnabled(false)
@@ -281,7 +282,7 @@ var semanticPickerStyle = lipgloss.NewStyle().Padding(1, 2)
 func (m SemanticPickerModel) View() tea.View {
 	var content string
 	if !m.ready {
-		content = "Loading..."
+		content = thinktI18n.T("common.loading", "Loading...")
 	} else if m.quitting {
 		content = ""
 	} else {

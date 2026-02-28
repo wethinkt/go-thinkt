@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
@@ -219,7 +220,7 @@ func (d searchResultDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return 
 // ShortHelp returns key bindings for the help bar.
 func (d searchResultDelegate) ShortHelp() []key.Binding {
 	return []key.Binding{
-		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "view")),
+		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", thinktI18n.T("tui.help.view", "view"))),
 	}
 }
 
@@ -305,15 +306,15 @@ func defaultSearchPickerKeyMap() searchPickerKeyMap {
 	return searchPickerKeyMap{
 		Enter: key.NewBinding(
 			key.WithKeys("enter"),
-			key.WithHelp("enter", "view session"),
+			key.WithHelp("enter", thinktI18n.T("tui.help.viewSession", "view session")),
 		),
 		Back: key.NewBinding(
 			key.WithKeys("esc"),
-			key.WithHelp("esc", "back"),
+			key.WithHelp("esc", thinktI18n.T("tui.help.back", "back")),
 		),
 		Quit: key.NewBinding(
 			key.WithKeys("q", "ctrl+c"),
-			key.WithHelp("q", "quit"),
+			key.WithHelp("q", thinktI18n.T("tui.help.quit", "quit")),
 		),
 	}
 }
@@ -341,9 +342,9 @@ func NewSearchPickerModel(results []search.SessionResult, query string) SearchPi
 
 func searchPickerTitle(count int, query string) string {
 	if query != "" {
-		return fmt.Sprintf("Search Results for %q (%d)", query, count)
+		return thinktI18n.Tf("tui.searchPicker.titleWithQuery", "Search Results for %q (%d)", query, count)
 	}
-	return fmt.Sprintf("Search Results (%d)", count)
+	return thinktI18n.Tf("tui.searchPicker.title", "Search Results (%d)", count)
 }
 
 func (m SearchPickerModel) Init() tea.Cmd {
@@ -415,7 +416,7 @@ var searchPickerStyle = lipgloss.NewStyle().Padding(1, 2)
 
 func (m SearchPickerModel) viewContent() string {
 	if !m.ready {
-		return "Loading..."
+		return thinktI18n.T("common.loading", "Loading...")
 	}
 	if m.quitting {
 		return ""

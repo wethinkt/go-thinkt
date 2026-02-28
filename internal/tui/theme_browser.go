@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
@@ -178,7 +179,7 @@ func (m *ThemeBrowserModel) renderSwatches(t theme.Theme) string {
 
 func (m ThemeBrowserModel) View() tea.View {
 	if !m.ready {
-		v := tea.NewView("Loading...")
+		v := tea.NewView(thinktI18n.T("common.loading", "Loading..."))
 		v.AltScreen = true
 		return v
 	}
@@ -201,8 +202,8 @@ func (m ThemeBrowserModel) View() tea.View {
 	}
 
 	// Header
-	listTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(accentColor)).Render("Themes")
-	previewTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(accentColor)).Render("Preview")
+	listTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(accentColor)).Render(thinktI18n.T("tui.themeBrowser.title", "Themes"))
+	previewTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(accentColor)).Render(thinktI18n.T("tui.themeBrowser.preview", "Preview"))
 	brand := lipgloss.NewStyle().Foreground(lipgloss.Color(borderInactive)).Render("🧠 thinkt")
 	midGap := strings.Repeat(" ", max(0, listWidth-lipgloss.Width(listTitle)+3))
 	rightGap := strings.Repeat(" ", max(0, m.width-lipgloss.Width(listTitle)-lipgloss.Width(midGap)-lipgloss.Width(previewTitle)-lipgloss.Width(brand)))
@@ -226,7 +227,7 @@ func (m ThemeBrowserModel) View() tea.View {
 	previewPane := previewBorder.Render(m.preview.View())
 
 	// Footer
-	helpText := "↑/↓: navigate • enter: activate • e: edit • n: new theme • q/esc: cancel"
+	helpText := thinktI18n.T("tui.themeBrowser.helpText", "↑/↓: navigate • enter: activate • e: edit • n: new theme • q/esc: cancel")
 	footer := lipgloss.NewStyle().Foreground(lipgloss.Color(borderInactive)).Render(helpText)
 
 	content := header + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, listPane, " ", previewPane) + "\n" + footer
@@ -287,7 +288,7 @@ func RunThemeBrowser() error {
 		if err := theme.SetActive(result.selected); err != nil {
 			return fmt.Errorf("failed to set theme: %w", err)
 		}
-		fmt.Printf("Theme set to: %s\n", result.selected)
+		fmt.Println(thinktI18n.Tf("cmd.theme.setSuccess", "Theme set to: %s", result.selected))
 		return nil
 	}
 
@@ -297,7 +298,7 @@ func RunThemeBrowser() error {
 
 	if result.newTheme {
 		// Prompt for name, then launch builder
-		fmt.Print("New theme name: ")
+		fmt.Print(thinktI18n.T("tui.themeBrowser.newThemeName", "New theme name: "))
 		var name string
 		if _, err := fmt.Scanln(&name); err != nil || name == "" {
 			return nil

@@ -1184,8 +1184,8 @@ func (m MultiViewerModel) viewContent() string {
 
 		var helpText string
 		if m.searchQuery != "" && len(m.searchMatches) > 0 {
-			matchInfo := fmt.Sprintf("Match %d/%d", m.currentMatch+1, len(m.searchMatches))
-			helpText = fmt.Sprintf("%s  ·  n/N: next/prev  ·  /: search  ·  esc: clear", matchInfo)
+			matchInfo := thinktI18n.Tf("tui.viewer.matchInfo", "Match %d/%d", m.currentMatch+1, len(m.searchMatches))
+			helpText = thinktI18n.Tf("tui.viewer.helpWithMatches", "%s  ·  n/N: next/prev  ·  /: search  ·  esc: clear", matchInfo)
 		} else if m.searchQuery != "" {
 			helpText = thinktI18n.T("tui.viewer.helpNoMatches", "No matches  ·  /: search  ·  esc: clear")
 		} else {

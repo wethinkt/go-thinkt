@@ -17,6 +17,8 @@ import (
 	"github.com/charmbracelet/x/ansi/kitty"
 	"github.com/charmbracelet/x/ansi/sixel"
 	"golang.org/x/image/draw"
+
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 )
 
 // decodeImageDimensions reads just the image header to extract width x height
@@ -366,7 +368,7 @@ func renderImageBlock(mediaType, mediaData string, width int) string {
 		return ""
 	}
 
-	label := imageLabel.Render("Image")
+	label := imageLabel.Render(thinktI18n.T("tui.label.image", "Image"))
 	rawBytes := len(mediaData) * 3 / 4
 	sizeStr := formatByteSize(rawBytes)
 	dims := decodeImageDimensions(mediaType, mediaData)

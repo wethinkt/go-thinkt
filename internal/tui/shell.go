@@ -2,7 +2,6 @@ package tui
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -146,7 +145,7 @@ func NewShellWithSessionsAndRegistry(sessions []thinkt.SessionMeta, registry *th
 		preloaded: true,
 	}
 
-	title := "Sessions"
+	title := thinktI18n.T("tui.shell.sessions", "Sessions")
 	if projectName != "" {
 		title = projectName
 	}
@@ -248,7 +247,7 @@ func (s *Shell) renderHeader() string {
 			left += "  " + current.Model.(MultiViewerModel).FilterStatus()
 
 		case SearchInputModel:
-			left = actionStyle.Render(thinktI18n.T("tui.shell.searching", "Search..."))
+			left = actionStyle.Render(thinktI18n.T("tui.shell.searchAction", "Search..."))
 
 		case SearchPickerModel:
 			left = nameStyle.Render(current.Title)
@@ -314,7 +313,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		tuilog.Log.Info("Shell.Update: pushing project picker", "projectCount", len(allProjects))
 		projectPicker := NewProjectPickerModel(allProjects)
 		projCmd := s.stack.Push(NavItem{
-			Title: "Projects",
+			Title: thinktI18n.T("tui.shell.projects", "Projects"),
 			Model: projectPicker,
 		}, s.width, s.height)
 		cmds = append(cmds, projCmd)
@@ -510,7 +509,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Open the search input overlay
 		input := NewSearchInputModel()
 		cmd := s.stack.Push(NavItem{
-			Title: "Search",
+			Title: thinktI18n.T("tui.shell.search", "Search"),
 			Model: input,
 		}, s.width, s.height)
 		cmds = append(cmds, cmd)
@@ -544,7 +543,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s.stack.Pop()
 			picker := NewSearchPickerModel(results, msg.Query)
 			cmd := s.stack.Push(NavItem{
-				Title: fmt.Sprintf("Search: %s", msg.Query),
+				Title: thinktI18n.Tf("tui.shell.searchQuery", "Search: %s", msg.Query),
 				Model: picker,
 			}, s.width, s.height)
 			cmds = append(cmds, cmd)

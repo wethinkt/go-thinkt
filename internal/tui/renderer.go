@@ -1,18 +1,18 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/glamour"
 
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/sources/claude"
 )
 
 // RenderSession converts a session's entries into a styled string for the viewport.
 func RenderSession(session *claude.Session, width int) string {
 	if session == nil || len(session.Entries) == 0 {
-		return "No content"
+		return thinktI18n.T("tui.renderer.noContent", "No content")
 	}
 
 	contentWidth := max(20, width-4)
@@ -50,7 +50,7 @@ func renderUserEntry(entry *claude.Entry, width int) string {
 		return ""
 	}
 
-	label := userLabel.Render("User")
+	label := userLabel.Render(thinktI18n.T("tui.label.user", "User"))
 	content := userBlockStyle.Width(width).Render(text)
 	return label + "\n" + content
 }
@@ -81,7 +81,7 @@ func renderContentBlock(block *claude.ContentBlock, width int, renderer *glamour
 		if block.Text == "" {
 			return ""
 		}
-		label := assistantLabel.Render("Assistant")
+		label := assistantLabel.Render(thinktI18n.T("tui.label.assistant", "Assistant"))
 		text := block.Text
 		if useGlamour && renderer != nil {
 			if rendered, err := renderer.Render(text); err == nil {
@@ -95,7 +95,7 @@ func renderContentBlock(block *claude.ContentBlock, width int, renderer *glamour
 		if block.Thinking == "" {
 			return ""
 		}
-		label := thinkingLabel.Render("Thinking")
+		label := thinkingLabel.Render(thinktI18n.T("tui.label.thinking", "Thinking"))
 		// Truncate long thinking blocks
 		text := block.Thinking
 		if len(text) > 500 {
@@ -105,13 +105,13 @@ func renderContentBlock(block *claude.ContentBlock, width int, renderer *glamour
 		return label + "\n" + content
 
 	case "tool_use":
-		label := toolLabel.Render(fmt.Sprintf("Tool: %s", block.Name))
-		summary := fmt.Sprintf("id: %s", block.ID)
+		label := toolLabel.Render(thinktI18n.Tf("tui.label.tool", "Tool: %s", block.Name))
+		summary := thinktI18n.Tf("tui.label.toolID", "id: %s", block.ID)
 		content := toolCallBlockStyle.Width(width).Render(summary)
 		return label + "\n" + content
 
 	case "tool_result":
-		label := toolLabel.Render("Tool Result")
+		label := toolLabel.Render(thinktI18n.T("tui.label.toolResult", "Tool Result"))
 		text := "(result)"
 		if block.IsError {
 			text = "(error)"

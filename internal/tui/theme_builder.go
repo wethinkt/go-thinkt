@@ -1,13 +1,13 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui/colorpicker"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
@@ -339,12 +339,12 @@ func (m *ThemeBuilderModel) toggleUnderline() {
 
 func (m *ThemeBuilderModel) saveTheme() {
 	if err := theme.Save(m.themeName, m.theme); err != nil {
-		m.message = fmt.Sprintf("Error saving: %v", err)
+		m.message = thinktI18n.Tf("tui.themeBuilder.saveError", "Error saving: %v", err)
 		m.messageType = "error"
 		return
 	}
 	m.dirty = false
-	m.message = fmt.Sprintf("Theme '%s' saved!", m.themeName)
+	m.message = thinktI18n.Tf("tui.themeBuilder.saveSuccess", "Theme '%s' saved!", m.themeName)
 	m.messageType = "success"
 }
 
@@ -429,7 +429,7 @@ func renderPreviewEntry(entry *thinkt.Entry, width int, styles previewStyles) st
 		if text == "" {
 			return ""
 		}
-		label := styles.UserLabel.Render("User")
+		label := styles.UserLabel.Render(thinktI18n.T("tui.label.user", "User"))
 		content := styles.UserBlock.Width(width).Render(text)
 		return label + "\n" + content
 
@@ -439,7 +439,7 @@ func renderPreviewEntry(entry *thinkt.Entry, width int, styles previewStyles) st
 			switch block.Type {
 			case "thinking":
 				if block.Thinking != "" {
-					label := styles.ThinkingLabel.Render("Thinking")
+					label := styles.ThinkingLabel.Render(thinktI18n.T("tui.label.thinking", "Thinking"))
 					text := block.Thinking
 					if len(text) > 200 {
 						text = text[:200] + "..."
@@ -449,19 +449,19 @@ func renderPreviewEntry(entry *thinkt.Entry, width int, styles previewStyles) st
 				}
 			case "text":
 				if block.Text != "" {
-					label := styles.AssistantLabel.Render("Assistant")
+					label := styles.AssistantLabel.Render(thinktI18n.T("tui.label.assistant", "Assistant"))
 					content := styles.AssistantBlock.Width(width).Render(block.Text)
 					parts = append(parts, label+"\n"+content)
 				}
 			case "tool_use":
-				label := styles.ToolLabel.Render(fmt.Sprintf("Tool: %s", block.ToolName))
-				summary := fmt.Sprintf("id: %s", block.ToolUseID)
+				label := styles.ToolLabel.Render(thinktI18n.Tf("tui.label.tool", "Tool: %s", block.ToolName))
+				summary := thinktI18n.Tf("tui.label.toolID", "id: %s", block.ToolUseID)
 				content := styles.ToolCallBlock.Width(width).Render(summary)
 				parts = append(parts, label+"\n"+content)
 			}
 		}
 		if len(parts) == 0 && entry.Text != "" {
-			label := styles.AssistantLabel.Render("Assistant")
+			label := styles.AssistantLabel.Render(thinktI18n.T("tui.label.assistant", "Assistant"))
 			content := styles.AssistantBlock.Width(width).Render(entry.Text)
 			parts = append(parts, label+"\n"+content)
 		}
@@ -470,7 +470,7 @@ func renderPreviewEntry(entry *thinkt.Entry, width int, styles previewStyles) st
 	case thinkt.RoleTool:
 		for _, block := range entry.ContentBlocks {
 			if block.Type == "tool_result" {
-				label := styles.ToolLabel.Render("Tool Result")
+				label := styles.ToolLabel.Render(thinktI18n.T("tui.label.toolResult", "Tool Result"))
 				text := "(result)"
 				if block.IsError {
 					text = "(error)"
@@ -485,7 +485,7 @@ func renderPreviewEntry(entry *thinkt.Entry, width int, styles previewStyles) st
 
 func (m ThemeBuilderModel) View() tea.View {
 	if !m.ready {
-		v := tea.NewView("Loading...")
+		v := tea.NewView(thinktI18n.T("common.loading", "Loading..."))
 		v.AltScreen = true
 		return v
 	}
@@ -503,7 +503,7 @@ func (m ThemeBuilderModel) View() tea.View {
 
 	// Build preview pane
 	accentColor := m.theme.GetAccent()
-	previewTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(accentColor)).Render("Preview")
+	previewTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(accentColor)).Render(thinktI18n.T("tui.themeBuilder.preview", "Preview"))
 	previewBorder := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(m.theme.GetBorderInactive())).
@@ -513,7 +513,7 @@ func (m ThemeBuilderModel) View() tea.View {
 	previewContent := previewBorder.Render(m.preview.View())
 
 	// Build list pane
-	listTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(accentColor)).Render("Theme: " + m.themeName)
+	listTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(accentColor)).Render(thinktI18n.Tf("tui.themeBuilder.title", "Theme: %s", m.themeName))
 	if m.dirty {
 		listTitle += lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Render(" *")
 	}
@@ -545,7 +545,7 @@ func (m ThemeBuilderModel) View() tea.View {
 			helpText = lines[len(lines)-1]
 		}
 	} else {
-		helpText = "↑/↓: select • e/E: edit fg/bg • b/i/u: bold/italic/underline • tab: pane • ctrl+s: save • esc/q: quit"
+		helpText = thinktI18n.T("tui.themeBuilder.helpText", "↑/↓: select • e/E: edit fg/bg • b/i/u: bold/italic/underline • tab: pane • ctrl+s: save • esc/q: quit")
 	}
 	footer := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.TextMuted.Fg)).Render(helpText)
 
@@ -646,13 +646,13 @@ func (m ThemeBuilderModel) renderPickerPane() string {
 
 	// Show what we're editing
 	entry := m.entries[m.selected]
-	targetLabel := "Foreground"
+	targetLabel := thinktI18n.T("tui.themeBuilder.foreground", "Foreground")
 	if m.editMode == editBg {
-		targetLabel = "Background"
+		targetLabel = thinktI18n.T("tui.themeBuilder.background", "Background")
 	}
 
 	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.theme.GetAccent()))
-	b.WriteString(headerStyle.Render(fmt.Sprintf("Editing: %s (%s)", entry.Name, targetLabel)) + "\n\n")
+	b.WriteString(headerStyle.Render(thinktI18n.Tf("tui.themeBuilder.editing", "Editing: %s (%s)", entry.Name, targetLabel)) + "\n\n")
 
 	// Render the color picker
 	b.WriteString(m.picker.View())
