@@ -27,6 +27,7 @@ var localeFS embed.FS
 var (
 	bundle    *i18n.Bundle
 	localizer *i18n.Localizer
+	activeTag string
 	mu        sync.RWMutex
 )
 
@@ -37,6 +38,7 @@ func Init(lang string) {
 	mu.Lock()
 	defer mu.Unlock()
 
+	activeTag = lang
 	bundle = i18n.NewBundle(language.English)
 	bundle.RegisterUnmarshalFunc("toml", toml.Unmarshal)
 
@@ -47,6 +49,13 @@ func Init(lang string) {
 	}
 
 	localizer = i18n.NewLocalizer(bundle, lang, "en")
+}
+
+// ActiveTag returns the currently active language tag.
+func ActiveTag() string {
+	mu.RLock()
+	defer mu.RUnlock()
+	return activeTag
 }
 
 // T returns the localized string for the given message ID.

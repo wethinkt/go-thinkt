@@ -183,6 +183,9 @@ func (s *HTTPServer) setupRouter() chi.Router {
 		// Themes endpoint
 		r.Get("/themes", s.handleGetThemes)
 
+		// Languages endpoint
+		r.Get("/languages", s.handleGetLanguages)
+
 		// Indexer endpoints (search/stats)
 		r.Get("/search", s.handleSearchSessions)
 		r.Get("/semantic-search", s.handleSemanticSearch)

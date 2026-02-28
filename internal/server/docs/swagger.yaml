@@ -10,6 +10,19 @@ definitions:
       terminal:
         type: boolean
     type: object
+  i18n.LangInfo:
+    properties:
+      active:
+        type: boolean
+      coverage:
+        type: integer
+      english_name:
+        type: string
+      name:
+        type: string
+      tag:
+        type: string
+    type: object
   server.AllowedAppsResponse:
     properties:
       apps:
@@ -67,6 +80,15 @@ definitions:
         type: integer
       watching:
         type: boolean
+    type: object
+  server.LanguagesResponse:
+    properties:
+      active:
+        type: string
+      languages:
+        items:
+          $ref: '#/definitions/i18n.LangInfo'
+        type: array
     type: object
   server.OpenInRequest:
     properties:
@@ -826,6 +848,19 @@ paths:
       summary: Get server info
       tags:
       - server
+  /languages:
+    get:
+      description: Returns all supported languages and the currently active one
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.LanguagesResponse'
+      summary: List available languages
+      tags:
+      - languages
   /open-in:
     post:
       consumes:

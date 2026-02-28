@@ -18,6 +18,7 @@ import (
 
 	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/fingerprint"
+	"github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 	"github.com/wethinkt/go-thinkt/internal/version"
@@ -1062,6 +1063,12 @@ type ThemesResponse struct {
 	Active string      `json:"active"`
 }
 
+// LanguagesResponse lists available languages.
+type LanguagesResponse struct {
+	Languages []i18n.LangInfo `json:"languages"`
+	Active    string          `json:"active"`
+}
+
 // handleGetThemes returns the list of available themes.
 // @Summary List available themes
 // @Description Returns all available themes (built-in and user themes) with their color definitions
@@ -1101,6 +1108,21 @@ func (s *HTTPServer) handleGetThemes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, ThemesResponse{
 		Themes: themes,
 		Active: activeName,
+	})
+}
+
+// handleGetLanguages returns the list of available languages.
+// @Summary List available languages
+// @Description Returns all supported languages and the currently active one
+// @Tags languages
+// @Produce json
+// @Success 200 {object} LanguagesResponse
+// @Router /languages [get]
+func (s *HTTPServer) handleGetLanguages(w http.ResponseWriter, r *http.Request) {
+	active := i18n.ActiveTag()
+	writeJSON(w, http.StatusOK, LanguagesResponse{
+		Languages: i18n.AvailableLanguages(active),
+		Active:    active,
 	})
 }
 

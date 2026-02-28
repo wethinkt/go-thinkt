@@ -98,6 +98,26 @@ const docTemplate = `{
                 }
             }
         },
+        "/languages": {
+            "get": {
+                "description": "Returns all supported languages and the currently active one",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "languages"
+                ],
+                "summary": "List available languages",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.LanguagesResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/open-in": {
             "post": {
                 "security": [
@@ -1176,6 +1196,26 @@ const docTemplate = `{
                 }
             }
         },
+        "i18n.LangInfo": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean"
+                },
+                "coverage": {
+                    "type": "integer"
+                },
+                "english_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "tag": {
+                    "type": "string"
+                }
+            }
+        },
         "server.AllowedAppsResponse": {
             "type": "object",
             "properties": {
@@ -1262,6 +1302,20 @@ const docTemplate = `{
                 },
                 "watching": {
                     "type": "boolean"
+                }
+            }
+        },
+        "server.LanguagesResponse": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "languages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/i18n.LangInfo"
+                    }
                 }
             }
         },
