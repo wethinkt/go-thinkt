@@ -12,6 +12,9 @@
   - Standardized message ID patterns and fallback to English for missing translations
   - Created comprehensive i18n documentation (`docs/I18N.md`) and Hugo book page (`docs/hugo/content/languages.md`)
 
+* **Configuration**
+  - Added `THINKT_HOME` data directory section to README explaining directory layout and contents
+
 * **REST API**
   - Added `GET /api/v1/languages` returning the active language and list of supported languages
 

@@ -454,6 +454,24 @@ Available MCP tools:
 
 See [Authentication](#authentication) for more details on securing the MCP server.
 
+## Data Directory (`THINKT_HOME`)
+
+By default, `thinkt` stores its configuration, indexer databases, embeddings, instance registry, and other data in `~/.thinkt`. Set the `THINKT_HOME` environment variable to override this location:
+
+```bash
+export THINKT_HOME=/path/to/custom/thinkt
+```
+
+Contents of `THINKT_HOME`:
+
+| Path | Purpose |
+|------|---------|
+| `config.json` | User configuration (theme, language, apps) |
+| `instances.json` | Running server instance registry |
+| `dbs/indexer.duckdb` | DuckDB indexer database |
+| `embeddings/` | Per-model embedding databases |
+| `machine_id` | Fallback machine fingerprint |
+
 ## Environment Variables
 
 | Variable | Description | Default |
