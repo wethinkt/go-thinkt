@@ -108,6 +108,12 @@ type CollectorStats struct {
 	StartedAt     time.Time `json:"started_at"`
 }
 
+// ExportOptions controls filtering for parquet export.
+type ExportOptions struct {
+	Since *time.Time // optional: only entries after this time
+	Until *time.Time // optional: only entries before this time
+}
+
 // TraceStore is the storage interface for the collector.
 type TraceStore interface {
 	// IngestBatch writes a batch of trace entries from an ingest request.
@@ -124,6 +130,8 @@ type TraceStore interface {
 	QueryActiveSessions(ctx context.Context) ([]SessionSummary, error)
 	// GetUsageStats returns aggregate collector usage statistics.
 	GetUsageStats(ctx context.Context) (*CollectorStats, error)
+	// ExportParquet exports collected entries to parquet files.
+	ExportParquet(ctx context.Context, outDir string, opts ExportOptions) error
 	// Close shuts down the store and releases resources.
 	Close() error
 }

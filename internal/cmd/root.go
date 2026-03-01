@@ -198,6 +198,11 @@ func init() {
 	collectCmd.Flags().StringVar(&collectStorage, "storage", "", "DuckDB storage path")
 	collectCmd.Flags().StringVar(&collectToken, "token", "", "bearer token for authentication")
 	collectCmd.Flags().BoolVarP(&collectQuiet, "quiet", "q", false, "suppress non-error output")
+	collectCmd.AddCommand(exportParquetCmd)
+	exportParquetCmd.Flags().StringVar(&parquetStorage, "storage", "", "path to collector.duckdb (default: ~/.thinkt/dbs/collector.duckdb)")
+	exportParquetCmd.Flags().StringVar(&parquetOut, "out", "", "output directory (default: ~/.thinkt/exports/parquet/)")
+	exportParquetCmd.Flags().StringVar(&parquetSince, "since", "", "only entries after this time (RFC3339 or YYYY-MM-DD)")
+	exportParquetCmd.Flags().StringVar(&parquetUntil, "until", "", "only entries before this time (RFC3339 or YYYY-MM-DD)")
 
 	// Export command flags
 	rootCmd.AddCommand(exportCmd)

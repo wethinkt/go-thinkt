@@ -69,8 +69,8 @@ CREATE TABLE IF NOT EXISTS session_activity (
 
 // DuckDBStore implements TraceStore backed by DuckDB.
 type DuckDBStore struct {
-	db            *sql.DB
-	path          string
+	db   *sql.DB
+	path string
 	startedAt     time.Time
 	batchSize     int
 	flushInterval time.Duration
@@ -112,15 +112,18 @@ func NewDuckDBStore(dbPath string, batchSize int, flushInterval time.Duration) (
 		}
 	}
 
-	// Security hardening
-	if _, err := db.Exec("SET enable_external_access=false"); err != nil {
+	// Security: external access stays enabled (required for COPY ... TO parquet
+	// export) but we restrict file system access to only the database directory.
+	// ExportParquet widens this to include the output directory before writing.
+	dbDir, _ := filepath.Abs(filepath.Dir(dbPath))
+	if _, err := db.Exec("SET allowed_directories = [$1]", dbDir); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("set security settings: %w", err)
+		return nil, fmt.Errorf("set allowed_directories: %w", err)
 	}
 
 	s := &DuckDBStore{
-		db:            db,
-		path:          dbPath,
+		db:   db,
+		path: dbPath,
 		startedAt:     time.Now(),
 		batchSize:     batchSize,
 		flushInterval: flushInterval,
@@ -476,6 +479,51 @@ func (s *DuckDBStore) GetUsageStats(ctx context.Context) (*CollectorStats, error
 	}
 
 	return stats, nil
+}
+
+// ExportParquet exports collected entries to parquet files using DuckDB's
+// native COPY ... TO ... (FORMAT PARQUET) support.
+func (s *DuckDBStore) ExportParquet(ctx context.Context, outDir string, opts ExportOptions) error {
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		return fmt.Errorf("create output directory: %w", err)
+	}
+
+	// Widen allowed_directories to include the output dir for this export,
+	// then restore to just the database directory.
+	absOut, _ := filepath.Abs(outDir)
+	dbDir, _ := filepath.Abs(filepath.Dir(s.path))
+	if _, err := s.db.ExecContext(ctx, "SET allowed_directories = [$1, $2]", dbDir, absOut); err != nil {
+		return fmt.Errorf("widen allowed_directories: %w", err)
+	}
+	defer s.db.ExecContext(ctx, "SET allowed_directories = [$1]", dbDir) //nolint:errcheck
+
+	// Build WHERE clause from options.
+	var conditions []string
+	var args []any
+	if opts.Since != nil {
+		conditions = append(conditions, "timestamp >= ?")
+		args = append(args, *opts.Since)
+	}
+	if opts.Until != nil {
+		conditions = append(conditions, "timestamp < ?")
+		args = append(args, *opts.Until)
+	}
+
+	where := ""
+	if len(conditions) > 0 {
+		where = " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	query := fmt.Sprintf(
+		`COPY (SELECT * FROM collected_entries%s) TO '%s' (FORMAT PARQUET)`,
+		where, filepath.Join(outDir, "entries.parquet"),
+	)
+
+	if _, err := s.db.ExecContext(ctx, query, args...); err != nil {
+		return fmt.Errorf("export parquet: %w", err)
+	}
+
+	return nil
 }
 
 // Close stops the batch writer and closes the database.

@@ -36,7 +36,7 @@ func main() {
 
 	flag.IntVar(&port, "port", collect.DefaultPort, "server port")
 	flag.StringVar(&host, "host", collect.DefaultHost, "server host")
-	flag.StringVar(&storage, "storage", "", "DuckDB storage path (default ~/.thinkt/collector.duckdb)")
+	flag.StringVar(&storage, "storage", "", "DuckDB storage path (default ~/.thinkt/dbs/collector.duckdb)")
 	flag.StringVar(&token, "token", "", "bearer token for authentication")
 	flag.BoolVar(&quiet, "quiet", false, "suppress non-error output")
 	flag.BoolVar(&showVersion, "version", false, "print version and exit")
