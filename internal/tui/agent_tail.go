@@ -12,6 +12,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/wethinkt/go-thinkt/internal/agents"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
@@ -293,11 +294,11 @@ func (m AgentTailModel) renderFilterStatus() string {
 		on    bool
 	}
 	items := []filterItem{
-		{"1", "User", m.filters.User},
-		{"2", "Assistant", m.filters.Assistant},
-		{"3", "Tools", m.filters.Tools},
-		{"4", "Thinking", m.filters.Thinking},
-		{"5", "Other", m.filters.Other},
+		{"1", thinktI18n.T("tui.filter.user", "User"), m.filters.User},
+		{"2", thinktI18n.T("tui.filter.assistant", "Assistant"), m.filters.Assistant},
+		{"3", thinktI18n.T("tui.filter.tools", "Tools"), m.filters.Tools},
+		{"4", thinktI18n.T("tui.filter.thinking", "Thinking"), m.filters.Thinking},
+		{"5", thinktI18n.T("tui.filter.other", "Other"), m.filters.Other},
 	}
 
 	active := lipgloss.NewStyle().Bold(true)
