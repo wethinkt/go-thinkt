@@ -23,6 +23,29 @@ definitions:
       tag:
         type: string
     type: object
+  rpc.ProgressInfo:
+    properties:
+      chunks_done:
+        type: integer
+      chunks_total:
+        type: integer
+      done:
+        type: integer
+      entries:
+        type: integer
+      message:
+        type: string
+      project:
+        type: integer
+      project_name:
+        type: string
+      project_total:
+        type: integer
+      session_id:
+        type: string
+      total:
+        type: integer
+    type: object
   search.Match:
     properties:
       line_num:
@@ -105,33 +128,21 @@ definitions:
       message:
         type: string
     type: object
-  server.IndexerStatusProgressInfo:
+  server.IndexerHealthResponse:
     properties:
-      chunks_done:
+      available:
+        type: boolean
+      database_accessible:
+        type: boolean
+      indexed_projects:
         type: integer
-      chunks_total:
-        type: integer
-      done:
-        type: integer
-      entries:
-        type: integer
-      message:
-        type: string
-      project:
-        type: integer
-      project_name:
-        type: string
-      project_total:
-        type: integer
-      session_id:
-        type: string
-      total:
+      indexed_sessions:
         type: integer
     type: object
   server.IndexerStatusResponse:
     properties:
       embed_progress:
-        $ref: '#/definitions/server.IndexerStatusProgressInfo'
+        $ref: '#/definitions/rpc.ProgressInfo'
       model:
         type: string
       model_dim:
@@ -141,7 +152,7 @@ definitions:
       state:
         type: string
       sync_progress:
-        $ref: '#/definitions/server.IndexerStatusProgressInfo'
+        $ref: '#/definitions/rpc.ProgressInfo'
       uptime_seconds:
         type: integer
       watching:
@@ -192,7 +203,7 @@ definitions:
     type: object
   server.SearchResponse:
     properties:
-      sessions:
+      results:
         items:
           $ref: '#/definitions/search.SessionResult'
         type: array
@@ -301,10 +312,14 @@ definitions:
     type: object
   server.StatsResponse:
     properties:
+      embed_model:
+        type: string
       top_tools:
         items:
           $ref: '#/definitions/server.StatsToolCount'
         type: array
+      total_embeddings:
+        type: integer
       total_entries:
         type: integer
       total_projects:
@@ -806,16 +821,15 @@ info:
 paths:
   /indexer/health:
     get:
-      description: Returns whether the indexer binary is available and the database
-        path
+      description: Returns whether the indexer server is reachable and the database
+        is accessible
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/server.IndexerHealthResponse'
       summary: Get indexer health status
       tags:
       - indexer

@@ -13,7 +13,7 @@ import (
 
 // SearchResponse contains the results of a search query.
 type SearchResponse struct {
-	Sessions     []search.SessionResult `json:"sessions"`
+	Results      []search.SessionResult `json:"results"`
 	TotalMatches int                    `json:"total_matches"`
 }
 
@@ -25,11 +25,13 @@ type StatsToolCount struct {
 
 // StatsResponse contains usage statistics from the index.
 type StatsResponse struct {
-	TotalProjects int               `json:"total_projects"`
-	TotalSessions int               `json:"total_sessions"`
-	TotalEntries  int               `json:"total_entries"`
-	TotalTokens   int               `json:"total_tokens"`
-	TopTools      []StatsToolCount  `json:"top_tools"`
+	TotalProjects   int              `json:"total_projects"`
+	TotalSessions   int              `json:"total_sessions"`
+	TotalEntries    int              `json:"total_entries"`
+	TotalTokens     int              `json:"total_tokens"`
+	TotalEmbeddings int              `json:"total_embeddings"`
+	EmbedModel      string           `json:"embed_model"`
+	TopTools        []StatsToolCount `json:"top_tools"`
 }
 
 // handleSearchSessions searches for text across indexed sessions.
@@ -81,7 +83,7 @@ func (s *HTTPServer) handleSearchSessions(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	writeJSON(w, http.StatusOK, SearchResponse{Sessions: results, TotalMatches: totalMatches})
+	writeJSON(w, http.StatusOK, SearchResponse{Results: results, TotalMatches: totalMatches})
 }
 
 // handleGetStats returns usage statistics from the index.
@@ -169,63 +171,51 @@ func (s *HTTPServer) handleSemanticSearch(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, SemanticSearchResponse{Results: results})
 }
 
+// IndexerHealthResponse describes the health of the indexer server.
+type IndexerHealthResponse struct {
+	Available          bool `json:"available"`
+	DatabaseAccessible bool `json:"database_accessible,omitempty"`
+	IndexedProjects    int  `json:"indexed_projects,omitempty"`
+	IndexedSessions    int  `json:"indexed_sessions,omitempty"`
+}
+
 // handleIndexerHealth returns the health/status of the indexer.
 // @Summary Get indexer health status
-// @Description Returns whether the indexer binary is available and the database path
+// @Description Returns whether the indexer server is reachable and the database is accessible
 // @Tags indexer
 // @Produce json
-// @Success 200 {object} map[string]any
+// @Success 200 {object} IndexerHealthResponse
 // @Router /indexer/health [get]
 func (s *HTTPServer) handleIndexerHealth(w http.ResponseWriter, r *http.Request) {
-	available := rpc.ServerAvailable()
-
-	result := map[string]any{
-		"available": available,
+	result := IndexerHealthResponse{
+		Available: rpc.ServerAvailable(),
 	}
 
-	if available {
+	if result.Available {
 		data, err := indexerStats()
 		if err == nil {
 			var stats StatsResponse
 			if err := json.Unmarshal(data, &stats); err == nil {
-				result["database_accessible"] = true
-				result["indexed_projects"] = stats.TotalProjects
-				result["indexed_sessions"] = stats.TotalSessions
-			} else {
-				result["database_accessible"] = false
+				result.DatabaseAccessible = true
+				result.IndexedProjects = stats.TotalProjects
+				result.IndexedSessions = stats.TotalSessions
 			}
-		} else {
-			result["database_accessible"] = false
 		}
 	}
 
 	writeJSON(w, http.StatusOK, result)
 }
 
-// IndexerStatusProgressInfo describes progress for a sync or embedding operation.
-type IndexerStatusProgressInfo struct {
-	Done         int    `json:"done"`
-	Total        int    `json:"total"`
-	SessionID    string `json:"session_id,omitempty"`
-	Message      string `json:"message,omitempty"`
-	Project      int    `json:"project,omitempty"`
-	ProjectTotal int    `json:"project_total,omitempty"`
-	ProjectName  string `json:"project_name,omitempty"`
-	ChunksDone   int    `json:"chunks_done,omitempty"`
-	ChunksTotal  int    `json:"chunks_total,omitempty"`
-	Entries      int    `json:"entries,omitempty"`
-}
-
 // IndexerStatusResponse describes the current state of the indexer server.
 type IndexerStatusResponse struct {
-	Running       bool                       `json:"running"`
-	State         string                     `json:"state"`
-	UptimeSeconds int64                      `json:"uptime_seconds,omitempty"`
-	Watching      bool                       `json:"watching,omitempty"`
-	Model         string                     `json:"model,omitempty"`
-	ModelDim      int                        `json:"model_dim,omitempty"`
-	SyncProgress  *IndexerStatusProgressInfo `json:"sync_progress,omitempty"`
-	EmbedProgress *IndexerStatusProgressInfo `json:"embed_progress,omitempty"`
+	Running       bool              `json:"running"`
+	State         string            `json:"state"`
+	UptimeSeconds int64             `json:"uptime_seconds,omitempty"`
+	Watching      bool              `json:"watching,omitempty"`
+	Model         string            `json:"model,omitempty"`
+	ModelDim      int               `json:"model_dim,omitempty"`
+	SyncProgress  *rpc.ProgressInfo `json:"sync_progress,omitempty"`
+	EmbedProgress *rpc.ProgressInfo `json:"embed_progress,omitempty"`
 }
 
 // handleIndexerStatus returns the live status of the indexer server via RPC.
@@ -246,7 +236,7 @@ func (s *HTTPServer) handleIndexerStatus(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	resp, err := rpc.Call("status", nil, nil)
+	resp, err := rpc.Call(rpc.MethodStatus, nil, nil)
 	if err != nil {
 		writeJSON(w, http.StatusOK, IndexerStatusResponse{
 			Running: false,
@@ -265,38 +255,14 @@ func (s *HTTPServer) handleIndexerStatus(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	out := IndexerStatusResponse{
+	writeJSON(w, http.StatusOK, IndexerStatusResponse{
 		Running:       true,
 		State:         status.State,
 		UptimeSeconds: status.UptimeSeconds,
 		Watching:      status.Watching,
 		Model:         status.Model,
 		ModelDim:      status.ModelDim,
-	}
-	if status.SyncProgress != nil {
-		out.SyncProgress = &IndexerStatusProgressInfo{
-			Done:         status.SyncProgress.Done,
-			Total:        status.SyncProgress.Total,
-			SessionID:    status.SyncProgress.SessionID,
-			Message:      status.SyncProgress.Message,
-			Project:      status.SyncProgress.Project,
-			ProjectTotal: status.SyncProgress.ProjectTotal,
-			ProjectName:  status.SyncProgress.ProjectName,
-			ChunksDone:   status.SyncProgress.ChunksDone,
-			ChunksTotal:  status.SyncProgress.ChunksTotal,
-			Entries:      status.SyncProgress.Entries,
-		}
-	}
-	if status.EmbedProgress != nil {
-		out.EmbedProgress = &IndexerStatusProgressInfo{
-			Done:        status.EmbedProgress.Done,
-			Total:       status.EmbedProgress.Total,
-			SessionID:   status.EmbedProgress.SessionID,
-			ChunksDone:  status.EmbedProgress.ChunksDone,
-			ChunksTotal: status.EmbedProgress.ChunksTotal,
-			Entries:     status.EmbedProgress.Entries,
-		}
-	}
-
-	writeJSON(w, http.StatusOK, out)
+		SyncProgress:  status.SyncProgress,
+		EmbedProgress: status.EmbedProgress,
+	})
 }

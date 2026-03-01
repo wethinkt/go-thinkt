@@ -2,13 +2,14 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 )
 
-var errIndexerUnavailable = fmt.Errorf("indexer server is not running (start it with 'thinkt-indexer serve')")
+var errIndexerUnavailable = errors.New("indexer server is not running (start it with 'thinkt-indexer serve')")
 
 // indexerSearch calls the indexer RPC search method.
 func indexerSearch(params rpc.SearchParams) ([]search.SessionResult, int, error) {

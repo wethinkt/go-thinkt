@@ -51,8 +51,12 @@ type Progress struct {
 }
 
 // ProgressFrom marshals v into a Progress message.
+// Returns a zero-data Progress if marshaling fails (progress is best-effort).
 func ProgressFrom(v any) Progress {
-	data, _ := json.Marshal(v)
+	data, err := json.Marshal(v)
+	if err != nil {
+		return Progress{}
+	}
 	return Progress{Data: data}
 }
 

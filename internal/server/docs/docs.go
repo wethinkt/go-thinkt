@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/indexer/health": {
             "get": {
-                "description": "Returns whether the indexer binary is available and the database path",
+                "description": "Returns whether the indexer server is reachable and the database is accessible",
                 "produces": [
                     "application/json"
                 ],
@@ -29,8 +29,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/server.IndexerHealthResponse"
                         }
                     }
                 }
@@ -1216,6 +1215,41 @@ const docTemplate = `{
                 }
             }
         },
+        "rpc.ProgressInfo": {
+            "type": "object",
+            "properties": {
+                "chunks_done": {
+                    "type": "integer"
+                },
+                "chunks_total": {
+                    "type": "integer"
+                },
+                "done": {
+                    "type": "integer"
+                },
+                "entries": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "project": {
+                    "type": "integer"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "project_total": {
+                    "type": "integer"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "search.Match": {
             "type": "object",
             "properties": {
@@ -1340,37 +1374,19 @@ const docTemplate = `{
                 }
             }
         },
-        "server.IndexerStatusProgressInfo": {
+        "server.IndexerHealthResponse": {
             "type": "object",
             "properties": {
-                "chunks_done": {
+                "available": {
+                    "type": "boolean"
+                },
+                "database_accessible": {
+                    "type": "boolean"
+                },
+                "indexed_projects": {
                     "type": "integer"
                 },
-                "chunks_total": {
-                    "type": "integer"
-                },
-                "done": {
-                    "type": "integer"
-                },
-                "entries": {
-                    "type": "integer"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "project": {
-                    "type": "integer"
-                },
-                "project_name": {
-                    "type": "string"
-                },
-                "project_total": {
-                    "type": "integer"
-                },
-                "session_id": {
-                    "type": "string"
-                },
-                "total": {
+                "indexed_sessions": {
                     "type": "integer"
                 }
             }
@@ -1379,7 +1395,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "embed_progress": {
-                    "$ref": "#/definitions/server.IndexerStatusProgressInfo"
+                    "$ref": "#/definitions/rpc.ProgressInfo"
                 },
                 "model": {
                     "type": "string"
@@ -1394,7 +1410,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "sync_progress": {
-                    "$ref": "#/definitions/server.IndexerStatusProgressInfo"
+                    "$ref": "#/definitions/rpc.ProgressInfo"
                 },
                 "uptime_seconds": {
                     "type": "integer"
@@ -1473,7 +1489,7 @@ const docTemplate = `{
         "server.SearchResponse": {
             "type": "object",
             "properties": {
-                "sessions": {
+                "results": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/search.SessionResult"
@@ -1641,11 +1657,17 @@ const docTemplate = `{
         "server.StatsResponse": {
             "type": "object",
             "properties": {
+                "embed_model": {
+                    "type": "string"
+                },
                 "top_tools": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/server.StatsToolCount"
                     }
+                },
+                "total_embeddings": {
+                    "type": "integer"
                 },
                 "total_entries": {
                     "type": "integer"
