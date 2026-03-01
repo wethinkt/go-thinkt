@@ -25,7 +25,8 @@ type SyncProgress struct {
 	startTime time.Time
 	isTTY     bool
 	bar       progress.Model
-	rendered  bool // true once any progress line has been printed
+	bar2      progress.Model // second bar for dual-bar rendering
+	rendered  bool           // true once any progress line has been printed
 
 	// lipgloss styles (from theme)
 	phaseStyle   lipgloss.Style
@@ -40,17 +41,21 @@ func NewSyncProgress() *SyncProgress {
 
 	t := theme.Current()
 
-	bar := progress.New(
-		progress.WithColors(lipgloss.Color(t.GetAccent())),
-		progress.WithoutPercentage(),
-		progress.WithWidth(30),
-	)
-	bar.EmptyColor = lipgloss.Color(t.TextMuted.Fg)
+	newBar := func() progress.Model {
+		b := progress.New(
+			progress.WithColors(lipgloss.Color(t.GetAccent())),
+			progress.WithoutPercentage(),
+			progress.WithWidth(30),
+		)
+		b.EmptyColor = lipgloss.Color(t.TextMuted.Fg)
+		return b
+	}
 
 	return &SyncProgress{
 		startTime: time.Now(),
 		isTTY:     isTTY,
-		bar:       bar,
+		bar:       newBar(),
+		bar2:      newBar(),
 		phaseStyle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(t.GetAccent())).
 			Bold(true),
@@ -114,6 +119,41 @@ func (sp *SyncProgress) renderLine(phase, count, detail string, pct float64) {
 	sp.Print(line)
 }
 
+// renderDualLine assembles a progress line with two bars, dynamically sizing them to fit.
+// Layout: " phase  [bar1] count1  [bar2] count2  detail     elapsed"
+func (sp *SyncProgress) renderDualLine(phase, count1 string, pct1 float64, count2 string, pct2 float64, detail string) {
+	elapsed := formatElapsed(time.Since(sp.startTime))
+
+	// Fixed padding: " " + "  " + " " + "  " + " " + "  " + "     " = 1+2+1+2+1+2+5 = 14
+	const dualPadding = 14
+	fixedWidth := len(phase) + len(count1) + len(count2) + len(detail) + len(elapsed) + dualPadding
+
+	totalBarSpace := sp.getWidth() - fixedWidth
+	if totalBarSpace < barMinWidth*2 {
+		totalBarSpace = barMinWidth * 2
+	}
+	if totalBarSpace > barDefaultWidth*2 {
+		totalBarSpace = barDefaultWidth * 2
+	}
+
+	bar1Width := totalBarSpace / 2
+	bar2Width := totalBarSpace - bar1Width
+
+	sp.bar.SetWidth(bar1Width)
+	sp.bar2.SetWidth(bar2Width)
+
+	line := fmt.Sprintf(" %s  %s %s  %s %s  %s     %s",
+		sp.phaseStyle.Render(phase),
+		sp.bar.ViewAs(pct1),
+		sp.countStyle.Render(count1),
+		sp.bar2.ViewAs(pct2),
+		sp.countStyle.Render(count2),
+		sp.detailStyle.Render(detail),
+		sp.elapsedStyle.Render(elapsed),
+	)
+	sp.Print(line)
+}
+
 // RenderDownload renders a model download progress line.
 func (sp *SyncProgress) RenderDownload(modelID string, pct float64) {
 	if !sp.isTTY {
@@ -125,23 +165,38 @@ func (sp *SyncProgress) RenderDownload(modelID string, pct float64) {
 }
 
 // RenderIndexing renders an indexing progress line.
+// When there are multiple projects, two progress bars are shown side by side:
+// one for overall project progress and one for sessions within the current project.
 func (sp *SyncProgress) RenderIndexing(pIdx, pTotal, sIdx, sTotal int, message string) {
 	if !sp.isTTY {
 		sp.Print(fmt.Sprintf("Projects [%d/%d] | Sessions [%d/%d] %s", pIdx, pTotal, sIdx, sTotal, message))
 		return
 	}
 
-	var pct float64
-	if pTotal > 0 && sTotal > 0 {
-		pct = (float64(pIdx-1) + float64(sIdx)/float64(sTotal)) / float64(pTotal)
+	if pTotal <= 1 {
+		var pct float64
+		if sTotal > 0 {
+			pct = float64(sIdx) / float64(sTotal)
+		}
+		sp.renderLine(thinktI18n.T("indexer.progress.indexing", "Indexing"), fmt.Sprintf("%d/%d sessions", sIdx, sTotal), message, pct)
+		return
 	}
 
-	count := fmt.Sprintf("%d/%d sessions", sIdx, sTotal)
-	if pTotal > 1 {
-		count = fmt.Sprintf("%d/%d projects  %d/%d sessions", pIdx, pTotal, sIdx, sTotal)
+	var projectPct, sessionPct float64
+	if pTotal > 0 {
+		projectPct = float64(pIdx-1) / float64(pTotal)
+		if sTotal > 0 {
+			projectPct = (float64(pIdx-1) + float64(sIdx)/float64(sTotal)) / float64(pTotal)
+			sessionPct = float64(sIdx) / float64(sTotal)
+		}
 	}
 
-	sp.renderLine(thinktI18n.T("indexer.progress.indexing", "Indexing"), count, message, pct)
+	sp.renderDualLine(
+		thinktI18n.T("indexer.progress.indexing", "Indexing"),
+		fmt.Sprintf("%d/%d", pIdx, pTotal), projectPct,
+		fmt.Sprintf("%d/%d", sIdx, sTotal), sessionPct,
+		message,
+	)
 }
 
 // RenderEmbedding renders an embedding progress line.

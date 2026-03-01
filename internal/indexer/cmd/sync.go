@@ -43,13 +43,7 @@ func runIndexSync() error {
 		var progressFn func(rpc.Progress)
 		if sp.ShouldShowProgress(quiet, verbose) {
 			progressFn = func(p rpc.Progress) {
-				var data struct {
-					Project      int    `json:"project"`
-					ProjectTotal int    `json:"project_total"`
-					Session      int    `json:"session"`
-					SessionTotal int    `json:"session_total"`
-					Message      string `json:"message"`
-				}
+				var data rpc.SyncProgressData
 				if err := json.Unmarshal(p.Data, &data); err == nil {
 					if data.ProjectTotal > 0 {
 						sp.RenderIndexing(data.Project, data.ProjectTotal, data.Session, data.SessionTotal, data.Message)
