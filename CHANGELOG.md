@@ -1,5 +1,27 @@
 # `go-thinkt` CHANGELOG
 
+## v0.6.4 (2026-03-01)
+
+* **RPC Refactor**
+  - Replace `exec.Command` with RPC calls for MCP and REST handlers communicating with the indexer server
+  - Formalize all RPC protocol types into named structs in `protocol.go` (SearchData, StatsData, SyncProgressData, etc.)
+  - Add `OKResponse`/`ProgressFrom` helpers to reduce boilerplate
+  - Clean up review issues: remove duplicate types, use typed responses, rename `SearchResponse.Sessions` to `Results`
+  - Replace duplicated server response structs with type aliases to canonical `rpc.*` types
+
+* **TUI**
+  - Dual progress bars for sync progress display
+
+* **Indexer**
+  - Add tier and score fields to semantic search results
+
+* **HTTP API & MCP**
+  - Add `TotalEmbeddings` and `EmbedModel` to stats response
+  - Replace `map[string]any` with typed `IndexerHealthResponse`
+  - Normalize source filter server-side for consistent case-insensitive matching
+  - Consistent query validation with `TrimSpace` across all search handlers
+
+
 ## v0.6.3 (2026-02-28)
 
 * **Internationalization (i18n)**
