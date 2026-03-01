@@ -319,9 +319,8 @@ Edit `%APPDATA%\Claude\claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "thinkt": {
       "command": "thinkt",
-      "args": ["serve", "mcp"]
+      "args": ["server", "mcp"]
     }
   }
 }
@@ -380,7 +379,7 @@ Edit `%USERPROFILE%\.gemini\settings.json`:
     "thinkt": {
       "transport": "stdio",
       "command": "thinkt",
-      "args": ["serve", "mcp"]
+      "args": ["server", "mcp"]
     }
   }
 }
@@ -406,7 +405,7 @@ Edit `%USERPROFILE%\.config\github-copilot\mcp.json`:
   "mcpServers": {
     "thinkt": {
       "command": "thinkt",
-      "args": ["serve", "mcp"]
+      "args": ["server", "mcp"]
     }
   }
 }
@@ -433,7 +432,7 @@ Edit `%USERPROFILE%\.config\crush\crush.json`:
       "disabled": false,
       "timeout": 120,
       "command": "thinkt",
-      "args": ["serve", "mcp"]
+      "args": ["server", "mcp"]
     }
   }
 }

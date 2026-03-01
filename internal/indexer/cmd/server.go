@@ -663,6 +663,7 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 	}
 
 	// 1. Open DBs
+	tuilog.Log.Info("indexer: using database", "path", dbPath)
 	database, err := getDB()
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)

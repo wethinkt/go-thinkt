@@ -30,10 +30,10 @@ The core CLI is functional with multi-source support, TUI with tree view navigat
 - [x] **StoreCache** - Project and session caching with optional TTL
 
 - [x] **Authentication** - Bearer token auth for REST API and MCP HTTP servers
-  - `thinkt serve token` generates secure tokens
+  - `thinkt server token` generates secure tokens
   - Constant-time comparison, `WWW-Authenticate` header on 401
 
-- [x] **Machine Fingerprint** - `thinkt serve fingerprint` for workspace correlation
+- [x] **Machine Fingerprint** - `thinkt server fingerprint` for workspace correlation
 
 - [x] **Documentation Updates** - AGENTS.md, README.md, and Hugo docs updated
 
