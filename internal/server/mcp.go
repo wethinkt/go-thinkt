@@ -132,9 +132,6 @@ func (ms *MCPServer) registerTools() {
 		}, ms.handleListActiveSessions)
 	}
 
-	// Register indexer tools if binary is available
-	if indexerPath := findIndexerBinary(); indexerPath != "" {
-		tuilog.Log.Info("NewMCPServer: thinkt-indexer found, checking tool permissions", "path", indexerPath)
 	// Register indexer tools (they call the indexer server via RPC at runtime)
 	// search_sessions
 	if ms.isToolAllowed("search_sessions") {

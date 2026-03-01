@@ -13,6 +13,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/wethinkt/go-thinkt/internal/collect"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
@@ -192,7 +193,7 @@ func (m CollectorPageModel) renderContent() string {
 			if len(id) > 12 {
 				id = id[:12]
 			}
-			heartbeat := relativeDate(a.LastHeartbeat)
+			heartbeat := thinktI18n.RelativeTime(a.LastHeartbeat)
 			b.WriteString(fmt.Sprintf("  %s  %s  %s  traces:%d  %s  %s\n",
 				status,
 				valueStyle.Render(id),
@@ -217,7 +218,7 @@ func (m CollectorPageModel) renderContent() string {
 			if len(id) > 8 {
 				id = id[:8]
 			}
-			updated := relativeDate(s.LastUpdated)
+			updated := thinktI18n.RelativeTime(s.LastUpdated)
 			b.WriteString(fmt.Sprintf("  %s  %s  entries:%d  %s  %s\n",
 				valueStyle.Render(id),
 				mutedStyle.Render(s.Source),

@@ -10,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/wethinkt/go-thinkt/internal/export"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
@@ -148,7 +149,7 @@ func (m ExporterPageModel) renderContent() string {
 	b.WriteString(labelStyle.Render("Traces Failed") + valueStyle.Render(fmt.Sprintf("%d", m.stats.TracesFailed)) + "\n")
 	lastShip := "never"
 	if !m.stats.LastShipTime.IsZero() {
-		lastShip = relativeDate(m.stats.LastShipTime)
+		lastShip = thinktI18n.RelativeTime(m.stats.LastShipTime)
 	}
 	b.WriteString(labelStyle.Render("Last Ship") + mutedStyle.Render(lastShip) + "\n")
 

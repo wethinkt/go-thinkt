@@ -153,10 +153,10 @@ func (m AgentTailModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case key.Matches(msg, m.keys.ToggleInput):
-			m.filters.Input = !m.filters.Input
+			m.filters.User = !m.filters.User
 			return m, m.refreshViewport()
 		case key.Matches(msg, m.keys.ToggleOutput):
-			m.filters.Output = !m.filters.Output
+			m.filters.Assistant = !m.filters.Assistant
 			return m, m.refreshViewport()
 		case key.Matches(msg, m.keys.ToggleTools):
 			m.filters.Tools = !m.filters.Tools
@@ -293,8 +293,8 @@ func (m AgentTailModel) renderFilterStatus() string {
 		on    bool
 	}
 	items := []filterItem{
-		{"1", "Input", m.filters.Input},
-		{"2", "Output", m.filters.Output},
+		{"1", "User", m.filters.User},
+		{"2", "Assistant", m.filters.Assistant},
 		{"3", "Tools", m.filters.Tools},
 		{"4", "Thinking", m.filters.Thinking},
 		{"5", "Other", m.filters.Other},
