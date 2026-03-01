@@ -41,3 +41,6 @@ COMMENT ON COLUMN migrations.applied_at IS 'Timestamp when the migration was app
 CREATE INDEX IF NOT EXISTS idx_embeddings_session ON embeddings(session_id);
 CREATE INDEX IF NOT EXISTS idx_embeddings_entry ON embeddings(session_id, entry_uuid);
 CREATE INDEX IF NOT EXISTS idx_embeddings_tier ON embeddings(tier);
+
+-- Commit to WAL as COMMENTS have replay issues
+CHECKPOINT;

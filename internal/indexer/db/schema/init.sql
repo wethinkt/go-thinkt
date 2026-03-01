@@ -101,3 +101,6 @@ COMMENT ON COLUMN entries.line_number IS '1-based line number in the source JSON
 CREATE INDEX IF NOT EXISTS idx_entries_session ON entries(session_id);
 CREATE INDEX IF NOT EXISTS idx_entries_ts ON entries(timestamp);
 CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id);
+
+-- Commit to WAL as COMMENTS have replay issues
+CHECKPOINT;
