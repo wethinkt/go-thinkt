@@ -670,10 +670,7 @@ func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallTool
 	if err != nil {
 		return toolErrorResult("search_failed", "indexer search failed", err)
 	}
-	output := struct {
-		Results      []search.SessionResult `json:"results"`
-		TotalMatches int                    `json:"total_matches"`
-	}{Results: results, TotalMatches: totalMatches}
+	output := rpc.SearchData{Results: results, TotalMatches: totalMatches}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
 }
 
@@ -694,7 +691,7 @@ func (ms *MCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallTool
 	if err != nil {
 		return toolErrorResult("semantic_search_failed", "semantic search failed", err)
 	}
-	output := semanticSearchOutput{Results: normalizeSemanticResults(results)}
+	output := semanticSearchOutput{Results: results}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
 }
 
@@ -703,11 +700,7 @@ func (ms *MCPServer) handleGetUsageStats(ctx context.Context, req *mcp.CallToolR
 	if err != nil {
 		return toolErrorResult("stats_failed", "failed to load usage stats", err)
 	}
-	var res any
-	if err := json.Unmarshal(data, &res); err != nil {
-		return toolErrorResult("invalid_response", "failed to parse stats response", err)
-	}
-	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(data)}}}, res, nil
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(data)}}}, json.RawMessage(data), nil
 }
 
 func toolErrorResult(code, message string, err error) (*mcp.CallToolResult, any, error) {
@@ -769,13 +762,6 @@ func errorGetSessionEntriesOutput(code, message string, err error) getSessionEnt
 	out := emptyGetSessionEntriesOutput()
 	out.Error = &detail
 	return out
-}
-
-func normalizeSemanticResults(results []search.SemanticResult) []search.SemanticResult {
-	if results == nil {
-		return []search.SemanticResult{}
-	}
-	return results
 }
 
 func truncateString(s string, maxLen int) string {

@@ -46,6 +46,13 @@ definitions:
       total:
         type: integer
     type: object
+  rpc.ToolCount:
+    properties:
+      count:
+        type: integer
+      name:
+        type: string
+    type: object
   search.Match:
     properties:
       line_num:
@@ -143,6 +150,8 @@ definitions:
     properties:
       embed_progress:
         $ref: '#/definitions/rpc.ProgressInfo'
+      embedding:
+        type: boolean
       model:
         type: string
       model_dim:
@@ -150,9 +159,12 @@ definitions:
       running:
         type: boolean
       state:
+        description: '"idle", "syncing", "embedding", "syncing+embedding"'
         type: string
       sync_progress:
         $ref: '#/definitions/rpc.ProgressInfo'
+      syncing:
+        type: boolean
       uptime_seconds:
         type: integer
       watching:
@@ -316,7 +328,7 @@ definitions:
         type: string
       top_tools:
         items:
-          $ref: '#/definitions/server.StatsToolCount'
+          $ref: '#/definitions/rpc.ToolCount'
         type: array
       total_embeddings:
         type: integer
@@ -328,13 +340,6 @@ definitions:
         type: integer
       total_tokens:
         type: integer
-    type: object
-  server.StatsToolCount:
-    properties:
-      count:
-        type: integer
-      name:
-        type: string
     type: object
   server.TeamMessagesResponse:
     properties:

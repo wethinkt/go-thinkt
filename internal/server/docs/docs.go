@@ -1250,6 +1250,17 @@ const docTemplate = `{
                 }
             }
         },
+        "rpc.ToolCount": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "search.Match": {
             "type": "object",
             "properties": {
@@ -1397,6 +1408,9 @@ const docTemplate = `{
                 "embed_progress": {
                     "$ref": "#/definitions/rpc.ProgressInfo"
                 },
+                "embedding": {
+                    "type": "boolean"
+                },
                 "model": {
                     "type": "string"
                 },
@@ -1407,10 +1421,14 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "state": {
+                    "description": "\"idle\", \"syncing\", \"embedding\", \"syncing+embedding\"",
                     "type": "string"
                 },
                 "sync_progress": {
                     "$ref": "#/definitions/rpc.ProgressInfo"
+                },
+                "syncing": {
+                    "type": "boolean"
                 },
                 "uptime_seconds": {
                     "type": "integer"
@@ -1663,7 +1681,7 @@ const docTemplate = `{
                 "top_tools": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/server.StatsToolCount"
+                        "$ref": "#/definitions/rpc.ToolCount"
                     }
                 },
                 "total_embeddings": {
@@ -1680,17 +1698,6 @@ const docTemplate = `{
                 },
                 "total_tokens": {
                     "type": "integer"
-                }
-            }
-        },
-        "server.StatsToolCount": {
-            "type": "object",
-            "properties": {
-                "count": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
                 }
             }
         },

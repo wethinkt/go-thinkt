@@ -8,31 +8,19 @@ import (
 	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
-	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 )
 
-// SearchResponse contains the results of a search query.
-type SearchResponse struct {
-	Results      []search.SessionResult `json:"results"`
-	TotalMatches int                    `json:"total_matches"`
-}
+// SearchResponse is the HTTP response for text search.
+type SearchResponse = rpc.SearchData
 
-// StatsToolCount represents a tool and its usage count.
-type StatsToolCount struct {
-	Name  string `json:"name"`
-	Count int    `json:"count"`
-}
+// StatsResponse is the HTTP response for usage statistics.
+type StatsResponse = rpc.StatsData
 
-// StatsResponse contains usage statistics from the index.
-type StatsResponse struct {
-	TotalProjects   int              `json:"total_projects"`
-	TotalSessions   int              `json:"total_sessions"`
-	TotalEntries    int              `json:"total_entries"`
-	TotalTokens     int              `json:"total_tokens"`
-	TotalEmbeddings int              `json:"total_embeddings"`
-	EmbedModel      string           `json:"embed_model"`
-	TopTools        []StatsToolCount `json:"top_tools"`
-}
+// SemanticSearchResponse is the HTTP response for semantic search.
+type SemanticSearchResponse = rpc.SemanticSearchData
+
+// IndexerStatusData is the HTTP representation of indexer server state.
+type IndexerStatusData = rpc.StatusData
 
 // handleSearchSessions searches for text across indexed sessions.
 // @Summary Search across indexed sessions
@@ -114,11 +102,6 @@ func (s *HTTPServer) handleGetStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, result)
-}
-
-// SemanticSearchResponse contains semantic search results.
-type SemanticSearchResponse struct {
-	Results []search.SemanticResult `json:"results"`
 }
 
 // handleSemanticSearch searches by meaning using on-device embeddings.
@@ -208,14 +191,8 @@ func (s *HTTPServer) handleIndexerHealth(w http.ResponseWriter, r *http.Request)
 
 // IndexerStatusResponse describes the current state of the indexer server.
 type IndexerStatusResponse struct {
-	Running       bool              `json:"running"`
-	State         string            `json:"state"`
-	UptimeSeconds int64             `json:"uptime_seconds,omitempty"`
-	Watching      bool              `json:"watching,omitempty"`
-	Model         string            `json:"model,omitempty"`
-	ModelDim      int               `json:"model_dim,omitempty"`
-	SyncProgress  *rpc.ProgressInfo `json:"sync_progress,omitempty"`
-	EmbedProgress *rpc.ProgressInfo `json:"embed_progress,omitempty"`
+	Running bool `json:"running"`
+	IndexerStatusData
 }
 
 // handleIndexerStatus returns the live status of the indexer server via RPC.
@@ -230,8 +207,7 @@ type IndexerStatusResponse struct {
 func (s *HTTPServer) handleIndexerStatus(w http.ResponseWriter, r *http.Request) {
 	if !rpc.ServerAvailable() {
 		writeJSON(w, http.StatusOK, IndexerStatusResponse{
-			Running: false,
-			State:   "stopped",
+			IndexerStatusData: IndexerStatusData{State: "stopped"},
 		})
 		return
 	}
@@ -239,8 +215,7 @@ func (s *HTTPServer) handleIndexerStatus(w http.ResponseWriter, r *http.Request)
 	resp, err := rpc.Call(rpc.MethodStatus, nil, nil)
 	if err != nil {
 		writeJSON(w, http.StatusOK, IndexerStatusResponse{
-			Running: false,
-			State:   "stopped",
+			IndexerStatusData: IndexerStatusData{State: "stopped"},
 		})
 		return
 	}
@@ -249,20 +224,14 @@ func (s *HTTPServer) handleIndexerStatus(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var status rpc.StatusData
+	var status IndexerStatusData
 	if err := json.Unmarshal(resp.Data, &status); err != nil {
 		writeError(w, http.StatusInternalServerError, "invalid_response", "Failed to parse status")
 		return
 	}
 
 	writeJSON(w, http.StatusOK, IndexerStatusResponse{
-		Running:       true,
-		State:         status.State,
-		UptimeSeconds: status.UptimeSeconds,
-		Watching:      status.Watching,
-		Model:         status.Model,
-		ModelDim:      status.ModelDim,
-		SyncProgress:  status.SyncProgress,
-		EmbedProgress: status.EmbedProgress,
+		Running:    true,
+		IndexerStatusData: status,
 	})
 }

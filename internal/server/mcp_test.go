@@ -12,7 +12,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/sources/claude"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
@@ -937,22 +936,5 @@ func TestToolErrorResult_Structured(t *testing.T) {
 	}
 	if out.Error.Code != rendered.Error.Code {
 		t.Fatalf("mismatched output code %q vs %q", out.Error.Code, rendered.Error.Code)
-	}
-}
-
-
-func TestNormalizeSemanticResults(t *testing.T) {
-	got := normalizeSemanticResults(nil)
-	if got == nil {
-		t.Fatal("expected empty slice, got nil")
-	}
-	if len(got) != 0 {
-		t.Fatalf("expected empty slice, got %d", len(got))
-	}
-
-	in := []search.SemanticResult{{SessionID: "s1"}}
-	got = normalizeSemanticResults(in)
-	if len(got) != 1 || got[0].SessionID != "s1" {
-		t.Fatalf("unexpected normalized results: %+v", got)
 	}
 }
