@@ -1216,6 +1216,105 @@ const docTemplate = `{
                 }
             }
         },
+        "search.Match": {
+            "type": "object",
+            "properties": {
+                "line_num": {
+                    "type": "integer"
+                },
+                "match_end": {
+                    "description": "End offset of match within Preview",
+                    "type": "integer"
+                },
+                "match_start": {
+                    "description": "Start offset of match within Preview",
+                    "type": "integer"
+                },
+                "preview": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "search.SemanticResult": {
+            "type": "object",
+            "properties": {
+                "chunk_index": {
+                    "type": "integer"
+                },
+                "distance": {
+                    "type": "number"
+                },
+                "entry_uuid": {
+                    "type": "string"
+                },
+                "first_prompt": {
+                    "type": "string"
+                },
+                "line_number": {
+                    "type": "integer"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "score": {
+                    "description": "Combined relevance + diversity score",
+                    "type": "number"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "session_path": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "tier": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "tool_name": {
+                    "type": "string"
+                },
+                "total_chunks": {
+                    "type": "integer"
+                },
+                "word_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "search.SessionResult": {
+            "type": "object",
+            "properties": {
+                "matches": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/search.Match"
+                    }
+                },
+                "path": {
+                    "type": "string"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                }
+            }
+        },
         "server.AllowedAppsResponse": {
             "type": "object",
             "properties": {
@@ -1371,54 +1470,17 @@ const docTemplate = `{
                 }
             }
         },
-        "server.SearchMatch": {
-            "type": "object",
-            "properties": {
-                "line_num": {
-                    "type": "integer"
-                },
-                "preview": {
-                    "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                }
-            }
-        },
         "server.SearchResponse": {
             "type": "object",
             "properties": {
                 "sessions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/server.SearchSessionResult"
+                        "$ref": "#/definitions/search.SessionResult"
                     }
                 },
                 "total_matches": {
                     "type": "integer"
-                }
-            }
-        },
-        "server.SearchSessionResult": {
-            "type": "object",
-            "properties": {
-                "matches": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/server.SearchMatch"
-                    }
-                },
-                "path": {
-                    "type": "string"
-                },
-                "project_name": {
-                    "type": "string"
-                },
-                "session_id": {
-                    "type": "string"
-                },
-                "source": {
-                    "type": "string"
                 }
             }
         },
@@ -1428,61 +1490,8 @@ const docTemplate = `{
                 "results": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/server.SemanticSearchResult"
+                        "$ref": "#/definitions/search.SemanticResult"
                     }
-                }
-            }
-        },
-        "server.SemanticSearchResult": {
-            "type": "object",
-            "properties": {
-                "chunk_index": {
-                    "type": "integer"
-                },
-                "distance": {
-                    "type": "number"
-                },
-                "entry_uuid": {
-                    "type": "string"
-                },
-                "first_prompt": {
-                    "type": "string"
-                },
-                "line_number": {
-                    "type": "integer"
-                },
-                "project_name": {
-                    "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                },
-                "score": {
-                    "type": "number"
-                },
-                "session_id": {
-                    "type": "string"
-                },
-                "session_path": {
-                    "type": "string"
-                },
-                "source": {
-                    "type": "string"
-                },
-                "tier": {
-                    "type": "string"
-                },
-                "timestamp": {
-                    "type": "string"
-                },
-                "tool_name": {
-                    "type": "string"
-                },
-                "total_chunks": {
-                    "type": "integer"
-                },
-                "word_count": {
-                    "type": "integer"
                 }
             }
         },

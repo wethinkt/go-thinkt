@@ -23,6 +23,72 @@ definitions:
       tag:
         type: string
     type: object
+  search.Match:
+    properties:
+      line_num:
+        type: integer
+      match_end:
+        description: End offset of match within Preview
+        type: integer
+      match_start:
+        description: Start offset of match within Preview
+        type: integer
+      preview:
+        type: string
+      role:
+        type: string
+    type: object
+  search.SemanticResult:
+    properties:
+      chunk_index:
+        type: integer
+      distance:
+        type: number
+      entry_uuid:
+        type: string
+      first_prompt:
+        type: string
+      line_number:
+        type: integer
+      project_name:
+        type: string
+      role:
+        type: string
+      score:
+        description: Combined relevance + diversity score
+        type: number
+      session_id:
+        type: string
+      session_path:
+        type: string
+      source:
+        type: string
+      tier:
+        type: string
+      timestamp:
+        type: string
+      tool_name:
+        type: string
+      total_chunks:
+        type: integer
+      word_count:
+        type: integer
+    type: object
+  search.SessionResult:
+    properties:
+      matches:
+        items:
+          $ref: '#/definitions/search.Match'
+        type: array
+      path:
+        type: string
+      project_name:
+        type: string
+      session_id:
+        type: string
+      source:
+        type: string
+    type: object
   server.AllowedAppsResponse:
     properties:
       apps:
@@ -124,80 +190,21 @@ definitions:
       dir:
         type: string
     type: object
-  server.SearchMatch:
-    properties:
-      line_num:
-        type: integer
-      preview:
-        type: string
-      role:
-        type: string
-    type: object
   server.SearchResponse:
     properties:
       sessions:
         items:
-          $ref: '#/definitions/server.SearchSessionResult'
+          $ref: '#/definitions/search.SessionResult'
         type: array
       total_matches:
         type: integer
-    type: object
-  server.SearchSessionResult:
-    properties:
-      matches:
-        items:
-          $ref: '#/definitions/server.SearchMatch'
-        type: array
-      path:
-        type: string
-      project_name:
-        type: string
-      session_id:
-        type: string
-      source:
-        type: string
     type: object
   server.SemanticSearchResponse:
     properties:
       results:
         items:
-          $ref: '#/definitions/server.SemanticSearchResult'
+          $ref: '#/definitions/search.SemanticResult'
         type: array
-    type: object
-  server.SemanticSearchResult:
-    properties:
-      chunk_index:
-        type: integer
-      distance:
-        type: number
-      entry_uuid:
-        type: string
-      first_prompt:
-        type: string
-      line_number:
-        type: integer
-      project_name:
-        type: string
-      role:
-        type: string
-      score:
-        type: number
-      session_id:
-        type: string
-      session_path:
-        type: string
-      source:
-        type: string
-      tier:
-        type: string
-      timestamp:
-        type: string
-      tool_name:
-        type: string
-      total_chunks:
-        type: integer
-      word_count:
-        type: integer
     type: object
   server.ServerInfoResponse:
     properties:

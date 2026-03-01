@@ -2,35 +2,19 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
-	"os/exec"
+	"strconv"
 	"strings"
 
-	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
+	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 )
-
-// SearchMatch represents a single search match within a session.
-type SearchMatch struct {
-	LineNum int    `json:"line_num"`
-	Preview string `json:"preview"`
-	Role    string `json:"role"`
-}
-
-// SearchSessionResult represents search results for a single session.
-type SearchSessionResult struct {
-	SessionID   string        `json:"session_id"`
-	ProjectName string        `json:"project_name"`
-	Source      string        `json:"source"`
-	Path        string        `json:"path"`
-	Matches     []SearchMatch `json:"matches"`
-}
 
 // SearchResponse contains the results of a search query.
 type SearchResponse struct {
-	Sessions     []SearchSessionResult `json:"sessions"`
-	TotalMatches int                   `json:"total_matches"`
+	Sessions     []search.SessionResult `json:"sessions"`
+	TotalMatches int                    `json:"total_matches"`
 }
 
 // StatsToolCount represents a tool and its usage count.
@@ -73,47 +57,31 @@ func (s *HTTPServer) handleSearchSessions(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	indexerPath := config.FindIndexerBinary()
-	if indexerPath == "" {
-		writeError(w, http.StatusServiceUnavailable, "indexer_not_found", "thinkt-indexer binary not found")
-		return
+	params := rpc.SearchParams{
+		Query:   query,
+		Project: r.URL.Query().Get("project"),
+		Source:  r.URL.Query().Get("source"),
 	}
+	if v := r.URL.Query().Get("limit"); v != "" {
+		params.Limit, _ = strconv.Atoi(v)
+	}
+	if v := r.URL.Query().Get("limit_per_session"); v != "" {
+		params.LimitPerSession, _ = strconv.Atoi(v)
+	}
+	params.CaseSensitive = r.URL.Query().Get("case_sensitive") == "true"
+	params.Regex = r.URL.Query().Get("regex") == "true"
 
-	args := []string{"search", "--json", query}
-
-	if project := r.URL.Query().Get("project"); project != "" {
-		args = append(args, "--project", project)
-	}
-	if source := r.URL.Query().Get("source"); source != "" {
-		args = append(args, "--source", source)
-	}
-	if limit := r.URL.Query().Get("limit"); limit != "" {
-		args = append(args, "--limit", limit)
-	}
-	if limitPerSess := r.URL.Query().Get("limit_per_session"); limitPerSess != "" {
-		args = append(args, "--limit-per-session", limitPerSess)
-	}
-	if r.URL.Query().Get("case_sensitive") == "true" {
-		args = append(args, "--case-sensitive")
-	}
-	if r.URL.Query().Get("regex") == "true" {
-		args = append(args, "--regex")
-	}
-
-	cmd := exec.Command(indexerPath, args...)
-	out, err := cmd.Output()
+	results, totalMatches, err := indexerSearch(params)
 	if err != nil {
+		if errors.Is(err, errIndexerUnavailable) {
+			writeError(w, http.StatusServiceUnavailable, "indexer_unavailable", err.Error())
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "search_failed", err.Error())
 		return
 	}
 
-	var result SearchResponse
-	if err := json.Unmarshal(out, &result); err != nil {
-		writeError(w, http.StatusInternalServerError, "invalid_response", "Failed to parse indexer output")
-		return
-	}
-
-	writeJSON(w, http.StatusOK, result)
+	writeJSON(w, http.StatusOK, SearchResponse{Sessions: results, TotalMatches: totalMatches})
 }
 
 // handleGetStats returns usage statistics from the index.
@@ -127,51 +95,28 @@ func (s *HTTPServer) handleSearchSessions(w http.ResponseWriter, r *http.Request
 // @Router /stats [get]
 // @Security BearerAuth
 func (s *HTTPServer) handleGetStats(w http.ResponseWriter, r *http.Request) {
-	indexerPath := config.FindIndexerBinary()
-	if indexerPath == "" {
-		writeError(w, http.StatusServiceUnavailable, "indexer_not_found", "thinkt-indexer binary not found")
-		return
-	}
-
-	cmd := exec.Command(indexerPath, "stats", "--json")
-	out, err := cmd.Output()
+	data, err := indexerStats()
 	if err != nil {
+		if errors.Is(err, errIndexerUnavailable) {
+			writeError(w, http.StatusServiceUnavailable, "indexer_unavailable", err.Error())
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "stats_failed", err.Error())
 		return
 	}
 
 	var result StatsResponse
-	if err := json.Unmarshal(out, &result); err != nil {
-		writeError(w, http.StatusInternalServerError, "invalid_response", "Failed to parse indexer output")
+	if err := json.Unmarshal(data, &result); err != nil {
+		writeError(w, http.StatusInternalServerError, "invalid_response", "Failed to parse stats response")
 		return
 	}
 
 	writeJSON(w, http.StatusOK, result)
 }
 
-// SemanticSearchResult represents a single semantic search hit.
-type SemanticSearchResult struct {
-	SessionID   string  `json:"session_id"`
-	EntryUUID   string  `json:"entry_uuid"`
-	ChunkIndex  int     `json:"chunk_index"`
-	TotalChunks int     `json:"total_chunks"`
-	Distance    float64 `json:"distance"`
-	Tier        string  `json:"tier,omitempty"`
-	Role        string  `json:"role,omitempty"`
-	Timestamp   string  `json:"timestamp,omitempty"`
-	ToolName    string  `json:"tool_name,omitempty"`
-	WordCount   int     `json:"word_count,omitempty"`
-	ProjectName string  `json:"project_name,omitempty"`
-	Source      string  `json:"source,omitempty"`
-	SessionPath string  `json:"session_path,omitempty"`
-	FirstPrompt string  `json:"first_prompt,omitempty"`
-	LineNumber  int     `json:"line_number,omitempty"`
-	Score       float64 `json:"score,omitempty"`
-}
-
 // SemanticSearchResponse contains semantic search results.
 type SemanticSearchResponse struct {
-	Results []SemanticSearchResult `json:"results"`
+	Results []search.SemanticResult `json:"results"`
 }
 
 // handleSemanticSearch searches by meaning using on-device embeddings.
@@ -198,49 +143,27 @@ func (s *HTTPServer) handleSemanticSearch(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	indexerPath := config.FindIndexerBinary()
-	if indexerPath == "" {
-		writeError(w, http.StatusServiceUnavailable, "indexer_not_found", "thinkt-indexer binary not found")
-		return
+	params := rpc.SemanticSearchParams{
+		Query:   query,
+		Project: r.URL.Query().Get("project"),
+		Source:  strings.TrimSpace(strings.ToLower(r.URL.Query().Get("source"))),
 	}
+	if v := r.URL.Query().Get("limit"); v != "" {
+		params.Limit, _ = strconv.Atoi(v)
+	}
+	if v := r.URL.Query().Get("max_distance"); v != "" {
+		params.MaxDistance, _ = strconv.ParseFloat(v, 64)
+	}
+	params.Diversity = r.URL.Query().Get("diversity") == "true"
 
-	args := []string{"semantic", "search", "--json", query}
-
-	if project := r.URL.Query().Get("project"); project != "" {
-		args = append(args, "--project", project)
-	}
-	if source := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("source"))); source != "" {
-		args = append(args, "--source", source)
-	}
-	if limit := r.URL.Query().Get("limit"); limit != "" {
-		args = append(args, "--limit", limit)
-	}
-	if maxDist := r.URL.Query().Get("max_distance"); maxDist != "" {
-		args = append(args, "--max-distance", maxDist)
-	}
-	if r.URL.Query().Get("diversity") == "true" {
-		args = append(args, "--diversity")
-	}
-
-	cmd := exec.Command(indexerPath, args...)
-	out, err := cmd.Output()
+	results, err := indexerSemanticSearch(params)
 	if err != nil {
-		errMsg := err.Error()
-		if exitErr, ok := err.(*exec.ExitError); ok && len(exitErr.Stderr) > 0 {
-			errMsg = strings.TrimSpace(string(exitErr.Stderr))
+		if errors.Is(err, errIndexerUnavailable) {
+			writeError(w, http.StatusServiceUnavailable, "indexer_unavailable", err.Error())
+			return
 		}
-		writeError(w, http.StatusInternalServerError, "semantic_search_failed", errMsg)
+		writeError(w, http.StatusInternalServerError, "semantic_search_failed", err.Error())
 		return
-	}
-
-	var results []SemanticSearchResult
-	if err := json.Unmarshal(out, &results); err != nil {
-		writeError(w, http.StatusInternalServerError, "invalid_response",
-			fmt.Sprintf("Failed to parse indexer output: %s", strings.TrimSpace(string(out))))
-		return
-	}
-	if results == nil {
-		results = []SemanticSearchResult{}
 	}
 
 	writeJSON(w, http.StatusOK, SemanticSearchResponse{Results: results})
@@ -254,20 +177,17 @@ func (s *HTTPServer) handleSemanticSearch(w http.ResponseWriter, r *http.Request
 // @Success 200 {object} map[string]any
 // @Router /indexer/health [get]
 func (s *HTTPServer) handleIndexerHealth(w http.ResponseWriter, r *http.Request) {
-	indexerPath := config.FindIndexerBinary()
+	available := rpc.ServerAvailable()
 
 	result := map[string]any{
-		"available": indexerPath != "",
-		"path":      indexerPath,
+		"available": available,
 	}
 
-	if indexerPath != "" {
-		// Try to get stats to verify DB is accessible
-		cmd := exec.Command(indexerPath, "stats", "--json")
-		out, err := cmd.Output()
+	if available {
+		data, err := indexerStats()
 		if err == nil {
 			var stats StatsResponse
-			if err := json.Unmarshal(out, &stats); err == nil {
+			if err := json.Unmarshal(data, &stats); err == nil {
 				result["database_accessible"] = true
 				result["indexed_projects"] = stats.TotalProjects
 				result["indexed_sessions"] = stats.TotalSessions

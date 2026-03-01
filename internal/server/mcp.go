@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"sort"
 	"strings"
 	"time"
@@ -15,6 +14,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
+	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
+	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
@@ -121,33 +122,29 @@ func (ms *MCPServer) registerTools() {
 		}, ms.handleGetSessionEntries)
 	}
 
-	// Register indexer tools if binary is available
-	if indexerPath := config.FindIndexerBinary(); indexerPath != "" {
-		tuilog.Log.Info("NewMCPServer: thinkt-indexer found, checking tool permissions", "path", indexerPath)
+	// Register indexer tools (they call the indexer server via RPC at runtime)
+	// search_sessions
+	if ms.isToolAllowed("search_sessions") {
+		mcp.AddTool(ms.server, &mcp.Tool{
+			Name:        "search_sessions",
+			Description: "Search for text across all indexed sessions. Results are limited to 50 total and 2 per session by default. Supports case_sensitive matching and regex patterns.",
+		}, ms.handleSearchSessions)
+	}
 
-		// search_sessions
-		if ms.isToolAllowed("search_sessions") {
-			mcp.AddTool(ms.server, &mcp.Tool{
-				Name:        "search_sessions",
-				Description: "Search for text across all indexed sessions. Results are limited to 50 total and 2 per session by default. Supports case_sensitive matching and regex patterns.",
-			}, ms.handleSearchSessions)
-		}
+	// get_usage_stats
+	if ms.isToolAllowed("get_usage_stats") {
+		mcp.AddTool(ms.server, &mcp.Tool{
+			Name:        "get_usage_stats",
+			Description: "Get aggregate usage statistics including total tokens and most used tools.",
+		}, ms.handleGetUsageStats)
+	}
 
-		// get_usage_stats
-		if ms.isToolAllowed("get_usage_stats") {
-			mcp.AddTool(ms.server, &mcp.Tool{
-				Name:        "get_usage_stats",
-				Description: "Get aggregate usage statistics including total tokens and most used tools.",
-			}, ms.handleGetUsageStats)
-		}
-
-		// semantic_search
-		if ms.isToolAllowed("semantic_search") {
-			mcp.AddTool(ms.server, &mcp.Tool{
-				Name:        "semantic_search",
-				Description: "Search for sessions by meaning using on-device embeddings. Returns sessions ranked by semantic similarity to the query. Requires the indexer server with a synced embedding index.\n\nParameters:\n- query (required): Natural language search query\n- project: Filter by project name (partial match)\n- source: Filter by source (kimi|claude|gemini|copilot|codex|qwen)\n- max_distance: Cosine distance threshold (0-2 range, lower is more similar)\n- diversity: When true, applies diversity scoring to return results from different sessions rather than many results from the same session\n- limit: Maximum number of results (default: 20)",
-			}, ms.handleSemanticSearch)
-		}
+	// semantic_search
+	if ms.isToolAllowed("semantic_search") {
+		mcp.AddTool(ms.server, &mcp.Tool{
+			Name:        "semantic_search",
+			Description: "Search for sessions by meaning using on-device embeddings. Returns sessions ranked by semantic similarity to the query. Requires the indexer server with a synced embedding index.\n\nParameters:\n- query (required): Natural language search query\n- project: Filter by project name (partial match)\n- source: Filter by source (kimi|claude|gemini|copilot|codex|qwen)\n- max_distance: Cosine distance threshold (0-2 range, lower is more similar)\n- diversity: When true, applies diversity scoring to return results from different sessions rather than many results from the same session\n- limit: Maximum number of results (default: 20)",
+		}, ms.handleSemanticSearch)
 	}
 }
 
@@ -310,29 +307,9 @@ type semanticSearchInput struct {
 	Diversity   bool    `json:"diversity,omitempty"`
 }
 
-// semanticResult represents a single semantic search hit.
-type semanticResult struct {
-	SessionID   string  `json:"session_id"`
-	EntryUUID   string  `json:"entry_uuid"`
-	ChunkIndex  int     `json:"chunk_index"`
-	TotalChunks int     `json:"total_chunks"`
-	Distance    float64 `json:"distance"`
-	Tier        string  `json:"tier,omitempty"`
-	Role        string  `json:"role,omitempty"`
-	Timestamp   string  `json:"timestamp,omitempty"`
-	ToolName    string  `json:"tool_name,omitempty"`
-	WordCount   int     `json:"word_count,omitempty"`
-	ProjectName string  `json:"project_name,omitempty"`
-	Source      string  `json:"source,omitempty"`
-	SessionPath string  `json:"session_path,omitempty"`
-	FirstPrompt string  `json:"first_prompt,omitempty"`
-	LineNumber  int     `json:"line_number,omitempty"`
-	Score       float64 `json:"score,omitempty"`
-}
-
 // semanticSearchOutput wraps results for MCP structured content compatibility.
 type semanticSearchOutput struct {
-	Results []semanticResult `json:"results"`
+	Results []search.SemanticResult `json:"results"`
 }
 
 type toolErrorDetail struct {
@@ -435,34 +412,6 @@ func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRe
 	var sInfos []sessionInfo
 	var total int
 
-	// 1. Try indexer first for accurate data
-	if path := config.FindIndexerBinary(); path != "" {
-		cmd := exec.Command(path, "sessions", "--json", "--source", string(source), input.ProjectID)
-		if output, err := cmd.Output(); err == nil {
-			var indexed []sessionInfo
-			if err := json.Unmarshal(output, &indexed); err == nil {
-				// If indexer has data, use it. If not, fall back to direct source reads
-				// to avoid stale/empty index responses hiding real sessions.
-				if len(indexed) == 0 {
-					goto fallback
-				}
-				total = len(indexed)
-				if start < total {
-					end := start + limit
-					if end > total {
-						end = total
-					}
-					sInfos = indexed[start:end]
-				}
-
-				output := listSessionsOutput{Sessions: sInfos, Total: total, Returned: len(sInfos)}
-				return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
-			}
-		}
-	}
-
-	// 2. Fallback to direct source reading
-fallback:
 	store, ok := ms.registry.Get(source)
 	if !ok {
 		r, _, err := toolErrorResult("unknown_source", fmt.Sprintf("unknown source: %s", source), nil)
@@ -708,97 +657,57 @@ func (ms *MCPServer) handleGetSessionEntries(ctx context.Context, req *mcp.CallT
 }
 
 func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallToolRequest, input searchSessionsInput) (*mcp.CallToolResult, any, error) {
-	path := config.FindIndexerBinary()
-	if path == "" {
-		return toolErrorResult("indexer_not_found", "thinkt-indexer binary not found", nil)
+	params := rpc.SearchParams{
+		Query:           input.Query,
+		Project:         input.Project,
+		Source:          strings.TrimSpace(strings.ToLower(input.Source)),
+		Limit:           input.Limit,
+		LimitPerSession: input.LimitPerSession,
+		CaseSensitive:   input.CaseSensitive,
+		Regex:           input.Regex,
 	}
-	args := buildIndexerSearchArgs(input)
-	cmd := exec.Command(path, args...)
-	out, err := cmd.Output()
+	results, totalMatches, err := indexerSearch(params)
 	if err != nil {
-		return toolErrorResult("search_failed", "indexer search failed", combineCmdError(err, nil))
+		return toolErrorResult("search_failed", "indexer search failed", err)
 	}
-	var res any
-	if err := json.Unmarshal(out, &res); err != nil {
-		return toolErrorResult("invalid_response", "indexer returned invalid JSON", fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out))))
-	}
-	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(out)}}}, res, nil
+	output := struct {
+		Results      []search.SessionResult `json:"results"`
+		TotalMatches int                    `json:"total_matches"`
+	}{Results: results, TotalMatches: totalMatches}
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
 }
 
-func buildIndexerSearchArgs(input searchSessionsInput) []string {
-	args := []string{"search", "--json", input.Query}
-	if input.Project != "" {
-		args = append(args, "--project", input.Project)
-	}
-	if source := strings.TrimSpace(strings.ToLower(input.Source)); source != "" {
-		args = append(args, "--source", source)
-	}
-	if input.Limit > 0 {
-		args = append(args, "--limit", fmt.Sprintf("%d", input.Limit))
-	}
-	if input.LimitPerSession > 0 {
-		args = append(args, "--limit-per-session", fmt.Sprintf("%d", input.LimitPerSession))
-	}
-	if input.CaseSensitive {
-		args = append(args, "--case-sensitive")
-	}
-	if input.Regex {
-		args = append(args, "--regex")
-	}
-	return args
-}
 
 func (ms *MCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallToolRequest, input semanticSearchInput) (*mcp.CallToolResult, any, error) {
 	if strings.TrimSpace(input.Query) == "" {
 		return toolErrorResult("missing_query", "query is required", nil)
 	}
-	path := config.FindIndexerBinary()
-	if path == "" {
-		return toolErrorResult("indexer_not_found", "thinkt-indexer binary not found", nil)
+	params := rpc.SemanticSearchParams{
+		Query:       input.Query,
+		Project:     input.Project,
+		Source:      strings.TrimSpace(strings.ToLower(input.Source)),
+		Limit:       input.Limit,
+		MaxDistance:  input.MaxDistance,
+		Diversity:   input.Diversity,
 	}
-	args := []string{"semantic", "search", "--json", input.Query}
-	if input.Project != "" {
-		args = append(args, "--project", input.Project)
-	}
-	if source := strings.TrimSpace(strings.ToLower(input.Source)); source != "" {
-		args = append(args, "--source", source)
-	}
-	if input.Limit > 0 {
-		args = append(args, "--limit", fmt.Sprintf("%d", input.Limit))
-	}
-	if input.MaxDistance > 0 {
-		args = append(args, "--max-distance", fmt.Sprintf("%f", input.MaxDistance))
-	}
-	if input.Diversity {
-		args = append(args, "--diversity")
-	}
-	cmd := exec.Command(path, args...)
-	out, err := cmd.Output()
+	results, err := indexerSemanticSearch(params)
 	if err != nil {
-		return toolErrorResult("semantic_search_failed", "semantic search failed", combineCmdError(err, nil))
+		return toolErrorResult("semantic_search_failed", "semantic search failed", err)
 	}
-	output, err := decodeSemanticSearchOutput(out)
-	if err != nil {
-		return toolErrorResult("invalid_response", "indexer returned invalid JSON", fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out))))
-	}
+	output := semanticSearchOutput{Results: normalizeSemanticResults(results)}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
 }
 
 func (ms *MCPServer) handleGetUsageStats(ctx context.Context, req *mcp.CallToolRequest, _ getUsageStatsInput) (*mcp.CallToolResult, any, error) {
-	path := config.FindIndexerBinary()
-	if path == "" {
-		return toolErrorResult("indexer_not_found", "thinkt-indexer binary not found", nil)
-	}
-	cmd := exec.Command(path, "stats", "--json")
-	out, err := cmd.Output()
+	data, err := indexerStats()
 	if err != nil {
-		return toolErrorResult("stats_failed", "failed to load usage stats", combineCmdError(err, nil))
+		return toolErrorResult("stats_failed", "failed to load usage stats", err)
 	}
 	var res any
-	if err := json.Unmarshal(out, &res); err != nil {
-		return toolErrorResult("invalid_response", "indexer returned invalid JSON", fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out))))
+	if err := json.Unmarshal(data, &res); err != nil {
+		return toolErrorResult("invalid_response", "failed to parse stats response", err)
 	}
-	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(out)}}}, res, nil
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(data)}}}, res, nil
 }
 
 func toolErrorResult(code, message string, err error) (*mcp.CallToolResult, any, error) {
@@ -862,31 +771,11 @@ func errorGetSessionEntriesOutput(code, message string, err error) getSessionEnt
 	return out
 }
 
-func combineCmdError(err error, out []byte) error {
-	if len(out) > 0 {
-		if stderr := strings.TrimSpace(string(out)); stderr != "" {
-			return fmt.Errorf("%w: %s", err, stderr)
-		}
-	}
-	if exitErr, ok := err.(*exec.ExitError); ok && len(exitErr.Stderr) > 0 {
-		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(exitErr.Stderr)))
-	}
-	return err
-}
-
-func normalizeSemanticResults(results []semanticResult) []semanticResult {
+func normalizeSemanticResults(results []search.SemanticResult) []search.SemanticResult {
 	if results == nil {
-		return make([]semanticResult, 0)
+		return []search.SemanticResult{}
 	}
 	return results
-}
-
-func decodeSemanticSearchOutput(out []byte) (semanticSearchOutput, error) {
-	var results []semanticResult
-	if err := json.Unmarshal(out, &results); err != nil {
-		return semanticSearchOutput{}, err
-	}
-	return semanticSearchOutput{Results: normalizeSemanticResults(results)}, nil
 }
 
 func truncateString(s string, maxLen int) string {

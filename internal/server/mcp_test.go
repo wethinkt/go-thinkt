@@ -6,13 +6,13 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/sources/claude"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
@@ -897,31 +897,6 @@ func TestTruncateString(t *testing.T) {
 	}
 }
 
-func TestBuildIndexerSearchArgs_IncludesSourceAndOptions(t *testing.T) {
-	got := buildIndexerSearchArgs(searchSessionsInput{
-		Query:           "DuckDB",
-		Project:         "go-thinkt",
-		Source:          " KIMI ",
-		Limit:           50,
-		LimitPerSession: 2,
-		CaseSensitive:   true,
-		Regex:           true,
-	})
-
-	want := []string{
-		"search", "--json", "DuckDB",
-		"--project", "go-thinkt",
-		"--source", "kimi",
-		"--limit", "50",
-		"--limit-per-session", "2",
-		"--case-sensitive",
-		"--regex",
-	}
-
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("unexpected args:\n got=%v\nwant=%v", got, want)
-	}
-}
 
 func TestToolErrorResult_Structured(t *testing.T) {
 	result, outAny, err := toolErrorResult("invalid_regex", "invalid regular expression", errors.New("exit status 1: unterminated group"))
@@ -965,22 +940,6 @@ func TestToolErrorResult_Structured(t *testing.T) {
 	}
 }
 
-func TestCombineCmdError(t *testing.T) {
-	base := errors.New("exit status 1")
-	err := combineCmdError(base, []byte("invalid regex syntax"))
-	if err == nil {
-		t.Fatal("expected combined error")
-	}
-	msg := err.Error()
-	if !strings.Contains(msg, "exit status 1") || !strings.Contains(msg, "invalid regex syntax") {
-		t.Fatalf("unexpected combined error: %q", msg)
-	}
-
-	noOut := combineCmdError(base, nil)
-	if noOut == nil || noOut.Error() != base.Error() {
-		t.Fatalf("expected base error when no output, got %v", noOut)
-	}
-}
 
 func TestNormalizeSemanticResults(t *testing.T) {
 	got := normalizeSemanticResults(nil)
@@ -991,44 +950,9 @@ func TestNormalizeSemanticResults(t *testing.T) {
 		t.Fatalf("expected empty slice, got %d", len(got))
 	}
 
-	in := []semanticResult{{SessionID: "s1"}}
+	in := []search.SemanticResult{{SessionID: "s1"}}
 	got = normalizeSemanticResults(in)
 	if len(got) != 1 || got[0].SessionID != "s1" {
 		t.Fatalf("unexpected normalized results: %+v", got)
-	}
-}
-
-func TestDecodeSemanticSearchOutput_NullBecomesEmptyArray(t *testing.T) {
-	out, err := decodeSemanticSearchOutput([]byte("null"))
-	if err != nil {
-		t.Fatalf("decodeSemanticSearchOutput returned error: %v", err)
-	}
-	if out.Results == nil {
-		t.Fatal("expected non-nil results slice")
-	}
-	if len(out.Results) != 0 {
-		t.Fatalf("expected zero results, got %d", len(out.Results))
-	}
-
-	encoded, err := json.Marshal(out)
-	if err != nil {
-		t.Fatalf("marshal output: %v", err)
-	}
-	if string(encoded) != `{"results":[]}` {
-		t.Fatalf("unexpected json output: %s", string(encoded))
-	}
-}
-
-func TestDecodeSemanticSearchOutput_WithResults(t *testing.T) {
-	raw := []byte(`[{"session_id":"s1","entry_uuid":"e1","distance":0.25}]`)
-	out, err := decodeSemanticSearchOutput(raw)
-	if err != nil {
-		t.Fatalf("decodeSemanticSearchOutput returned error: %v", err)
-	}
-	if len(out.Results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(out.Results))
-	}
-	if out.Results[0].SessionID != "s1" || out.Results[0].EntryUUID != "e1" {
-		t.Fatalf("unexpected decoded result: %+v", out.Results[0])
 	}
 }

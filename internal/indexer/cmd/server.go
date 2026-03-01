@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -183,12 +182,11 @@ func (s *indexerServer) HandleIndexSync(ctx context.Context, params rpc.SyncPara
 		}
 		s.stateMu.Unlock()
 
-		data, _ := json.Marshal(map[string]any{
-			"project": pIdx, "project_total": pTotal,
-			"session": sIdx, "session_total": sTotal,
-			"message": message,
-		})
-		broadcastToSubs(&s.indexSubsMu, &s.indexSubs, rpc.Progress{Data: data})
+		broadcastToSubs(&s.indexSubsMu, &s.indexSubs, rpc.ProgressFrom(rpc.SyncProgressData{
+			Project: pIdx, ProjectTotal: pTotal,
+			Session: sIdx, SessionTotal: sTotal,
+			Message: message,
+		}))
 	}
 
 	projects, err := s.registry.ListAllProjects(ctx)
@@ -215,11 +213,8 @@ func (s *indexerServer) HandleIndexSync(ctx context.Context, params rpc.SyncPara
 		}
 	}
 
-	result, _ := json.Marshal(map[string]any{
-		"projects": totalProjects,
-	})
-	indexResp = &rpc.Response{OK: true, Data: result}
-	return indexResp, nil
+	indexResp, err = rpc.OKResponse(rpc.SyncData{Projects: totalProjects})
+	return indexResp, err
 }
 
 func (s *indexerServer) HandleEmbedSync(ctx context.Context, params rpc.EmbedSyncParams, send func(rpc.Progress)) (*rpc.Response, error) {
@@ -274,14 +269,12 @@ func (s *indexerServer) HandleEmbedSync(ctx context.Context, params rpc.EmbedSyn
 
 		if err := embedding.EnsureModel(modelID, func(downloaded, total int64) {
 			if total > 0 {
-				pct := float64(downloaded) / float64(total) * 100
-				data, _ := json.Marshal(map[string]any{
-					"model_download": true,
-					"downloaded":     downloaded,
-					"total":          total,
-					"percent":        pct,
-				})
-				broadcastToSubs(&s.embedSubsMu, &s.embedSubs, rpc.Progress{Data: data})
+				broadcastToSubs(&s.embedSubsMu, &s.embedSubs, rpc.ProgressFrom(rpc.ModelDownloadProgressData{
+					ModelDownload: true,
+					Downloaded:    downloaded,
+					Total:         total,
+					Percent:       float64(downloaded) / float64(total) * 100,
+				}))
 			}
 		}); err != nil {
 			embedErr = fmt.Errorf("ensure embedding model: %w", err)
@@ -342,14 +335,13 @@ func (s *indexerServer) HandleEmbedSync(ctx context.Context, params rpc.EmbedSyn
 		s.embedProg = &rpc.ProgressInfo{Done: done, Total: total, SessionID: sessionID, Entries: entries}
 		s.stateMu.Unlock()
 
-		data, _ := json.Marshal(map[string]any{
-			"done": done, "total": total,
-			"chunks": chunks, "entries": entries,
-			"session_id":   sessionID,
-			"session_path": sessionPath,
-			"elapsed_ms":   elapsed.Milliseconds(),
-		})
-		broadcastToSubs(&s.embedSubsMu, &s.embedSubs, rpc.Progress{Data: data})
+		broadcastToSubs(&s.embedSubsMu, &s.embedSubs, rpc.ProgressFrom(rpc.EmbedProgressData{
+			Done: done, Total: total,
+			Chunks: chunks, Entries: entries,
+			SessionID:   sessionID,
+			SessionPath: sessionPath,
+			ElapsedMs:   elapsed.Milliseconds(),
+		}))
 	}
 	ingester.OnEmbedChunkProgress = func(chunksDone, chunksTotal, tokensDone int, sessionID string) {
 		s.stateMu.Lock()
@@ -359,20 +351,19 @@ func (s *indexerServer) HandleEmbedSync(ctx context.Context, params rpc.EmbedSyn
 		}
 		s.stateMu.Unlock()
 
-		data, _ := json.Marshal(map[string]any{
-			"chunks_done":  chunksDone,
-			"chunks_total": chunksTotal,
-			"tokens_done":  tokensDone,
-			"session_id":   sessionID,
-		})
-		broadcastToSubs(&s.embedSubsMu, &s.embedSubs, rpc.Progress{Data: data})
+		broadcastToSubs(&s.embedSubsMu, &s.embedSubs, rpc.ProgressFrom(rpc.EmbedChunkProgressData{
+			ChunksDone:  chunksDone,
+			ChunksTotal: chunksTotal,
+			TokensDone:  tokensDone,
+			SessionID:   sessionID,
+		}))
 	}
 
 	if err := ingester.EmbedAllSessions(ctx); err != nil {
 		tuilog.Log.Error("indexer: embedding pass failed", "error", err)
 	}
 
-	embedResp = &rpc.Response{OK: true, Data: json.RawMessage(`{"ok":true}`)}
+	embedResp = &rpc.Response{OK: true}
 	return embedResp, nil
 }
 
@@ -400,14 +391,10 @@ func (s *indexerServer) HandleSearch(ctx context.Context, params rpc.SearchParam
 		return nil, fmt.Errorf("search: %w", err)
 	}
 
-	data, err := json.Marshal(map[string]any{
-		"results":       results,
-		"total_matches": totalMatches,
+	return rpc.OKResponse(rpc.SearchData{
+		Results:      results,
+		TotalMatches: totalMatches,
 	})
-	if err != nil {
-		return nil, fmt.Errorf("marshal results: %w", err)
-	}
-	return &rpc.Response{OK: true, Data: data}, nil
 }
 
 func (s *indexerServer) HandleSemanticSearch(ctx context.Context, params rpc.SemanticSearchParams) (*rpc.Response, error) {
@@ -447,28 +434,11 @@ func (s *indexerServer) HandleSemanticSearch(ctx context.Context, params rpc.Sem
 		return nil, fmt.Errorf("semantic search: %w", err)
 	}
 
-	data, err := json.Marshal(map[string]any{
-		"results": results,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("marshal results: %w", err)
-	}
-	return &rpc.Response{OK: true, Data: data}, nil
+	return rpc.OKResponse(rpc.SemanticSearchData{Results: results})
 }
 
 func (s *indexerServer) HandleStats(ctx context.Context) (*rpc.Response, error) {
-	var stats struct {
-		TotalProjects   int `json:"total_projects"`
-		TotalSessions   int `json:"total_sessions"`
-		TotalEntries    int `json:"total_entries"`
-		TotalTokens     int `json:"total_tokens"`
-		TotalEmbeddings int `json:"total_embeddings"`
-		EmbedModel      string `json:"embed_model"`
-		TopTools        []struct {
-			Name  string `json:"name"`
-			Count int    `json:"count"`
-		} `json:"top_tools"`
-	}
+	var stats rpc.StatsData
 
 	if err := s.db.QueryRowContext(ctx, "SELECT count(*) FROM projects").Scan(&stats.TotalProjects); err != nil {
 		return nil, fmt.Errorf("count projects: %w", err)
@@ -491,23 +461,15 @@ func (s *indexerServer) HandleStats(ctx context.Context) (*rpc.Response, error) 
 	rows, err := s.db.QueryContext(ctx, "SELECT tool_name, count(*) AS cnt FROM entries WHERE tool_name != '' GROUP BY tool_name ORDER BY cnt DESC LIMIT 25")
 	if err == nil {
 		for rows.Next() {
-			var name string
-			var count int
-			if err := rows.Scan(&name, &count); err == nil {
-				stats.TopTools = append(stats.TopTools, struct {
-					Name  string `json:"name"`
-					Count int    `json:"count"`
-				}{name, count})
+			var tc rpc.ToolCount
+			if err := rows.Scan(&tc.Name, &tc.Count); err == nil {
+				stats.TopTools = append(stats.TopTools, tc)
 			}
 		}
 		rows.Close()
 	}
 
-	data, err := json.Marshal(stats)
-	if err != nil {
-		return nil, fmt.Errorf("marshal stats: %w", err)
-	}
-	return &rpc.Response{OK: true, Data: data}, nil
+	return rpc.OKResponse(stats)
 }
 
 func (s *indexerServer) HandleStatus(ctx context.Context) (*rpc.Response, error) {
@@ -538,11 +500,7 @@ func (s *indexerServer) HandleStatus(ctx context.Context) (*rpc.Response, error)
 		status.ModelDim = s.embedder.Dim()
 	}
 
-	data, err := json.Marshal(status)
-	if err != nil {
-		return nil, fmt.Errorf("marshal status: %w", err)
-	}
-	return &rpc.Response{OK: true, Data: data}, nil
+	return rpc.OKResponse(status)
 }
 
 func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, error) {
@@ -573,8 +531,8 @@ func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, 
 			}
 		}()
 
-		data, _ := json.Marshal(map[string]any{"embedding_enabled": true})
-		return &rpc.Response{OK: true, Data: data}, nil
+		resp, _ := rpc.OKResponse(rpc.ConfigReloadData{EmbeddingEnabled: true})
+		return resp, nil
 	}
 
 	if !wantEnabled && wasEnabled {
@@ -594,8 +552,8 @@ func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, 
 			s.embDB = nil
 		}
 
-		data, _ := json.Marshal(map[string]any{"embedding_enabled": false})
-		return &rpc.Response{OK: true, Data: data}, nil
+		resp, _ := rpc.OKResponse(rpc.ConfigReloadData{EmbeddingEnabled: false})
+		return resp, nil
 	}
 
 	// Both enabled — check if model changed
@@ -645,13 +603,13 @@ func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, 
 			}
 		}()
 
-		data, _ := json.Marshal(map[string]any{"embedding_enabled": true, "model_changed": true})
-		return &rpc.Response{OK: true, Data: data}, nil
+		resp, _ := rpc.OKResponse(rpc.ConfigReloadData{EmbeddingEnabled: true, ModelChanged: true})
+		return resp, nil
 	}
 
 	// No change
-	data, _ := json.Marshal(map[string]any{"embedding_enabled": wantEnabled})
-	return &rpc.Response{OK: true, Data: data}, nil
+	resp, _ := rpc.OKResponse(rpc.ConfigReloadData{EmbeddingEnabled: wantEnabled})
+	return resp, nil
 }
 
 func runServer(cmdObj *cobra.Command, args []string) error {
