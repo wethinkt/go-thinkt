@@ -143,7 +143,7 @@ func (ms *MCPServer) registerTools() {
 	if ms.isToolAllowed("semantic_search") {
 		mcp.AddTool(ms.server, &mcp.Tool{
 			Name:        "semantic_search",
-			Description: "Search for sessions by meaning using on-device embeddings. Returns sessions ranked by semantic similarity to the query. Requires the indexer server with a synced embedding index.\n\nParameters:\n- query (required): Natural language search query\n- project: Filter by project name (partial match)\n- source: Filter by source (kimi|claude|gemini|copilot|codex|qwen)\n- max_distance: Cosine distance threshold (0-2 range, lower is more similar)\n- diversity: When true, applies diversity scoring to return results from different sessions rather than many results from the same session\n- limit: Maximum number of results (default: 20)",
+			Description: "Search for sessions by meaning using on-device embeddings. Returns sessions ranked by semantic similarity to the query. Requires the indexer server with a synced embedding index.\n\nParameters:\n- query (required): Natural language search query\n- project: Filter by project name (partial match)\n- source: Filter by source (kimi|claude|gemini|copilot|codex|qwen), case-insensitive\n- max_distance: Cosine distance threshold (0-2 range, lower is more similar)\n- diversity: When true, applies diversity scoring to return results from different sessions rather than many results from the same session\n- limit: Maximum number of results (default: 20)",
 		}, ms.handleSemanticSearch)
 	}
 }
@@ -660,7 +660,7 @@ func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallTool
 	params := rpc.SearchParams{
 		Query:           input.Query,
 		Project:         input.Project,
-		Source:          strings.TrimSpace(strings.ToLower(input.Source)),
+		Source:          input.Source,
 		Limit:           input.Limit,
 		LimitPerSession: input.LimitPerSession,
 		CaseSensitive:   input.CaseSensitive,
@@ -682,7 +682,7 @@ func (ms *MCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallTool
 	params := rpc.SemanticSearchParams{
 		Query:       input.Query,
 		Project:     input.Project,
-		Source:      strings.TrimSpace(strings.ToLower(input.Source)),
+		Source:      input.Source,
 		Limit:       input.Limit,
 		MaxDistance:  input.MaxDistance,
 		Diversity:   input.Diversity,

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 )
@@ -29,7 +28,7 @@ type IndexerStatusData = rpc.StatusData
 // @Produce json
 // @Param q query string true "Search query text"
 // @Param project query string false "Filter by project name (substring match)"
-// @Param source query string false "Filter by source (claude, kimi)"
+// @Param source query string false "Filter by source (claude, kimi), case-insensitive"
 // @Param limit query int false "Maximum total matches (default 50)"
 // @Param limit_per_session query int false "Maximum matches per session (default 2, 0 for no limit)"
 // @Param case_sensitive query bool false "Enable case-sensitive matching (default false)"
@@ -111,7 +110,7 @@ func (s *HTTPServer) handleGetStats(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param q query string true "Natural language search query"
 // @Param project query string false "Filter by project name (substring match)"
-// @Param source query string false "Filter by source (claude, kimi, gemini, copilot, codex, qwen)"
+// @Param source query string false "Filter by source (claude, kimi, gemini, copilot, codex, qwen), case-insensitive"
 // @Param limit query int false "Maximum number of results (default 20)"
 // @Param max_distance query number false "Cosine distance threshold (0-2, lower is more similar)"
 // @Param diversity query bool false "Apply diversity scoring to return results from different sessions"
@@ -131,7 +130,7 @@ func (s *HTTPServer) handleSemanticSearch(w http.ResponseWriter, r *http.Request
 	params := rpc.SemanticSearchParams{
 		Query:   query,
 		Project: r.URL.Query().Get("project"),
-		Source:  strings.TrimSpace(strings.ToLower(r.URL.Query().Get("source"))),
+		Source:  r.URL.Query().Get("source"),
 	}
 	if v := r.URL.Query().Get("limit"); v != "" {
 		params.Limit, _ = strconv.Atoi(v)

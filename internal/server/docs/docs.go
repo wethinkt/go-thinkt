@@ -416,7 +416,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Filter by source (claude, kimi)",
+                        "description": "Filter by source (claude, kimi), case-insensitive",
                         "name": "source",
                         "in": "query"
                     },
@@ -504,7 +504,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Filter by source (claude, kimi, gemini, copilot, codex, qwen)",
+                        "description": "Filter by source (claude, kimi, gemini, copilot, codex, qwen), case-insensitive",
                         "name": "source",
                         "in": "query"
                     },

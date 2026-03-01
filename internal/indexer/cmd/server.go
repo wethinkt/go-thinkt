@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"os/signal"
 	"sync"
 	"syscall"
@@ -373,7 +374,7 @@ func (s *indexerServer) HandleSearch(ctx context.Context, params rpc.SearchParam
 	opts := search.SearchOptions{
 		Query:           params.Query,
 		FilterProject:   params.Project,
-		FilterSource:    params.Source,
+		FilterSource:    strings.TrimSpace(strings.ToLower(params.Source)),
 		Limit:           params.Limit,
 		LimitPerSession: params.LimitPerSession,
 		CaseSensitive:   params.CaseSensitive,
@@ -424,7 +425,7 @@ func (s *indexerServer) HandleSemanticSearch(ctx context.Context, params rpc.Sem
 		Model:          s.embedder.EmbedModelID(),
 		Dim:            s.embedder.Dim(),
 		FilterProject:  params.Project,
-		FilterSource:   params.Source,
+		FilterSource:   strings.TrimSpace(strings.ToLower(params.Source)),
 		FilterTier:     params.Tier,
 		Limit:          limit,
 		MaxDistance:    maxDist,
