@@ -1449,6 +1449,9 @@
                 "role": {
                     "type": "string"
                 },
+                "score": {
+                    "type": "number"
+                },
                 "session_id": {
                     "type": "string"
                 },
@@ -1456,6 +1459,9 @@
                     "type": "string"
                 },
                 "source": {
+                    "type": "string"
+                },
+                "tier": {
                     "type": "string"
                 },
                 "timestamp": {

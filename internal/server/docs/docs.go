@@ -1457,6 +1457,9 @@ const docTemplate = `{
                 "role": {
                     "type": "string"
                 },
+                "score": {
+                    "type": "number"
+                },
                 "session_id": {
                     "type": "string"
                 },
@@ -1464,6 +1467,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "source": {
+                    "type": "string"
+                },
+                "tier": {
                     "type": "string"
                 },
                 "timestamp": {

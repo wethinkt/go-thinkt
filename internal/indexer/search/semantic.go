@@ -119,7 +119,7 @@ func (s *Service) fetchResults(opts SemanticSearchOptions, limit int) ([]Semanti
 	floatCast := fmt.Sprintf("FLOAT[%d]", opts.Dim)
 	embQ := fmt.Sprintf(`
 		SELECT emb.session_id, emb.entry_uuid, emb.chunk_index, COALESCE(emb.tier, 'conversation') AS tier,
-		       (SELECT count(*) FROM embeddings c WHERE c.session_id = emb.session_id AND c.entry_uuid = emb.entry_uuid AND c.model = emb.model) AS total_chunks,
+		       (SELECT count(*) FROM embeddings c WHERE c.session_id = emb.session_id AND c.entry_uuid = emb.entry_uuid AND c.model = emb.model AND COALESCE(c.tier, 'conversation') = COALESCE(emb.tier, 'conversation')) AS total_chunks,
 		       array_cosine_distance(emb.embedding, ?::%s) AS distance
 		FROM embeddings emb
 		WHERE emb.model = ?`, floatCast)

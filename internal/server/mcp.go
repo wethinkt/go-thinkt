@@ -317,6 +317,7 @@ type semanticResult struct {
 	ChunkIndex  int     `json:"chunk_index"`
 	TotalChunks int     `json:"total_chunks"`
 	Distance    float64 `json:"distance"`
+	Tier        string  `json:"tier,omitempty"`
 	Role        string  `json:"role,omitempty"`
 	Timestamp   string  `json:"timestamp,omitempty"`
 	ToolName    string  `json:"tool_name,omitempty"`
@@ -326,6 +327,7 @@ type semanticResult struct {
 	SessionPath string  `json:"session_path,omitempty"`
 	FirstPrompt string  `json:"first_prompt,omitempty"`
 	LineNumber  int     `json:"line_number,omitempty"`
+	Score       float64 `json:"score,omitempty"`
 }
 
 // semanticSearchOutput wraps results for MCP structured content compatibility.
