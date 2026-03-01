@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 )
@@ -40,7 +41,7 @@ type IndexerStatusData = rpc.StatusData
 // @Router /search [get]
 // @Security BearerAuth
 func (s *HTTPServer) handleSearchSessions(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("q")
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	if query == "" {
 		writeError(w, http.StatusBadRequest, "missing_query", "Query parameter 'q' is required")
 		return
@@ -121,7 +122,7 @@ func (s *HTTPServer) handleGetStats(w http.ResponseWriter, r *http.Request) {
 // @Router /semantic-search [get]
 // @Security BearerAuth
 func (s *HTTPServer) handleSemanticSearch(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("q")
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	if query == "" {
 		writeError(w, http.StatusBadRequest, "missing_query", "Query parameter 'q' is required")
 		return

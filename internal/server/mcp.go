@@ -657,6 +657,9 @@ func (ms *MCPServer) handleGetSessionEntries(ctx context.Context, req *mcp.CallT
 }
 
 func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallToolRequest, input searchSessionsInput) (*mcp.CallToolResult, any, error) {
+	if strings.TrimSpace(input.Query) == "" {
+		return toolErrorResult("missing_query", "query is required", nil)
+	}
 	params := rpc.SearchParams{
 		Query:           input.Query,
 		Project:         input.Project,
