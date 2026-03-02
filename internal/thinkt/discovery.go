@@ -2,9 +2,20 @@ package thinkt
 
 import (
 	"context"
+	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
+
+// DetailedSourceInfo extends SourceInfo with session-level statistics.
+type DetailedSourceInfo struct {
+	SourceInfo
+	SessionCount int       `json:"session_count"`
+	TotalSize    int64     `json:"total_size"`
+	FirstSession time.Time `json:"first_session"`
+	LastSession  time.Time `json:"last_session"`
+	Projects     []Project `json:"projects"`
+}
 
 // StoreFactory creates Store instances for a specific source.
 // Each source (Kimi, Claude, etc.) implements this interface
@@ -118,6 +129,81 @@ func (d *Discovery) DiscoverAvailable(ctx context.Context) ([]SourceInfo, error)
 	}
 
 	return available, nil
+}
+
+// DiscoverDetailed returns available sources with session counts, sizes, and date ranges.
+// The progress callback is called after each source is scanned (may be nil).
+func (d *Discovery) DiscoverDetailed(ctx context.Context, progress func(Source)) ([]DetailedSourceInfo, error) {
+	var results []DetailedSourceInfo
+
+	for _, factory := range d.factories {
+		isAvail, err := factory.IsAvailable()
+		if err != nil {
+			tuilog.Log.Warn("thinkt discovery: availability check failed", "source", factory.Source(), "error", err)
+			continue
+		}
+		if !isAvail {
+			continue
+		}
+
+		store, err := factory.Create()
+		if err != nil {
+			tuilog.Log.Warn("thinkt discovery: create failed", "source", factory.Source(), "error", err)
+			continue
+		}
+		if store == nil {
+			continue
+		}
+
+		projects, err := store.ListProjects(ctx)
+		if err != nil {
+			tuilog.Log.Warn("thinkt discovery: list projects failed", "source", factory.Source(), "error", err)
+			continue
+		}
+
+		ws := store.Workspace()
+		info := DetailedSourceInfo{
+			SourceInfo: SourceInfo{
+				Source:       factory.Source(),
+				Name:         factory.Source().DisplayName(),
+				Description:  factory.Source().Description(),
+				Available:    true,
+				WorkspaceID:  ws.ID,
+				BasePath:     ws.BasePath,
+				ProjectCount: len(projects),
+			},
+			Projects: projects,
+		}
+
+		var firstSession, lastSession time.Time
+		for _, proj := range projects {
+			sessions, err := store.ListSessions(ctx, proj.ID)
+			if err != nil {
+				tuilog.Log.Warn("thinkt discovery: list sessions failed", "source", factory.Source(), "project", proj.ID, "error", err)
+				continue
+			}
+			info.SessionCount += len(sessions)
+			for _, s := range sessions {
+				info.TotalSize += s.FileSize
+				if firstSession.IsZero() || s.CreatedAt.Before(firstSession) {
+					firstSession = s.CreatedAt
+				}
+				if lastSession.IsZero() || s.ModifiedAt.After(lastSession) {
+					lastSession = s.ModifiedAt
+				}
+			}
+		}
+		info.FirstSession = firstSession
+		info.LastSession = lastSession
+
+		results = append(results, info)
+
+		if progress != nil {
+			progress(factory.Source())
+		}
+	}
+
+	return results, nil
 }
 
 // Factories returns all registered factories.
