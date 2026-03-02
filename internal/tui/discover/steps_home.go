@@ -13,14 +13,18 @@ import (
 func (m Model) updateHome(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if msg, ok := msg.(tea.KeyMsg); ok {
 		switch msg.String() {
-		case "y", "Y", "enter":
-			dir, err := config.Dir()
-			if err == nil {
-				m.result.HomeDir = dir
+		case "left", "right", "tab", "h", "l":
+			m.confirm = !m.confirm
+			return m, nil
+		case "enter":
+			if m.confirm {
+				dir, err := config.Dir()
+				if err == nil {
+					m.result.HomeDir = dir
+				}
+				m.step = stepSourceConsent
+				return m, m.startScan()
 			}
-			m.step = stepSourceConsent
-			return m, m.startScan()
-		case "n", "N":
 			m.result.Completed = false
 			m.step = stepDone
 			return m, tea.Quit
@@ -41,17 +45,15 @@ func (m Model) viewHome() string {
 		Bold(true).
 		Foreground(lipgloss.Color(m.accent))
 
-	mutedStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(m.muted))
-
 	dir, _ := config.Dir()
 
-	return fmt.Sprintf("\n  %s %s\n\n  %s\n\n  %s\n\n  %s\n",
+	return fmt.Sprintf("\n  %s %s\n\n  %s\n\n  %s\n\n  %s\n\n  %s\n",
 		titleStyle.Render(thinktI18n.T("tui.discover.home.title", "Home Directory")),
 		m.stepIndicator(),
 		bodyStyle.Render(thinktI18n.T("tui.discover.home.body",
 			"thinkt stores its configuration and index database in:")),
 		pathStyle.Render("  "+dir),
-		mutedStyle.Render(thinktI18n.T("tui.discover.home.prompt", "Create this directory? [Y/n]")),
+		bodyStyle.Render(thinktI18n.T("tui.discover.home.prompt", "Create this directory?")),
+		m.renderConfirm(),
 	)
 }

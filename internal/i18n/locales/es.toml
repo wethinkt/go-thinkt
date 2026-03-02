@@ -981,13 +981,13 @@ other = "Tus sesiones de codificación con IA, indexadas y buscables."
 other = "thinkt indexa y busca las trazas de razonamiento dejadas por tus\nasistentes de codificación IA (Claude, Kimi, Gemini y otros), para que\ntú y tus herramientas puedan aprender de conversaciones pasadas."
 
 [tui.discover.welcome.prompt]
-other = "Presiona Enter para comenzar"
+other = "Enter: comenzar · esc: salir"
 
 [tui.discover.language.title]
 other = "Idioma"
 
 [tui.discover.language.help]
-other = "↑/↓: navegar  Enter: seleccionar"
+other = "↑/↓: navegar · Enter: seleccionar · esc: salir"
 
 [tui.discover.home.title]
 other = "Directorio de inicio"
@@ -996,7 +996,7 @@ other = "Directorio de inicio"
 other = "thinkt almacena su configuración e índice en:"
 
 [tui.discover.home.prompt]
-other = "¿Crear este directorio? [S/n]"
+other = "¿Crear este directorio?"
 
 [tui.discover.sources.title]
 other = "Descubrimiento de fuentes"
@@ -1008,7 +1008,7 @@ other = "Buscando fuentes de sesiones de IA..."
 other = "No se encontraron sesiones de asistentes de IA en esta máquina."
 
 [tui.discover.sources.noneHelp]
-other = "Presiona Enter para continuar"
+other = "Enter: continuar · esc: salir"
 
 [tui.discover.sources.consent]
 other = "thinkt encuentra conversaciones escaneando rutas conocidas en tu\n  directorio home (ej., ~/.claude/projects/, ~/.kimi/sessions/).\n  Lee los registros de sesión pero nunca los modifica ni elimina."
@@ -1023,7 +1023,7 @@ other = "Habilitar todas las fuentes"
 other = "Omitir configuración de fuentes"
 
 [tui.discover.sources.consentHelp]
-other = "Presiona 1, 2 o 3"
+other = "1/2/3: seleccionar · esc: salir"
 
 [tui.discover.approval.title]
 other = "Aprobación de fuente"
@@ -1041,7 +1041,7 @@ other = "Tamaño:"
 other = "Rango:"
 
 [tui.discover.approval.prompt]
-other = "¿Habilitar esta fuente? [S/n]"
+other = "¿Habilitar esta fuente?"
 
 [tui.discover.summary.title]
 other = "Resumen de fuentes"
@@ -1053,7 +1053,7 @@ other = "Total:"
 other = "Ninguna fuente habilitada."
 
 [tui.discover.summary.continue]
-other = "Presiona Enter para continuar"
+other = "Enter: continuar · esc: salir"
 
 [tui.discover.indexer.title]
 other = "Indexador"
@@ -1068,7 +1068,7 @@ other = "Recursos: ~50 MB de disco para el índice, CPU mínimo."
 other = "Reversible:"
 
 [tui.discover.indexer.prompt]
-other = "¿Activar el indexador? [S/n]"
+other = "¿Activar el indexador?"
 
 [tui.discover.embeddings.title]
 other = "Embeddings"
@@ -1083,7 +1083,7 @@ other = "Requiere descargar un modelo (~70 MB) y usa tu GPU\n  (o CPU como respa
 other = "Reversible:"
 
 [tui.discover.embeddings.prompt]
-other = "¿Activar embeddings? [s/N]"
+other = "¿Activar embeddings?"
 
 [tui.discover.suggestions.title]
 other = "¡Configuración completada!"
@@ -1113,4 +1113,4 @@ other = "Abrir el explorador interactivo"
 other = "Habilitar búsqueda semántica después"
 
 [tui.discover.suggestions.done]
-other = "Presiona Enter para finalizar"
+other = "Enter: finalizar · esc: salir"

@@ -34,7 +34,7 @@ func (m Model) viewWelcome() string {
 	tagline := bodyStyle.Render(thinktI18n.T("tui.discover.welcome.tagline", "Your AI coding sessions, indexed and searchable."))
 	body := bodyStyle.Render(thinktI18n.T("tui.discover.welcome.body",
 		"This wizard will help you set up thinkt by discovering\nyour AI coding assistant sessions and configuring indexing."))
-	prompt := mutedStyle.Render(thinktI18n.T("tui.discover.welcome.prompt", "Press Enter to begin"))
+	prompt := mutedStyle.Render(thinktI18n.T("tui.discover.welcome.prompt", "Enter: begin · esc: exit"))
 
 	return fmt.Sprintf("\n\n  %s\n\n  %s\n\n  %s\n\n\n  %s\n", title, tagline, body, prompt)
 }

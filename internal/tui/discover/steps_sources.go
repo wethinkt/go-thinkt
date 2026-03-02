@@ -23,6 +23,7 @@ func (m Model) updateSourceConsent(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// No sources found — Enter skips to indexer
 		if m.scanDone && len(m.scanResults) == 0 {
 			if msg.String() == "enter" {
+				m.confirm = true // indexer defaults to Yes
 				m.step = stepIndexer
 				return m, nil
 			}
@@ -37,6 +38,7 @@ func (m Model) updateSourceConsent(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.sources[i] = sourceResult{Info: r, Approved: false}
 			}
 			m.approvalIdx = 0
+			m.confirm = true // default Yes for source approval
 			m.step = stepSourceApproval
 			return m, nil
 		case "2":
@@ -49,6 +51,7 @@ func (m Model) updateSourceConsent(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "3":
 			m.sourceMode = sourceModeSkip
+			m.confirm = true // indexer defaults to Yes
 			m.step = stepIndexer
 			return m, nil
 		}
@@ -81,7 +84,7 @@ func (m Model) viewSourceConsent() string {
 			m.stepIndicator(),
 			bodyStyle.Render(thinktI18n.T("tui.discover.sources.none",
 				"No AI coding sessions found on this machine.")),
-			mutedStyle.Render(thinktI18n.T("tui.discover.sources.noneHelp", "Press Enter to continue")),
+			mutedStyle.Render(thinktI18n.T("tui.discover.sources.noneHelp", "Enter: continue · esc: exit")),
 		)
 	}
 
@@ -117,7 +120,7 @@ func (m Model) viewSourceConsent() string {
 		bodyStyle.Render(thinktI18n.T("tui.discover.sources.skip", "Skip source setup"))))
 
 	b.WriteString(fmt.Sprintf("\n  %s\n",
-		mutedStyle.Render(thinktI18n.T("tui.discover.sources.consentHelp", "Press 1, 2, or 3"))))
+		mutedStyle.Render(thinktI18n.T("tui.discover.sources.consentHelp", "1/2/3: select · esc: exit"))))
 
 	return b.String()
 }
@@ -127,19 +130,16 @@ func (m Model) viewSourceConsent() string {
 func (m Model) updateSourceApproval(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if msg, ok := msg.(tea.KeyMsg); ok {
 		switch msg.String() {
-		case "y", "Y", "enter":
-			m.sources[m.approvalIdx].Approved = true
-			m.approvalIdx++
-			if m.approvalIdx >= len(m.sources) {
-				m.step = stepSourceSummary
-			}
+		case "left", "right", "tab", "h", "l":
+			m.confirm = !m.confirm
 			return m, nil
-		case "n", "N":
-			m.sources[m.approvalIdx].Approved = false
+		case "enter":
+			m.sources[m.approvalIdx].Approved = m.confirm
 			m.approvalIdx++
 			if m.approvalIdx >= len(m.sources) {
 				m.step = stepSourceSummary
 			}
+			m.confirm = true // reset default to Yes for next source
 			return m, nil
 		}
 	}
@@ -197,8 +197,9 @@ func (m Model) viewSourceApproval() string {
 		))
 	}
 
-	b.WriteString(fmt.Sprintf("\n  %s\n",
-		mutedStyle.Render(thinktI18n.T("tui.discover.approval.prompt", "Enable this source? [Y/n]"))))
+	b.WriteString(fmt.Sprintf("\n  %s\n\n  %s\n",
+		bodyStyle.Render(thinktI18n.T("tui.discover.approval.prompt", "Enable this source?")),
+		m.renderConfirm()))
 
 	return b.String()
 }
@@ -212,6 +213,7 @@ func (m Model) updateSourceSummary(msg tea.Msg) (tea.Model, tea.Cmd) {
 			for _, src := range m.sources {
 				m.result.Sources[string(src.Info.Source)] = src.Approved
 			}
+			m.confirm = true // indexer defaults to Yes
 			m.step = stepIndexer
 			return m, nil
 		}
@@ -268,7 +270,7 @@ func (m Model) viewSourceSummary() string {
 	}
 
 	b.WriteString(fmt.Sprintf("\n  %s\n",
-		mutedStyle.Render(thinktI18n.T("tui.discover.summary.continue", "Press Enter to continue"))))
+		mutedStyle.Render(thinktI18n.T("tui.discover.summary.continue", "Enter: continue · esc: exit"))))
 
 	return b.String()
 }

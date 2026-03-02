@@ -72,7 +72,7 @@ func (m Model) viewLanguage() string {
 	}
 
 	b.WriteString(fmt.Sprintf("\n  %s\n",
-		mutedStyle.Render(thinktI18n.T("tui.discover.language.help", "↑/↓: navigate  Enter: select"))))
+		mutedStyle.Render(thinktI18n.T("tui.discover.language.help", "↑/↓: navigate · Enter: select · esc: exit"))))
 
 	return b.String()
 }

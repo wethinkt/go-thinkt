@@ -85,6 +85,9 @@ type Model struct {
 	langs  []thinktI18n.LangInfo
 	cursor int
 
+	// Yes/No button selector (true = Yes focused)
+	confirm bool
+
 	// Theme colors
 	accent  string
 	muted   string
@@ -111,6 +114,7 @@ func New(factories []thinkt.StoreFactory) Model {
 		factories: factories,
 		langs:     langs,
 		cursor:    cursor,
+		confirm:   true, // default Yes for home directory step
 		accent:    t.GetAccent(),
 		muted:     t.TextMuted.Fg,
 		primary:   t.TextPrimary.Fg,
@@ -131,7 +135,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		if msg.String() == "ctrl+c" {
+		if msg.String() == "ctrl+c" || msg.String() == "esc" {
 			m.result.Completed = false
 			m.step = stepDone
 			return m, tea.Quit
@@ -240,6 +244,31 @@ func formatBytes(b int64) string {
 	default:
 		return fmt.Sprintf("%d B", b)
 	}
+}
+
+// renderConfirm renders a   [ Yes ]  No   or   Yes  [ No ]   button pair.
+func (m Model) renderConfirm() string {
+	yes := thinktI18n.T("common.yes", "Yes")
+	no := thinktI18n.T("common.no", "No")
+
+	active := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(m.accent))
+	inactive := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(m.muted))
+	help := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(m.muted))
+
+	var yesStr, noStr string
+	if m.confirm {
+		yesStr = active.Render("▸ " + yes)
+		noStr = inactive.Render("  " + no)
+	} else {
+		yesStr = inactive.Render("  " + yes)
+		noStr = active.Render("▸ " + no)
+	}
+	return fmt.Sprintf("%s    %s    %s", yesStr, noStr,
+		help.Render("←/→: select · Enter: confirm · esc: exit"))
 }
 
 // stepIndicator returns a step progress indicator like "[2/9]".

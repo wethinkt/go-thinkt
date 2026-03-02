@@ -12,13 +12,13 @@ import (
 func (m Model) updateIndexer(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if msg, ok := msg.(tea.KeyMsg); ok {
 		switch msg.String() {
-		case "y", "Y", "enter":
-			m.result.Indexer = true
-			m.step = stepEmbeddings
+		case "left", "right", "tab", "h", "l":
+			m.confirm = !m.confirm
 			return m, nil
-		case "n", "N":
-			m.result.Indexer = false
+		case "enter":
+			m.result.Indexer = m.confirm
 			m.step = stepEmbeddings
+			m.confirm = false // embeddings defaults to No
 			return m, nil
 		}
 	}
@@ -39,7 +39,7 @@ func (m Model) viewIndexer() string {
 	codeStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.accent))
 
-	return fmt.Sprintf("\n  %s %s\n\n  %s\n\n  %s\n\n  %s\n  %s\n\n  %s\n",
+	return fmt.Sprintf("\n  %s %s\n\n  %s\n\n  %s\n\n  %s\n  %s\n\n  %s\n\n  %s\n",
 		titleStyle.Render(thinktI18n.T("tui.discover.indexer.title", "Indexer")),
 		m.stepIndicator(),
 		bodyStyle.Render(thinktI18n.T("tui.discover.indexer.body",
@@ -48,6 +48,7 @@ func (m Model) viewIndexer() string {
 			"Resources: ~50MB disk per 10k sessions, minimal CPU usage.")),
 		mutedStyle.Render(thinktI18n.T("tui.discover.indexer.reversible", "Reversible:")),
 		codeStyle.Render("  thinkt config set indexer.watch false"),
-		mutedStyle.Render(thinktI18n.T("tui.discover.indexer.prompt", "Enable indexer? [Y/n]")),
+		bodyStyle.Render(thinktI18n.T("tui.discover.indexer.prompt", "Enable indexer?")),
+		m.renderConfirm(),
 	)
 }

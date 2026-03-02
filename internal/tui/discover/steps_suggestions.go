@@ -101,7 +101,7 @@ func (m Model) viewSuggestions() string {
 	}
 
 	b.WriteString(fmt.Sprintf("\n  %s\n",
-		mutedStyle.Render(thinktI18n.T("tui.discover.suggestions.done", "Press Enter to finish"))))
+		mutedStyle.Render(thinktI18n.T("tui.discover.suggestions.done", "Enter: finish · esc: exit"))))
 
 	return b.String()
 }

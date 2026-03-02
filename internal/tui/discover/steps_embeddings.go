@@ -12,12 +12,11 @@ import (
 func (m Model) updateEmbeddings(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if msg, ok := msg.(tea.KeyMsg); ok {
 		switch msg.String() {
-		case "y", "Y":
-			m.result.Embeddings = true
-			m.step = stepSuggestions
+		case "left", "right", "tab", "h", "l":
+			m.confirm = !m.confirm
 			return m, nil
-		case "n", "N", "enter":
-			m.result.Embeddings = false
+		case "enter":
+			m.result.Embeddings = m.confirm
 			m.step = stepSuggestions
 			return m, nil
 		}
@@ -39,7 +38,7 @@ func (m Model) viewEmbeddings() string {
 	codeStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.accent))
 
-	return fmt.Sprintf("\n  %s %s\n\n  %s\n\n  %s\n\n  %s\n  %s\n\n  %s\n",
+	return fmt.Sprintf("\n  %s %s\n\n  %s\n\n  %s\n\n  %s\n  %s\n\n  %s\n\n  %s\n",
 		titleStyle.Render(thinktI18n.T("tui.discover.embeddings.title", "Embeddings")),
 		m.stepIndicator(),
 		bodyStyle.Render(thinktI18n.T("tui.discover.embeddings.body",
@@ -48,6 +47,7 @@ func (m Model) viewEmbeddings() string {
 			"Resources: ~200MB model download, GPU recommended.")),
 		mutedStyle.Render(thinktI18n.T("tui.discover.embeddings.reversible", "Reversible:")),
 		codeStyle.Render("  thinkt config set embedding.enabled true"),
-		mutedStyle.Render(thinktI18n.T("tui.discover.embeddings.prompt", "Enable embeddings? [y/N]")),
+		bodyStyle.Render(thinktI18n.T("tui.discover.embeddings.prompt", "Enable embeddings?")),
+		m.renderConfirm(),
 	)
 }
