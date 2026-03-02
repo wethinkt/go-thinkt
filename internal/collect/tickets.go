@@ -34,7 +34,7 @@ func NewTicketStore() *TicketStore {
 // Issue creates a new single-use ticket scoped to the given session.
 func (ts *TicketStore) Issue(sessionID string) string {
 	b := make([]byte, 16)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	ticket := hex.EncodeToString(b)
 
 	ts.mu.Lock()

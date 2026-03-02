@@ -217,7 +217,7 @@ func (s *DuckDBStore) flushBatch(batch []IngestRequest) {
 		if err := s.writeRequest(tx, req); err != nil {
 			tuilog.Log.Error("Failed to write request in batch",
 				"session_id", req.SessionID, "error", err)
-			tx.Rollback()
+			_ = tx.Rollback()
 			return
 		}
 	}

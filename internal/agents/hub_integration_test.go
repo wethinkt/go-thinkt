@@ -19,7 +19,7 @@ func TestHub_LocalDetectionAndStream(t *testing.T) {
 		"message": map[string]any{"content": []map[string]any{{"type": "text", "text": "hello"}}},
 	}
 	data, _ := json.Marshal(entry)
-	os.WriteFile(sessionPath, append(data, '\n'), 0644)
+	_ = os.WriteFile(sessionPath, append(data, '\n'), 0644)
 
 	// Create hub with no detector (we'll test stream directly)
 	hub := NewHub(HubConfig{})
@@ -54,8 +54,8 @@ func TestHub_LocalDetectionAndStream(t *testing.T) {
 		"message": map[string]any{"content": []map[string]any{{"type": "text", "text": "world"}}},
 	}
 	data, _ = json.Marshal(newEntry)
-	f.Write(data)
-	f.Write([]byte("\n"))
+	_, _ = f.Write(data)
+	_, _ = f.Write([]byte("\n"))
 	f.Close()
 
 	select {

@@ -29,7 +29,7 @@ func TestParseIDELockFile(t *testing.T) {
 	data1, _ := json.Marshal(entry1)
 	data2, _ := json.Marshal(entry2)
 	// Lock files have concatenated JSON (no newlines)
-	os.WriteFile(lockPath, append(data1, data2...), 0644)
+	_ = os.WriteFile(lockPath, append(data1, data2...), 0644)
 
 	entries, err := parseIDELockFile(lockPath)
 	if err != nil {
@@ -54,7 +54,7 @@ func TestParseIDELockFile(t *testing.T) {
 func TestParseIDELockFile_Empty(t *testing.T) {
 	dir := t.TempDir()
 	lockPath := filepath.Join(dir, "empty.lock")
-	os.WriteFile(lockPath, []byte{}, 0644)
+	_ = os.WriteFile(lockPath, []byte{}, 0644)
 
 	entries, err := parseIDELockFile(lockPath)
 	if err != nil {
@@ -95,7 +95,7 @@ func TestDetectIDELock(t *testing.T) {
 
 	// Create IDE lock file
 	ideDir := filepath.Join(dir, "ide")
-	os.MkdirAll(ideDir, 0755)
+	_ = os.MkdirAll(ideDir, 0755)
 
 	lockEntry := ideLockEntry{
 		PID:              os.Getpid(),
@@ -104,15 +104,15 @@ func TestDetectIDELock(t *testing.T) {
 	}
 	data, _ := json.Marshal(lockEntry)
 	lockFile := filepath.Join(ideDir, fmt.Sprintf("%d.lock", os.Getpid()))
-	os.WriteFile(lockFile, data, 0644)
+	_ = os.WriteFile(lockFile, data, 0644)
 
 	// Create matching project directory with a session file
 	// Path encoding: /Users/test/my-project -> -Users-test-my-project
 	projectDir := filepath.Join(dir, "projects", "-Users-test-my-project")
-	os.MkdirAll(projectDir, 0755)
+	_ = os.MkdirAll(projectDir, 0755)
 
 	sessionFile := filepath.Join(projectDir, "abc-123-def.jsonl")
-	os.WriteFile(sessionFile, []byte(`{"type":"user"}`), 0644)
+	_ = os.WriteFile(sessionFile, []byte(`{"type":"user"}`), 0644)
 
 	// Create detector
 	registry := NewRegistry()
@@ -152,7 +152,7 @@ func TestDetectIDELock(t *testing.T) {
 func TestDetectIDELock_DeadProcess(t *testing.T) {
 	dir := t.TempDir()
 	ideDir := filepath.Join(dir, "ide")
-	os.MkdirAll(ideDir, 0755)
+	_ = os.MkdirAll(ideDir, 0755)
 
 	// Use a PID that's very unlikely to be alive
 	lockEntry := ideLockEntry{
@@ -161,7 +161,7 @@ func TestDetectIDELock_DeadProcess(t *testing.T) {
 		IDEName:          "VS Code",
 	}
 	data, _ := json.Marshal(lockEntry)
-	os.WriteFile(filepath.Join(ideDir, "999999999.lock"), data, 0644)
+	_ = os.WriteFile(filepath.Join(ideDir, "999999999.lock"), data, 0644)
 
 	registry := NewRegistry()
 	detector := NewActiveSessionDetector(registry)
@@ -227,7 +227,7 @@ func TestDetect_Dedup(t *testing.T) {
 	// Set up a fake Claude dir with IDE lock that maps to a recent session
 	dir := t.TempDir()
 	ideDir := filepath.Join(dir, "ide")
-	os.MkdirAll(ideDir, 0755)
+	_ = os.MkdirAll(ideDir, 0755)
 
 	lockEntry := ideLockEntry{
 		PID:              os.Getpid(),
@@ -235,12 +235,12 @@ func TestDetect_Dedup(t *testing.T) {
 		IDEName:          "VS Code",
 	}
 	data, _ := json.Marshal(lockEntry)
-	os.WriteFile(filepath.Join(ideDir, fmt.Sprintf("%d.lock", os.Getpid())), data, 0644)
+	_ = os.WriteFile(filepath.Join(ideDir, fmt.Sprintf("%d.lock", os.Getpid())), data, 0644)
 
 	projectDir := filepath.Join(dir, "projects", "-test-proj1")
-	os.MkdirAll(projectDir, 0755)
+	_ = os.MkdirAll(projectDir, 0755)
 	sessionFile := filepath.Join(projectDir, "session-1.jsonl")
-	os.WriteFile(sessionFile, []byte(`{"type":"user"}`), 0644)
+	_ = os.WriteFile(sessionFile, []byte(`{"type":"user"}`), 0644)
 
 	// Also register a store that returns this session as recent by mtime
 	registry := NewRegistry()

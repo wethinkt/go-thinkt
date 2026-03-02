@@ -121,7 +121,7 @@ func (e *Exporter) Start(ctx context.Context) error {
 	// Periodic buffer drain
 	drainTicker := time.NewTicker(e.cfg.FlushInterval)
 	defer drainTicker.Stop()
-	defer watcher.Stop()
+	defer watcher.Stop() //nolint:errcheck
 
 	// Periodic agent heartbeat (re-registers to keep metadata alive)
 	heartbeatTicker := time.NewTicker(2 * time.Minute)
@@ -136,7 +136,7 @@ func (e *Exporter) Start(ctx context.Context) error {
 			e.handleFileEvent(ctx, event)
 
 		case <-drainTicker.C:
-			e.FlushBuffer(ctx)
+			_ = e.FlushBuffer(ctx)
 
 		case <-heartbeatTicker.C:
 			e.registerAgent(ctx)
@@ -428,10 +428,7 @@ func (e *Exporter) processFile(ctx context.Context, path, source string) {
 
 	// Batch and ship
 	for i := 0; i < len(entries); i += e.cfg.BatchSize {
-		end := i + e.cfg.BatchSize
-		if end > len(entries) {
-			end = len(entries)
-		}
+		end := min(i+e.cfg.BatchSize, len(entries))
 
 		payload := TracePayload{
 			InstanceID:  e.instanceID,

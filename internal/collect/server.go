@@ -154,11 +154,11 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	// Graceful shutdown
 	go func() {
 		<-ctx.Done()
-		config.UnregisterInstance(os.Getpid())
+		_ = config.UnregisterInstance(os.Getpid())
 		s.store.Close()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		srv.Shutdown(shutdownCtx)
+		_ = srv.Shutdown(shutdownCtx)
 	}()
 
 	fmt.Printf("Collector server running at http://%s:%d\n", s.config.Host, s.config.Port)
@@ -256,7 +256,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 // ErrorResponse is an API error response.

@@ -62,10 +62,7 @@ func streamRemoteLoop(ctx context.Context, wsURL string, token string, ch chan<-
 		}
 
 		// Exponential backoff
-		delay := time.Duration(float64(baseReconnectDelay) * math.Pow(2, float64(min(consecutiveFails-1, 5))))
-		if delay > maxReconnectDelay {
-			delay = maxReconnectDelay
-		}
+		delay := min(time.Duration(float64(baseReconnectDelay)*math.Pow(2, float64(min(consecutiveFails-1, 5)))), maxReconnectDelay)
 
 		select {
 		case <-time.After(delay):
@@ -92,7 +89,7 @@ func streamRemoteOnce(ctx context.Context, wsURL string, token string, after tim
 	if err != nil {
 		return err
 	}
-	defer conn.CloseNow()
+	defer conn.CloseNow() //nolint:errcheck
 
 	for {
 		_, data, err := conn.Read(ctx)

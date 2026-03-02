@@ -25,8 +25,8 @@ func TestLocalStream_NewEntries(t *testing.T) {
 		"message": map[string]any{"content": []map[string]any{{"type": "text", "text": "initial"}}},
 	}
 	data, _ := json.Marshal(entry)
-	f.Write(data)
-	f.Write([]byte("\n"))
+	_, _ = f.Write(data)
+	_, _ = f.Write([]byte("\n"))
 	f.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -51,8 +51,8 @@ func TestLocalStream_NewEntries(t *testing.T) {
 		"message": map[string]any{"content": []map[string]any{{"type": "text", "text": "hello world"}}},
 	}
 	data, _ = json.Marshal(newEntry)
-	f.Write(data)
-	f.Write([]byte("\n"))
+	_, _ = f.Write(data)
+	_, _ = f.Write([]byte("\n"))
 	f.Close()
 
 	select {

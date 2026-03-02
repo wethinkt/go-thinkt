@@ -154,7 +154,7 @@ func parseJSONLLine(line []byte) (StreamEntry, bool) {
 	// Try to extract "type" field (Claude format)
 	var entryType string
 	if t, ok := raw["type"]; ok {
-		json.Unmarshal(t, &entryType)
+		_ = json.Unmarshal(t, &entryType)
 	}
 
 	switch entryType {
@@ -175,7 +175,7 @@ func parseJSONLLine(line []byte) (StreamEntry, bool) {
 		// Try generic role field
 		var role string
 		if r, ok := raw["role"]; ok {
-			json.Unmarshal(r, &role)
+			_ = json.Unmarshal(r, &role)
 		}
 		if role == "" {
 			return StreamEntry{}, false
@@ -306,7 +306,7 @@ func extractText(raw map[string]json.RawMessage) string {
 	// Try direct text field
 	if t, ok := raw["text"]; ok {
 		var text string
-		json.Unmarshal(t, &text)
+		_ = json.Unmarshal(t, &text)
 		return text
 	}
 
@@ -316,7 +316,7 @@ func extractText(raw map[string]json.RawMessage) string {
 func extractString(raw map[string]json.RawMessage, key string) string {
 	if v, ok := raw[key]; ok {
 		var s string
-		json.Unmarshal(v, &s)
+		_ = json.Unmarshal(v, &s)
 		return s
 	}
 	// Try nested in message
@@ -325,7 +325,7 @@ func extractString(raw map[string]json.RawMessage, key string) string {
 		if json.Unmarshal(msg, &m) == nil {
 			if v, ok := m[key]; ok {
 				var s string
-				json.Unmarshal(v, &s)
+				_ = json.Unmarshal(v, &s)
 				return s
 			}
 		}

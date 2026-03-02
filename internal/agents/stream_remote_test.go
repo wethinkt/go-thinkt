@@ -20,7 +20,7 @@ func TestRemoteStream_ReceivesEntries(t *testing.T) {
 			t.Log("accept error:", err)
 			return
 		}
-		defer conn.CloseNow()
+		defer conn.CloseNow() //nolint:errcheck
 
 		entry := StreamEntry{
 			Timestamp: time.Now(),
@@ -29,7 +29,7 @@ func TestRemoteStream_ReceivesEntries(t *testing.T) {
 			Model:     "claude-sonnet-4-5-20250929",
 		}
 		data, _ := json.Marshal(entry)
-		conn.Write(r.Context(), websocket.MessageText, data)
+		_ = conn.Write(r.Context(), websocket.MessageText, data)
 
 		// Keep connection open briefly
 		time.Sleep(500 * time.Millisecond)

@@ -141,7 +141,7 @@ func (s *Shipper) ShipSessionActivity(ctx context.Context, event SessionActivity
 	if err != nil {
 		return fmt.Errorf("ship session activity: %w", err)
 	}
-	io.Copy(io.Discard, resp.Body)
+	_, _ = io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
@@ -172,7 +172,7 @@ func (s *Shipper) RegisterAgent(ctx context.Context, reg AgentRegistration) erro
 	if err != nil {
 		return fmt.Errorf("register agent: %w", err)
 	}
-	io.Copy(io.Discard, resp.Body)
+	_, _ = io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
@@ -196,7 +196,7 @@ func (s *Shipper) Ping(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("ping collector: %w", err)
 	}
-	io.Copy(io.Discard, resp.Body)
+	_, _ = io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
 
 	if resp.StatusCode >= 500 {

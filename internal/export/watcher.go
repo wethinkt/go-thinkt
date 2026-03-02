@@ -114,7 +114,7 @@ func (w *FileWatcher) warmActive(wd WatchDir) {
 	cutoff := time.Now().Add(-warmWindow)
 
 	rootDepth := strings.Count(root, string(filepath.Separator))
-	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+	_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}

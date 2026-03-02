@@ -39,7 +39,7 @@ func (s *Server) handleSessionWS(w http.ResponseWriter, r *http.Request) {
 		tuilog.Log.Error("WebSocket accept failed", "error", err)
 		return
 	}
-	defer conn.CloseNow()
+	defer conn.CloseNow() //nolint:errcheck
 
 	ctx := r.Context()
 
