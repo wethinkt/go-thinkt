@@ -260,6 +260,9 @@ func runLanguageSet(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Switch localizer immediately so exit/output text is rendered in the new language.
+	thinktI18n.Init(thinktI18n.ResolveLocale(cfg.Language))
+
 	if isTTY() {
 		t := theme.Current()
 		accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true)

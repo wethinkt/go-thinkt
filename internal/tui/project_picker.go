@@ -901,7 +901,7 @@ var projectPickerStyle = lipgloss.NewStyle().Padding(1, 2)
 
 func (m ProjectPickerModel) viewContent() string {
 	if !m.ready {
-		return thinktI18n.T("common.loading", "Loading...")
+		return thinktI18n.T("tui.projectPicker.loading", "Loading projects...")
 	}
 	if m.quitting {
 		return ""
@@ -934,7 +934,7 @@ func PickProject(projects []thinkt.Project) (*thinkt.Project, error) {
 
 	model := NewProjectPickerModel(projects)
 	model.standalone = true
-	p := tea.NewProgram(model)
+	p := tea.NewProgram(model, termSizeOpts()...)
 	finalModel, err := p.Run()
 	if err != nil {
 		return nil, err

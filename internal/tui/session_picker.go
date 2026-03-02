@@ -572,7 +572,7 @@ var pickerStyle = lipgloss.NewStyle().Padding(1, 2)
 
 func (m SessionPickerModel) viewContent() string {
 	if !m.ready {
-		return thinktI18n.T("common.loading", "Loading...")
+		return thinktI18n.T("tui.sessionPicker.loading", "Loading sessions...")
 	}
 	if m.quitting {
 		return ""
@@ -610,7 +610,7 @@ func PickSessionWithTitle(sessions []thinkt.SessionMeta, title string) (*thinkt.
 	if title != "" {
 		model.SetTitle(title)
 	}
-	p := tea.NewProgram(model)
+	p := tea.NewProgram(model, termSizeOpts()...)
 	finalModel, err := p.Run()
 	if err != nil {
 		return nil, err

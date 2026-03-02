@@ -942,6 +942,9 @@ other = "上"
 [tui.projectPicker.title]
 other = "%d 个项目 · %s %s"
 
+[tui.projectPicker.loading]
+other = "正在加载项目..."
+
 [tui.search.help]
 other = "回车: 搜索  ·  esc: 取消"
 
@@ -953,6 +956,18 @@ other = "(无标题)"
 
 [tui.sessionPicker.title]
 other = "%d 个会话"
+
+[tui.sessionPicker.loading]
+other = "正在加载会话..."
+
+[tui.shell.loading.discoverSources]
+other = "正在发现已启用的数据源"
+
+[tui.shell.loading.buildProjects]
+other = "正在构建项目列表"
+
+[tui.shell.loading.hint]
+other = "首次加载时可能需要一点时间。"
 
 [tui.sourcePicker.filterTitle]
 other = "按数据源筛选"

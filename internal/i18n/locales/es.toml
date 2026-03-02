@@ -942,6 +942,9 @@ other = "arriba"
 [tui.projectPicker.title]
 other = "%d proyectos · %s %s"
 
+[tui.projectPicker.loading]
+other = "Cargando proyectos..."
+
 [tui.search.help]
 other = "intro: buscar  ·  esc: cancelar"
 
@@ -953,6 +956,18 @@ other = "(sin título)"
 
 [tui.sessionPicker.title]
 other = "%d sesiones"
+
+[tui.sessionPicker.loading]
+other = "Cargando sesiones..."
+
+[tui.shell.loading.discoverSources]
+other = "Descubriendo fuentes habilitadas"
+
+[tui.shell.loading.buildProjects]
+other = "Construyendo lista de proyectos"
+
+[tui.shell.loading.hint]
+other = "Esto puede tardar un momento en la primera carga."
 
 [tui.sourcePicker.filterTitle]
 other = "Filtrar por fuente"

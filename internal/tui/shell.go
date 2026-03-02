@@ -11,9 +11,9 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/wethinkt/go-thinkt/internal/agents"
-	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/collect"
 	"github.com/wethinkt/go-thinkt/internal/config"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -653,9 +653,16 @@ func (s *Shell) View() tea.View {
 			Foreground(lipgloss.Color(t.TextMuted.Fg))
 		loadingStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color(t.TextSecondary.Fg))
+		mutedStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(t.TextMuted.Fg))
+		activeStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(t.TextPrimary.Fg))
 
 		brand := brandStyle.Render("🧠 thinkt")
 		loading := loadingStyle.Render(thinktI18n.T("common.loading", "Loading..."))
+		step1 := activeStyle.Render("• " + thinktI18n.T("tui.shell.loading.discoverSources", "Discovering enabled sources"))
+		step2 := mutedStyle.Render("• " + thinktI18n.T("tui.shell.loading.buildProjects", "Building project list"))
+		hint := mutedStyle.Render(thinktI18n.T("tui.shell.loading.hint", "This can take a moment on first load."))
 
 		// Brand in top-right corner
 		brandWidth := lipgloss.Width(brand)
@@ -665,19 +672,21 @@ func (s *Shell) View() tea.View {
 		}
 		header := strings.Repeat(" ", pad) + brand
 
-		// Centered loading text
-		loadingWidth := lipgloss.Width(loading)
-		leftPad := (s.width - loadingWidth) / 2
-		if leftPad < 0 {
-			leftPad = 0
-		}
-		topPad := (s.height - 3) / 2 // -3 for header + loading + buffer
+		topPad := (s.height - 7) / 2
 		if topPad < 0 {
 			topPad = 0
 		}
-		center := strings.Repeat("\n", topPad) + strings.Repeat(" ", leftPad) + loading
+		panel := strings.Join([]string{
+			"  " + loading,
+			"",
+			"  " + step1,
+			"  " + step2,
+			"",
+			"  " + hint,
+		}, "\n")
+		content := strings.Repeat("\n", topPad) + panel
 
-		v := tea.NewView(header + center)
+		v := tea.NewView(header + "\n" + content)
 		v.AltScreen = true
 		return v
 	}
