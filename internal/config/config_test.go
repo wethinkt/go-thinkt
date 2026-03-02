@@ -2,6 +2,9 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 )
@@ -335,5 +338,97 @@ func TestValidateApps_EmptyReturnsDefaults(t *testing.T) {
 	result := validateApps(nil)
 	if len(result) == 0 {
 		t.Error("validateApps with nil input should return defaults")
+	}
+}
+
+func TestLoadReturnsErrNoConfigWhenMissing(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("THINKT_HOME", tmp)
+
+	cfg, err := Load()
+	if !errors.Is(err, ErrNoConfig) {
+		t.Fatalf("expected ErrNoConfig, got %v", err)
+	}
+
+	// Should still return usable defaults
+	if cfg.Theme != "dark" {
+		t.Errorf("expected default theme 'dark', got %q", cfg.Theme)
+	}
+}
+
+func TestLoadDoesNotAutoCreateConfig(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("THINKT_HOME", tmp)
+
+	_, _ = Load()
+
+	configPath := filepath.Join(tmp, "config.json")
+	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
+		t.Error("Load() should not auto-create config.json")
+	}
+}
+
+func TestSourceConfigRoundTrip(t *testing.T) {
+	cfg := Config{
+		Theme: "dark",
+		Sources: map[string]SourceConfig{
+			"claude": {Enabled: true, Path: "/home/user/.claude/projects"},
+			"kimi":   {Enabled: false},
+		},
+	}
+
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+
+	var decoded Config
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	if len(decoded.Sources) != 2 {
+		t.Fatalf("expected 2 sources, got %d", len(decoded.Sources))
+	}
+
+	claude := decoded.Sources["claude"]
+	if !claude.Enabled || claude.Path != "/home/user/.claude/projects" {
+		t.Errorf("claude source mismatch: %+v", claude)
+	}
+
+	kimi := decoded.Sources["kimi"]
+	if kimi.Enabled || kimi.Path != "" {
+		t.Errorf("kimi source mismatch: %+v", kimi)
+	}
+}
+
+func TestEnabledSources(t *testing.T) {
+	cfg := Config{
+		Sources: map[string]SourceConfig{
+			"claude": {Enabled: true},
+			"kimi":   {Enabled: false},
+			"gemini": {Enabled: true},
+		},
+	}
+
+	got := cfg.EnabledSources()
+	want := []string{"claude", "gemini"}
+
+	if len(got) != len(want) {
+		t.Fatalf("EnabledSources() = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("EnabledSources()[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestEnabledSourcesNilMapReturnsNil(t *testing.T) {
+	cfg := Config{}
+
+	got := cfg.EnabledSources()
+	if got != nil {
+		t.Errorf("EnabledSources() on nil map should return nil, got %v", got)
 	}
 }

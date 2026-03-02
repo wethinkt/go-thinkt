@@ -3,8 +3,10 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 )
 
@@ -19,16 +21,27 @@ const (
 	defaultFilePerms    = 0600
 )
 
+// ErrNoConfig is returned by Load when no config file exists on disk.
+var ErrNoConfig = errors.New("config file does not exist")
+
+// SourceConfig holds per-source settings.
+type SourceConfig struct {
+	Enabled bool   `json:"enabled"`
+	Path    string `json:"path,omitempty"`
+}
+
 // Config holds the thinkt configuration.
 type Config struct {
-	Theme           string          `json:"theme"`                            // Name of the active theme
-	Language        string          `json:"language,omitempty"`               // BCP 47 language tag (e.g., "en", "zh-Hans", "ja")
-	Terminal        string          `json:"terminal,omitempty"`               // App ID for default terminal (e.g., "ghostty", "kitty")
-	DisabledSources []string       `json:"disabled_sources,omitempty"`       // Sources to exclude (empty = all enabled)
-	AllowedApps     []AppConfig    `json:"allowed_apps,omitempty"`           // Apps allowed for open-in
-	Embedding       EmbeddingConfig `json:"embedding"`                       // Embedding settings
-	Indexer         IndexerConfig   `json:"indexer"`                         // Indexer settings
-}
+	Sources         map[string]SourceConfig    `json:"sources,omitempty"`       // Per-source enabled/disabled settings
+	DiscoveredAt.   *time.Time                `json:"discovered_at,omitempty"` // When discover wizard last ran
+	Theme           string                    `json:"theme"`                   // Name of the active theme
+	Language        string                    `json:"language,omitempty"`      // BCP 47 language tag (e.g., "en", "zh-Hans", "ja")
+	Terminal        string                    `json:"terminal,omitempty"`      // App ID for default terminal (e.g., "ghostty", "kitty")
+	DisabledSources []string                  `json:"disabled_sources,omitempty"`       // Sources to exclude (empty = all enabled)
+}	AllowedApps     []AppConfig                `json:"allowed_apps,omitempty"`  // Apps allowed for open-in
+	Embedding       EmbeddingConfig            `json:"embedding"`               // Embedding settings
+	Indexer         IndexerConfig              `json:"indexer"`                 // Indexer settings
+
 
 // EmbeddingConfig holds embedding-related settings.
 type EmbeddingConfig struct {
@@ -51,6 +64,21 @@ func (c IndexerConfig) DebounceDuration() time.Duration {
 		}
 	}
 	return 2 * time.Second
+}
+
+// EnabledSources returns the sorted names of all enabled sources.
+func (c Config) EnabledSources() []string {
+	if c.Sources == nil {
+		return nil
+	}
+	var enabled []string
+	for name, sc := range c.Sources {
+		if sc.Enabled {
+			enabled = append(enabled, name)
+		}
+	}
+	sort.Strings(enabled)
+	return enabled
 }
 
 // Dir returns the path to the .thinkt directory.
@@ -84,12 +112,7 @@ func Load() (Config, error) {
 
 	data, err := os.ReadFile(configPath)
 	if os.IsNotExist(err) {
-		cfg := Default()
-		// Persist the initial config with probed apps to disk
-		if saveErr := Save(cfg); saveErr != nil {
-			return cfg, nil // return defaults even if save fails
-		}
-		return cfg, nil
+		return Default(), ErrNoConfig
 	} else if err != nil {
 		return Config{}, err
 	}
