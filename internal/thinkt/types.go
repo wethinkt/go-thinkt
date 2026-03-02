@@ -211,15 +211,15 @@ type SessionMeta struct {
 	FullPath    string    `json:"full_path"`    // Path to session file
 	FirstPrompt string    `json:"first_prompt,omitempty"`
 	Summary     string    `json:"summary,omitempty"`
-	EntryCount  int       `json:"entry_count"`
-	FileSize    int64     `json:"file_size"` // Size in bytes
+	EntryCount  int       `json:"entry_count"` // 0 means empty OR not computed yet (lazy metadata path)
+	FileSize    int64     `json:"file_size"`   // Size in bytes
 	CreatedAt   time.Time `json:"created_at"`
 	ModifiedAt  time.Time `json:"modified_at"`
 	GitBranch   string    `json:"git_branch,omitempty"`
 	Model       string    `json:"model,omitempty"` // First real (non-synthetic) assistant model
-	Source      Source    `json:"source"`       // Which tool (kimi, claude)
-	WorkspaceID string    `json:"workspace_id"` // Which machine/host
-	ChunkCount  int       `json:"chunk_count"`  // Number of files: 0=unknown, 1=single, 2+=chunked
+	Source      Source    `json:"source"`          // Which tool (kimi, claude)
+	WorkspaceID string    `json:"workspace_id"`    // Which machine/host
+	ChunkCount  int       `json:"chunk_count"`     // Number of files: 0=unknown, 1=single, 2+=chunked
 }
 
 // Session represents a complete conversation session.

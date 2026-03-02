@@ -113,7 +113,7 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 // project after the first call.
 func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
 	return s.cache.LoadSessions(projectID, func() ([]thinkt.SessionMeta, error) {
-		sessions, err := ListProjectSessionsBackfill(projectID)
+		sessions, err := ListProjectSessions(projectID)
 		if err != nil {
 			return nil, err
 		}

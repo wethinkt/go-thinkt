@@ -2,6 +2,7 @@ package copilot
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
+
+const allSessionsCacheKey = "\x00copilot_all_sessions"
 
 // Store implements thinkt.Store for Copilot CLI sessions.
 type Store struct {
@@ -55,7 +58,7 @@ func (s *Store) Workspace() thinkt.Workspace {
 // are cached after the first call. Use ResetCache to force a rescan.
 func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 	return s.cache.LoadProjects(func() ([]thinkt.Project, error) {
-		sessions, err := s.scanSessions()
+		sessions, err := s.loadAllSessions()
 		if err != nil {
 			return nil, err
 		}
@@ -123,7 +126,7 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 // ListSessions returns sessions for a project.
 func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
 	return s.cache.LoadSessions(projectID, func() ([]thinkt.SessionMeta, error) {
-		allSessions, err := s.scanSessions()
+		allSessions, err := s.loadAllSessions()
 		if err != nil {
 			return nil, err
 		}
@@ -142,6 +145,12 @@ func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.Se
 		})
 
 		return sessions, nil
+	})
+}
+
+func (s *Store) loadAllSessions() ([]thinkt.SessionMeta, error) {
+	return s.cache.LoadSessions(allSessionsCacheKey, func() ([]thinkt.SessionMeta, error) {
+		return s.scanSessions()
 	})
 }
 
@@ -254,7 +263,7 @@ func (s *Store) scanSessions() ([]thinkt.SessionMeta, error) {
 			continue
 		}
 
-		meta, err := s.readSessionMeta(id, fullPath)
+		meta, err := s.readSessionMetaFast(id, fullPath)
 		if err != nil {
 			// Skip malformed sessions but log error?
 			continue
@@ -262,6 +271,90 @@ func (s *Store) scanSessions() ([]thinkt.SessionMeta, error) {
 		sessions = append(sessions, *meta)
 	}
 	return sessions, nil
+}
+
+func (s *Store) readSessionMetaFast(id, path string) (*thinkt.SessionMeta, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	meta := &thinkt.SessionMeta{
+		ID:          id,
+		ProjectPath: "unknown",
+		FullPath:    path,
+		FileSize:    info.Size(),
+		ModifiedAt:  info.ModTime(),
+		Source:      thinkt.SourceCopilot,
+		WorkspaceID: s.Workspace().ID,
+		ChunkCount:  1,
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	const maxLines = 40
+	scanner := thinkt.NewScannerWithMaxCapacity(f)
+	lineCount := 0
+	for scanner.Scan() {
+		lineCount++
+		if lineCount > maxLines {
+			break
+		}
+
+		line := bytes.TrimSpace(scanner.Bytes())
+		if len(line) == 0 {
+			continue
+		}
+
+		var event Event
+		if err := json.Unmarshal(line, &event); err != nil {
+			continue
+		}
+
+		if meta.CreatedAt.IsZero() && !event.Timestamp.IsZero() {
+			meta.CreatedAt = event.Timestamp
+		}
+
+		switch event.Type {
+		case EventTypeSessionStart, EventTypeSessionInfo:
+			if ctx, ok := event.Data["context"].(map[string]any); ok {
+				if cwd, ok := ctx["cwd"].(string); ok && cwd != "" {
+					meta.ProjectPath = cwd
+				}
+			}
+		case EventTypeUserMessage:
+			if meta.FirstPrompt == "" {
+				if transformed, ok := event.Data["transformedContent"].(string); ok && transformed != "" {
+					meta.FirstPrompt = thinkt.TruncateString(transformed, thinkt.DefaultTruncateLength)
+				} else if content, ok := event.Data["content"].(string); ok && content != "" {
+					meta.FirstPrompt = thinkt.TruncateString(content, thinkt.DefaultTruncateLength)
+				}
+			}
+		case EventTypeAssistantMsg:
+			if !thinkt.IsRealModel(meta.Model) {
+				if model, ok := event.Data["model"].(string); ok && thinkt.IsRealModel(model) {
+					meta.Model = model
+				}
+			}
+		}
+
+		if meta.ProjectPath != "unknown" && meta.FirstPrompt != "" {
+			break
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	if meta.CreatedAt.IsZero() {
+		meta.CreatedAt = meta.ModifiedAt
+	}
+
+	return meta, nil
 }
 
 func (s *Store) readSessionMeta(id, path string) (*thinkt.SessionMeta, error) {

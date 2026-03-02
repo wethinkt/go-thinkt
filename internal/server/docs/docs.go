@@ -2219,6 +2219,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "entry_count": {
+                    "description": "0 means empty OR not computed yet (lazy metadata path)",
                     "type": "integer"
                 },
                 "file_size": {

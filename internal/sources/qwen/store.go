@@ -99,13 +99,16 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 			}
 
 			// Count sessions and get last modified
-			sessions, _ := s.listSessionsForProject(projectHash)
-			sessionCount := len(sessions)
-
+			sessionCount := 0
 			var lastMod time.Time
-			for _, sess := range sessions {
-				if sess.ModifiedAt.After(lastMod) {
-					lastMod = sess.ModifiedAt
+			sessionEntries, _ := os.ReadDir(chatsDir)
+			for _, sess := range sessionEntries {
+				if sess.IsDir() || !strings.HasSuffix(sess.Name(), ".jsonl") {
+					continue
+				}
+				sessionCount++
+				if info, err := sess.Info(); err == nil && info.ModTime().After(lastMod) {
+					lastMod = info.ModTime()
 				}
 			}
 
@@ -264,20 +267,21 @@ func (s *Store) readSessionMeta(path, projectHash string, size int64, modTime ti
 		ProjectPath: projectHash,
 		FullPath:    path,
 		FileSize:    size,
-		CreatedAt:   modTime,
+		CreatedAt:   time.Time{},
 		ModifiedAt:  modTime,
 		Source:      thinkt.SourceQwen,
 		WorkspaceID: wsID,
 		ChunkCount:  1,
 	}
 
-	// Read first few lines to extract metadata
+	// Read a limited number of lines for lightweight metadata extraction.
 	scanner := thinkt.NewScannerWithMaxCapacity(f)
 
 	lineCount := 0
-	maxLines := 100 // Read first 100 lines to get metadata
+	maxLines := 40
 
 	for scanner.Scan() && lineCount < maxLines {
+		lineCount++
 		line := scanner.Bytes()
 		if len(line) == 0 {
 			continue
@@ -294,8 +298,6 @@ func (s *Store) readSessionMeta(path, projectHash string, size int64, modTime ti
 		if err := json.Unmarshal(line, &entry); err != nil {
 			continue
 		}
-
-		lineCount++
 
 		// Extract first prompt
 		if meta.FirstPrompt == "" && entry.Type == "user" {
@@ -327,28 +329,11 @@ func (s *Store) readSessionMeta(path, projectHash string, size int64, modTime ti
 		}
 	}
 
-	// Count total entries
-	meta.EntryCount = s.countEntries(path)
+	if meta.CreatedAt.IsZero() {
+		meta.CreatedAt = modTime
+	}
 
 	return meta, nil
-}
-
-func (s *Store) countEntries(path string) int {
-	f, err := os.Open(path)
-	if err != nil {
-		return 0
-	}
-	defer f.Close()
-
-	count := 0
-	scanner := thinkt.NewScannerWithMaxCapacity(f)
-
-	for scanner.Scan() {
-		if len(strings.TrimSpace(scanner.Text())) > 0 {
-			count++
-		}
-	}
-	return count
 }
 
 // GetSessionMeta returns session metadata.

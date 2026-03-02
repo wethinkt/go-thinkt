@@ -764,7 +764,7 @@ func TestStore_GetProject(t *testing.T) {
 
 	// Project ID is the full directory path
 	projectID := project1Dir
-	
+
 	project, err := store.GetProject(context.Background(), projectID)
 	if err != nil {
 		t.Fatalf("GetProject: %v", err)
@@ -814,11 +814,9 @@ func TestStore_ListSessions_EntryCount_NoIndex(t *testing.T) {
 	if len(sessions) != 1 {
 		t.Fatalf("expected 1 session, got %d", len(sessions))
 	}
-	if sessions[0].EntryCount == 0 {
-		t.Errorf("EntryCount should not be 0 when JSONL file has entries (got %d)", sessions[0].EntryCount)
-	}
-	if sessions[0].EntryCount != 3 {
-		t.Errorf("expected EntryCount=3, got %d", sessions[0].EntryCount)
+	// Session listing now avoids full-file scans; count remains unknown without index.
+	if sessions[0].EntryCount != 0 {
+		t.Errorf("expected EntryCount=0 without index backfill, got %d", sessions[0].EntryCount)
 	}
 }
 
@@ -865,10 +863,8 @@ func TestStore_ListSessions_EntryCount_IndexZero(t *testing.T) {
 	if len(sessions) != 1 {
 		t.Fatalf("expected 1 session, got %d", len(sessions))
 	}
-	if sessions[0].EntryCount == 0 {
-		t.Errorf("EntryCount should not be 0 when index has messageCount:0 but JSONL has entries (got %d)", sessions[0].EntryCount)
-	}
-	if sessions[0].EntryCount != 4 {
-		t.Errorf("expected EntryCount=4, got %d", sessions[0].EntryCount)
+	// Session listing now trusts index/stat metadata and does not backfill by reading JSONL.
+	if sessions[0].EntryCount != 0 {
+		t.Errorf("expected EntryCount=0 when index messageCount is 0, got %d", sessions[0].EntryCount)
 	}
 }

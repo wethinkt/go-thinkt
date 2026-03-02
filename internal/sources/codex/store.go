@@ -176,7 +176,7 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 	}
 	for i := range sessions {
 		if sessions[i].ID == sessionID {
-			return &sessions[i], nil
+			return s.readSessionMeta(sessions[i].FullPath, ws.ID)
 		}
 	}
 	return nil, nil
@@ -262,7 +262,7 @@ func (s *Store) scanSessions() ([]thinkt.SessionMeta, error) {
 			return nil
 		}
 
-		meta, err := s.readSessionMeta(path, ws.ID)
+		meta, err := s.readSessionMetaFast(path, ws.ID)
 		if err != nil || meta == nil {
 			return nil
 		}
@@ -283,6 +283,144 @@ func (s *Store) loadAllSessions() ([]thinkt.SessionMeta, error) {
 	return s.cache.LoadSessions(allSessionsCacheKey, func() ([]thinkt.SessionMeta, error) {
 		return s.scanSessions()
 	})
+}
+
+func (s *Store) readSessionMetaFast(path, workspaceID string) (*thinkt.SessionMeta, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	meta := &thinkt.SessionMeta{
+		ID:          strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
+		FullPath:    path,
+		FileSize:    info.Size(),
+		ModifiedAt:  info.ModTime(),
+		Source:      thinkt.SourceCodex,
+		WorkspaceID: workspaceID,
+		ChunkCount:  1,
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	const maxLines = 200
+	scanner := thinkt.NewScannerWithMaxCapacityCustom(f, 64*1024, thinkt.MaxScannerCapacity)
+	lineCount := 0
+	for scanner.Scan() {
+		lineCount++
+		if lineCount > maxLines {
+			break
+		}
+
+		line := bytes.TrimSpace(scanner.Bytes())
+		if len(line) == 0 {
+			continue
+		}
+
+		var l logLine
+		if err := json.Unmarshal(line, &l); err != nil {
+			continue
+		}
+
+		if meta.CreatedAt.IsZero() {
+			meta.CreatedAt = parseTimestamp(l.Timestamp)
+		}
+
+		switch l.Type {
+		case "session_meta":
+			var payload struct {
+				ID            string `json:"id"`
+				Timestamp     string `json:"timestamp"`
+				CWD           string `json:"cwd"`
+				Model         string `json:"model"`
+				ModelProvider string `json:"model_provider"`
+				Git           struct {
+					Branch string `json:"branch"`
+				} `json:"git"`
+			}
+			if err := json.Unmarshal(l.Payload, &payload); err != nil {
+				continue
+			}
+			if payload.ID != "" {
+				meta.ID = payload.ID
+			}
+			if payload.CWD != "" && meta.ProjectPath == "" {
+				meta.ProjectPath = payload.CWD
+			}
+			if thinkt.IsRealModel(payload.Model) {
+				meta.Model = payload.Model
+			} else if !thinkt.IsRealModel(meta.Model) && payload.ModelProvider != "" {
+				meta.Model = payload.ModelProvider
+			}
+			if payload.Git.Branch != "" {
+				meta.GitBranch = payload.Git.Branch
+			}
+			if meta.CreatedAt.IsZero() {
+				meta.CreatedAt = parseTimestamp(payload.Timestamp)
+			}
+
+		case "event_msg":
+			var payload struct {
+				Type    string `json:"type"`
+				Message string `json:"message"`
+				CWD     string `json:"cwd"`
+				Model   string `json:"model"`
+			}
+			if err := json.Unmarshal(l.Payload, &payload); err != nil {
+				continue
+			}
+			switch payload.Type {
+			case "user_message":
+				if meta.FirstPrompt == "" {
+					meta.FirstPrompt = payload.Message
+				}
+			case "turn_context":
+				if meta.ProjectPath == "" {
+					meta.ProjectPath = payload.CWD
+				}
+				if !thinkt.IsRealModel(meta.Model) && thinkt.IsRealModel(payload.Model) {
+					meta.Model = payload.Model
+				}
+			}
+
+		case "response_item":
+			if meta.FirstPrompt == "" {
+				var payload struct {
+					Type    string          `json:"type"`
+					Role    string          `json:"role"`
+					Content json.RawMessage `json:"content"`
+				}
+				if err := json.Unmarshal(l.Payload, &payload); err != nil {
+					continue
+				}
+				if payload.Type == "message" && payload.Role == "user" {
+					var content any
+					if err := json.Unmarshal(payload.Content, &content); err == nil {
+						meta.FirstPrompt = extractMessageText(content)
+					}
+				}
+			}
+		}
+
+		if meta.ProjectPath != "" && meta.FirstPrompt != "" && thinkt.IsRealModel(meta.Model) {
+			break
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	if meta.CreatedAt.IsZero() {
+		meta.CreatedAt = meta.ModifiedAt
+	}
+	if meta.ProjectPath == "" {
+		meta.ProjectPath = "unknown"
+	}
+	return meta, nil
 }
 
 func (s *Store) readSessionMeta(path, workspaceID string) (*thinkt.SessionMeta, error) {

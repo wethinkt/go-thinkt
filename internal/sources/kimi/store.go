@@ -96,7 +96,9 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 				continue
 			}
 
-			sessions, _ := s.listSessionsForHash(hash)
+			sessions, _ := s.cache.LoadSessions(hash, func() ([]thinkt.SessionMeta, error) {
+				return s.listSessionStubsForHash(hash)
+			})
 
 			projects = append(projects, thinkt.Project{
 				ID:             wd.Path,
@@ -121,7 +123,7 @@ func (s *Store) ResetCache() { s.cache.Clear() }
 // GetProject returns a specific project.
 func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, error) {
 	// id is the project path
-	hash := workDirHash(id)
+	hash := s.projectHash(id)
 	sessionDir := filepath.Join(s.baseDir, "sessions", hash)
 
 	info, err := os.Stat(sessionDir)
@@ -129,7 +131,9 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 		return nil, err
 	}
 
-	sessions, _ := s.listSessionsForHash(hash)
+	sessions, _ := s.cache.LoadSessions(hash, func() ([]thinkt.SessionMeta, error) {
+		return s.listSessionStubsForHash(hash)
+	})
 	ws := s.Workspace()
 
 	return &thinkt.Project{
@@ -147,13 +151,24 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 
 // ListSessions returns sessions for a project.
 func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
-	return s.cache.LoadSessions(projectID, func() ([]thinkt.SessionMeta, error) {
-		hash := workDirHash(projectID)
+	hash := s.projectHash(projectID)
+	return s.cache.LoadSessions(hash, func() ([]thinkt.SessionMeta, error) {
 		return s.listSessionsForHash(hash)
 	})
 }
 
 func (s *Store) listSessionsForHash(hash string) ([]thinkt.SessionMeta, error) {
+	sessions, err := s.listSessionStubsForHash(hash)
+	if err != nil {
+		return nil, err
+	}
+	for i := range sessions {
+		sessions[i].FirstPrompt = s.firstPromptLimited(sessions[i].FullPath, 32)
+	}
+	return sessions, nil
+}
+
+func (s *Store) listSessionStubsForHash(hash string) ([]thinkt.SessionMeta, error) {
 	sessionDir := filepath.Join(s.baseDir, "sessions", hash)
 	entries, err := os.ReadDir(sessionDir)
 	if err != nil {
@@ -176,9 +191,6 @@ func (s *Store) listSessionsForHash(hash string) ([]thinkt.SessionMeta, error) {
 			continue
 		}
 
-		// Count entries by reading the file(s)
-		count, firstPrompt := s.countEntriesAndFirstPrompt(contextPath)
-
 		// Count chunks (context_sub_*.jsonl files)
 		chunkCount := countChunks(sessionPath)
 
@@ -186,8 +198,6 @@ func (s *Store) listSessionsForHash(hash string) ([]thinkt.SessionMeta, error) {
 			ID:          sessionID,
 			ProjectPath: hash,
 			FullPath:    contextPath,
-			FirstPrompt: firstPrompt,
-			EntryCount:  count,
 			FileSize:    info.Size(),
 			CreatedAt:   info.ModTime(),
 			ModifiedAt:  info.ModTime(),
@@ -198,6 +208,54 @@ func (s *Store) listSessionsForHash(hash string) ([]thinkt.SessionMeta, error) {
 	}
 
 	return sessions, nil
+}
+
+func (s *Store) firstPromptLimited(path string, maxLines int) string {
+	if maxLines <= 0 {
+		maxLines = 32
+	}
+
+	reader, err := jsonl.NewReader(path)
+	if err != nil {
+		return ""
+	}
+	defer reader.Close()
+
+	lineCount := 0
+	for lineCount < maxLines {
+		line, err := reader.ReadLine()
+		if err == io.EOF {
+			if len(line) == 0 {
+				break
+			}
+		} else if err != nil {
+			break
+		}
+		if len(line) == 0 {
+			if err == io.EOF {
+				break
+			}
+			lineCount++
+			continue
+		}
+
+		var entry struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		}
+		if err := json.Unmarshal(line, &entry); err == nil {
+			if entry.Role == "user" && entry.Content != "" {
+				return thinkt.TruncateString(entry.Content, thinkt.DefaultTruncateLength)
+			}
+		}
+
+		lineCount++
+		if err == io.EOF {
+			break
+		}
+	}
+
+	return ""
 }
 
 // countChunks counts the number of context files (context.jsonl + context_sub_*.jsonl)
@@ -873,7 +931,9 @@ func (s *Store) scanProjects(sessionsDir string) ([]thinkt.Project, error) {
 		}
 
 		hash := entry.Name()
-		sessions, _ := s.listSessionsForHash(hash)
+		sessions, _ := s.cache.LoadSessions(hash, func() ([]thinkt.SessionMeta, error) {
+			return s.listSessionStubsForHash(hash)
+		})
 
 		info, _ := entry.Info()
 
@@ -890,6 +950,17 @@ func (s *Store) scanProjects(sessionsDir string) ([]thinkt.Project, error) {
 	}
 
 	return projects, nil
+}
+
+func (s *Store) projectHash(projectID string) string {
+	if projectID == "" {
+		return ""
+	}
+	sessionDir := filepath.Join(s.baseDir, "sessions", projectID)
+	if info, err := os.Stat(sessionDir); err == nil && info.IsDir() {
+		return projectID
+	}
+	return workDirHash(projectID)
 }
 
 // WatchConfig returns the watch configuration for Kimi session files.
