@@ -33,10 +33,6 @@ func (m Model) updateEmbeddings(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) viewEmbeddings() string {
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(m.accent))
-
 	bodyStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.primary))
 
@@ -45,14 +41,13 @@ func (m Model) viewEmbeddings() string {
 		cmd = "thinkt config set embedding.enabled false"
 	}
 
-	return fmt.Sprintf("\n  %s %s\n\n  %s\n\n  %s\n\n  %s\n\n%s\n\n\n\n%s\n",
-		titleStyle.Render(thinktI18n.T("tui.discover.embeddings.title", "Embeddings")),
-		m.stepIndicator(),
+	return fmt.Sprintf("%s\n  %s\n\n  %s\n\n  %s\n\n%s\n\n%s\n",
+		m.renderStepHeader(thinktI18n.T("tui.discover.embeddings.title", "Embeddings")),
 		bodyStyle.Render(thinktI18n.T("tui.discover.embeddings.body",
-			"Embeddings enable semantic search — find sessions by meaning,\nnot just keywords. This uses a local model (nomic-embed-text-v1.5)\nand requires no API keys or network access.")),
+			"Embeddings add semantic search so you can find sessions by intent, not only exact words. It uses a local model (nomic-embed-text-v1.5) and requires no API keys.")),
 		bodyStyle.Render(thinktI18n.T("tui.discover.embeddings.resources",
-			"Resources: ~200MB model download, GPU recommended.")),
-		bodyStyle.Render(thinktI18n.T("tui.discover.embeddings.prompt", "Enable embeddings?")),
+			"Initial model download is about 200MB. GPU helps but is optional.")),
+		bodyStyle.Render(thinktI18n.T("tui.discover.embeddings.prompt", "Enable semantic search?")),
 		m.renderVerticalConfirm(),
 		m.renderCLIHint(cmd),
 	)

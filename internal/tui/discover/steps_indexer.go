@@ -36,10 +36,6 @@ func (m Model) updateIndexer(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) viewIndexer() string {
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(m.accent))
-
 	bodyStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.primary))
 
@@ -48,14 +44,13 @@ func (m Model) viewIndexer() string {
 		cmd = "thinkt config set indexer.watch false"
 	}
 
-	return fmt.Sprintf("\n  %s %s\n\n  %s\n\n  %s\n\n  %s\n\n%s\n\n\n\n%s\n",
-		titleStyle.Render(thinktI18n.T("tui.discover.indexer.title", "Indexer")),
-		m.stepIndicator(),
+	return fmt.Sprintf("%s\n  %s\n\n  %s\n\n  %s\n\n%s\n\n%s\n",
+		m.renderStepHeader(thinktI18n.T("tui.discover.indexer.title", "Indexer")),
 		bodyStyle.Render(thinktI18n.T("tui.discover.indexer.body",
-			"The indexer watches your session files and builds a searchable\ndatabase using DuckDB. This enables fast full-text search,\nfiltering, and statistics across all your sessions.")),
+			"The indexer keeps a local DuckDB database in sync with your session files. It enables fast search, filtering, and usage statistics across all sources.")),
 		bodyStyle.Render(thinktI18n.T("tui.discover.indexer.resources",
-			"Resources: ~50MB disk per 10k sessions, minimal CPU usage.")),
-		bodyStyle.Render(thinktI18n.T("tui.discover.indexer.prompt", "Enable indexer?")),
+			"Typical usage: ~50MB disk per 10k sessions, low background CPU.")),
+		bodyStyle.Render(thinktI18n.T("tui.discover.indexer.prompt", "Enable background indexing?")),
 		m.renderVerticalConfirm(),
 		m.renderCLIHint(cmd),
 	)

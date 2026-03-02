@@ -31,6 +31,11 @@ const (
 	stepDone
 )
 
+const (
+	discoverMinWidth = 48
+	discoverMaxWidth = 96
+)
+
 // sourceMode controls how sources are approved.
 type sourceMode int
 
@@ -209,12 +214,13 @@ func (m Model) View() tea.View {
 		content = ""
 	}
 
-	if m.width > 0 && m.height > 0 {
-		content = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+	content = strings.Trim(content, "\n")
+	if width := m.inlineWidth(); width > 0 {
+		content = lipgloss.NewStyle().MaxWidth(width).Render(content)
 	}
 
 	v := tea.NewView(content)
-	v.AltScreen = true
+	v.AltScreen = false
 	return v
 }
 
@@ -268,7 +274,126 @@ func padRight(s string, width int) string {
 func (m Model) renderCLIHint(cmd string) string {
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.muted))
 	codeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.accent))
-	return fmt.Sprintf("  %s  %s", mutedStyle.Render("CLI command:"), codeStyle.Render(cmd))
+	return fmt.Sprintf("  %s  %s", mutedStyle.Render("use CLI command:"), codeStyle.Render(cmd))
+}
+
+// renderStepHeader renders a consistent left-justified step heading with divider.
+func (m Model) renderStepHeader(title string) string {
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.accent))
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.muted))
+
+	head := "  " + titleStyle.Render(title)
+	if step := m.stepIndicator(); step != "" {
+		head += " " + step
+	}
+
+	lineWidth := m.inlineWidth() - 2
+	if lineWidth < 16 {
+		lineWidth = 16
+	}
+	divider := "  " + mutedStyle.Render(strings.Repeat("─", lineWidth))
+
+	var b strings.Builder
+	if m.step != stepWelcome && m.step != stepDone {
+		b.WriteString(m.renderStickyContext())
+		b.WriteString("\n")
+	}
+	b.WriteString(head)
+	b.WriteString("\n")
+	b.WriteString(divider)
+	b.WriteString("\n")
+	return b.String()
+}
+
+// renderStickyContext shows key selections from earlier steps so users keep context.
+func (m Model) renderStickyContext() string {
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.muted))
+	valueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.primary))
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.accent))
+
+	var lines []string
+	lines = append(lines, "  "+titleStyle.Render("Welcome to 🧠 thinkt"))
+
+	if lang := m.selectedLanguageSummary(); lang != "" {
+		lines = append(lines, fmt.Sprintf("  %s %s",
+			labelStyle.Render("Language:"),
+			valueStyle.Render(lang),
+		))
+	}
+
+	if m.result.HomeDir != "" {
+		lines = append(lines, fmt.Sprintf("  %s %s",
+			labelStyle.Render("Home Dir:"),
+			valueStyle.Render(m.result.HomeDir),
+		))
+	}
+
+	if m.scanning || m.scanDone || len(m.sources) > 0 {
+		discovered := len(m.sources)
+		enabled := 0
+		for _, src := range m.sources {
+			if src.Approved {
+				enabled++
+			}
+		}
+		sourceSummary := fmt.Sprintf("%d discovered", discovered)
+		if m.scanDone && discovered > 0 {
+			sourceSummary = fmt.Sprintf("%d discovered, %d enabled", discovered, enabled)
+		}
+		lines = append(lines, fmt.Sprintf("  %s %s",
+			labelStyle.Render("Sources:"),
+			valueStyle.Render(sourceSummary),
+		))
+	}
+
+	if m.step > stepIndexer {
+		indexerStatus := "disabled"
+		if m.result.Indexer {
+			indexerStatus = "enabled"
+		}
+		lines = append(lines, fmt.Sprintf("  %s %s",
+			labelStyle.Render("Indexer:"),
+			valueStyle.Render(indexerStatus),
+		))
+	}
+
+	if m.step > stepEmbeddings {
+		embeddingStatus := "disabled"
+		if m.result.Embeddings {
+			embeddingStatus = "enabled"
+		}
+		lines = append(lines, fmt.Sprintf("  %s %s",
+			labelStyle.Render("Embeddings:"),
+			valueStyle.Render(embeddingStatus),
+		))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func (m Model) selectedLanguageSummary() string {
+	tag := m.result.Language
+	if tag == "" && m.cursor >= 0 && m.cursor < len(m.langs) {
+		tag = m.langs[m.cursor].Tag
+	}
+	if tag == "" {
+		return ""
+	}
+
+	for _, l := range m.langs {
+		if l.Tag == tag {
+			name := l.EnglishName
+			if name == "" {
+				name = l.Name
+			}
+			if name == "" {
+				return tag
+			}
+			return fmt.Sprintf("%s (%s)", name, tag)
+		}
+	}
+
+	return tag
 }
 
 // formatBytes formats a byte count into a human-readable string.
@@ -306,39 +431,41 @@ func (m Model) renderVerticalConfirm(noLabel ...string) string {
 	help := lipgloss.NewStyle().Foreground(lipgloss.Color(m.muted))
 
 	helpText := thinktI18n.T("tui.discover.confirm.help",
-		"↑/↓: select · Y/N: choose · Enter: confirm · esc: exit")
-	helpRendered := help.Render(helpText)
+		"↑/↓ or tab: select · Y/N: choose · Enter: confirm · esc: exit")
+	helpRendered := "  " + help.Render(helpText)
 
-	// Put the divider exactly at the terminal center.
-	// We leave 1 char for the divider itself.
-	leftW := m.width / 2
-	rightW := m.width - leftW - 1
-	if rightW < 10 { // avoid weird tiny terminals
-		rightW = 10
-	}
-	if leftW < 10 {
-		leftW = 10
-	}
-
-	leftStyle := lipgloss.NewStyle().Width(leftW).Align(lipgloss.Right)
-	rightStyle := lipgloss.NewStyle().Width(rightW).Align(lipgloss.Left)
-	renderLine := func(pointer string, key string, label string) string {
-		return lipgloss.JoinHorizontal(lipgloss.Top,
-			leftStyle.Render(pointer+key), " ", rightStyle.Render(label),
-		)
+	renderLine := func(selected bool, key string, label string) string {
+		pointer := "  "
+		keyStyled := hotkeyDim.Render(key)
+		labelStyled := inactive.Render(label)
+		if selected {
+			pointer = "▸ "
+			keyStyled = hotkey.Render(key)
+			labelStyled = active.Render(label)
+		}
+		return fmt.Sprintf("  %s%s  %s", pointer, keyStyled, labelStyled)
 	}
 
-	var yesStr, noStr string
-	if m.confirm {
-		yesStr = renderLine("▸ ", hotkey.Render("Y"), active.Render(yes))
-		noStr = renderLine("  ", hotkeyDim.Render("N"), inactive.Render(no))
-	} else {
-		yesStr = renderLine("  ", hotkeyDim.Render("Y"), inactive.Render(yes))
-		noStr = renderLine("▸ ", hotkey.Render("N"), active.Render(no))
+	return fmt.Sprintf("%s\n%s\n\n%s\n",
+		renderLine(m.confirm, "Y", yes),
+		renderLine(!m.confirm, "N", no),
+		helpRendered,
+	)
+}
+
+// inlineWidth returns a readable content width for inline, non-fullscreen rendering.
+func (m Model) inlineWidth() int {
+	if m.width <= 0 {
+		return discoverMaxWidth
 	}
-	return fmt.Sprintf("%s\n%s\n\n  %s\n",
-		yesStr, noStr,
-		helpRendered)
+	w := m.width - 2
+	if w < discoverMinWidth {
+		return w
+	}
+	if w > discoverMaxWidth {
+		return discoverMaxWidth
+	}
+	return w
 }
 
 // stepIndicator returns a step progress indicator like "[2/9]".

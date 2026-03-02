@@ -42,7 +42,7 @@ func (m *Model) applyLanguagePreview() {
 }
 
 func (m Model) viewWelcome() string {
-	titleStyle := lipgloss.NewStyle().
+	brandStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color(m.accent))
 
@@ -60,17 +60,22 @@ func (m Model) viewWelcome() string {
 		Foreground(lipgloss.Color(m.muted))
 
 	var b strings.Builder
+	b.WriteString(m.renderStepHeader(thinktI18n.T("tui.discover.welcome.header", "Quick Setup")))
 
 	// Title + tagline
-	b.WriteString(fmt.Sprintf("\n  %s\n\n  %s\n\n\n",
-		titleStyle.Render(thinktI18n.T("tui.discover.welcome.title", "thinkt")),
+	b.WriteString(fmt.Sprintf("  %s\n\n  %s\n\n",
+		brandStyle.Render(thinktI18n.T("tui.discover.welcome.title", "thinkt")),
 		bodyStyle.Render(thinktI18n.T("tui.discover.welcome.tagline",
-			"Your AI coding sessions, indexed and searchable."))))
+			"Index and explore your AI coding sessions."))))
+
+	b.WriteString(fmt.Sprintf("  %s\n\n",
+		mutedStyle.Render(thinktI18n.T("tui.discover.welcome.context",
+			"This guided setup stays inline in your terminal and applies changes when you finish."))))
 
 	// Language picker
 	b.WriteString(fmt.Sprintf("  %s\n\n",
 		mutedStyle.Render(thinktI18n.T("tui.discover.welcome.selectLanguage",
-			"Select your language:"))))
+			"Choose display language:"))))
 	for i, lang := range m.langs {
 		prefix := "  "
 		if i == m.cursor {
@@ -91,7 +96,7 @@ func (m Model) viewWelcome() string {
 
 	b.WriteString(fmt.Sprintf("\n  %s\n",
 		mutedStyle.Render(thinktI18n.T("tui.discover.welcome.prompt",
-			"↑/↓: language · Enter: begin · esc: exit"))))
+			"↑/↓: choose language · Enter: continue · esc: exit"))))
 
 	// CLI hint
 	if m.cursor >= 0 && m.cursor < len(m.langs) {

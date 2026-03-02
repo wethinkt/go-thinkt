@@ -45,27 +45,30 @@ func (m Model) updateHome(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) viewHome() string {
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(m.accent))
-
 	bodyStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.primary))
+	mutedStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(m.muted))
 
 	pathStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color(m.accent))
+	codeStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(m.accent))
 
 	dir, _ := config.Dir()
+	homeHint := fmt.Sprintf("  %s %s %s",
+		mutedStyle.Render("Use environment variable"),
+		codeStyle.Render("THINKT_HOME"),
+		mutedStyle.Render("to choose another."))
 
-	return fmt.Sprintf("\n  %s %s\n\n  %s\n\n  %s\n\n  %s\n\n%s\n\n\n\n%s\n",
-		titleStyle.Render(thinktI18n.T("tui.discover.home.title", "Home Directory")),
-		m.stepIndicator(),
+	return fmt.Sprintf("%s\n  %s\n\n  %s\n\n  %s\n\n%s\n\n%s\n",
+		m.renderStepHeader(thinktI18n.T("tui.discover.home.title", "Home Directory")),
 		bodyStyle.Render(thinktI18n.T("tui.discover.home.body",
-			"thinkt stores its configuration and index database in:")),
+			"thinkt needs a home directory for configuration, local indexes, and cache:")),
 		pathStyle.Render("  "+dir),
-		bodyStyle.Render(thinktI18n.T("tui.discover.home.prompt", "Create this directory?")),
+		bodyStyle.Render(thinktI18n.T("tui.discover.home.prompt", "Use this directory?")),
 		m.renderVerticalConfirm(thinktI18n.T("tui.discover.home.no", "No, exit")),
-		m.renderCLIHint("thinkt discover"),
+		homeHint,
 	)
 }

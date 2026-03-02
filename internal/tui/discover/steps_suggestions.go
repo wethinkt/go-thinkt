@@ -22,10 +22,6 @@ func (m Model) updateSuggestions(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) viewSuggestions() string {
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(m.accent))
-
 	bodyStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.primary))
 
@@ -36,13 +32,12 @@ func (m Model) viewSuggestions() string {
 		Foreground(lipgloss.Color(m.accent))
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("\n  %s %s\n\n",
-		titleStyle.Render(thinktI18n.T("tui.discover.suggestions.title", "Setup Complete")),
-		m.stepIndicator()))
+	b.WriteString(m.renderStepHeader(thinktI18n.T("tui.discover.suggestions.title", "Setup Complete")))
+	b.WriteString("\n")
 
 	// Config summary
 	b.WriteString(fmt.Sprintf("  %s\n\n",
-		bodyStyle.Render(thinktI18n.T("tui.discover.suggestions.summary", "Configuration summary:"))))
+		bodyStyle.Render(thinktI18n.T("tui.discover.suggestions.summary", "Saved configuration:"))))
 
 	const summaryCol = 14
 
@@ -80,18 +75,18 @@ func (m Model) viewSuggestions() string {
 
 	// Suggested commands
 	b.WriteString(fmt.Sprintf("\n  %s\n\n",
-		bodyStyle.Render(thinktI18n.T("tui.discover.suggestions.next", "Try these commands next:"))))
+		bodyStyle.Render(thinktI18n.T("tui.discover.suggestions.next", "Suggested next steps:"))))
 
 	const cmdCol = 42
 	if m.result.Indexer {
 		b.WriteString(fmt.Sprintf("    %s %s\n",
 			padRight(codeStyle.Render("thinkt indexer watch"), cmdCol),
-			mutedStyle.Render(thinktI18n.T("tui.discover.suggestions.cmdWatch", "Start indexing sessions"))))
+			mutedStyle.Render(thinktI18n.T("tui.discover.suggestions.cmdWatch", "Start the indexer watcher"))))
 	}
 
 	b.WriteString(fmt.Sprintf("    %s %s\n",
 		padRight(codeStyle.Render("thinkt search"), cmdCol),
-		mutedStyle.Render(thinktI18n.T("tui.discover.suggestions.cmdSearch", "Search your sessions"))))
+		mutedStyle.Render(thinktI18n.T("tui.discover.suggestions.cmdSearch", "Run keyword search"))))
 
 	b.WriteString(fmt.Sprintf("    %s %s\n",
 		padRight(codeStyle.Render("thinkt tui"), cmdCol),
@@ -104,7 +99,10 @@ func (m Model) viewSuggestions() string {
 	}
 
 	b.WriteString(fmt.Sprintf("\n  %s\n",
-		mutedStyle.Render(thinktI18n.T("tui.discover.suggestions.done", "Enter: finish · esc: exit"))))
+		mutedStyle.Render(thinktI18n.T("tui.discover.suggestions.rerun", "You can rerun this setup anytime with: thinkt discover"))))
+
+	b.WriteString(fmt.Sprintf("\n  %s\n",
+		mutedStyle.Render(thinktI18n.T("tui.discover.suggestions.done", "Enter: finish setup · esc: exit"))))
 
 	return b.String()
 }

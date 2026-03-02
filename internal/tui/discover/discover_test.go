@@ -1,6 +1,7 @@
 package discover
 
 import (
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -213,4 +214,63 @@ func TestStepIndicatorTotal6(t *testing.T) {
 	}
 	// stepSuggestions is step 6 in a total of 6
 	// (welcome=0, home=1, consent=2, approval=3, indexer=4, embeddings=5, suggestions=6)
+}
+
+func TestViewUsesInlinePrimaryScreen(t *testing.T) {
+	m := New(nil)
+	m.step = stepWelcome
+	m.width = 120
+	m.height = 40
+
+	view := m.View()
+	if view.AltScreen {
+		t.Fatal("expected discover view to render in primary screen (AltScreen=false)")
+	}
+	if strings.TrimSpace(view.Content) == "" {
+		t.Fatal("expected discover view to render non-empty inline content")
+	}
+}
+
+func TestInlineWidth(t *testing.T) {
+	tests := []struct {
+		name  string
+		width int
+		want  int
+	}{
+		{name: "unknown width uses max", width: 0, want: discoverMaxWidth},
+		{name: "large terminal clamps max", width: 180, want: discoverMaxWidth},
+		{name: "normal terminal subtracts margin", width: 80, want: 78},
+		{name: "small terminal keeps available width", width: 40, want: 38},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := New(nil)
+			m.width = tc.width
+			if got := m.inlineWidth(); got != tc.want {
+				t.Fatalf("inlineWidth() = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestSourceDiscoveryShowsStickyContext(t *testing.T) {
+	m := New(nil)
+	m.step = stepSourceConsent
+	m.result.Language = "en"
+	m.result.HomeDir = "/Users/evan/.thinkt"
+
+	view := m.viewSourceConsent()
+	if !strings.Contains(view, "Welcome to 🧠 thinkt") {
+		t.Fatal("expected sticky context welcome line in source discovery step")
+	}
+	if !strings.Contains(view, "English (en)") {
+		t.Fatal("expected sticky context language summary in source discovery step")
+	}
+	if !strings.Contains(view, "/Users/evan/.thinkt") {
+		t.Fatal("expected sticky context home directory in source discovery step")
+	}
+	if !strings.Contains(view, "Source Discovery") {
+		t.Fatal("expected source discovery header to be present")
+	}
 }
