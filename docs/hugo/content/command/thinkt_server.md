@@ -50,6 +50,7 @@ thinkt server [flags]
 * [thinkt server http-logs](thinkt_server_http-logs.md)	 - View HTTP access logs
 * [thinkt server logs](thinkt_server_logs.md)	 - View server logs
 * [thinkt server mcp](thinkt_server_mcp.md)	 - Start MCP server for AI tool integration
+* [thinkt server metrics](thinkt_server_metrics.md)	 - Fetch Prometheus metrics from the running server
 * [thinkt server run](thinkt_server_run.md)	 - Start server in foreground
 * [thinkt server start](thinkt_server_start.md)	 - Start server in background
 * [thinkt server status](thinkt_server_status.md)	 - Show server status

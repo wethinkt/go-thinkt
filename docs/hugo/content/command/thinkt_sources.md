@@ -14,8 +14,12 @@ Sources are the AI coding assistants that store session data
 on this machine (e.g., Claude Code, Kimi Code, Gemini CLI, Copilot CLI, Codex CLI).
 
 Examples:
-  thinkt sources list      # List all available sources
-  thinkt sources status    # Show detailed source status
+  thinkt sources list           # List all available sources
+  thinkt sources status         # Show detailed source status
+  thinkt sources enable claude  # Enable a source
+  thinkt sources disable kimi   # Disable a source
+  thinkt sources enable --all   # Enable all sources
+  thinkt sources disable --all  # Disable all sources
 
 ```
 thinkt sources [flags]
@@ -37,6 +41,8 @@ thinkt sources [flags]
 ### SEE ALSO
 
 * [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
+* [thinkt sources disable](thinkt_sources_disable.md)	 - Disable a source
+* [thinkt sources enable](thinkt_sources_enable.md)	 - Enable a source
 * [thinkt sources list](thinkt_sources_list.md)	 - List available session sources
 * [thinkt sources status](thinkt_sources_status.md)	 - Show detailed source status
 

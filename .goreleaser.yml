@@ -145,11 +145,13 @@ homebrew_casks:
       - man/man1/thinkt-completion-powershell.1
       - man/man1/thinkt-completion-zsh.1
       - man/man1/thinkt-completion.1
+      - man/man1/thinkt-discover.1
       - man/man1/thinkt-embeddings.1
       - man/man1/thinkt-export.1
       - man/man1/thinkt-indexer-embeddings.1
       - man/man1/thinkt-indexer-help.1
       - man/man1/thinkt-indexer-logs.1
+      - man/man1/thinkt-indexer-metrics.1
       - man/man1/thinkt-indexer-search.1
       - man/man1/thinkt-indexer-semantic.1
       - man/man1/thinkt-indexer-sessions.1
@@ -159,7 +161,6 @@ homebrew_casks:
       - man/man1/thinkt-indexer-stop.1
       - man/man1/thinkt-indexer-sync.1
       - man/man1/thinkt-indexer-version.1
-      - man/man1/thinkt-indexer-watch.1
       - man/man1/thinkt-indexer.1
       - man/man1/thinkt-language-get.1
       - man/man1/thinkt-language-list.1
@@ -182,6 +183,7 @@ homebrew_casks:
       - man/man1/thinkt-server-http-logs.1
       - man/man1/thinkt-server-logs.1
       - man/man1/thinkt-server-mcp.1
+      - man/man1/thinkt-server-metrics.1
       - man/man1/thinkt-server-run.1
       - man/man1/thinkt-server-start.1
       - man/man1/thinkt-server-status.1
@@ -196,6 +198,8 @@ homebrew_casks:
       - man/man1/thinkt-sessions-summary.1
       - man/man1/thinkt-sessions-view.1
       - man/man1/thinkt-sessions.1
+      - man/man1/thinkt-sources-disable.1
+      - man/man1/thinkt-sources-enable.1
       - man/man1/thinkt-sources-list.1
       - man/man1/thinkt-sources-status.1
       - man/man1/thinkt-sources.1

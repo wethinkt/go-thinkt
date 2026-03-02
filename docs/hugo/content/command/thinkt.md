@@ -44,6 +44,7 @@ thinkt [flags]
 * [thinkt apps](thinkt_apps.md)	 - Manage open-in apps and default terminal
 * [thinkt collect](thinkt_collect.md)	 - Start trace collector server
 * [thinkt completion](thinkt_completion.md)	 - Generate the autocompletion script for the specified shell
+* [thinkt discover](thinkt_discover.md)	 - Scan for AI session sources and configure thinkt
 * [thinkt docs](thinkt_docs.md)	 - Generate documentation for thinkt
 * [thinkt embeddings](thinkt_embeddings.md)	 - Manage embedding model, storage, and sync
 * [thinkt export](thinkt_export.md)	 - Export traces to a remote collector

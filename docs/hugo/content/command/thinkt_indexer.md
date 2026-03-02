@@ -37,6 +37,7 @@ Examples:
 * [thinkt indexer embeddings](thinkt_indexer_embeddings.md)	 - Manage embedding model, storage, and sync
 * [thinkt indexer help](thinkt_indexer_help.md)	 - Help about any command
 * [thinkt indexer logs](thinkt_indexer_logs.md)	 - View indexer logs
+* [thinkt indexer metrics](thinkt_indexer_metrics.md)	 - Show Prometheus metrics from the running indexer
 * [thinkt indexer search](thinkt_indexer_search.md)	 - Search for text across indexed sessions
 * [thinkt indexer semantic](thinkt_indexer_semantic.md)	 - Semantic search and index management
 * [thinkt indexer sessions](thinkt_indexer_sessions.md)	 - List sessions for a project from the index
