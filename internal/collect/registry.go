@@ -80,6 +80,7 @@ func (r *AgentRegistry) Heartbeat(instanceID string) bool {
 	if !ok {
 		r.agents[instanceID] = &AgentInfo{
 			InstanceID:    instanceID,
+			StartedAt:     now,
 			LastHeartbeat: now,
 			Status:        "active",
 		}
@@ -104,6 +105,7 @@ func (r *AgentRegistry) IncrementTraceCount(instanceID string, count int64) {
 	if !ok {
 		r.agents[instanceID] = &AgentInfo{
 			InstanceID:    instanceID,
+			StartedAt:     now,
 			LastHeartbeat: now,
 			TraceCount:    count,
 			Status:        "active",

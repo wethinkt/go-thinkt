@@ -3,6 +3,7 @@
 package export
 
 import (
+	"strings"
 	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -61,6 +62,25 @@ func (c *ExporterConfig) Defaults() {
 	if c.FlushInterval == 0 {
 		c.FlushInterval = 5 * time.Second
 	}
+	c.CollectorURL = NormalizeCollectorURL(c.CollectorURL)
+}
+
+// NormalizeCollectorURL ensures a collector URL ends with the /v1/traces path.
+// A bare base URL like "http://localhost:4318" becomes "http://localhost:4318/v1/traces".
+// URLs that already contain the path are returned unchanged.
+func NormalizeCollectorURL(u string) string {
+	if u == "" {
+		return u
+	}
+	u = strings.TrimRight(u, "/")
+	if strings.HasSuffix(u, "/v1/traces") {
+		return u
+	}
+	// Handle partial paths like /v1 without /traces
+	if strings.HasSuffix(u, "/v1") {
+		return u + "/traces"
+	}
+	return u + "/v1/traces"
 }
 
 // TracePayload is the HTTP POST body for /v1/traces.

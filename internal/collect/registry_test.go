@@ -30,17 +30,17 @@ func TestRegisterNewAgent(t *testing.T) {
 func TestRegisterUpdatesStartedAtOnHeartbeatCreatedAgent(t *testing.T) {
 	r := NewAgentRegistry()
 
-	// Heartbeat creates a minimal entry with zero-time StartedAt
+	// Heartbeat creates a minimal entry with StartedAt set to now
 	r.Heartbeat("agent-1")
 	agents := r.List()
 	if len(agents) != 1 {
 		t.Fatalf("expected 1 agent, got %d", len(agents))
 	}
-	if !agents[0].StartedAt.IsZero() {
-		t.Fatalf("heartbeat-created agent should have zero StartedAt, got %v", agents[0].StartedAt)
+	if agents[0].StartedAt.IsZero() {
+		t.Fatal("heartbeat-created agent should have non-zero StartedAt")
 	}
 
-	// Explicit registration should backfill StartedAt
+	// Explicit registration should update StartedAt to the real value
 	started := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
 	info := r.Register(AgentRegistration{
 		InstanceID: "agent-1",
@@ -89,6 +89,36 @@ func TestIncrementTraceCount(t *testing.T) {
 	agents = r.List()
 	if agents[0].TraceCount != 75 {
 		t.Fatalf("expected trace_count=75 after increment, got %d", agents[0].TraceCount)
+	}
+}
+
+func TestHeartbeatSetsStartedAt(t *testing.T) {
+	r := NewAgentRegistry()
+	before := time.Now()
+	r.Heartbeat("agent-1")
+	after := time.Now()
+
+	agents := r.List()
+	if len(agents) != 1 {
+		t.Fatalf("expected 1 agent, got %d", len(agents))
+	}
+	if agents[0].StartedAt.Before(before) || agents[0].StartedAt.After(after) {
+		t.Fatalf("heartbeat StartedAt %v not in [%v, %v]", agents[0].StartedAt, before, after)
+	}
+}
+
+func TestIncrementTraceCountSetsStartedAt(t *testing.T) {
+	r := NewAgentRegistry()
+	before := time.Now()
+	r.IncrementTraceCount("agent-1", 10)
+	after := time.Now()
+
+	agents := r.List()
+	if len(agents) != 1 {
+		t.Fatalf("expected 1 agent, got %d", len(agents))
+	}
+	if agents[0].StartedAt.Before(before) || agents[0].StartedAt.After(after) {
+		t.Fatalf("IncrementTraceCount StartedAt %v not in [%v, %v]", agents[0].StartedAt, before, after)
 	}
 }
 
