@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
+
+const allSessionsCacheKey = "\x00codex_all_sessions"
 
 // Store implements thinkt.Store for Codex CLI sessions.
 type Store struct {
@@ -59,7 +62,7 @@ func (s *Store) ResetCache() {
 // ListProjects returns all Codex projects inferred from session metadata.
 func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 	return s.cache.LoadProjects(func() ([]thinkt.Project, error) {
-		sessions, err := s.scanSessions()
+		sessions, err := s.loadAllSessions()
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +137,7 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 // ListSessions returns sessions for a project.
 func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
 	return s.cache.LoadSessions(projectID, func() ([]thinkt.SessionMeta, error) {
-		all, err := s.scanSessions()
+		all, err := s.loadAllSessions()
 		if err != nil {
 			return nil, err
 		}
@@ -145,10 +148,6 @@ func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.Se
 				filtered = append(filtered, sess)
 			}
 		}
-		sort.Slice(filtered, func(i, j int) bool {
-			return filtered[i].ModifiedAt.After(filtered[j].ModifiedAt)
-		})
-
 		return filtered, nil
 	})
 }
@@ -171,7 +170,7 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 	}
 
 	// Otherwise scan and match by ID.
-	sessions, err := s.scanSessions()
+	sessions, err := s.loadAllSessions()
 	if err != nil {
 		return nil, err
 	}
@@ -280,6 +279,12 @@ func (s *Store) scanSessions() ([]thinkt.SessionMeta, error) {
 	return sessions, nil
 }
 
+func (s *Store) loadAllSessions() ([]thinkt.SessionMeta, error) {
+	return s.cache.LoadSessions(allSessionsCacheKey, func() ([]thinkt.SessionMeta, error) {
+		return s.scanSessions()
+	})
+}
+
 func (s *Store) readSessionMeta(path, workspaceID string) (*thinkt.SessionMeta, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -304,13 +309,13 @@ func (s *Store) readSessionMeta(path, workspaceID string) (*thinkt.SessionMeta, 
 
 	scanner := thinkt.NewScannerWithMaxCapacityCustom(f, 64*1024, thinkt.MaxScannerCapacity)
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
+		line := bytes.TrimSpace(scanner.Bytes())
+		if len(line) == 0 {
 			continue
 		}
 
 		var l logLine
-		if err := json.Unmarshal([]byte(line), &l); err != nil {
+		if err := json.Unmarshal(line, &l); err != nil {
 			continue
 		}
 
@@ -352,25 +357,30 @@ func (s *Store) readSessionMeta(path, workspaceID string) (*thinkt.SessionMeta, 
 			}
 
 		case "event_msg":
-			var payload map[string]any
+			var payload struct {
+				Type    string `json:"type"`
+				Message string `json:"message"`
+				Text    string `json:"text"`
+				CWD     string `json:"cwd"`
+				Model   string `json:"model"`
+			}
 			if err := json.Unmarshal(l.Payload, &payload); err != nil {
 				continue
 			}
-			payloadType := readString(payload, "type")
-			switch payloadType {
+			switch payload.Type {
 			case "user_message":
 				meta.EntryCount++
 				if meta.FirstPrompt == "" {
-					meta.FirstPrompt = readString(payload, "message")
+					meta.FirstPrompt = payload.Message
 				}
 			case "agent_message", "agent_reasoning":
 				meta.EntryCount++
 			case "turn_context":
 				if meta.ProjectPath == "" {
-					meta.ProjectPath = readString(payload, "cwd")
+					meta.ProjectPath = payload.CWD
 				}
 				if !thinkt.IsRealModel(meta.Model) {
-					m := readString(payload, "model")
+					m := payload.Model
 					if thinkt.IsRealModel(m) {
 						meta.Model = m
 					}
@@ -378,19 +388,25 @@ func (s *Store) readSessionMeta(path, workspaceID string) (*thinkt.SessionMeta, 
 			}
 
 		case "response_item":
-			var payload map[string]any
+			var payload struct {
+				Type    string          `json:"type"`
+				Role    string          `json:"role"`
+				Content json.RawMessage `json:"content"`
+			}
 			if err := json.Unmarshal(l.Payload, &payload); err != nil {
 				continue
 			}
-			payloadType := readString(payload, "type")
-			switch payloadType {
+			switch payload.Type {
 			case "message":
-				role := readString(payload, "role")
+				role := payload.Role
 				if role == "user" || role == "assistant" {
 					meta.EntryCount++
 				}
 				if meta.FirstPrompt == "" && role == "user" {
-					meta.FirstPrompt = extractMessageText(payload["content"])
+					var content any
+					if err := json.Unmarshal(payload.Content, &content); err == nil {
+						meta.FirstPrompt = extractMessageText(content)
+					}
 				}
 			case "reasoning", "function_call", "function_call_output", "custom_tool_call", "custom_tool_call_output":
 				meta.EntryCount++
