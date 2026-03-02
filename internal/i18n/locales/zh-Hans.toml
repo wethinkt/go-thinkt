@@ -968,3 +968,149 @@ other = "(无数据)"
 
 [tui.sourcePicker.selectTitle]
 other = "选择数据源"
+
+# --- Discover wizard ---
+
+[tui.discover.welcome.title]
+other = "thinkt"
+
+[tui.discover.welcome.tagline]
+other = "你的 AI 编程会话，已索引且可搜索。"
+
+[tui.discover.welcome.body]
+other = "thinkt 索引并搜索你的 AI 编程助手（Claude、Kimi、Gemini 等）留下的\n推理记录，让你和你的工具能从过去的对话中学习。"
+
+[tui.discover.welcome.prompt]
+other = "按 Enter 开始"
+
+[tui.discover.language.title]
+other = "语言"
+
+[tui.discover.language.help]
+other = "↑/↓: 导航  Enter: 选择"
+
+[tui.discover.home.title]
+other = "主目录"
+
+[tui.discover.home.body]
+other = "thinkt 将配置和索引存储在："
+
+[tui.discover.home.prompt]
+other = "创建此目录？[Y/n]"
+
+[tui.discover.sources.title]
+other = "数据源发现"
+
+[tui.discover.sources.scanning]
+other = "正在扫描 AI 编程会话..."
+
+[tui.discover.sources.none]
+other = "在此机器上未找到 AI 助手会话。"
+
+[tui.discover.sources.noneHelp]
+other = "按 Enter 继续"
+
+[tui.discover.sources.consent]
+other = "thinkt 通过扫描主目录中的已知路径来查找对话\n  （如 ~/.claude/projects/、~/.kimi/sessions/）。\n  它只读取会话记录，不会修改或删除任何内容。"
+
+[tui.discover.sources.oneByOne]
+other = "逐个审查每个数据源"
+
+[tui.discover.sources.all]
+other = "启用所有数据源"
+
+[tui.discover.sources.skip]
+other = "跳过数据源设置"
+
+[tui.discover.sources.consentHelp]
+other = "按 1、2 或 3"
+
+[tui.discover.approval.title]
+other = "数据源审批"
+
+[tui.discover.approval.path]
+other = "路径："
+
+[tui.discover.approval.sessions]
+other = "会话数："
+
+[tui.discover.approval.size]
+other = "大小："
+
+[tui.discover.approval.range]
+other = "范围："
+
+[tui.discover.approval.prompt]
+other = "启用此数据源？[Y/n]"
+
+[tui.discover.summary.title]
+other = "数据源摘要"
+
+[tui.discover.summary.total]
+other = "合计："
+
+[tui.discover.summary.noneApproved]
+other = "未启用任何数据源。"
+
+[tui.discover.summary.continue]
+other = "按 Enter 继续"
+
+[tui.discover.indexer.title]
+other = "索引器"
+
+[tui.discover.indexer.body]
+other = "thinkt 包含一个后台索引器，它监视你的会话文件并构建可搜索的\n  数据库（DuckDB）。这使你能在所有对话中进行全文搜索。"
+
+[tui.discover.indexer.resources]
+other = "资源占用：索引约 50 MB 磁盘空间，CPU 占用极少。"
+
+[tui.discover.indexer.reversible]
+other = "可撤销："
+
+[tui.discover.indexer.prompt]
+other = "启用索引器？[Y/n]"
+
+[tui.discover.embeddings.title]
+other = "语义嵌入"
+
+[tui.discover.embeddings.body]
+other = "thinkt 可以生成嵌入向量用于语义搜索——按含义而非仅按关键词\n  查找对话。"
+
+[tui.discover.embeddings.resources]
+other = "需要下载模型（约 70 MB），使用 GPU（或 CPU 作为后备）\n  来生成嵌入向量。"
+
+[tui.discover.embeddings.reversible]
+other = "可撤销："
+
+[tui.discover.embeddings.prompt]
+other = "启用嵌入？[y/N]"
+
+[tui.discover.suggestions.title]
+other = "设置完成！"
+
+[tui.discover.suggestions.summary]
+other = "配置摘要："
+
+[tui.discover.suggestions.disabled]
+other = "已禁用"
+
+[tui.discover.suggestions.enabled]
+other = "已启用"
+
+[tui.discover.suggestions.next]
+other = "试试这些命令："
+
+[tui.discover.suggestions.cmdWatch]
+other = "开始索引会话"
+
+[tui.discover.suggestions.cmdSearch]
+other = "搜索你的会话"
+
+[tui.discover.suggestions.cmdTui]
+other = "打开交互式浏览器"
+
+[tui.discover.suggestions.cmdEmbed]
+other = "稍后启用语义搜索"
+
+[tui.discover.suggestions.done]
+other = "按 Enter 完成"
