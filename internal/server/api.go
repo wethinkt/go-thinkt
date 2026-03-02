@@ -899,7 +899,7 @@ func writeResumeError(w http.ResponseWriter, err error) {
 // spawnInTerminal opens the configured terminal app and runs the resume command.
 func spawnInTerminal(info *thinkt.ResumeInfo) error {
 	cfg, err := config.Load()
-	if err != nil {
+	if err != nil && !errors.Is(err, config.ErrNoConfig) {
 		return err
 	}
 
@@ -979,7 +979,7 @@ func (s *HTTPServer) handleOpenIn(w http.ResponseWriter, r *http.Request) {
 
 	// Load config and find the app
 	cfg, err := config.Load()
-	if err != nil {
+	if err != nil && !errors.Is(err, config.ErrNoConfig) {
 		writeError(w, http.StatusInternalServerError, "config_error", err.Error())
 		return
 	}
@@ -1021,7 +1021,7 @@ func (s *HTTPServer) handleOpenIn(w http.ResponseWriter, r *http.Request) {
 // @Security BearerAuth
 func (s *HTTPServer) handleGetAllowedApps(w http.ResponseWriter, r *http.Request) {
 	cfg, err := config.Load()
-	if err != nil {
+	if err != nil && !errors.Is(err, config.ErrNoConfig) {
 		writeError(w, http.StatusInternalServerError, "config_error", err.Error())
 		return
 	}
