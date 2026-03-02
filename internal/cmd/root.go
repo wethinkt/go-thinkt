@@ -14,6 +14,8 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/config"
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/server"
+	"github.com/wethinkt/go-thinkt/internal/sources"
+	"github.com/wethinkt/go-thinkt/internal/tui/discover"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -76,6 +78,27 @@ Examples:
 				return fmt.Errorf("start CPU profile: %w", err)
 			}
 		}
+
+		// Auto-trigger discover wizard on first run
+		if needsDiscover() && cmd.Name() != "discover" {
+			factories := sources.AllFactories()
+			if discoverOK {
+				result, err := discover.RunDefaults(factories)
+				if err != nil {
+					return fmt.Errorf("discover defaults: %w", err)
+				}
+				startIndexerIfEnabled(result)
+			} else {
+				if err := runDiscoverInteractive(factories); err != nil {
+					return fmt.Errorf("discover: %w", err)
+				}
+			}
+			// Re-init i18n with new config language
+			cfg, _ := config.Load()
+			locale := thinktI18n.ResolveLocale(cfg.Language)
+			thinktI18n.Init(locale)
+		}
+
 		return nil
 	},
 	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
@@ -159,6 +182,11 @@ func init() {
 	sessionsCmd.Flags().BoolVar(&sessionViewRaw, "raw", false, "output raw text without decoration/rendering")
 	sessionsViewCmd.Flags().BoolVarP(&sessionViewAll, "all", "a", false, "view all sessions in time order")
 	sessionsViewCmd.Flags().BoolVar(&sessionViewRaw, "raw", false, "output raw text without decoration/rendering")
+
+	// Discover command flags
+	discoverCmd.Flags().BoolVar(&discoverOK, "ok", false, "accept all defaults without prompts")
+	discoverCmd.Flags().BoolVar(&outputJSON, "json", false, "output discovery results as JSON")
+	rootCmd.AddCommand(discoverCmd)
 
 	// Build command tree
 	sessionsCmd.AddCommand(sessionsListCmd)
