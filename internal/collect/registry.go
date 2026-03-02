@@ -29,7 +29,7 @@ func (r *AgentRegistry) Register(reg AgentRegistration) *AgentInfo {
 	now := time.Now()
 	info, exists := r.agents[reg.InstanceID]
 	if exists {
-		// Update existing registration
+		// Update existing registration (may have been created by Heartbeat with minimal fields)
 		info.Platform = reg.Platform
 		info.Region = reg.Region
 		info.Hostname = reg.Hostname
@@ -38,6 +38,9 @@ func (r *AgentRegistry) Register(reg AgentRegistration) *AgentInfo {
 		info.MachineID = reg.MachineID
 		info.LastHeartbeat = now
 		info.Status = "active"
+		if !reg.StartedAt.IsZero() {
+			info.StartedAt = reg.StartedAt
+		}
 		if reg.Metadata != nil {
 			info.Metadata = reg.Metadata
 		}
