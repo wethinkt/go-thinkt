@@ -309,6 +309,10 @@ func init() {
 	// Sources subcommands
 	sourcesCmd.AddCommand(sourcesListCmd)
 	sourcesCmd.AddCommand(sourcesStatusCmd)
+	sourcesCmd.AddCommand(sourcesEnableCmd)
+	sourcesCmd.AddCommand(sourcesDisableCmd)
+	sourcesEnableCmd.Flags().BoolVar(&sourcesAllFlag, "all", false, "enable all sources")
+	sourcesDisableCmd.Flags().BoolVar(&sourcesAllFlag, "all", false, "disable all sources")
 	sourcesCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "output as JSON")
 
 	// Docs command (hidden unless --verbose)

@@ -480,6 +480,8 @@ type SourceInfo struct {
 	WorkspaceID  string `json:"workspace_id,omitempty"`
 	BasePath     string `json:"base_path,omitempty"`
 	ProjectCount int    `json:"project_count,omitempty"`
+	SessionCount int    `json:"session_count,omitempty"`
+	TotalSize    int64  `json:"total_size,omitempty"`
 }
 
 // FindProjectForPath returns the project whose Path matches or contains the given path.
@@ -530,17 +532,50 @@ func (r *StoreRegistry) SourceStatus(ctx context.Context) []SourceInfo {
 			CanResume: canResume,
 		}
 
-		// Get project count to determine availability
+		// Get project count and session count to determine availability
 		projects, err := store.ListProjects(ctx)
 		if err == nil {
 			info.Available = len(projects) > 0
 			info.ProjectCount = len(projects)
 			info.WorkspaceID = ws.ID
+
+			for _, p := range projects {
+				sessions, serr := store.ListSessions(ctx, p.ID)
+				if serr == nil {
+					info.SessionCount += len(sessions)
+				}
+			}
+		}
+
+		// Compute total folder size
+		if ws.BasePath != "" {
+			info.TotalSize = dirSize(ws.BasePath)
 		}
 
 		infos = append(infos, info)
 	}
 	return infos
+}
+
+// dirSize walks a directory tree and returns the total size in bytes.
+func dirSize(path string) int64 {
+	var total int64
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return 0
+	}
+	for _, e := range entries {
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		if e.IsDir() {
+			total += dirSize(path + "/" + e.Name())
+		} else {
+			total += info.Size()
+		}
+	}
+	return total
 }
 
 // GetResumer returns the SessionResumer for a source, if the store implements it.
