@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"runtime/pprof"
@@ -92,7 +93,13 @@ Examples:
 
 // Execute runs the root command.
 func Execute() error {
-	cfg, _ := config.Load()
+	cfg, err := config.Load()
+	if err != nil && !errors.Is(err, config.ErrNoConfig) {
+		return fmt.Errorf("load config: %w", err)
+	}
+	// If ErrNoConfig, cfg is Default() — proceed with defaults.
+	// The discover wizard (wired in PersistentPreRunE) will intercept later.
+
 	locale := thinktI18n.ResolveLocale(cfg.Language)
 	thinktI18n.Init(locale)
 	localizeCommands(rootCmd)

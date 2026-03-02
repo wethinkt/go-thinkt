@@ -4,14 +4,19 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 // CreateSourceRegistry creates a registry with all discovered sources.
+// It reads config.Sources to filter by enabled sources. A nil Sources
+// map means all sources are enabled (backwards-compatible).
 func CreateSourceRegistry() *thinkt.StoreRegistry {
-	return CreateSourceRegistryFiltered(nil)
+	cfg, _ := config.Load()
+	allowed := cfg.EnabledSources() // nil means all
+	return CreateSourceRegistryFiltered(allowed)
 }
 
 // CreateSourceRegistryFiltered creates a registry, optionally limited to the
