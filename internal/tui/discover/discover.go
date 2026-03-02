@@ -240,7 +240,7 @@ func (m *Model) startProgressiveScan() tea.Cmd {
 	factories := m.factories
 	go func() {
 		d := thinkt.NewDiscovery(factories...)
-		d.DiscoverDetailed(context.Background(), func(info thinkt.DetailedSourceInfo) {
+		_, _ = d.DiscoverDetailed(context.Background(), func(info thinkt.DetailedSourceInfo) {
 			ch <- sourceDiscoveredMsg{info: info}
 		})
 		close(ch)
