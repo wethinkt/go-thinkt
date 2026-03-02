@@ -41,6 +41,14 @@ type FileWatcher struct {
 	// watched tracks all paths added to the fsnotify watcher to avoid
 	// duplicate Add calls.
 	watched map[string]bool
+
+	// shallowDirs are the root and first-level directories that should
+	// never be pruned (they are always watched).
+	shallowDirs map[string]bool
+
+	// lastActivity tracks the last time a file event was seen under each
+	// watched directory. Used to prune stale directories.
+	lastActivity map[string]time.Time
 }
 
 // NewFileWatcher creates a new FileWatcher for the given directories.
@@ -56,11 +64,13 @@ func NewFileWatcher(dirs []WatchDir) (*FileWatcher, error) {
 	}
 
 	return &FileWatcher{
-		dirs:    dirs,
-		watcher: fw,
-		done:    make(chan struct{}),
-		configs: configs,
-		watched: make(map[string]bool),
+		dirs:         dirs,
+		watcher:      fw,
+		done:         make(chan struct{}),
+		configs:      configs,
+		watched:      make(map[string]bool),
+		shallowDirs:  make(map[string]bool),
+		lastActivity: make(map[string]time.Time),
 	}, nil
 }
 
@@ -85,6 +95,7 @@ func (w *FileWatcher) Start(ctx context.Context) (<-chan FileEvent, error) {
 // children. No deeper recursion.
 func (w *FileWatcher) addShallow(wd WatchDir) {
 	w.watchDir(wd.Path)
+	w.shallowDirs[wd.Path] = true
 
 	if len(wd.Config.IncludeDirs) == 0 {
 		return
@@ -97,7 +108,9 @@ func (w *FileWatcher) addShallow(wd WatchDir) {
 	}
 	for _, e := range entries {
 		if e.IsDir() && includeSet[e.Name()] {
-			w.watchDir(filepath.Join(wd.Path, e.Name()))
+			p := filepath.Join(wd.Path, e.Name())
+			w.watchDir(p)
+			w.shallowDirs[p] = true
 		}
 	}
 }
@@ -211,7 +224,50 @@ func (w *FileWatcher) watchDir(path string) {
 		return
 	}
 	w.watched[path] = true
+	w.lastActivity[path] = time.Now()
 	tuilog.Log.Debug("Watching directory", "dir", path)
+}
+
+// unwatchDir removes a directory from the fsnotify watcher.
+func (w *FileWatcher) unwatchDir(path string) {
+	if !w.watched[path] {
+		return
+	}
+	_ = w.watcher.Remove(path)
+	delete(w.watched, path)
+	delete(w.lastActivity, path)
+	tuilog.Log.Debug("Unwatched stale directory", "dir", path)
+}
+
+// pruneStale removes watched directories that have had no file events
+// for longer than the given threshold. Shallow (root/include) directories
+// are never pruned.
+func (w *FileWatcher) pruneStale(threshold time.Duration) int {
+	cutoff := time.Now().Add(-threshold)
+	var stale []string
+	for path, lastSeen := range w.lastActivity {
+		if w.shallowDirs[path] {
+			continue
+		}
+		if lastSeen.Before(cutoff) {
+			stale = append(stale, path)
+		}
+	}
+	for _, path := range stale {
+		w.unwatchDir(path)
+	}
+	if len(stale) > 0 {
+		tuilog.Log.Info("Pruned stale watched dirs", "count", len(stale), "remaining", len(w.watched))
+	}
+	return len(stale)
+}
+
+// touchDir updates the last-activity timestamp for the directory containing path.
+func (w *FileWatcher) touchDir(path string) {
+	dir := filepath.Dir(path)
+	if _, ok := w.lastActivity[dir]; ok {
+		w.lastActivity[dir] = time.Now()
+	}
 }
 
 // Stop stops the file watcher and releases resources.
@@ -226,6 +282,12 @@ func (w *FileWatcher) watchLoop(ctx context.Context, events chan<- FileEvent) {
 	// Debounce timers to avoid duplicate events on rapid writes
 	timers := make(map[string]*time.Timer)
 	const debounceDuration = 2 * time.Second
+
+	// Periodically prune watched directories with no activity
+	const pruneInterval = 5 * time.Minute
+	const pruneThreshold = 10 * time.Minute
+	pruneTicker := time.NewTicker(pruneInterval)
+	defer pruneTicker.Stop()
 
 	for {
 		select {
@@ -261,6 +323,9 @@ func (w *FileWatcher) watchLoop(ctx context.Context, events chan<- FileEvent) {
 				continue
 			}
 
+			// Track directory activity for pruning
+			w.touchDir(event.Name)
+
 			// Debounce: reset timer for this file
 			w.mu.Lock()
 			if timer, ok := timers[event.Name]; ok {
@@ -288,6 +353,11 @@ func (w *FileWatcher) watchLoop(ctx context.Context, events chan<- FileEvent) {
 				case <-ctx.Done():
 				case <-w.done:
 				}
+
+				// Clean up fired timer to prevent map growth
+				w.mu.Lock()
+				delete(timers, path)
+				w.mu.Unlock()
 			})
 			w.mu.Unlock()
 
@@ -296,6 +366,9 @@ func (w *FileWatcher) watchLoop(ctx context.Context, events chan<- FileEvent) {
 				return
 			}
 			tuilog.Log.Error("Watcher error", "error", err)
+
+		case <-pruneTicker.C:
+			w.pruneStale(pruneThreshold)
 
 		case <-w.done:
 			return
