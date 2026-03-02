@@ -79,8 +79,9 @@ Examples:
 			}
 		}
 
-		// Auto-trigger discover wizard on first run
-		if needsDiscover() && cmd.Name() != "discover" {
+		// Auto-trigger discover wizard on first run.
+		// Skip during shell completion — no TTY is available and the TUI would hang.
+		if needsDiscover() && cmd.Name() != "discover" && cmd.Name() != cobra.ShellCompRequestCmd && cmd.Name() != cobra.ShellCompNoDescRequestCmd {
 			factories := sources.AllFactories()
 			if discoverOK {
 				result, err := discover.RunDefaults(factories)
