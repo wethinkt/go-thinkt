@@ -341,9 +341,18 @@ func runSourcesDisable(cmd *cobra.Command, args []string) error {
 	return setSourceEnabled(picked, false)
 }
 
-// isSourceDisabled returns true if the source is in the disabled list.
+// isSourceDisabled returns true if the source is disabled in config.Sources.
+// When Sources is nil, all sources are treated as enabled.
 func isSourceDisabled(cfg config.Config, name string) bool {
-	return slices.Contains(cfg.DisabledSources, name)
+	if cfg.Sources == nil {
+		return false
+	}
+	sc, ok := cfg.Sources[name]
+	if !ok {
+		// Missing entry in explicit source config means excluded.
+		return true
+	}
+	return !sc.Enabled
 }
 
 // validSourceName returns true if name matches a known source.
@@ -373,17 +382,7 @@ func setSourceEnabled(name string, enabled bool) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	if enabled {
-		// Remove from disabled list
-		cfg.DisabledSources = slices.DeleteFunc(cfg.DisabledSources, func(s string) bool {
-			return s == name
-		})
-	} else {
-		// Add to disabled list (if not already there)
-		if !slices.Contains(cfg.DisabledSources, name) {
-			cfg.DisabledSources = append(cfg.DisabledSources, name)
-		}
-	}
+	setSourceEnabledInConfig(&cfg, name, enabled)
 
 	if err := config.Save(cfg); err != nil {
 		if outputJSON {
@@ -414,14 +413,7 @@ func setAllSourcesEnabled(enabled bool) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	if enabled {
-		cfg.DisabledSources = nil
-	} else {
-		cfg.DisabledSources = make([]string, len(thinkt.AllSources))
-		for i, s := range thinkt.AllSources {
-			cfg.DisabledSources[i] = string(s)
-		}
-	}
+	setAllSourcesEnabledInConfig(&cfg, enabled)
 
 	if err := config.Save(cfg); err != nil {
 		if outputJSON {
@@ -440,6 +432,37 @@ func setAllSourcesEnabled(enabled bool) error {
 	}
 	fmt.Println(thinktI18n.Tf("cmd.sources.allToggled", "All sources %s.", action))
 	return nil
+}
+
+// setSourceEnabledInConfig toggles a single source in config.Sources.
+func setSourceEnabledInConfig(cfg *config.Config, name string, enabled bool) {
+	if cfg.Sources == nil {
+		cfg.Sources = sourceStateMap(true)
+	}
+	sc := cfg.Sources[name]
+	sc.Enabled = enabled
+	cfg.Sources[name] = sc
+}
+
+// setAllSourcesEnabledInConfig toggles all known sources in config.Sources.
+func setAllSourcesEnabledInConfig(cfg *config.Config, enabled bool) {
+	if cfg.Sources == nil {
+		cfg.Sources = make(map[string]config.SourceConfig, len(thinkt.AllSources))
+	}
+	for _, s := range thinkt.AllSources {
+		name := string(s)
+		sc := cfg.Sources[name]
+		sc.Enabled = enabled
+		cfg.Sources[name] = sc
+	}
+}
+
+func sourceStateMap(enabled bool) map[string]config.SourceConfig {
+	m := make(map[string]config.SourceConfig, len(thinkt.AllSources))
+	for _, s := range thinkt.AllSources {
+		m[string(s)] = config.SourceConfig{Enabled: enabled}
+	}
+	return m
 }
 
 // sourceNames returns a comma-separated list of valid source names.

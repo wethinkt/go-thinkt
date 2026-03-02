@@ -11,12 +11,28 @@ import (
 )
 
 // CreateSourceRegistry creates a registry with all discovered sources.
-// It reads config.Sources to filter by enabled sources. A nil Sources
-// map means all sources are enabled (backwards-compatible).
+// If config.Sources is present, it is treated as authoritative.
+// If config.Sources is nil, all sources are considered enabled.
 func CreateSourceRegistry() *thinkt.StoreRegistry {
 	cfg, _ := config.Load()
-	allowed := cfg.EnabledSources() // nil means all
+	allowed, constrained := configuredEnabledSources(cfg)
+	if constrained && len(allowed) == 0 {
+		return thinkt.NewRegistry()
+	}
 	return CreateSourceRegistryFiltered(allowed)
+}
+
+// configuredEnabledSources returns the enabled source names derived from config,
+// along with whether source selection is explicitly constrained.
+func configuredEnabledSources(cfg config.Config) ([]string, bool) {
+	if cfg.Sources != nil {
+		enabled := cfg.EnabledSources()
+		if enabled == nil {
+			return []string{}, true
+		}
+		return enabled, true
+	}
+	return nil, false
 }
 
 // CreateSourceRegistryFiltered creates a registry, optionally limited to the
