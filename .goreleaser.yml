@@ -112,6 +112,8 @@ notarize:
 
 homebrew_casks:
   - name: thinkt
+    ids:
+      - default
     url:
       verified: github.com/wethinkt/go-thinkt
     repository:

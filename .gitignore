@@ -55,6 +55,3 @@ Thumbs.db
 
 # Agent sandbox test workaround
 .tmp/gocache
-thinkt-collector
-
-thinkt-exporter
