@@ -974,8 +974,14 @@ other = "Seleccionar fuentes"
 [tui.discover.welcome.title]
 other = "thinkt"
 
+[tui.discover.welcome.header]
+other = "Bienvenido a 🧠 thinkt"
+
 [tui.discover.welcome.tagline]
 other = "Tus sesiones de codificación con IA, indexadas y buscables."
+
+[tui.discover.welcome.context]
+other = "Esta guía de configuración se mantiene en línea en tu terminal y aplica los cambios cuando finalizas."
 
 [tui.discover.welcome.body]
 other = "thinkt indexa y busca las trazas de razonamiento dejadas por tus\nasistentes de codificación IA (Claude, Kimi, Gemini y otros), para que\ntú y tus herramientas puedan aprender de conversaciones pasadas."
@@ -985,6 +991,33 @@ other = "Selecciona tu idioma:"
 
 [tui.discover.welcome.prompt]
 other = "↑/↓: idioma · Enter: comenzar · esc: salir"
+
+[tui.discover.hint.useCLICommand]
+other = "usar comando CLI:"
+
+[tui.discover.confirm.help]
+other = "↑/↓ o tab: seleccionar · Y/N: elegir · Enter: confirmar · esc: salir"
+
+[tui.discover.context.languageLabel]
+other = "Idioma:"
+
+[tui.discover.context.homeDirLabel]
+other = "Directorio de inicio:"
+
+[tui.discover.context.sourcesLabel]
+other = "Fuentes:"
+
+[tui.discover.context.sourcesDiscovered]
+other = "%d detectadas"
+
+[tui.discover.context.sourcesDiscoveredEnabled]
+other = "%d detectadas, %d habilitadas"
+
+[tui.discover.context.indexerLabel]
+other = "Indexador:"
+
+[tui.discover.context.embeddingsLabel]
+other = "Embeddings:"
 
 [tui.discover.home.title]
 other = "Directorio de inicio"
@@ -997,6 +1030,9 @@ other = "¿Crear este directorio?"
 
 [tui.discover.home.no]
 other = "No, salir"
+
+[tui.discover.home.envHint]
+other = "Usa la variable de entorno THINKT_HOME para elegir otra ubicación."
 
 [tui.discover.sources.title]
 other = "Descubrimiento de fuentes"

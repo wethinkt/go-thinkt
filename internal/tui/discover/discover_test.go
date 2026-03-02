@@ -171,8 +171,8 @@ func TestHomeNHotkey(t *testing.T) {
 	updated, cmd := m.Update(msg)
 	um := updated.(Model)
 
-	if um.step != stepDone {
-		t.Errorf("expected step=stepDone after N, got %d", um.step)
+	if um.step != stepHome {
+		t.Errorf("expected step to remain stepHome after N, got %d", um.step)
 	}
 	if um.result.Completed {
 		t.Error("expected Completed=false after N")
@@ -205,15 +205,21 @@ func TestHomeVerticalToggle(t *testing.T) {
 	}
 }
 
-func TestStepIndicatorTotal6(t *testing.T) {
+func TestStepIndicatorHiddenOnSuggestions(t *testing.T) {
 	m := New(nil)
 	m.step = stepSuggestions
 	indicator := m.stepIndicator()
-	if indicator == "" {
-		t.Error("expected non-empty step indicator for suggestions step")
+	if indicator != "" {
+		t.Error("expected empty step indicator for suggestions step")
 	}
-	// stepSuggestions is step 6 in a total of 6
-	// (welcome=0, home=1, consent=2, approval=3, indexer=4, embeddings=5, suggestions=6)
+}
+
+func TestStepIndicatorVisibleBeforeSuggestions(t *testing.T) {
+	m := New(nil)
+	m.step = stepEmbeddings
+	if m.stepIndicator() == "" {
+		t.Error("expected non-empty step indicator before suggestions step")
+	}
 }
 
 func TestViewUsesInlinePrimaryScreen(t *testing.T) {
@@ -272,5 +278,24 @@ func TestSourceDiscoveryShowsStickyContext(t *testing.T) {
 	}
 	if !strings.Contains(view, "Source Discovery") {
 		t.Fatal("expected source discovery header to be present")
+	}
+}
+
+func TestSuggestionsEnterDoesNotClearStep(t *testing.T) {
+	m := New(nil)
+	m.step = stepSuggestions
+
+	msg := tea.KeyPressMsg{Code: tea.KeyEnter}
+	updated, cmd := m.Update(msg)
+	um := updated.(Model)
+
+	if um.step != stepSuggestions {
+		t.Fatalf("expected step to remain stepSuggestions on finish, got %d", um.step)
+	}
+	if !um.result.Completed {
+		t.Fatal("expected Completed=true after finishing setup")
+	}
+	if cmd == nil {
+		t.Fatal("expected tea.Quit cmd when finishing setup")
 	}
 }

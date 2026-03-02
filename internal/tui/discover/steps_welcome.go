@@ -42,10 +42,6 @@ func (m *Model) applyLanguagePreview() {
 }
 
 func (m Model) viewWelcome() string {
-	brandStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(m.accent))
-
 	bodyStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.primary))
 
@@ -60,11 +56,11 @@ func (m Model) viewWelcome() string {
 		Foreground(lipgloss.Color(m.muted))
 
 	var b strings.Builder
-	b.WriteString(m.renderStepHeader(thinktI18n.T("tui.discover.welcome.header", "Quick Setup")))
+	b.WriteString(m.renderStepHeader(thinktI18n.T("tui.discover.welcome.header", "Welcome to 🧠 thinkt")))
+	b.WriteString("\n")
 
-	// Title + tagline
-	b.WriteString(fmt.Sprintf("  %s\n\n  %s\n\n",
-		brandStyle.Render(thinktI18n.T("tui.discover.welcome.title", "thinkt")),
+	// Intro tagline
+	b.WriteString(fmt.Sprintf("  %s\n\n",
 		bodyStyle.Render(thinktI18n.T("tui.discover.welcome.tagline",
 			"Index and explore your AI coding sessions."))))
 

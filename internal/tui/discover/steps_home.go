@@ -25,7 +25,6 @@ func (m Model) updateHome(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "N", "n":
 			m.result.Completed = false
-			m.step = stepDone
 			return m, tea.Quit
 		case "enter":
 			if m.confirm {
@@ -37,7 +36,6 @@ func (m Model) updateHome(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			m.result.Completed = false
-			m.step = stepDone
 			return m, tea.Quit
 		}
 	}
@@ -53,14 +51,11 @@ func (m Model) viewHome() string {
 	pathStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color(m.accent))
-	codeStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(m.accent))
 
 	dir, _ := config.Dir()
-	homeHint := fmt.Sprintf("  %s %s %s",
-		mutedStyle.Render("Use environment variable"),
-		codeStyle.Render("THINKT_HOME"),
-		mutedStyle.Render("to choose another."))
+	homeHint := "  " + mutedStyle.Render(
+		thinktI18n.T("tui.discover.home.envHint", "Use environment variable THINKT_HOME to choose another."),
+	)
 
 	return fmt.Sprintf("%s\n  %s\n\n  %s\n\n  %s\n\n%s\n\n%s\n",
 		m.renderStepHeader(thinktI18n.T("tui.discover.home.title", "Home Directory")),

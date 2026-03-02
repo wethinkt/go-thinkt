@@ -974,8 +974,14 @@ other = "选择数据源"
 [tui.discover.welcome.title]
 other = "thinkt"
 
+[tui.discover.welcome.header]
+other = "欢迎使用 🧠 thinkt"
+
 [tui.discover.welcome.tagline]
 other = "你的 AI 编程会话，已索引且可搜索。"
+
+[tui.discover.welcome.context]
+other = "此引导式设置会以内联方式显示在终端中，并在你完成时应用更改。"
 
 [tui.discover.welcome.body]
 other = "thinkt 索引并搜索你的 AI 编程助手（Claude、Kimi、Gemini 等）留下的\n推理记录，让你和你的工具能从过去的对话中学习。"
@@ -985,6 +991,33 @@ other = "选择语言："
 
 [tui.discover.welcome.prompt]
 other = "↑/↓: 语言 · Enter: 开始 · esc: 退出"
+
+[tui.discover.hint.useCLICommand]
+other = "使用 CLI 命令："
+
+[tui.discover.confirm.help]
+other = "↑/↓ 或 tab: 选择 · Y/N: 选择 · Enter: 确认 · esc: 退出"
+
+[tui.discover.context.languageLabel]
+other = "语言："
+
+[tui.discover.context.homeDirLabel]
+other = "主目录："
+
+[tui.discover.context.sourcesLabel]
+other = "数据源："
+
+[tui.discover.context.sourcesDiscovered]
+other = "已发现 %d 个"
+
+[tui.discover.context.sourcesDiscoveredEnabled]
+other = "已发现 %d 个，已启用 %d 个"
+
+[tui.discover.context.indexerLabel]
+other = "索引器："
+
+[tui.discover.context.embeddingsLabel]
+other = "嵌入："
 
 [tui.discover.home.title]
 other = "主目录"
@@ -997,6 +1030,9 @@ other = "创建此目录？"
 
 [tui.discover.home.no]
 other = "不，退出"
+
+[tui.discover.home.envHint]
+other = "使用环境变量 THINKT_HOME 以选择其他位置。"
 
 [tui.discover.sources.title]
 other = "数据源发现"

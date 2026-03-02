@@ -30,7 +30,6 @@ func (m Model) selectConsentChoice(choice int) (tea.Model, tea.Cmd) {
 		return m, nil
 	case 3:
 		m.result.Completed = false
-		m.step = stepDone
 		return m, tea.Quit
 	}
 	return m, nil

@@ -14,7 +14,6 @@ func (m Model) updateSuggestions(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if msg, ok := msg.(tea.KeyMsg); ok {
 		if msg.String() == "enter" {
 			m.result.Completed = true
-			m.step = stepDone
 			return m, tea.Quit
 		}
 	}
@@ -35,46 +34,8 @@ func (m Model) viewSuggestions() string {
 	b.WriteString(m.renderStepHeader(thinktI18n.T("tui.discover.suggestions.title", "Setup Complete")))
 	b.WriteString("\n")
 
-	// Config summary
-	b.WriteString(fmt.Sprintf("  %s\n\n",
-		bodyStyle.Render(thinktI18n.T("tui.discover.suggestions.summary", "Saved configuration:"))))
-
-	const summaryCol = 14
-
-	if m.result.Language != "" {
-		b.WriteString(fmt.Sprintf("    %s %s\n",
-			padRight(mutedStyle.Render("Language:"), summaryCol),
-			bodyStyle.Render(m.result.Language)))
-	}
-
-	enabledSources := 0
-	for _, enabled := range m.result.Sources {
-		if enabled {
-			enabledSources++
-		}
-	}
-	b.WriteString(fmt.Sprintf("    %s %s\n",
-		padRight(mutedStyle.Render("Sources:"), summaryCol),
-		bodyStyle.Render(fmt.Sprintf("%d", enabledSources))))
-
-	indexerStatus := thinktI18n.T("tui.discover.suggestions.disabled", "disabled")
-	if m.result.Indexer {
-		indexerStatus = thinktI18n.T("tui.discover.suggestions.enabled", "enabled")
-	}
-	b.WriteString(fmt.Sprintf("    %s %s\n",
-		padRight(mutedStyle.Render("Indexer:"), summaryCol),
-		bodyStyle.Render(indexerStatus)))
-
-	embeddingStatus := thinktI18n.T("tui.discover.suggestions.disabled", "disabled")
-	if m.result.Embeddings {
-		embeddingStatus = thinktI18n.T("tui.discover.suggestions.enabled", "enabled")
-	}
-	b.WriteString(fmt.Sprintf("    %s %s\n",
-		padRight(mutedStyle.Render("Embeddings:"), summaryCol),
-		bodyStyle.Render(embeddingStatus)))
-
 	// Suggested commands
-	b.WriteString(fmt.Sprintf("\n  %s\n\n",
+	b.WriteString(fmt.Sprintf("  %s\n\n",
 		bodyStyle.Render(thinktI18n.T("tui.discover.suggestions.next", "Suggested next steps:"))))
 
 	const cmdCol = 42

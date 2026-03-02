@@ -145,7 +145,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" || msg.String() == "esc" {
 			m.result.Completed = false
-			m.step = stepDone
 			return m, tea.Quit
 		}
 
@@ -274,7 +273,10 @@ func padRight(s string, width int) string {
 func (m Model) renderCLIHint(cmd string) string {
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.muted))
 	codeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.accent))
-	return fmt.Sprintf("  %s  %s", mutedStyle.Render("use CLI command:"), codeStyle.Render(cmd))
+	return fmt.Sprintf("  %s  %s",
+		mutedStyle.Render(thinktI18n.T("tui.discover.hint.useCLICommand", "use CLI command:")),
+		codeStyle.Render(cmd),
+	)
 }
 
 // renderStepHeader renders a consistent left-justified step heading with divider.
@@ -312,18 +314,20 @@ func (m Model) renderStickyContext() string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.accent))
 
 	var lines []string
-	lines = append(lines, "  "+titleStyle.Render("Welcome to 🧠 thinkt"))
+	lines = append(lines, "  "+titleStyle.Render(
+		thinktI18n.T("tui.discover.welcome.header", "Welcome to 🧠 thinkt"),
+	))
 
 	if lang := m.selectedLanguageSummary(); lang != "" {
 		lines = append(lines, fmt.Sprintf("  %s %s",
-			labelStyle.Render("Language:"),
+			labelStyle.Render(thinktI18n.T("tui.discover.context.languageLabel", "Language:")),
 			valueStyle.Render(lang),
 		))
 	}
 
 	if m.result.HomeDir != "" {
 		lines = append(lines, fmt.Sprintf("  %s %s",
-			labelStyle.Render("Home Dir:"),
+			labelStyle.Render(thinktI18n.T("tui.discover.context.homeDirLabel", "Home Dir:")),
 			valueStyle.Render(m.result.HomeDir),
 		))
 	}
@@ -336,34 +340,39 @@ func (m Model) renderStickyContext() string {
 				enabled++
 			}
 		}
-		sourceSummary := fmt.Sprintf("%d discovered", discovered)
+		sourceSummary := thinktI18n.Tf("tui.discover.context.sourcesDiscovered", "%d discovered", discovered)
 		if m.scanDone && discovered > 0 {
-			sourceSummary = fmt.Sprintf("%d discovered, %d enabled", discovered, enabled)
+			sourceSummary = thinktI18n.Tf(
+				"tui.discover.context.sourcesDiscoveredEnabled",
+				"%d discovered, %d enabled",
+				discovered,
+				enabled,
+			)
 		}
 		lines = append(lines, fmt.Sprintf("  %s %s",
-			labelStyle.Render("Sources:"),
+			labelStyle.Render(thinktI18n.T("tui.discover.context.sourcesLabel", "Sources:")),
 			valueStyle.Render(sourceSummary),
 		))
 	}
 
 	if m.step > stepIndexer {
-		indexerStatus := "disabled"
+		indexerStatus := thinktI18n.T("tui.discover.suggestions.disabled", "disabled")
 		if m.result.Indexer {
-			indexerStatus = "enabled"
+			indexerStatus = thinktI18n.T("tui.discover.suggestions.enabled", "enabled")
 		}
 		lines = append(lines, fmt.Sprintf("  %s %s",
-			labelStyle.Render("Indexer:"),
+			labelStyle.Render(thinktI18n.T("tui.discover.context.indexerLabel", "Indexer:")),
 			valueStyle.Render(indexerStatus),
 		))
 	}
 
 	if m.step > stepEmbeddings {
-		embeddingStatus := "disabled"
+		embeddingStatus := thinktI18n.T("tui.discover.suggestions.disabled", "disabled")
 		if m.result.Embeddings {
-			embeddingStatus = "enabled"
+			embeddingStatus = thinktI18n.T("tui.discover.suggestions.enabled", "enabled")
 		}
 		lines = append(lines, fmt.Sprintf("  %s %s",
-			labelStyle.Render("Embeddings:"),
+			labelStyle.Render(thinktI18n.T("tui.discover.context.embeddingsLabel", "Embeddings:")),
 			valueStyle.Render(embeddingStatus),
 		))
 	}
@@ -382,9 +391,9 @@ func (m Model) selectedLanguageSummary() string {
 
 	for _, l := range m.langs {
 		if l.Tag == tag {
-			name := l.EnglishName
+			name := l.Name
 			if name == "" {
-				name = l.Name
+				name = l.EnglishName
 			}
 			if name == "" {
 				return tag
@@ -470,8 +479,8 @@ func (m Model) inlineWidth() int {
 
 // stepIndicator returns a step progress indicator like "[2/9]".
 func (m Model) stepIndicator() string {
-	// Don't show for welcome or done
-	if m.step == stepWelcome || m.step == stepDone {
+	// Don't show for welcome, final setup-complete screen, or done.
+	if m.step == stepWelcome || m.step == stepSuggestions || m.step == stepDone {
 		return ""
 	}
 	total := 6 // home through suggestions (excluding welcome and done)
