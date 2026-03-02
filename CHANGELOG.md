@@ -1,5 +1,43 @@
 # `go-thinkt` CHANGELOG
 
+## v0.7.5 (2026-03-02)
+
+* **First-Run Discover Setup**
+  - Added `thinkt discover` with interactive setup plus non-interactive `--ok` and machine-readable `--json` modes
+  - Root command now auto-triggers discover when config does not exist, then reinitializes i18n with the chosen language
+  - New inline discover wizard flow with progressive source scanning, per-source approval, sticky context, ESC-to-exit, and improved step UX
+  - Discover defaults now save source selections, indexer/embeddings choices, and `discovered_at` metadata
+
+* **Source Management**
+  - Added `thinkt sources enable`, `thinkt sources disable`, and `thinkt sources status` commands (`--all` supported)
+  - `sources list` and `sources status` now show richer source metadata including enabled state, project/session counts, size, workspace, and base path
+  - Added `SourceConfig` support in config, and source registry filtering now respects configured enabled sources
+  - Fixed source toggles not taking effect when `config.sources` was present by correctly applying source-map settings in registry/source status paths
+  - Config loading now returns `ErrNoConfig` when missing instead of auto-creating files
+
+* **Metrics & Observability**
+  - Added API server Prometheus endpoint at `GET /metrics` (unauthenticated)
+  - Added API request instrumentation (`http_requests_total`, request duration histogram, in-flight gauge)
+  - Added indexer RPC `metrics` method plus `thinkt indexer metrics` command
+  - Added `thinkt server metrics` command and merged indexer metrics into server `/metrics` output with `thinkt_indexer_` prefixing
+
+* **Performance Improvements**
+  - Codex and Copilot sources now cache full session scans and use lightweight typed metadata parsing for list operations
+  - Kimi and Qwen listing paths now avoid deep/full JSONL parsing during project/session enumeration
+  - Improved TUI loading messages for project/session pickers and shell startup hints
+
+* **Exporter & Collector Fixes**
+  - Fixed exporter watcher FD/memory growth by cleaning debounced timers and adding stale-watch pruning
+  - Normalized collector URLs to consistently resolve to `/v1/traces`
+  - Collector agent registry now sets `StartedAt` for implicitly created agents (heartbeat/trace activity path)
+
+* **Internationalization**
+  - Added extensive discover-wizard and loading-message translations for Spanish (`es`) and Simplified Chinese (`zh-Hans`)
+  - `thinkt language set` now reinitializes the localizer immediately after changes
+
+* **Packaging & Docs**
+  - Updated generated command docs and manpage packaging for discover, sources enable/disable, and server/indexer metrics commands
+
 ## v0.7.0 (2026-03-01)
 
 * **Trace Collector Server**: Push-based trace aggregation via `thinkt collect`
