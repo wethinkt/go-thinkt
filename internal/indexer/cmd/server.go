@@ -1,19 +1,22 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/expfmt"
 	"github.com/spf13/cobra"
 	"github.com/wethinkt/go-thinkt/internal/cmd"
-	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/config"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/indexer"
 	"github.com/wethinkt/go-thinkt/internal/indexer/db"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
@@ -40,13 +43,13 @@ func init() {
 // indexerServer implements rpc.Handler and holds all server state.
 type indexerServer struct {
 	db         *db.DB
-	embDB      *db.DB   // separate embeddings database (per-model; re-opened on model change)
-	embDBModel string   // model ID that embDB was opened for
-	registry  *thinkt.StoreRegistry
-	embedder  *embedding.Embedder
-	watcher   *indexer.Watcher // file watcher (nil if disabled)
-	watching  bool
-	startedAt time.Time
+	embDB      *db.DB // separate embeddings database (per-model; re-opened on model change)
+	embDBModel string // model ID that embDB was opened for
+	registry   *thinkt.StoreRegistry
+	embedder   *embedding.Embedder
+	watcher    *indexer.Watcher // file watcher (nil if disabled)
+	watching   bool
+	startedAt  time.Time
 
 	// shutdownCtx is cancelled on SIGTERM/SIGINT to abort in-flight work.
 	shutdownCtx    context.Context
@@ -502,6 +505,22 @@ func (s *indexerServer) HandleStatus(ctx context.Context) (*rpc.Response, error)
 	}
 
 	return rpc.OKResponse(status)
+}
+
+func (s *indexerServer) HandleMetrics(ctx context.Context) (*rpc.Response, error) {
+	mfs, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		return nil, fmt.Errorf("gather metrics: %w", err)
+	}
+
+	var buf bytes.Buffer
+	for _, mf := range mfs {
+		if _, err := expfmt.MetricFamilyToText(&buf, mf); err != nil {
+			return nil, fmt.Errorf("encode metrics: %w", err)
+		}
+	}
+
+	return rpc.OKResponse(rpc.MetricsData{Text: buf.String()})
 }
 
 func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, error) {

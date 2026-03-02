@@ -20,6 +20,7 @@ type Handler interface {
 	HandleSemanticSearch(ctx context.Context, params SemanticSearchParams) (*Response, error)
 	HandleStats(ctx context.Context) (*Response, error)
 	HandleStatus(ctx context.Context) (*Response, error)
+	HandleMetrics(ctx context.Context) (*Response, error)
 	HandleConfigReload(ctx context.Context) (*Response, error)
 }
 
@@ -163,6 +164,9 @@ func (s *Server) handleConn(conn net.Conn) {
 
 	case MethodStatus:
 		resp, handlerErr = s.handler.HandleStatus(ctx)
+
+	case MethodMetrics:
+		resp, handlerErr = s.handler.HandleMetrics(ctx)
 
 	case MethodConfigReload:
 		resp, handlerErr = s.handler.HandleConfigReload(ctx)

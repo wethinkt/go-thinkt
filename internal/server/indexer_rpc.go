@@ -69,3 +69,22 @@ func indexerStats() (json.RawMessage, error) {
 	}
 	return resp.Data, nil
 }
+
+// indexerMetrics calls the indexer RPC metrics method and returns Prometheus text.
+func indexerMetrics() (string, error) {
+	if !rpc.ServerAvailable() {
+		return "", errIndexerUnavailable
+	}
+	resp, err := rpc.Call(rpc.MethodMetrics, nil, nil)
+	if err != nil {
+		return "", fmt.Errorf("rpc metrics: %w", err)
+	}
+	if !resp.OK {
+		return "", fmt.Errorf("rpc metrics: %s", resp.Error)
+	}
+	var data rpc.MetricsData
+	if err := json.Unmarshal(resp.Data, &data); err != nil {
+		return "", fmt.Errorf("unmarshal metrics response: %w", err)
+	}
+	return data.Text, nil
+}

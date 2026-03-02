@@ -309,6 +309,8 @@ func init() {
 	serverHTTPLogsCmd.Flags().BoolP("follow", "f", false, "follow log output")
 	serverCmd.AddCommand(serverHTTPLogsCmd)
 
+	serverCmd.AddCommand(serverMetricsCmd)
+
 	// Server token subcommand
 	serverCmd.AddCommand(serverTokenCmd)
 

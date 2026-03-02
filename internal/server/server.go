@@ -107,7 +107,7 @@ type HTTPServer struct {
 	config         Config
 	pathValidator  *thinkt.PathValidator
 	authenticator  *BearerAuthenticator
-	startedAt     time.Time
+	startedAt      time.Time
 }
 
 // NewHTTPServer creates a new HTTP server for the REST API.
@@ -162,8 +162,12 @@ func (s *HTTPServer) setupRouter() chi.Router {
 		tuilog.Log.Warn("API server running without authentication - use THINKT_API_TOKEN or --token to secure")
 	}
 
+	// Prometheus metrics — no auth required
+	r.Handle("/metrics", combinedMetricsHandler())
+
 	// API routes (auth middleware applied here, not globally, so static assets are unprotected)
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(apiMetricsMiddleware)
 		if s.authenticator.IsEnabled() {
 			r.Use(s.authenticator.Middleware)
 		}

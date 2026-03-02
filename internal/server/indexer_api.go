@@ -231,7 +231,7 @@ func (s *HTTPServer) handleIndexerStatus(w http.ResponseWriter, r *http.Request)
 	}
 
 	writeJSON(w, http.StatusOK, IndexerStatusResponse{
-		Running:    true,
+		Running:           true,
 		IndexerStatusData: status,
 	})
 }

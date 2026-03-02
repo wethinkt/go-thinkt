@@ -15,6 +15,7 @@ const (
 	MethodSemanticSearch = "semantic_search"
 	MethodStats          = "stats"
 	MethodStatus         = "status"
+	MethodMetrics        = "metrics"
 	MethodConfigReload   = "config_reload"
 )
 
@@ -139,6 +140,11 @@ type StatusData struct {
 	ModelDim      int           `json:"model_dim"`
 	UptimeSeconds int64         `json:"uptime_seconds"`
 	Watching      bool          `json:"watching"`
+}
+
+// MetricsData is the response payload for MethodMetrics.
+type MetricsData struct {
+	Text string `json:"text"`
 }
 
 // SyncData is the response payload for MethodIndexSync.

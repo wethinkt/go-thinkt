@@ -9,12 +9,13 @@ import (
 
 // mockHandler implements Handler for testing.
 type mockHandler struct {
-	indexSyncCalled           bool
+	indexSyncCalled      bool
 	embedSyncCalled      bool
 	searchCalled         bool
 	semanticSearchCalled bool
 	statsCalled          bool
 	statusCalled         bool
+	metricsCalled        bool
 
 	lastSearchParams         SearchParams
 	lastSemanticSearchParams SemanticSearchParams
@@ -53,6 +54,12 @@ func (m *mockHandler) HandleStats(_ context.Context) (*Response, error) {
 
 func (m *mockHandler) HandleConfigReload(_ context.Context) (*Response, error) {
 	return &Response{OK: true, Data: json.RawMessage(`{"embedding_enabled":false}`)}, nil
+}
+
+func (m *mockHandler) HandleMetrics(_ context.Context) (*Response, error) {
+	m.metricsCalled = true
+	data, _ := json.Marshal(MetricsData{Text: "# HELP test_metric test\n# TYPE test_metric counter\ntest_metric 1\n"})
+	return &Response{OK: true, Data: data}, nil
 }
 
 func (m *mockHandler) HandleStatus(_ context.Context) (*Response, error) {
@@ -204,8 +211,8 @@ func TestSemanticSearch(t *testing.T) {
 	sock, h := startTestServer(t)
 
 	params := SemanticSearchParams{
-		Query:      "find similar",
-		Limit:      5,
+		Query:       "find similar",
+		Limit:       5,
 		MaxDistance: 0.8,
 	}
 	resp, err := CallAt(sock, MethodSemanticSearch, params, nil)
@@ -220,5 +227,28 @@ func TestSemanticSearch(t *testing.T) {
 	}
 	if h.lastSemanticSearchParams.Query != "find similar" {
 		t.Fatalf("expected query 'find similar', got %q", h.lastSemanticSearchParams.Query)
+	}
+}
+
+func TestMetrics(t *testing.T) {
+	sock, h := startTestServer(t)
+
+	resp, err := CallAt(sock, MethodMetrics, nil, nil)
+	if err != nil {
+		t.Fatalf("call metrics: %v", err)
+	}
+	if !resp.OK {
+		t.Fatalf("expected ok response, got error: %s", resp.Error)
+	}
+	if !h.metricsCalled {
+		t.Fatal("expected metrics handler to be called")
+	}
+
+	var out MetricsData
+	if err := json.Unmarshal(resp.Data, &out); err != nil {
+		t.Fatalf("unmarshal metrics: %v", err)
+	}
+	if out.Text == "" {
+		t.Fatal("expected non-empty metrics text")
 	}
 }

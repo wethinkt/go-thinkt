@@ -293,6 +293,7 @@ func init() {
 	// Create subcommands that forward to thinkt-indexer
 	indexerCmd.AddCommand(makeAutoStartingCommand("sync", "Synchronize all local sessions into the index"))
 	indexerCmd.AddCommand(makeAutoStartingCommand("search", "Search for text across indexed sessions"))
+	indexerCmd.AddCommand(makeAutoStartingCommand("metrics", "Show Prometheus metrics from the running indexer"))
 	indexerCmd.AddCommand(makeForwardingCommand("stats", "Show usage statistics from the index"))
 	indexerCmd.AddCommand(makeForwardingCommand("sessions", "List sessions for a project from the index"))
 	indexerCmd.AddCommand(makeAutoStartingCommand("embeddings", "Manage embedding model, storage, and sync"))

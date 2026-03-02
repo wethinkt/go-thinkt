@@ -138,6 +138,13 @@ var serverHTTPLogsCmd = &cobra.Command{
 	RunE:         runServerHTTPLogs,
 }
 
+var serverMetricsCmd = &cobra.Command{
+	Use:          "metrics",
+	Short:        "Fetch Prometheus metrics from the running server",
+	SilenceUsage: true,
+	RunE:         runServerMetrics,
+}
+
 func runServerLogs(cmd *cobra.Command, args []string) error {
 	n, _ := cmd.Flags().GetInt("lines")
 	follow, _ := cmd.Flags().GetBool("follow")
@@ -180,6 +187,35 @@ func runServerHTTPLogs(cmd *cobra.Command, args []string) error {
 	}
 
 	return tailLogFile(logFile, n, follow)
+}
+
+func runServerMetrics(cmd *cobra.Command, args []string) error {
+	inst := config.FindInstanceByType(config.InstanceServer)
+	if inst == nil {
+		return fmt.Errorf("server is not running")
+	}
+
+	targetURL := fmt.Sprintf("http://%s:%d%s", inst.Host, inst.Port, "/metrics")
+
+	req, err := http.NewRequest(http.MethodGet, targetURL, nil)
+	if err != nil {
+		return err
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 8*1024))
+		return fmt.Errorf("metrics request failed: %s: %s", resp.Status, strings.TrimSpace(string(body)))
+	}
+
+	_, err = io.Copy(os.Stdout, resp.Body)
+	return err
 }
 
 var webCmd = &cobra.Command{
