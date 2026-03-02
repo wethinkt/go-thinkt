@@ -40,10 +40,13 @@ thinkt [flags]
 
 ### SEE ALSO
 
+* [thinkt agents](thinkt_agents.md)	 - List active agents (local and remote)
 * [thinkt apps](thinkt_apps.md)	 - Manage open-in apps and default terminal
+* [thinkt collect](thinkt_collect.md)	 - Start trace collector server
 * [thinkt completion](thinkt_completion.md)	 - Generate the autocompletion script for the specified shell
 * [thinkt docs](thinkt_docs.md)	 - Generate documentation for thinkt
 * [thinkt embeddings](thinkt_embeddings.md)	 - Manage embedding model, storage, and sync
+* [thinkt export](thinkt_export.md)	 - Export traces to a remote collector
 * [thinkt indexer](thinkt_indexer.md)	 - Specialized indexing and search via DuckDB (requires thinkt-indexer)
 * [thinkt language](thinkt_language.md)	 - Get or set the display language
 * [thinkt projects](thinkt_projects.md)	 - Manage and view projects

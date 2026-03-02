@@ -128,18 +128,23 @@ homebrew_casks:
       zsh: completions/thinkt.zsh
       fish: completions/thinkt.fish
     manpages:
+      - man/man1/thinkt-agents-follow.1
+      - man/man1/thinkt-agents.1
       - man/man1/thinkt-apps-disable.1
       - man/man1/thinkt-apps-enable.1
       - man/man1/thinkt-apps-get-terminal.1
       - man/man1/thinkt-apps-list.1
       - man/man1/thinkt-apps-set-terminal.1
       - man/man1/thinkt-apps.1
+      - man/man1/thinkt-collect-export-parquet.1
+      - man/man1/thinkt-collect.1
       - man/man1/thinkt-completion-bash.1
       - man/man1/thinkt-completion-fish.1
       - man/man1/thinkt-completion-powershell.1
       - man/man1/thinkt-completion-zsh.1
       - man/man1/thinkt-completion.1
       - man/man1/thinkt-embeddings.1
+      - man/man1/thinkt-export.1
       - man/man1/thinkt-indexer-embeddings.1
       - man/man1/thinkt-indexer-help.1
       - man/man1/thinkt-indexer-logs.1
@@ -152,6 +157,7 @@ homebrew_casks:
       - man/man1/thinkt-indexer-stop.1
       - man/man1/thinkt-indexer-sync.1
       - man/man1/thinkt-indexer-version.1
+      - man/man1/thinkt-indexer-watch.1
       - man/man1/thinkt-indexer.1
       - man/man1/thinkt-language-get.1
       - man/man1/thinkt-language-list.1
