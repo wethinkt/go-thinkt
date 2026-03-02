@@ -7,6 +7,7 @@ package discover
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -21,11 +22,9 @@ type step int
 
 const (
 	stepWelcome step = iota
-	stepLanguage
 	stepHome
 	stepSourceConsent
 	stepSourceApproval
-	stepSourceSummary
 	stepIndexer
 	stepEmbeddings
 	stepSuggestions
@@ -38,7 +37,7 @@ type sourceMode int
 const (
 	sourceModeOneByOne sourceMode = iota
 	sourceModeAll
-	sourceModeSkip
+	sourceModeDisableAll
 )
 
 // sourceResult holds the scan result for a single source with its approval state.
@@ -57,11 +56,13 @@ type Result struct {
 	Completed  bool
 }
 
-// scanResultMsg carries the async scan results back to the model.
-type scanResultMsg struct {
-	results []thinkt.DetailedSourceInfo
-	err     error
+// sourceDiscoveredMsg carries a single source discovery result.
+type sourceDiscoveredMsg struct {
+	info thinkt.DetailedSourceInfo
 }
+
+// scanCompleteMsg signals that all sources have been scanned.
+type scanCompleteMsg struct{}
 
 // Model is the BubbleTea model for the discover wizard.
 type Model struct {
@@ -71,15 +72,17 @@ type Model struct {
 	result Result
 
 	// Source selection
-	sourceMode  sourceMode
-	sources     []sourceResult
-	approvalIdx int
+	sourceMode    sourceMode
+	sources       []sourceResult
+	approvalIdx   int
+	consentCursor int // 0-3 for the 4 consent choices
 
 	// Discovery
-	factories   []thinkt.StoreFactory
-	scanning    bool
-	scanDone    bool
-	scanResults []thinkt.DetailedSourceInfo
+	factories       []thinkt.StoreFactory
+	scanCh          chan tea.Msg
+	scanning        bool
+	scanDone        bool
+	pendingApproval bool
 
 	// Language selection
 	langs  []thinktI18n.LangInfo
@@ -141,26 +144,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
-	case scanResultMsg:
+	case sourceDiscoveredMsg:
+		m.sources = append(m.sources, sourceResult{
+			Info:     msg.info,
+			Approved: m.sourceMode == sourceModeAll,
+		})
+		if m.sourceMode == sourceModeOneByOne {
+			m.pendingApproval = true
+			m.approvalIdx = len(m.sources) - 1
+			m.confirm = true
+			// Don't call waitForScan — wait for user to approve first
+			return m, nil
+		}
+		return m, m.waitForScan()
+
+	case scanCompleteMsg:
 		m.scanning = false
 		m.scanDone = true
-		m.scanResults = msg.results
 		return m, nil
 	}
 
 	switch m.step {
 	case stepWelcome:
 		return m.updateWelcome(msg)
-	case stepLanguage:
-		return m.updateLanguage(msg)
 	case stepHome:
 		return m.updateHome(msg)
 	case stepSourceConsent:
 		return m.updateSourceConsent(msg)
 	case stepSourceApproval:
 		return m.updateSourceApproval(msg)
-	case stepSourceSummary:
-		return m.updateSourceSummary(msg)
 	case stepIndexer:
 		return m.updateIndexer(msg)
 	case stepEmbeddings:
@@ -181,16 +193,12 @@ func (m Model) View() tea.View {
 	switch m.step {
 	case stepWelcome:
 		content = m.viewWelcome()
-	case stepLanguage:
-		content = m.viewLanguage()
 	case stepHome:
 		content = m.viewHome()
 	case stepSourceConsent:
 		content = m.viewSourceConsent()
 	case stepSourceApproval:
 		content = m.viewSourceApproval()
-	case stepSourceSummary:
-		content = m.viewSourceSummary()
 	case stepIndexer:
 		content = m.viewIndexer()
 	case stepEmbeddings:
@@ -215,16 +223,52 @@ func (m Model) GetResult() Result {
 	return m.result
 }
 
-// startScan returns a tea.Cmd that runs DiscoverDetailed asynchronously.
-func (m *Model) startScan() tea.Cmd {
+// startProgressiveScan starts a background goroutine that scans sources
+// and sends results one at a time through scanCh.
+func (m *Model) startProgressiveScan() tea.Cmd {
 	m.scanning = true
 	m.scanDone = false
+	m.sources = nil
+	m.approvalIdx = 0
+	ch := make(chan tea.Msg, len(m.factories))
+	m.scanCh = ch
 	factories := m.factories
-	return func() tea.Msg {
+	go func() {
 		d := thinkt.NewDiscovery(factories...)
-		results, err := d.DiscoverDetailed(context.Background(), nil)
-		return scanResultMsg{results: results, err: err}
+		d.DiscoverDetailed(context.Background(), func(info thinkt.DetailedSourceInfo) {
+			ch <- sourceDiscoveredMsg{info: info}
+		})
+		close(ch)
+	}()
+	return m.waitForScan()
+}
+
+// waitForScan returns a tea.Cmd that reads one message from scanCh.
+func (m *Model) waitForScan() tea.Cmd {
+	ch := m.scanCh
+	return func() tea.Msg {
+		msg, ok := <-ch
+		if !ok {
+			return scanCompleteMsg{}
+		}
+		return msg
 	}
+}
+
+// padRight pads a (possibly styled) string to width using its visible width.
+func padRight(s string, width int) string {
+	w := lipgloss.Width(s)
+	if w >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-w)
+}
+
+// renderCLIHint renders a "CLI:  command" line in muted/accent style.
+func (m Model) renderCLIHint(cmd string) string {
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.muted))
+	codeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.accent))
+	return fmt.Sprintf("  %s  %s", mutedStyle.Render("CLI command:"), codeStyle.Render(cmd))
 }
 
 // formatBytes formats a byte count into a human-readable string.
@@ -246,29 +290,55 @@ func formatBytes(b int64) string {
 	}
 }
 
-// renderConfirm renders a   [ Yes ]  No   or   Yes  [ No ]   button pair.
-func (m Model) renderConfirm() string {
+// renderVerticalConfirm renders a vertical Yes/No selector with Y/N hotkey hints.
+// An optional noLabel overrides the default "No" text.
+func (m Model) renderVerticalConfirm(noLabel ...string) string {
 	yes := thinktI18n.T("common.yes", "Yes")
 	no := thinktI18n.T("common.no", "No")
+	if len(noLabel) > 0 {
+		no = noLabel[0]
+	}
 
-	active := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(m.accent))
-	inactive := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(m.muted))
-	help := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(m.muted))
+	active := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.accent))
+	inactive := lipgloss.NewStyle().Foreground(lipgloss.Color(m.muted))
+	hotkey := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.accent))
+	hotkeyDim := lipgloss.NewStyle().Foreground(lipgloss.Color(m.muted))
+	help := lipgloss.NewStyle().Foreground(lipgloss.Color(m.muted))
+
+	helpText := thinktI18n.T("tui.discover.confirm.help",
+		"↑/↓: select · Y/N: choose · Enter: confirm · esc: exit")
+	helpRendered := help.Render(helpText)
+
+	// Put the divider exactly at the terminal center.
+	// We leave 1 char for the divider itself.
+	leftW := m.width / 2
+	rightW := m.width - leftW - 1
+	if rightW < 10 { // avoid weird tiny terminals
+		rightW = 10
+	}
+	if leftW < 10 {
+		leftW = 10
+	}
+
+	leftStyle := lipgloss.NewStyle().Width(leftW).Align(lipgloss.Right)
+	rightStyle := lipgloss.NewStyle().Width(rightW).Align(lipgloss.Left)
+	renderLine := func(pointer string, key string, label string) string {
+		return lipgloss.JoinHorizontal(lipgloss.Top,
+			leftStyle.Render(pointer+key), " ", rightStyle.Render(label),
+		)
+	}
 
 	var yesStr, noStr string
 	if m.confirm {
-		yesStr = active.Render("▸ " + yes)
-		noStr = inactive.Render("  " + no)
+		yesStr = renderLine("▸ ", hotkey.Render("Y"), active.Render(yes))
+		noStr = renderLine("  ", hotkeyDim.Render("N"), inactive.Render(no))
 	} else {
-		yesStr = inactive.Render("  " + yes)
-		noStr = active.Render("▸ " + no)
+		yesStr = renderLine("  ", hotkeyDim.Render("Y"), inactive.Render(yes))
+		noStr = renderLine("▸ ", hotkey.Render("N"), active.Render(no))
 	}
-	return fmt.Sprintf("%s    %s    %s", yesStr, noStr,
-		help.Render("←/→: select · Enter: confirm · esc: exit"))
+	return fmt.Sprintf("%s\n%s\n\n  %s\n",
+		yesStr, noStr,
+		helpRendered)
 }
 
 // stepIndicator returns a step progress indicator like "[2/9]".
@@ -277,7 +347,7 @@ func (m Model) stepIndicator() string {
 	if m.step == stepWelcome || m.step == stepDone {
 		return ""
 	}
-	total := 8 // welcome through suggestions (excluding done)
+	total := 6 // home through suggestions (excluding welcome and done)
 	current := int(m.step)
 	style := lipgloss.NewStyle().Foreground(lipgloss.Color(m.muted))
 	return style.Render(fmt.Sprintf("[%d/%d]", current, total))

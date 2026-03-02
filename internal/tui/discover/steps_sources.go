@@ -13,47 +13,55 @@ import (
 
 // --- sourceConsent step ---
 
-func (m Model) updateSourceConsent(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// Wait for scan to finish
-	if m.scanning {
+func (m Model) selectConsentChoice(choice int) (tea.Model, tea.Cmd) {
+	switch choice {
+	case 0:
+		m.sourceMode = sourceModeOneByOne
+		m.step = stepSourceApproval
+		return m, m.startProgressiveScan()
+	case 1:
+		m.sourceMode = sourceModeAll
+		m.step = stepSourceApproval
+		return m, m.startProgressiveScan()
+	case 2:
+		m.sourceMode = sourceModeDisableAll
+		m.confirm = true // indexer defaults to Yes
+		m.step = stepIndexer
 		return m, nil
+	case 3:
+		m.result.Completed = false
+		m.step = stepDone
+		return m, tea.Quit
 	}
+	return m, nil
+}
 
+func (m Model) updateSourceConsent(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if msg, ok := msg.(tea.KeyMsg); ok {
-		// No sources found — Enter skips to indexer
-		if m.scanDone && len(m.scanResults) == 0 {
-			if msg.String() == "enter" {
-				m.confirm = true // indexer defaults to Yes
-				m.step = stepIndexer
-				return m, nil
-			}
-			return m, nil
-		}
-
 		switch msg.String() {
+		case "up", "k":
+			if m.consentCursor > 0 {
+				m.consentCursor--
+			}
+			return m, nil
+		case "down", "j":
+			if m.consentCursor < 3 {
+				m.consentCursor++
+			}
+			return m, nil
+		case "tab":
+			m.consentCursor = (m.consentCursor + 1) % 4
+			return m, nil
+		case "enter":
+			return m.selectConsentChoice(m.consentCursor)
 		case "1":
-			m.sourceMode = sourceModeOneByOne
-			m.sources = make([]sourceResult, len(m.scanResults))
-			for i, r := range m.scanResults {
-				m.sources[i] = sourceResult{Info: r, Approved: false}
-			}
-			m.approvalIdx = 0
-			m.confirm = true // default Yes for source approval
-			m.step = stepSourceApproval
-			return m, nil
+			return m.selectConsentChoice(0)
 		case "2":
-			m.sourceMode = sourceModeAll
-			m.sources = make([]sourceResult, len(m.scanResults))
-			for i, r := range m.scanResults {
-				m.sources[i] = sourceResult{Info: r, Approved: true}
-			}
-			m.step = stepSourceSummary
-			return m, nil
+			return m.selectConsentChoice(1)
 		case "3":
-			m.sourceMode = sourceModeSkip
-			m.confirm = true // indexer defaults to Yes
-			m.step = stepIndexer
-			return m, nil
+			return m.selectConsentChoice(2)
+		case "4":
+			return m.selectConsentChoice(3)
 		}
 	}
 	return m, nil
@@ -70,158 +78,103 @@ func (m Model) viewSourceConsent() string {
 	mutedStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.muted))
 
-	if m.scanning {
-		return fmt.Sprintf("\n  %s %s\n\n  %s\n",
-			titleStyle.Render(thinktI18n.T("tui.discover.sources.title", "Source Discovery")),
-			m.stepIndicator(),
-			bodyStyle.Render(thinktI18n.T("tui.discover.sources.scanning", "Scanning for AI coding sessions...")),
-		)
-	}
-
-	if m.scanDone && len(m.scanResults) == 0 {
-		return fmt.Sprintf("\n  %s %s\n\n  %s\n\n  %s\n",
-			titleStyle.Render(thinktI18n.T("tui.discover.sources.title", "Source Discovery")),
-			m.stepIndicator(),
-			bodyStyle.Render(thinktI18n.T("tui.discover.sources.none",
-				"No AI coding sessions found on this machine.")),
-			mutedStyle.Render(thinktI18n.T("tui.discover.sources.noneHelp", "Enter: continue · esc: exit")),
-		)
-	}
-
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("\n  %s %s\n\n",
 		titleStyle.Render(thinktI18n.T("tui.discover.sources.title", "Source Discovery")),
 		m.stepIndicator()))
 
 	b.WriteString(fmt.Sprintf("  %s\n\n",
-		bodyStyle.Render(thinktI18n.Tf("tui.discover.sources.found", "Found %d source(s):", len(m.scanResults)))))
+		bodyStyle.Render(thinktI18n.T("tui.discover.sources.consent",
+			"thinkt finds conversations by scanning known paths in your\n  home directory (e.g. ~/.claude/projects/, ~/.kimi/sessions/).\n  It reads session logs but never modifies or deletes them."))))
 
-	for _, r := range m.scanResults {
-		color := tui.SourceColorHex(r.Source)
-		nameStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(true)
-		b.WriteString(fmt.Sprintf("    %s  %d sessions, %s\n",
-			nameStyle.Render(r.Name),
-			r.SessionCount,
-			formatBytes(r.TotalSize),
-		))
+	choices := []struct {
+		key   string
+		label string
+	}{
+		{"1", thinktI18n.T("tui.discover.sources.oneByOne", "Review each source individually")},
+		{"2", thinktI18n.T("tui.discover.sources.all", "Enable all sources")},
+		{"3", thinktI18n.T("tui.discover.sources.disableAll", "Disable all sources")},
+		{"4", thinktI18n.T("tui.discover.sources.exitNoSave", "Exit without saving")},
+	}
+	for i, c := range choices {
+		pointer := "  "
+		keyStyle := mutedStyle
+		labelStyle := bodyStyle
+		if i == m.consentCursor {
+			pointer = "▸ "
+			keyStyle = titleStyle
+			labelStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.primary))
+		}
+		b.WriteString(fmt.Sprintf("  %s%s  %s\n",
+			pointer,
+			keyStyle.Render(c.key),
+			labelStyle.Render(c.label)))
 	}
 
 	b.WriteString(fmt.Sprintf("\n  %s\n",
-		bodyStyle.Render(thinktI18n.T("tui.discover.sources.consent",
-			"How would you like to proceed?"))))
-	b.WriteString(fmt.Sprintf("\n  %s  %s\n",
-		titleStyle.Render("1"),
-		bodyStyle.Render(thinktI18n.T("tui.discover.sources.oneByOne", "Review each source individually"))))
-	b.WriteString(fmt.Sprintf("  %s  %s\n",
-		titleStyle.Render("2"),
-		bodyStyle.Render(thinktI18n.T("tui.discover.sources.all", "Enable all sources"))))
-	b.WriteString(fmt.Sprintf("  %s  %s\n",
-		titleStyle.Render("3"),
-		bodyStyle.Render(thinktI18n.T("tui.discover.sources.skip", "Skip source setup"))))
+		mutedStyle.Render(thinktI18n.T("tui.discover.sources.consentHelp", "↑/↓: select · 1-4: choose · Enter: confirm · esc: exit"))))
 
-	b.WriteString(fmt.Sprintf("\n  %s\n",
-		mutedStyle.Render(thinktI18n.T("tui.discover.sources.consentHelp", "1/2/3: select · esc: exit"))))
+	// CLI hint based on current cursor
+	consentCmds := []string{
+		"thinkt sources enable --interactive",
+		"thinkt sources enable --all",
+		"thinkt sources disable --all",
+		"",
+	}
+	if m.consentCursor < len(consentCmds) && consentCmds[m.consentCursor] != "" {
+		b.WriteString(fmt.Sprintf("\n\n  %s\n", m.renderCLIHint(consentCmds[m.consentCursor])))
+	}
 
 	return b.String()
 }
 
-// --- sourceApproval step ---
+// --- sourceApproval step (progressive scan + approval + summary) ---
 
 func (m Model) updateSourceApproval(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if msg, ok := msg.(tea.KeyMsg); ok {
-		switch msg.String() {
-		case "left", "right", "tab", "h", "l":
-			m.confirm = !m.confirm
-			return m, nil
-		case "enter":
-			m.sources[m.approvalIdx].Approved = m.confirm
-			m.approvalIdx++
-			if m.approvalIdx >= len(m.sources) {
-				m.step = stepSourceSummary
+		// While waiting for user approval on a specific source (one-by-one mode)
+		if m.pendingApproval {
+			advanceApproval := func() (tea.Model, tea.Cmd) {
+				m.pendingApproval = false
+				m.confirm = true
+				if m.scanDone {
+					return m, nil
+				}
+				return m, m.waitForScan()
 			}
-			m.confirm = true // reset default to Yes for next source
+			switch msg.String() {
+			case "up", "down", "k", "j", "tab":
+				m.confirm = !m.confirm
+				return m, nil
+			case "Y", "y":
+				m.sources[m.approvalIdx].Approved = true
+				return advanceApproval()
+			case "N", "n":
+				m.sources[m.approvalIdx].Approved = false
+				return advanceApproval()
+			case "enter":
+				m.sources[m.approvalIdx].Approved = m.confirm
+				return advanceApproval()
+			}
 			return m, nil
+		}
+
+		// Summary view (scan complete, no pending approval) — Enter continues
+		if m.scanDone && !m.pendingApproval {
+			if msg.String() == "enter" {
+				for _, src := range m.sources {
+					m.result.Sources[string(src.Info.Source)] = src.Approved
+				}
+				m.confirm = true // indexer defaults to Yes
+				m.step = stepIndexer
+				return m, nil
+			}
 		}
 	}
 	return m, nil
 }
 
 func (m Model) viewSourceApproval() string {
-	if m.approvalIdx >= len(m.sources) {
-		return ""
-	}
-
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(m.accent))
-
-	bodyStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(m.primary))
-
-	mutedStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(m.muted))
-
-	src := m.sources[m.approvalIdx]
-	info := src.Info
-	color := tui.SourceColorHex(info.Source)
-	nameStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(true)
-
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("\n  %s %s\n\n",
-		titleStyle.Render(thinktI18n.T("tui.discover.approval.title", "Source Approval")),
-		m.stepIndicator()))
-
-	b.WriteString(fmt.Sprintf("  %s (%d/%d)\n\n",
-		nameStyle.Render(info.Name),
-		m.approvalIdx+1,
-		len(m.sources),
-	))
-
-	b.WriteString(fmt.Sprintf("  %s  %s\n",
-		mutedStyle.Render(thinktI18n.T("tui.discover.approval.path", "Path:")),
-		bodyStyle.Render(info.BasePath)))
-
-	b.WriteString(fmt.Sprintf("  %s  %d\n",
-		mutedStyle.Render(thinktI18n.T("tui.discover.approval.sessions", "Sessions:")),
-		info.SessionCount))
-
-	b.WriteString(fmt.Sprintf("  %s  %s\n",
-		mutedStyle.Render(thinktI18n.T("tui.discover.approval.size", "Size:")),
-		bodyStyle.Render(formatBytes(info.TotalSize))))
-
-	if !info.FirstSession.IsZero() && !info.LastSession.IsZero() {
-		b.WriteString(fmt.Sprintf("  %s  %s to %s\n",
-			mutedStyle.Render(thinktI18n.T("tui.discover.approval.range", "Range:")),
-			bodyStyle.Render(info.FirstSession.Format("Jan 2006")),
-			bodyStyle.Render(info.LastSession.Format("Jan 2006")),
-		))
-	}
-
-	b.WriteString(fmt.Sprintf("\n  %s\n\n  %s\n",
-		bodyStyle.Render(thinktI18n.T("tui.discover.approval.prompt", "Enable this source?")),
-		m.renderConfirm()))
-
-	return b.String()
-}
-
-// --- sourceSummary step ---
-
-func (m Model) updateSourceSummary(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if msg, ok := msg.(tea.KeyMsg); ok {
-		if msg.String() == "enter" {
-			// Persist approved sources
-			for _, src := range m.sources {
-				m.result.Sources[string(src.Info.Source)] = src.Approved
-			}
-			m.confirm = true // indexer defaults to Yes
-			m.step = stepIndexer
-			return m, nil
-		}
-	}
-	return m, nil
-}
-
-func (m Model) viewSourceSummary() string {
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color(m.accent))
@@ -234,43 +187,93 @@ func (m Model) viewSourceSummary() string {
 
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("\n  %s %s\n\n",
-		titleStyle.Render(thinktI18n.T("tui.discover.summary.title", "Source Summary")),
+		titleStyle.Render(thinktI18n.T("tui.discover.sources.title", "Source Discovery")),
 		m.stepIndicator()))
 
-	var totalSessions int
-	var totalSize int64
-	approvedCount := 0
-
-	for _, src := range m.sources {
+	// Show running list of discovered sources
+	for i, src := range m.sources {
 		color := tui.SourceColorHex(src.Info.Source)
 		nameStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(true)
 
-		status := mutedStyle.Render("  skipped")
-		if src.Approved {
-			status = bodyStyle.Render(fmt.Sprintf("  %d sessions, %s",
-				src.Info.SessionCount, formatBytes(src.Info.TotalSize)))
-			totalSessions += src.Info.SessionCount
-			totalSize += src.Info.TotalSize
-			approvedCount++
+		status := ""
+		if m.pendingApproval && i == m.approvalIdx {
+			// Currently approving this one
+			status = "  ←"
+		} else if src.Approved {
+			status = fmt.Sprintf("  %d sessions, %s",
+				src.Info.SessionCount, formatBytes(src.Info.TotalSize))
+		} else if !m.pendingApproval || i < m.approvalIdx {
+			status = "  " + mutedStyle.Render("skipped")
+		} else {
+			status = fmt.Sprintf("  %d sessions, %s",
+				src.Info.SessionCount, formatBytes(src.Info.TotalSize))
 		}
 
-		b.WriteString(fmt.Sprintf("  %s%s\n",
-			nameStyle.Render(fmt.Sprintf("%-18s", src.Info.Name)),
+		mark := "  "
+		if !m.pendingApproval || i < m.approvalIdx {
+			if src.Approved {
+				mark = "✓ "
+			} else {
+				mark = "✗ "
+			}
+		} else if m.pendingApproval && i == m.approvalIdx {
+			mark = "▸ "
+		}
+
+		b.WriteString(fmt.Sprintf("  %s%s%s\n",
+			mark,
+			padRight(nameStyle.Render(src.Info.Name), 18),
 			status))
 	}
 
-	if approvedCount > 0 {
-		b.WriteString(fmt.Sprintf("\n  %s %d sessions, %s\n",
-			titleStyle.Render(thinktI18n.T("tui.discover.summary.total", "Total:")),
-			totalSessions,
-			formatBytes(totalSize)))
-	} else {
-		b.WriteString(fmt.Sprintf("\n  %s\n",
-			mutedStyle.Render(thinktI18n.T("tui.discover.summary.noneApproved", "No sources enabled."))))
+	// Show details for the source being approved
+	if m.pendingApproval && m.approvalIdx < len(m.sources) {
+		info := m.sources[m.approvalIdx].Info
+		const detailCol = 12
+		b.WriteString(fmt.Sprintf("\n    %s %s\n",
+			padRight(mutedStyle.Render(thinktI18n.T("tui.discover.approval.path", "Path:")), detailCol),
+			bodyStyle.Render(info.BasePath)))
+		b.WriteString(fmt.Sprintf("    %s %d\n",
+			padRight(mutedStyle.Render(thinktI18n.T("tui.discover.approval.sessions", "Sessions:")), detailCol),
+			info.SessionCount))
+		b.WriteString(fmt.Sprintf("    %s %s\n",
+			padRight(mutedStyle.Render(thinktI18n.T("tui.discover.approval.size", "Size:")), detailCol),
+			bodyStyle.Render(formatBytes(info.TotalSize))))
+
+		b.WriteString(fmt.Sprintf("\n    %s\n\n%s\n",
+			bodyStyle.Render(thinktI18n.T("tui.discover.approval.prompt", "Enable this source?")),
+			m.renderVerticalConfirm()))
 	}
 
-	b.WriteString(fmt.Sprintf("\n  %s\n",
-		mutedStyle.Render(thinktI18n.T("tui.discover.summary.continue", "Enter: continue · esc: exit"))))
+	// Bottom status line
+	if m.scanning {
+		b.WriteString(fmt.Sprintf("\n  %s\n",
+			mutedStyle.Render(thinktI18n.T("tui.discover.sources.scanning", "Scanning..."))))
+	} else if m.scanDone && !m.pendingApproval {
+		// Summary footer
+		if len(m.sources) == 0 {
+			b.WriteString(fmt.Sprintf("\n  %s\n",
+				bodyStyle.Render(thinktI18n.T("tui.discover.sources.none",
+					"No AI coding sessions found on this machine."))))
+		} else {
+			var totalSessions int
+			var totalSize int64
+			for _, src := range m.sources {
+				if src.Approved {
+					totalSessions += src.Info.SessionCount
+					totalSize += src.Info.TotalSize
+				}
+			}
+			if totalSessions > 0 {
+				b.WriteString(fmt.Sprintf("\n  %s %d sessions, %s\n",
+					titleStyle.Render(thinktI18n.T("tui.discover.summary.total", "Total:")),
+					totalSessions,
+					formatBytes(totalSize)))
+			}
+		}
+		b.WriteString(fmt.Sprintf("\n  %s\n",
+			mutedStyle.Render(thinktI18n.T("tui.discover.summary.continue", "Enter: continue · esc: exit"))))
+	}
 
 	return b.String()
 }

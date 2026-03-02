@@ -44,9 +44,11 @@ func (m Model) viewSuggestions() string {
 	b.WriteString(fmt.Sprintf("  %s\n\n",
 		bodyStyle.Render(thinktI18n.T("tui.discover.suggestions.summary", "Configuration summary:"))))
 
+	const summaryCol = 14
+
 	if m.result.Language != "" {
-		b.WriteString(fmt.Sprintf("    %s  %s\n",
-			mutedStyle.Render("Language:"),
+		b.WriteString(fmt.Sprintf("    %s %s\n",
+			padRight(mutedStyle.Render("Language:"), summaryCol),
 			bodyStyle.Render(m.result.Language)))
 	}
 
@@ -56,47 +58,48 @@ func (m Model) viewSuggestions() string {
 			enabledSources++
 		}
 	}
-	b.WriteString(fmt.Sprintf("    %s  %s\n",
-		mutedStyle.Render("Sources:"),
+	b.WriteString(fmt.Sprintf("    %s %s\n",
+		padRight(mutedStyle.Render("Sources:"), summaryCol),
 		bodyStyle.Render(fmt.Sprintf("%d", enabledSources))))
 
 	indexerStatus := thinktI18n.T("tui.discover.suggestions.disabled", "disabled")
 	if m.result.Indexer {
 		indexerStatus = thinktI18n.T("tui.discover.suggestions.enabled", "enabled")
 	}
-	b.WriteString(fmt.Sprintf("    %s  %s\n",
-		mutedStyle.Render("Indexer:"),
+	b.WriteString(fmt.Sprintf("    %s %s\n",
+		padRight(mutedStyle.Render("Indexer:"), summaryCol),
 		bodyStyle.Render(indexerStatus)))
 
 	embeddingStatus := thinktI18n.T("tui.discover.suggestions.disabled", "disabled")
 	if m.result.Embeddings {
 		embeddingStatus = thinktI18n.T("tui.discover.suggestions.enabled", "enabled")
 	}
-	b.WriteString(fmt.Sprintf("    %s  %s\n",
-		mutedStyle.Render("Embeddings:"),
+	b.WriteString(fmt.Sprintf("    %s %s\n",
+		padRight(mutedStyle.Render("Embeddings:"), summaryCol),
 		bodyStyle.Render(embeddingStatus)))
 
 	// Suggested commands
 	b.WriteString(fmt.Sprintf("\n  %s\n\n",
 		bodyStyle.Render(thinktI18n.T("tui.discover.suggestions.next", "Try these commands next:"))))
 
+	const cmdCol = 42
 	if m.result.Indexer {
-		b.WriteString(fmt.Sprintf("    %s  %s\n",
-			codeStyle.Render("thinkt indexer watch"),
+		b.WriteString(fmt.Sprintf("    %s %s\n",
+			padRight(codeStyle.Render("thinkt indexer watch"), cmdCol),
 			mutedStyle.Render(thinktI18n.T("tui.discover.suggestions.cmdWatch", "Start indexing sessions"))))
 	}
 
-	b.WriteString(fmt.Sprintf("    %s  %s\n",
-		codeStyle.Render("thinkt search"),
+	b.WriteString(fmt.Sprintf("    %s %s\n",
+		padRight(codeStyle.Render("thinkt search"), cmdCol),
 		mutedStyle.Render(thinktI18n.T("tui.discover.suggestions.cmdSearch", "Search your sessions"))))
 
-	b.WriteString(fmt.Sprintf("    %s  %s\n",
-		codeStyle.Render("thinkt tui"),
+	b.WriteString(fmt.Sprintf("    %s %s\n",
+		padRight(codeStyle.Render("thinkt tui"), cmdCol),
 		mutedStyle.Render(thinktI18n.T("tui.discover.suggestions.cmdTui", "Open the interactive browser"))))
 
 	if !m.result.Embeddings {
-		b.WriteString(fmt.Sprintf("    %s  %s\n",
-			codeStyle.Render("thinkt config set embedding.enabled true"),
+		b.WriteString(fmt.Sprintf("    %s %s\n",
+			padRight(codeStyle.Render("thinkt config set embedding.enabled true"), cmdCol),
 			mutedStyle.Render(thinktI18n.T("tui.discover.suggestions.cmdEmbed", "Enable semantic search later"))))
 	}
 

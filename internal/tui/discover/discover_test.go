@@ -3,6 +3,8 @@ package discover
 import (
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
@@ -99,36 +101,116 @@ func TestFormatBytes(t *testing.T) {
 	}
 }
 
-func TestScanResultMsg(t *testing.T) {
+func TestSourceDiscoveredMsg(t *testing.T) {
 	m := New(nil)
+	m.step = stepSourceApproval
 	m.scanning = true
-	m.scanDone = false
+	m.sourceMode = sourceModeAll
+	m.scanCh = make(chan tea.Msg, 1) // buffered so waitForScan cmd doesn't block test
 
-	results := []thinkt.DetailedSourceInfo{
-		{
-			SourceInfo: thinkt.SourceInfo{
-				Source: thinkt.SourceClaude,
-				Name:   "Claude Code",
-			},
-			SessionCount: 42,
-			TotalSize:    1048576,
+	info := thinkt.DetailedSourceInfo{
+		SourceInfo: thinkt.SourceInfo{
+			Source: thinkt.SourceClaude,
+			Name:   "Claude Code",
 		},
+		SessionCount: 42,
+		TotalSize:    1048576,
 	}
 
-	msg := scanResultMsg{results: results}
+	msg := sourceDiscoveredMsg{info: info}
+	updated, _ := m.Update(msg)
+	um := updated.(Model)
+
+	if len(um.sources) != 1 {
+		t.Fatalf("expected 1 source, got %d", len(um.sources))
+	}
+	if um.sources[0].Info.SessionCount != 42 {
+		t.Errorf("expected SessionCount=42, got %d", um.sources[0].Info.SessionCount)
+	}
+	if !um.sources[0].Approved {
+		t.Error("expected source to be auto-approved in sourceModeAll")
+	}
+}
+
+func TestScanCompleteMsg(t *testing.T) {
+	m := New(nil)
+	m.step = stepSourceApproval
+	m.scanning = true
+
+	msg := scanCompleteMsg{}
 	updated, _ := m.Update(msg)
 	um := updated.(Model)
 
 	if um.scanning {
-		t.Error("expected scanning=false after scanResultMsg")
+		t.Error("expected scanning=false after scanCompleteMsg")
 	}
 	if !um.scanDone {
-		t.Error("expected scanDone=true after scanResultMsg")
+		t.Error("expected scanDone=true after scanCompleteMsg")
 	}
-	if len(um.scanResults) != 1 {
-		t.Errorf("expected 1 scan result, got %d", len(um.scanResults))
+}
+
+func TestHomeYHotkey(t *testing.T) {
+	m := New(nil)
+	m.step = stepHome
+
+	msg := tea.KeyPressMsg{Code: 'y', Text: "y"}
+	updated, _ := m.Update(msg)
+	um := updated.(Model)
+
+	if um.step != stepSourceConsent {
+		t.Errorf("expected step=stepSourceConsent after Y, got %d", um.step)
 	}
-	if um.scanResults[0].SessionCount != 42 {
-		t.Errorf("expected SessionCount=42, got %d", um.scanResults[0].SessionCount)
+}
+
+func TestHomeNHotkey(t *testing.T) {
+	m := New(nil)
+	m.step = stepHome
+
+	msg := tea.KeyPressMsg{Code: 'n', Text: "n"}
+	updated, cmd := m.Update(msg)
+	um := updated.(Model)
+
+	if um.step != stepDone {
+		t.Errorf("expected step=stepDone after N, got %d", um.step)
 	}
+	if um.result.Completed {
+		t.Error("expected Completed=false after N")
+	}
+	if cmd == nil {
+		t.Error("expected tea.Quit cmd after N")
+	}
+}
+
+func TestHomeVerticalToggle(t *testing.T) {
+	m := New(nil)
+	m.step = stepHome
+	m.confirm = true
+
+	// up/down should toggle
+	msg := tea.KeyPressMsg{Code: tea.KeyDown}
+	updated, _ := m.Update(msg)
+	um := updated.(Model)
+
+	if um.confirm {
+		t.Error("expected confirm=false after down key")
+	}
+
+	msg = tea.KeyPressMsg{Code: tea.KeyUp}
+	updated, _ = um.Update(msg)
+	um = updated.(Model)
+
+	if !um.confirm {
+		t.Error("expected confirm=true after up key")
+	}
+}
+
+func TestStepIndicatorTotal6(t *testing.T) {
+	m := New(nil)
+	m.step = stepSuggestions
+	indicator := m.stepIndicator()
+	if indicator == "" {
+		t.Error("expected non-empty step indicator for suggestions step")
+	}
+	// stepSuggestions is step 6 in a total of 6
+	// (welcome=0, home=1, consent=2, approval=3, indexer=4, embeddings=5, suggestions=6)
 }

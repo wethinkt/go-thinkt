@@ -980,14 +980,11 @@ other = "你的 AI 编程会话，已索引且可搜索。"
 [tui.discover.welcome.body]
 other = "thinkt 索引并搜索你的 AI 编程助手（Claude、Kimi、Gemini 等）留下的\n推理记录，让你和你的工具能从过去的对话中学习。"
 
+[tui.discover.welcome.selectLanguage]
+other = "选择语言："
+
 [tui.discover.welcome.prompt]
-other = "Enter: 开始 · esc: 退出"
-
-[tui.discover.language.title]
-other = "语言"
-
-[tui.discover.language.help]
-other = "↑/↓: 导航 · Enter: 选择 · esc: 退出"
+other = "↑/↓: 语言 · Enter: 开始 · esc: 退出"
 
 [tui.discover.home.title]
 other = "主目录"
@@ -997,6 +994,9 @@ other = "thinkt 将配置和索引存储在："
 
 [tui.discover.home.prompt]
 other = "创建此目录？"
+
+[tui.discover.home.no]
+other = "不，退出"
 
 [tui.discover.sources.title]
 other = "数据源发现"
@@ -1019,11 +1019,14 @@ other = "逐个审查每个数据源"
 [tui.discover.sources.all]
 other = "启用所有数据源"
 
-[tui.discover.sources.skip]
-other = "跳过数据源设置"
+[tui.discover.sources.disableAll]
+other = "禁用所有数据源"
+
+[tui.discover.sources.exitNoSave]
+other = "退出，不保存"
 
 [tui.discover.sources.consentHelp]
-other = "1/2/3: 选择 · esc: 退出"
+other = "↑/↓: 选择 · 1-4: 选项 · Enter: 确认 · esc: 退出"
 
 [tui.discover.approval.title]
 other = "数据源审批"

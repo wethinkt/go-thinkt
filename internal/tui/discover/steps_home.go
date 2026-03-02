@@ -13,9 +13,20 @@ import (
 func (m Model) updateHome(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if msg, ok := msg.(tea.KeyMsg); ok {
 		switch msg.String() {
-		case "left", "right", "tab", "h", "l":
+		case "up", "down", "k", "j", "tab":
 			m.confirm = !m.confirm
 			return m, nil
+		case "Y", "y":
+			dir, err := config.Dir()
+			if err == nil {
+				m.result.HomeDir = dir
+			}
+			m.step = stepSourceConsent
+			return m, nil
+		case "N", "n":
+			m.result.Completed = false
+			m.step = stepDone
+			return m, tea.Quit
 		case "enter":
 			if m.confirm {
 				dir, err := config.Dir()
@@ -23,7 +34,7 @@ func (m Model) updateHome(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.result.HomeDir = dir
 				}
 				m.step = stepSourceConsent
-				return m, m.startScan()
+				return m, nil
 			}
 			m.result.Completed = false
 			m.step = stepDone
@@ -47,13 +58,14 @@ func (m Model) viewHome() string {
 
 	dir, _ := config.Dir()
 
-	return fmt.Sprintf("\n  %s %s\n\n  %s\n\n  %s\n\n  %s\n\n  %s\n",
+	return fmt.Sprintf("\n  %s %s\n\n  %s\n\n  %s\n\n  %s\n\n%s\n\n\n\n%s\n",
 		titleStyle.Render(thinktI18n.T("tui.discover.home.title", "Home Directory")),
 		m.stepIndicator(),
 		bodyStyle.Render(thinktI18n.T("tui.discover.home.body",
 			"thinkt stores its configuration and index database in:")),
 		pathStyle.Render("  "+dir),
 		bodyStyle.Render(thinktI18n.T("tui.discover.home.prompt", "Create this directory?")),
-		m.renderConfirm(),
+		m.renderVerticalConfirm(thinktI18n.T("tui.discover.home.no", "No, exit")),
+		m.renderCLIHint("thinkt discover"),
 	)
 }

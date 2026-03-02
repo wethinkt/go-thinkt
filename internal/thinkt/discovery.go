@@ -133,7 +133,7 @@ func (d *Discovery) DiscoverAvailable(ctx context.Context) ([]SourceInfo, error)
 
 // DiscoverDetailed returns available sources with session counts, sizes, and date ranges.
 // The progress callback is called after each source is scanned (may be nil).
-func (d *Discovery) DiscoverDetailed(ctx context.Context, progress func(Source)) ([]DetailedSourceInfo, error) {
+func (d *Discovery) DiscoverDetailed(ctx context.Context, progress func(DetailedSourceInfo)) ([]DetailedSourceInfo, error) {
 	var results []DetailedSourceInfo
 
 	for _, factory := range d.factories {
@@ -199,7 +199,7 @@ func (d *Discovery) DiscoverDetailed(ctx context.Context, progress func(Source))
 		results = append(results, info)
 
 		if progress != nil {
-			progress(factory.Source())
+			progress(info)
 		}
 	}
 

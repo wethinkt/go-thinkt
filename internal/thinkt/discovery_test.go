@@ -190,10 +190,10 @@ func TestDiscoverDetailed(t *testing.T) {
 		&mockFactory{source: SourceKimi, available: true, store: store},
 	)
 
-	var progressCalls []Source
+	var progressCalls []DetailedSourceInfo
 	ctx := context.Background()
-	result, err := d.DiscoverDetailed(ctx, func(s Source) {
-		progressCalls = append(progressCalls, s)
+	result, err := d.DiscoverDetailed(ctx, func(info DetailedSourceInfo) {
+		progressCalls = append(progressCalls, info)
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -227,8 +227,8 @@ func TestDiscoverDetailed(t *testing.T) {
 	if len(progressCalls) != 1 {
 		t.Errorf("expected 1 progress call, got %d", len(progressCalls))
 	}
-	if progressCalls[0] != SourceKimi {
-		t.Errorf("expected progress call for kimi, got %s", progressCalls[0])
+	if progressCalls[0].Source != SourceKimi {
+		t.Errorf("expected progress call for kimi, got %s", progressCalls[0].Source)
 	}
 }
 

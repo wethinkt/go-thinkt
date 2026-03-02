@@ -12,8 +12,16 @@ import (
 func (m Model) updateEmbeddings(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if msg, ok := msg.(tea.KeyMsg); ok {
 		switch msg.String() {
-		case "left", "right", "tab", "h", "l":
+		case "up", "down", "k", "j", "tab":
 			m.confirm = !m.confirm
+			return m, nil
+		case "Y", "y":
+			m.result.Embeddings = true
+			m.step = stepSuggestions
+			return m, nil
+		case "N", "n":
+			m.result.Embeddings = false
+			m.step = stepSuggestions
 			return m, nil
 		case "enter":
 			m.result.Embeddings = m.confirm
@@ -32,22 +40,20 @@ func (m Model) viewEmbeddings() string {
 	bodyStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.primary))
 
-	mutedStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(m.muted))
+	cmd := "thinkt config set embedding.enabled true"
+	if !m.confirm {
+		cmd = "thinkt config set embedding.enabled false"
+	}
 
-	codeStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(m.accent))
-
-	return fmt.Sprintf("\n  %s %s\n\n  %s\n\n  %s\n\n  %s\n  %s\n\n  %s\n\n  %s\n",
+	return fmt.Sprintf("\n  %s %s\n\n  %s\n\n  %s\n\n  %s\n\n%s\n\n\n\n%s\n",
 		titleStyle.Render(thinktI18n.T("tui.discover.embeddings.title", "Embeddings")),
 		m.stepIndicator(),
 		bodyStyle.Render(thinktI18n.T("tui.discover.embeddings.body",
 			"Embeddings enable semantic search — find sessions by meaning,\nnot just keywords. This uses a local model (nomic-embed-text-v1.5)\nand requires no API keys or network access.")),
 		bodyStyle.Render(thinktI18n.T("tui.discover.embeddings.resources",
 			"Resources: ~200MB model download, GPU recommended.")),
-		mutedStyle.Render(thinktI18n.T("tui.discover.embeddings.reversible", "Reversible:")),
-		codeStyle.Render("  thinkt config set embedding.enabled true"),
 		bodyStyle.Render(thinktI18n.T("tui.discover.embeddings.prompt", "Enable embeddings?")),
-		m.renderConfirm(),
+		m.renderVerticalConfirm(),
+		m.renderCLIHint(cmd),
 	)
 }
