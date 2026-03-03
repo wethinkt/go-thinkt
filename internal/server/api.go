@@ -437,7 +437,7 @@ func (s *HTTPServer) findSessionsForSourceProject(ctx context.Context, sourceNam
 	if !ok {
 		return nil, &unknownSourceSessionsError{source: source}
 	}
-	return store.ListSessions(ctx, projectID)
+	return store.ListSessions(ctx, projectID, thinkt.WithEnrich(func(_ string, _ []thinkt.SessionMeta) {}))
 }
 
 // findSessionsForProject finds sessions for a project across all stores.
@@ -447,7 +447,7 @@ func (s *HTTPServer) findSessionsForProject(ctx context.Context, projectID strin
 	var matched []thinkt.SessionMeta
 
 	for _, store := range s.registry.All() {
-		sessions, err := store.ListSessions(ctx, projectID)
+		sessions, err := store.ListSessions(ctx, projectID, thinkt.WithEnrich(func(_ string, _ []thinkt.SessionMeta) {}))
 		if err != nil || len(sessions) == 0 {
 			continue
 		}

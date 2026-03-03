@@ -447,7 +447,7 @@ func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRe
 		r, _, err := toolErrorResult("unknown_source", fmt.Sprintf("unknown source: %s", source), nil)
 		return r, errorListSessionsOutput("unknown_source", fmt.Sprintf("unknown source: %s", source), nil), err
 	}
-	allSessions, err := store.ListSessions(ctx, input.ProjectID)
+	allSessions, err := store.ListSessions(ctx, input.ProjectID, thinkt.WithEnrich(func(_ string, _ []thinkt.SessionMeta) {}))
 	if err != nil {
 		r, _, retErr := toolErrorResult("list_sessions_failed", "failed to list sessions", err)
 		return r, errorListSessionsOutput("list_sessions_failed", "failed to list sessions", err), retErr
