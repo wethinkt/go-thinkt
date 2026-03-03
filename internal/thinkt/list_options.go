@@ -18,9 +18,13 @@ func ResolveListOptions(opts []ListSessionsOption) ListSessionsConfig {
 	return cfg
 }
 
-// WithEnrich enables background metadata enrichment. The callback is
-// called after each batch of sessions is enriched, with the full
-// refreshed session list for the project.
+// WithEnrich requests metadata enrichment for listed sessions. The callback
+// receives the full refreshed session list for the project. Invocation
+// semantics are store-dependent: stores that require expensive per-session
+// parsing (Claude, Kimi) fire the callback asynchronously in a background
+// goroutine, while stores that eagerly populate metadata during listing
+// (Gemini, Copilot, Codex, Qwen) invoke it synchronously before returning.
+// Callers must handle both cases.
 func WithEnrich(cb func(projectID string, sessions []SessionMeta)) ListSessionsOption {
 	return func(cfg *ListSessionsConfig) {
 		cfg.EnrichCallback = cb
