@@ -2,6 +2,7 @@ package thinkt
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"testing"
@@ -135,6 +136,40 @@ func TestOpenLazySessionByPath_PrefersFullPathFirst(t *testing.T) {
 	}
 	if store.openCalls[0] != path {
 		t.Fatalf("expected first open call on full path %q, got %q", path, store.openCalls[0])
+	}
+}
+
+func TestResolveSessionByPath_ReturnsErrSessionNotFound(t *testing.T) {
+	reg := NewRegistry()
+	store := &resolverMockStore{
+		source: SourceClaude,
+		metas:  map[string]*SessionMeta{},
+	}
+	reg.Register(store)
+
+	_, _, err := reg.ResolveSessionByPath(context.Background(), "/nonexistent/session.jsonl")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, ErrSessionNotFound) {
+		t.Errorf("expected ErrSessionNotFound, got %v", err)
+	}
+}
+
+func TestOpenLazySessionByPath_ReturnsErrSessionNotFound(t *testing.T) {
+	reg := NewRegistry()
+	store := &resolverMockStore{
+		source: SourceClaude,
+		metas:  map[string]*SessionMeta{},
+	}
+	reg.Register(store)
+
+	_, err := reg.OpenLazySessionByPath(context.Background(), "/nonexistent/session.jsonl")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, ErrSessionNotFound) {
+		t.Errorf("expected ErrSessionNotFound, got %v", err)
 	}
 }
 

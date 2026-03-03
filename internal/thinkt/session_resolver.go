@@ -3,7 +3,6 @@ package thinkt
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 )
 
@@ -47,7 +46,7 @@ func (r *StoreRegistry) ResolveSessionByPath(ctx context.Context, sessionPath st
 		}
 	}
 
-	return nil, nil, os.ErrNotExist
+	return nil, nil, ErrSessionNotFound
 }
 
 // OpenLazySessionByPath resolves the owning source store for a session file path,
@@ -58,7 +57,7 @@ func (r *StoreRegistry) OpenLazySessionByPath(ctx context.Context, sessionPath s
 		return nil, err
 	}
 	if store == nil || meta == nil {
-		return nil, os.ErrNotExist
+		return nil, ErrSessionNotFound
 	}
 
 	cleanPath := filepath.Clean(sessionPath)
@@ -91,7 +90,7 @@ func (r *StoreRegistry) OpenLazySessionByPath(ctx context.Context, sessionPath s
 		if firstErr != nil {
 			return nil, firstErr
 		}
-		return nil, os.ErrNotExist
+		return nil, ErrSessionNotFound
 	}
 
 	ls, err := NewLazySession(reader)

@@ -164,7 +164,7 @@ func (s *HTTPServer) handleResolveSession(w http.ResponseWriter, r *http.Request
 
 	store, meta, err := s.registry.ResolveSessionByPath(ctx, path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, thinkt.ErrSessionNotFound) {
 			writeError(w, http.StatusNotFound, "session_not_found", "No session found at the given path")
 			return
 		}
