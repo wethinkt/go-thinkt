@@ -132,16 +132,17 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 				continue
 			}
 
-			sessions, _ := s.cache.LoadSessions(hash, func() ([]thinkt.SessionMeta, error) {
-				return s.listSessionStubsForHash(hash)
-			})
+			// Count sessions directly without populating the StoreCache.
+			// Using cache.LoadSessions here with stubs would prevent
+			// ListSessions from running its loader (which adds FirstPrompt).
+			stubs, _ := s.listSessionStubsForHash(hash)
 
 			projects = append(projects, thinkt.Project{
 				ID:             wd.Path,
 				Name:           filepath.Base(wd.Path),
 				Path:           wd.Path,
 				DisplayPath:    wd.Path,
-				SessionCount:   len(sessions),
+				SessionCount:   len(stubs),
 				LastModified:   info.ModTime(),
 				Source:         thinkt.SourceKimi,
 				WorkspaceID:    ws.ID,
@@ -167,9 +168,7 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 		return nil, err
 	}
 
-	sessions, _ := s.cache.LoadSessions(hash, func() ([]thinkt.SessionMeta, error) {
-		return s.listSessionStubsForHash(hash)
-	})
+	stubs, _ := s.listSessionStubsForHash(hash)
 	ws := s.Workspace()
 
 	return &thinkt.Project{
@@ -177,7 +176,7 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 		Name:           filepath.Base(id),
 		Path:           id,
 		DisplayPath:    id,
-		SessionCount:   len(sessions),
+		SessionCount:   len(stubs),
 		LastModified:   info.ModTime(),
 		Source:         thinkt.SourceKimi,
 		WorkspaceID:    ws.ID,
@@ -1103,9 +1102,7 @@ func (s *Store) scanProjects(sessionsDir string) ([]thinkt.Project, error) {
 		}
 
 		hash := entry.Name()
-		sessions, _ := s.cache.LoadSessions(hash, func() ([]thinkt.SessionMeta, error) {
-			return s.listSessionStubsForHash(hash)
-		})
+		stubs, _ := s.listSessionStubsForHash(hash)
 
 		info, _ := entry.Info()
 
@@ -1114,7 +1111,7 @@ func (s *Store) scanProjects(sessionsDir string) ([]thinkt.Project, error) {
 			Name:         hash[:8], // Show first 8 chars of hash
 			Path:         hash,
 			DisplayPath:  hash[:8] + "...",
-			SessionCount: len(sessions),
+			SessionCount: len(stubs),
 			LastModified: info.ModTime(),
 			Source:       thinkt.SourceKimi,
 			WorkspaceID:  ws.ID,
