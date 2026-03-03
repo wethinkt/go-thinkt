@@ -169,9 +169,13 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 	return nil, nil
 }
 
-// ListSessions returns sessions for a project.
+// ListSessions returns sessions for a project. Metadata is eagerly populated
+// during listing. If WithEnrich is passed, the callback is invoked once with
+// the complete session list.
 func (s *Store) ListSessions(ctx context.Context, projectID string, opts ...thinkt.ListSessionsOption) ([]thinkt.SessionMeta, error) {
-	return s.cache.LoadSessions(projectID, func() ([]thinkt.SessionMeta, error) {
+	cfg := thinkt.ResolveListOptions(opts)
+
+	sessions, err := s.cache.LoadSessions(projectID, func() ([]thinkt.SessionMeta, error) {
 		all, err := s.loadAllSessions()
 		if err != nil {
 			return nil, err
@@ -185,6 +189,15 @@ func (s *Store) ListSessions(ctx context.Context, projectID string, opts ...thin
 		}
 		return filtered, nil
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	if cfg.EnrichCallback != nil && len(sessions) > 0 {
+		cfg.EnrichCallback(projectID, sessions)
+	}
+
+	return sessions, nil
 }
 
 // GetSessionMeta returns session metadata.
