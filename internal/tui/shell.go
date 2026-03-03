@@ -115,14 +115,15 @@ type OpenAgentsPageMsg struct{}
 
 // Shell is the main TUI container with navigation
 type Shell struct {
-	width       int
-	height      int
-	stack       *NavStack
-	registry    *thinkt.StoreRegistry
-	hub         *agents.AgentHub
-	loading     bool
-	initialPage InitialPage
-	preloaded   bool
+	width             int
+	height            int
+	stack             *NavStack
+	registry          *thinkt.StoreRegistry
+	hub               *agents.AgentHub
+	loading           bool
+	initialPage       InitialPage
+	preloaded         bool
+	preloadedSessions []thinkt.SessionMeta // sessions to enrich on init
 }
 
 // NewShell creates the main TUI shell
@@ -165,6 +166,7 @@ func NewShellWithSessionsAndRegistry(sessions []thinkt.SessionMeta, registry *th
 		Title: title,
 		Model: picker,
 	})
+	s.preloadedSessions = sessions
 	return s
 }
 
@@ -289,13 +291,68 @@ func (s *Shell) renderHeader() string {
 func (s *Shell) Init() tea.Cmd {
 	tuilog.Log.Info("Shell.Init: starting")
 	if s.preloaded || s.registry == nil {
+		var cmds []tea.Cmd
 		// Pre-loaded shell (e.g. NewShellWithSessions), init the current page
 		if current, ok := s.stack.Peek(); ok {
-			return current.Model.Init()
+			cmds = append(cmds, current.Model.Init())
 		}
-		return nil
+		// Start background enrichment for preloaded sessions.
+		if s.preloaded && s.registry != nil && len(s.preloadedSessions) > 0 {
+			cmds = append(cmds, s.startPreloadedEnrichment())
+		}
+		return tea.Batch(cmds...)
 	}
 	return loadSourcesCmd(s.registry)
+}
+
+// startPreloadedEnrichment returns a tea.Cmd that triggers background
+// enrichment for preloaded sessions and waits for the first update.
+func (s *Shell) startPreloadedEnrichment() tea.Cmd {
+	// Discover unique source+project pairs from preloaded sessions.
+	type sourceProject struct {
+		source    thinkt.Source
+		projectID string
+	}
+	seen := make(map[sourceProject]bool)
+	var pairs []sourceProject
+	for _, sess := range s.preloadedSessions {
+		sp := sourceProject{sess.Source, sess.ProjectPath}
+		if !seen[sp] {
+			seen[sp] = true
+			pairs = append(pairs, sp)
+		}
+	}
+
+	registry := s.registry
+	return func() tea.Msg {
+		ctx := context.Background()
+		enrichCh := make(chan SessionsUpdatedMsg, 64)
+
+		for _, sp := range pairs {
+			store, ok := registry.Get(sp.source)
+			if !ok {
+				continue
+			}
+			store.ListSessions(ctx, sp.projectID, thinkt.WithEnrich(func(_ string, updated []thinkt.SessionMeta) {
+				select {
+				case enrichCh <- SessionsUpdatedMsg{Sessions: updated}:
+				default:
+				}
+			}))
+		}
+
+		// Wait for first enrichment update or timeout.
+		select {
+		case msg, ok := <-enrichCh:
+			if !ok {
+				return nil
+			}
+			msg.enrichCh = enrichCh
+			return msg
+		case <-time.After(10 * time.Second):
+			return nil
+		}
+	}
 }
 
 func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
