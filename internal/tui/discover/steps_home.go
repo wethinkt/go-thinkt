@@ -54,15 +54,15 @@ func (m Model) viewHome() string {
 
 	dir, _ := config.Dir()
 	homeHint := "  " + mutedStyle.Render(
-		thinktI18n.T("tui.discover.home.envHint", "Use environment variable THINKT_HOME to choose another."),
+		thinktI18n.T("tui.discover.home.envHint", "Use environment variable THINKT_HOME to configure another."),
 	)
 
 	return fmt.Sprintf("%s\n  %s\n\n  %s\n\n  %s\n\n%s\n\n%s\n",
 		m.renderStepHeader(thinktI18n.T("tui.discover.home.title", "Home Directory")),
 		bodyStyle.Render(thinktI18n.T("tui.discover.home.body",
-			"thinkt needs a home directory for configuration, local indexes, and cache:")),
+			"thinkt needs a directory for configuration, local index, and cache.")),
 		pathStyle.Render("  "+dir),
-		bodyStyle.Render(thinktI18n.T("tui.discover.home.prompt", "Use this directory?")),
+		bodyStyle.Render(thinktI18n.T("tui.discover.home.prompt", "May we use this directory?")),
 		m.renderVerticalConfirm(thinktI18n.T("tui.discover.home.no", "No, exit")),
 		homeHint,
 	)

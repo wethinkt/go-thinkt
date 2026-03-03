@@ -36,17 +36,17 @@ func (m Model) viewEmbeddings() string {
 	bodyStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.primary))
 
-	cmd := "thinkt config set embedding.enabled true"
+	cmd := "thinkt embeddings enable"
 	if !m.confirm {
-		cmd = "thinkt config set embedding.enabled false"
+		cmd = "thinkt embeddings disable"
 	}
 
 	return fmt.Sprintf("%s\n  %s\n\n  %s\n\n  %s\n\n%s\n\n%s\n",
 		m.renderStepHeader(thinktI18n.T("tui.discover.embeddings.title", "Embeddings")),
 		bodyStyle.Render(thinktI18n.T("tui.discover.embeddings.body",
-			"Embeddings add semantic search so you can find sessions by intent, not only exact words. It uses a local model (nomic-embed-text-v1.5) and requires no API keys.")),
+			"Embeddings enable semantic search, so you can find sessions by intent, not only exact words. It uses a local model (nomic-embed-text-v1.5) and requires no API keys.")),
 		bodyStyle.Render(thinktI18n.T("tui.discover.embeddings.resources",
-			"Initial model download is about 200MB. GPU helps but is optional.")),
+			"Initial model download is about 150MB. GPU helps but is optional.\n\n  The intial background scan may be resource intensive.\n\n  Turn it off with 'thinkt embeddings disable'.")),
 		bodyStyle.Render(thinktI18n.T("tui.discover.embeddings.prompt", "Enable semantic search?")),
 		m.renderVerticalConfirm(),
 		m.renderCLIHint(cmd),

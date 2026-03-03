@@ -1,10 +1,13 @@
 package discover
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
@@ -267,7 +270,7 @@ func TestSourceDiscoveryShowsStickyContext(t *testing.T) {
 	m.result.HomeDir = "/Users/evan/.thinkt"
 
 	view := m.viewSourceConsent()
-	if !strings.Contains(view, "Welcome to 🧠 thinkt") {
+	if !strings.Contains(view, "Welcome to") {
 		t.Fatal("expected sticky context welcome line in source discovery step")
 	}
 	if !strings.Contains(view, "English (en)") {
@@ -297,5 +300,128 @@ func TestSuggestionsEnterDoesNotClearStep(t *testing.T) {
 	}
 	if cmd == nil {
 		t.Fatal("expected tea.Quit cmd when finishing setup")
+	}
+}
+
+func TestWindowResizeClearsScreenAfterInitialSize(t *testing.T) {
+	m := New(nil)
+
+	updated, cmd := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	if cmd != nil {
+		t.Fatal("expected no clear-screen command on initial size")
+	}
+	um := updated.(Model)
+	if um.width != 120 || um.height != 40 {
+		t.Fatalf("expected dimensions 120x40, got %dx%d", um.width, um.height)
+	}
+
+	updated, cmd = um.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	if cmd == nil {
+		t.Fatal("expected clear-screen command on resize")
+	}
+	um = updated.(Model)
+	if um.width != 100 || um.height != 30 {
+		t.Fatalf("expected dimensions 100x30 after resize, got %dx%d", um.width, um.height)
+	}
+
+	msg := cmd()
+	if reflect.TypeOf(msg) != reflect.TypeOf(tea.ClearScreen()) {
+		t.Fatalf("expected clear-screen message type, got %T", msg)
+	}
+}
+
+func TestViewWrapsToInlineWidth(t *testing.T) {
+	m := New(nil)
+	m.step = stepSourceConsent
+	m.width = 44
+	m.height = 24
+
+	view := m.View()
+	maxWidth := m.inlineWidth()
+	for _, line := range strings.Split(view.Content, "\n") {
+		if w := ansi.StringWidth(line); w > maxWidth {
+			t.Fatalf("line exceeds inline width: got %d, max %d, line=%q", w, maxWidth, line)
+		}
+	}
+}
+
+func TestLipglossWrapHandlesWideChars(t *testing.T) {
+	s := "欢迎使用 🧠 thinkt 欢迎使用 🧠 thinkt"
+	wrapped := lipgloss.Wrap(s, 12, "")
+	for _, line := range strings.Split(wrapped, "\n") {
+		if w := ansi.StringWidth(line); w > 12 {
+			t.Fatalf("wrapped line exceeds width 12: got %d, line=%q", w, line)
+		}
+	}
+}
+
+func TestViewRespectsTerminalHeight(t *testing.T) {
+	m := New(nil)
+	m.step = stepSourceConsent
+	m.width = 80
+	m.height = 5
+
+	view := m.View()
+	lines := strings.Split(view.Content, "\n")
+	if len(lines) > m.height {
+		t.Fatalf("expected at most %d lines, got %d", m.height, len(lines))
+	}
+}
+
+func TestViewReservesBottomRowWhenPossible(t *testing.T) {
+	m := New(nil)
+	m.step = stepSourceConsent
+	m.width = 80
+	m.height = 6
+
+	view := m.View()
+	lines := strings.Split(view.Content, "\n")
+	if len(lines) > 5 {
+		t.Fatalf("expected at most 5 lines for content viewport, got %d", len(lines))
+	}
+}
+
+func TestQQuitsFromAnyStep(t *testing.T) {
+	steps := []step{
+		stepWelcome,
+		stepHome,
+		stepSourceConsent,
+		stepSourceApproval,
+		stepIndexer,
+		stepEmbeddings,
+		stepSuggestions,
+	}
+
+	for _, st := range steps {
+		m := New(nil)
+		m.step = st
+
+		updated, cmd := m.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
+		if cmd == nil {
+			t.Fatalf("expected quit cmd for step %d", st)
+		}
+
+		um := updated.(Model)
+		if um.result.Completed {
+			t.Fatalf("expected Completed=false when quitting from step %d", st)
+		}
+
+		if _, ok := cmd().(tea.QuitMsg); !ok {
+			t.Fatalf("expected tea.QuitMsg for step %d", st)
+		}
+	}
+}
+
+func TestWithEscQ(t *testing.T) {
+	m := New(nil)
+
+	if got := m.withEscQ("Enter: continue · esc: exit"); got != "Enter: continue · esc/q: exit" {
+		t.Fatalf("unexpected esc replacement: %q", got)
+	}
+	if got := m.withEscQ("Enter: continue"); got != "Enter: continue · esc/q" {
+		t.Fatalf("unexpected esc/q append: %q", got)
+	}
+	if got := m.withEscQ("Enter: continue · esc/q: exit"); got != "Enter: continue · esc/q: exit" {
+		t.Fatalf("expected existing esc/q text unchanged, got %q", got)
 	}
 }

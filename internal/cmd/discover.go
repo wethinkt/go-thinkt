@@ -22,6 +22,7 @@ var discoverOK bool
 var discoverCmd = &cobra.Command{
 	Use:   "discover",
 	Short: "Scan for AI session sources and configure thinkt",
+	Args:  cobra.NoArgs,
 	RunE:  runDiscover,
 }
 

@@ -63,7 +63,7 @@ func (m Model) viewSuggestions() string {
 		mutedStyle.Render(thinktI18n.T("tui.discover.suggestions.rerun", "You can rerun this setup anytime with: thinkt discover"))))
 
 	b.WriteString(fmt.Sprintf("\n  %s\n",
-		mutedStyle.Render(thinktI18n.T("tui.discover.suggestions.done", "Enter: finish setup · esc: exit"))))
+		mutedStyle.Render(m.withEscQ(thinktI18n.T("tui.discover.suggestions.done", "Enter: finish setup · esc: exit")))))
 
 	return b.String()
 }

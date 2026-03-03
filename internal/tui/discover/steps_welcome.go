@@ -56,22 +56,22 @@ func (m Model) viewWelcome() string {
 		Foreground(lipgloss.Color(m.muted))
 
 	var b strings.Builder
-	b.WriteString(m.renderStepHeader(thinktI18n.T("tui.discover.welcome.header", "Welcome to 🧠 thinkt")))
+	b.WriteString(m.renderStepHeader(m.welcomeHeader()))
 	b.WriteString("\n")
 
 	// Intro tagline
 	b.WriteString(fmt.Sprintf("  %s\n\n",
 		bodyStyle.Render(thinktI18n.T("tui.discover.welcome.tagline",
-			"Index and explore your AI coding sessions."))))
+			"Browse, search, analyze, and share your LLM conversations."))))
 
 	b.WriteString(fmt.Sprintf("  %s\n\n",
 		mutedStyle.Render(thinktI18n.T("tui.discover.welcome.context",
-			"This guided setup stays inline in your terminal and applies changes when you finish."))))
+			"We will guide you through an initial setup to get you started."))))
 
 	// Language picker
 	b.WriteString(fmt.Sprintf("  %s\n\n",
 		mutedStyle.Render(thinktI18n.T("tui.discover.welcome.selectLanguage",
-			"Choose display language:"))))
+			"Choose your display language:"))))
 	for i, lang := range m.langs {
 		prefix := "  "
 		if i == m.cursor {
@@ -91,8 +91,8 @@ func (m Model) viewWelcome() string {
 	}
 
 	b.WriteString(fmt.Sprintf("\n  %s\n",
-		mutedStyle.Render(thinktI18n.T("tui.discover.welcome.prompt",
-			"↑/↓: choose language · Enter: continue · esc: exit"))))
+		mutedStyle.Render(m.withEscQ(thinktI18n.T("tui.discover.welcome.prompt",
+			"↑/↓: choose language · Enter: continue · esc: exit")))))
 
 	// CLI hint
 	if m.cursor >= 0 && m.cursor < len(m.langs) {

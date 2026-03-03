@@ -11,6 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -138,12 +139,17 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		resized := m.width > 0 && m.height > 0 && (m.width != msg.Width || m.height != msg.Height)
 		m.width = msg.Width
 		m.height = msg.Height
+		if resized {
+			return m, clearScreenCmd()
+		}
 		return m, nil
 
 	case tea.KeyMsg:
-		if msg.String() == "ctrl+c" || msg.String() == "esc" {
+		switch msg.String() {
+		case "ctrl+c", "esc", "q", "Q":
 			m.result.Completed = false
 			return m, tea.Quit
 		}
@@ -190,6 +196,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func clearScreenCmd() tea.Cmd {
+	return func() tea.Msg {
+		return tea.ClearScreen()
+	}
+}
+
 // View implements tea.Model.
 func (m Model) View() tea.View {
 	var content string
@@ -215,7 +227,28 @@ func (m Model) View() tea.View {
 
 	content = strings.Trim(content, "\n")
 	if width := m.inlineWidth(); width > 0 {
-		content = lipgloss.NewStyle().MaxWidth(width).Render(content)
+		content = lipgloss.Wrap(content, width, "")
+		// Hard-truncate wrapped lines to avoid terminal auto-wrap drift on very
+		// long unbroken tokens (for example long filesystem paths).
+		lines := strings.Split(content, "\n")
+		for i := range lines {
+			lines[i] = ansi.Truncate(lines[i], width, "")
+		}
+		content = strings.Join(lines, "\n")
+	}
+	if m.height > 0 {
+		// Discover renders in the primary screen buffer, so keep output within a
+		// fixed top-aligned viewport and reserve one row at the bottom. This helps
+		// avoid terminal scrollback drift when content updates near full height.
+		viewHeight := m.height
+		if viewHeight > 1 {
+			viewHeight--
+		}
+		content = lipgloss.NewStyle().
+			MaxHeight(viewHeight).
+			Height(viewHeight).
+			AlignVertical(lipgloss.Top).
+			Render(content)
 	}
 
 	v := tea.NewView(content)
@@ -279,6 +312,19 @@ func (m Model) renderCLIHint(cmd string) string {
 	)
 }
 
+func (m Model) withEscQ(helpText string) string {
+	if strings.Contains(helpText, "esc/q") || strings.Contains(helpText, "ESC/Q") {
+		return helpText
+	}
+	if strings.Contains(helpText, "esc") {
+		return strings.Replace(helpText, "esc", "esc/q", 1)
+	}
+	if strings.Contains(helpText, "ESC") {
+		return strings.Replace(helpText, "ESC", "ESC/Q", 1)
+	}
+	return helpText + " · esc/q"
+}
+
 // renderStepHeader renders a consistent left-justified step heading with divider.
 func (m Model) renderStepHeader(title string) string {
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.accent))
@@ -290,7 +336,9 @@ func (m Model) renderStepHeader(title string) string {
 	}
 
 	lineWidth := m.inlineWidth() - 2
-	if lineWidth < 16 {
+	if lineWidth < 1 {
+		lineWidth = 1
+	} else if lineWidth < 16 && m.inlineWidth() >= 18 {
 		lineWidth = 16
 	}
 	divider := "  " + mutedStyle.Render(strings.Repeat("─", lineWidth))
@@ -315,7 +363,7 @@ func (m Model) renderStickyContext() string {
 
 	var lines []string
 	lines = append(lines, "  "+titleStyle.Render(
-		thinktI18n.T("tui.discover.welcome.header", "Welcome to 🧠 thinkt"),
+		m.welcomeHeader(),
 	))
 
 	if lang := m.selectedLanguageSummary(); lang != "" {
@@ -380,6 +428,10 @@ func (m Model) renderStickyContext() string {
 	return strings.Join(lines, "\n")
 }
 
+func (m Model) welcomeHeader() string {
+	return thinktI18n.T("tui.discover.welcome.header", "Welcome to 🧠 thinkt")
+}
+
 func (m Model) selectedLanguageSummary() string {
 	tag := m.result.Language
 	if tag == "" && m.cursor >= 0 && m.cursor < len(m.langs) {
@@ -441,7 +493,7 @@ func (m Model) renderVerticalConfirm(noLabel ...string) string {
 
 	helpText := thinktI18n.T("tui.discover.confirm.help",
 		"↑/↓ or tab: select · Y/N: choose · Enter: confirm · esc: exit")
-	helpRendered := "  " + help.Render(helpText)
+	helpRendered := "  " + help.Render(m.withEscQ(helpText))
 
 	renderLine := func(selected bool, key string, label string) string {
 		pointer := "  "

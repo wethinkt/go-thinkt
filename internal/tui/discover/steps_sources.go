@@ -83,7 +83,7 @@ func (m Model) viewSourceConsent() string {
 
 	b.WriteString(fmt.Sprintf("  %s\n\n",
 		bodyStyle.Render(thinktI18n.T("tui.discover.sources.consent",
-			"Choose how to enable session sources. thinkt scans known paths in your home directory (for example ~/.claude/projects/ and ~/.kimi/sessions/). It only reads session logs and never modifies or deletes source files."))))
+			"thinkt scans specific paths in your home directory (for example ~/.claude/ and ~/.codex).\n\n  It only reads session logs and never modifies or deletes source files.  All data remains local, even with 'thinkt web'.\n\n  Choose how to enable session sources:"))))
 
 	choices := []struct {
 		key   string
@@ -91,7 +91,7 @@ func (m Model) viewSourceConsent() string {
 	}{
 		{"1", thinktI18n.T("tui.discover.sources.oneByOne", "Review each source before enabling")},
 		{"2", thinktI18n.T("tui.discover.sources.all", "Enable all discovered sources")},
-		{"3", thinktI18n.T("tui.discover.sources.disableAll", "Start with all sources disabled")},
+		{"3", thinktI18n.T("tui.discover.sources.disableAll", "Disable all sources")},
 		{"4", thinktI18n.T("tui.discover.sources.exitNoSave", "Exit setup without saving")},
 	}
 	for i, c := range choices {
@@ -110,11 +110,11 @@ func (m Model) viewSourceConsent() string {
 	}
 
 	b.WriteString(fmt.Sprintf("\n  %s\n",
-		mutedStyle.Render(thinktI18n.T("tui.discover.sources.consentHelp", "↑/↓ or tab: select · 1-4: choose · Enter: confirm · esc: exit"))))
+		mutedStyle.Render(m.withEscQ(thinktI18n.T("tui.discover.sources.consentHelp", "↑/↓ or tab: select · 1-4: choose · Enter: confirm · esc: exit")))))
 
 	// CLI hint based on current cursor
 	consentCmds := []string{
-		"thinkt sources enable --interactive",
+		"thinkt sources enable",
 		"thinkt sources enable --all",
 		"thinkt sources disable --all",
 		"",
@@ -276,7 +276,7 @@ func (m Model) viewSourceApproval() string {
 			}
 		}
 		b.WriteString(fmt.Sprintf("\n  %s\n",
-			mutedStyle.Render(thinktI18n.T("tui.discover.summary.continue", "Enter: continue to indexer setup · esc: exit"))))
+			mutedStyle.Render(m.withEscQ(thinktI18n.T("tui.discover.summary.continue", "Enter: continue to indexer setup · esc: exit")))))
 	}
 
 	return b.String()
