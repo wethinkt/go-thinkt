@@ -119,7 +119,8 @@ Examples:
 func Execute() error {
 	cfg, err := config.Load()
 	if err != nil && !errors.Is(err, config.ErrNoConfig) {
-		return fmt.Errorf("load config: %w", err)
+		configPath, _ := config.Path()
+		return fmt.Errorf("load config %s: %w", configPath, err)
 	}
 	// If ErrNoConfig, cfg is Default() — proceed with defaults.
 	// The discover wizard (wired in PersistentPreRunE) will intercept later.
