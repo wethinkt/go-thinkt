@@ -15,7 +15,7 @@ func (m *mockStore) Source() Source                                 { return m.s
 func (m *mockStore) Workspace() Workspace                           { return Workspace{ID: "test", Source: m.source} }
 func (m *mockStore) ListProjects(ctx context.Context) ([]Project, error) { return m.projects, nil }
 func (m *mockStore) GetProject(ctx context.Context, id string) (*Project, error) { return nil, nil }
-func (m *mockStore) ListSessions(ctx context.Context, projectID string) ([]SessionMeta, error) { return nil, nil }
+func (m *mockStore) ListSessions(ctx context.Context, projectID string, _ ...ListSessionsOption) ([]SessionMeta, error) { return nil, nil }
 func (m *mockStore) GetSessionMeta(ctx context.Context, sessionID string) (*SessionMeta, error) { return nil, nil }
 func (m *mockStore) LoadSession(ctx context.Context, sessionID string) (*Session, error) { return nil, nil }
 func (m *mockStore) OpenSession(ctx context.Context, sessionID string) (SessionReader, error) { return nil, nil }

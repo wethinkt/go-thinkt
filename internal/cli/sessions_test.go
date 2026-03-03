@@ -33,7 +33,7 @@ func (s *testSessionStore) GetProject(ctx context.Context, id string) (*thinkt.P
 	}
 	return nil, nil
 }
-func (s *testSessionStore) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
+func (s *testSessionStore) ListSessions(ctx context.Context, projectID string, _ ...thinkt.ListSessionsOption) ([]thinkt.SessionMeta, error) {
 	if projectID == s.projectID {
 		return s.sessions, nil
 	}

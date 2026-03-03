@@ -280,7 +280,7 @@ type Store interface {
 	GetProject(ctx context.Context, id string) (*Project, error)
 
 	// ListSessions returns sessions for a project.
-	ListSessions(ctx context.Context, projectID string) ([]SessionMeta, error)
+	ListSessions(ctx context.Context, projectID string, opts ...ListSessionsOption) ([]SessionMeta, error)
 
 	// GetSessionMeta returns session metadata without loading entries.
 	GetSessionMeta(ctx context.Context, sessionID string) (*SessionMeta, error)

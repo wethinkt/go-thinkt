@@ -334,7 +334,7 @@ func (m *mockActiveStore) GetProject(_ context.Context, id string) (*Project, er
 	return nil, nil
 }
 
-func (m *mockActiveStore) ListSessions(_ context.Context, projectID string) ([]SessionMeta, error) {
+func (m *mockActiveStore) ListSessions(_ context.Context, projectID string, _ ...ListSessionsOption) ([]SessionMeta, error) {
 	return m.sessions[projectID], nil
 }
 

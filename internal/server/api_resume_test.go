@@ -179,7 +179,7 @@ func (f *fakeStoreNoResume) ListProjects(context.Context) ([]thinkt.Project, err
 func (f *fakeStoreNoResume) GetProject(context.Context, string) (*thinkt.Project, error) {
 	return nil, nil
 }
-func (f *fakeStoreNoResume) ListSessions(context.Context, string) ([]thinkt.SessionMeta, error) {
+func (f *fakeStoreNoResume) ListSessions(context.Context, string, ...thinkt.ListSessionsOption) ([]thinkt.SessionMeta, error) {
 	return nil, nil
 }
 func (f *fakeStoreNoResume) GetSessionMeta(_ context.Context, id string) (*thinkt.SessionMeta, error) {

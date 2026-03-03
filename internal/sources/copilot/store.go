@@ -124,7 +124,7 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 }
 
 // ListSessions returns sessions for a project.
-func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
+func (s *Store) ListSessions(ctx context.Context, projectID string, opts ...thinkt.ListSessionsOption) ([]thinkt.SessionMeta, error) {
 	return s.cache.LoadSessions(projectID, func() ([]thinkt.SessionMeta, error) {
 		allSessions, err := s.loadAllSessions()
 		if err != nil {

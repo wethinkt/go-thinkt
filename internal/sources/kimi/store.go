@@ -150,7 +150,7 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 }
 
 // ListSessions returns sessions for a project.
-func (s *Store) ListSessions(ctx context.Context, projectID string) ([]thinkt.SessionMeta, error) {
+func (s *Store) ListSessions(ctx context.Context, projectID string, opts ...thinkt.ListSessionsOption) ([]thinkt.SessionMeta, error) {
 	hash := s.projectHash(projectID)
 	return s.cache.LoadSessions(hash, func() ([]thinkt.SessionMeta, error) {
 		return s.listSessionsForHash(hash)

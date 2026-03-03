@@ -35,7 +35,7 @@ func (m *resolverMockStore) GetProject(ctx context.Context, id string) (*Project
 	return nil, nil
 }
 
-func (m *resolverMockStore) ListSessions(ctx context.Context, projectID string) ([]SessionMeta, error) {
+func (m *resolverMockStore) ListSessions(ctx context.Context, projectID string, _ ...ListSessionsOption) ([]SessionMeta, error) {
 	return nil, nil
 }
 

@@ -150,7 +150,7 @@ func (m *detailedMockStore) ListProjects(ctx context.Context) ([]Project, error)
 func (m *detailedMockStore) GetProject(ctx context.Context, id string) (*Project, error) {
 	return nil, nil
 }
-func (m *detailedMockStore) ListSessions(ctx context.Context, projectID string) ([]SessionMeta, error) {
+func (m *detailedMockStore) ListSessions(ctx context.Context, projectID string, _ ...ListSessionsOption) ([]SessionMeta, error) {
 	return m.sessions[projectID], nil
 }
 func (m *detailedMockStore) GetSessionMeta(ctx context.Context, sessionID string) (*SessionMeta, error) {
