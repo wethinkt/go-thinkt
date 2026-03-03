@@ -22,7 +22,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Test
-        run: go test ./...
+        run: go test -race ./...
 
       - name: Build Main Tool
         run: go build ./cmd/thinkt
