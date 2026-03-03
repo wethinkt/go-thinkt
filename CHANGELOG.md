@@ -1,12 +1,32 @@
 # `go-thinkt` CHANGELOG
 
-## v0.7.5 (2026-03-02)
+## v0.7.5 (2026-03-03)
 
 * **First-Run Discover Setup**
   - Added `thinkt discover` with interactive setup plus non-interactive `--ok` and machine-readable `--json` modes
   - Root command now auto-triggers discover when config does not exist, then reinitializes i18n with the chosen language
   - New inline discover wizard flow with progressive source scanning, per-source approval, sticky context, ESC-to-exit, and improved step UX
   - Discover defaults now save source selections, indexer/embeddings choices, and `discovered_at` metadata
+
+* **Session Metadata Cache**
+  - Added `MetadataCache` type for persistent session metadata, avoiding repeated deep JSONL parsing on every list
+  - Integrated cache-first metadata loading in Claude, Kimi, Gemini, Copilot, Codex, and Qwen stores
+  - Added `ListSessionsOption` / `WithEnrich` to the `Store` interface so callers can opt into background enrichment
+  - TUI and API server now trigger background enrichment for incremental session metadata updates
+
+* **Error Handling & Domain Errors**
+  - Added sentinel domain errors (`ErrSessionNotFound`, `ValidationError`, etc.)
+  - API returns 404 instead of 500 for missing sessions
+  - MCP tools now map domain errors to appropriate MCP error codes
+  - Resume flow uses typed errors instead of string-prefix matching
+  - Session resolver uses `ErrSessionNotFound` instead of `os.ErrNotExist`
+
+* **CLI & TUI Polish**
+  - Replaced `tabwriter` with lipgloss for styled CLI output
+  - Styled `thinkt apps list` output
+  - Improved error messages for config loading failures
+  - Fixed discover wizard triggering during shell completion
+  - Fixed MCP version info
 
 * **Source Management**
   - Added `thinkt sources enable`, `thinkt sources disable`, and `thinkt sources status` commands (`--all` supported)
