@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -482,8 +483,12 @@ func (ms *MCPServer) handleGetSessionMetadata(ctx context.Context, req *mcp.Call
 	}
 	output, err := collectSessionMetadata(ctx, ms.registry, input.Path, input)
 	if err != nil {
-		r, _, retErr := toolErrorResult("session_metadata_failed", "failed to load session metadata", err)
-		return r, errorGetSessionMetadataOutput("session_metadata_failed", "failed to load session metadata", err), retErr
+		code := domainErrorCode(err)
+		if code == "" {
+			code = "session_metadata_failed"
+		}
+		r, _, retErr := toolErrorResult(code, "failed to load session metadata", err)
+		return r, errorGetSessionMetadataOutput(code, "failed to load session metadata", err), retErr
 	}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
 }
@@ -596,8 +601,12 @@ func (ms *MCPServer) handleGetSessionEntries(ctx context.Context, req *mcp.CallT
 	}
 	ls, err := ms.registry.OpenLazySessionByPath(ctx, input.Path)
 	if err != nil {
-		r, _, retErr := toolErrorResult("open_session_failed", "failed to open session", err)
-		return r, errorGetSessionEntriesOutput("open_session_failed", "failed to open session", err), retErr
+		code := domainErrorCode(err)
+		if code == "" {
+			code = "open_session_failed"
+		}
+		r, _, retErr := toolErrorResult(code, "failed to open session", err)
+		return r, errorGetSessionEntriesOutput(code, "failed to open session", err), retErr
 	}
 	defer ls.Close()
 	if err := ls.LoadAll(); err != nil {
@@ -758,6 +767,23 @@ func (ms *MCPServer) handleGetUsageStats(ctx context.Context, req *mcp.CallToolR
 		return toolErrorResult("stats_failed", "failed to load usage stats", err)
 	}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(data)}}}, json.RawMessage(data), nil
+}
+
+// domainErrorCode maps domain-level errors to MCP error codes.
+// Returns empty string if the error is not a recognized domain error.
+func domainErrorCode(err error) string {
+	switch {
+	case errors.Is(err, thinkt.ErrSessionNotFound):
+		return "session_not_found"
+	case errors.Is(err, thinkt.ErrProjectNotFound):
+		return "project_not_found"
+	case errors.Is(err, thinkt.ErrSourceUnavailable):
+		return "source_unavailable"
+	case errors.Is(err, thinkt.ErrResumeNotSupported):
+		return "resume_not_supported"
+	default:
+		return ""
+	}
 }
 
 func toolErrorResult(code, message string, err error) (*mcp.CallToolResult, any, error) {

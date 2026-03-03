@@ -622,8 +622,8 @@ func TestMCP_GetSessionMetadata_InvalidPath(t *testing.T) {
 	ms := newTestMCPServer()
 	result := callToolMayError(t, ms, "get_session_metadata", map[string]any{"path": "/nonexistent/file.jsonl"})
 	errOut := parseToolError(t, result)
-	if errOut.Error.Code != "session_metadata_failed" {
-		t.Fatalf("expected session_metadata_failed code, got %q", errOut.Error.Code)
+	if errOut.Error.Code != "session_not_found" {
+		t.Fatalf("expected session_not_found code, got %q", errOut.Error.Code)
 	}
 }
 
@@ -632,8 +632,8 @@ func TestMCP_GetSessionMetadata_UnscopedExistingPathRejected(t *testing.T) {
 	ms := newTestMCPServer()
 	result := callToolMayError(t, ms, "get_session_metadata", map[string]any{"path": path})
 	errOut := parseToolError(t, result)
-	if errOut.Error.Code != "session_metadata_failed" {
-		t.Fatalf("expected session_metadata_failed code, got %q", errOut.Error.Code)
+	if errOut.Error.Code != "session_not_found" {
+		t.Fatalf("expected session_not_found code, got %q", errOut.Error.Code)
 	}
 }
 
@@ -648,8 +648,8 @@ func TestMCP_GetSessionMetadata_InvalidPath_TypedOutputIncludesError(t *testing.
 	if out.Error == nil {
 		t.Fatal("expected typed output error")
 	}
-	if out.Error.Code != "session_metadata_failed" {
-		t.Fatalf("expected session_metadata_failed, got %q", out.Error.Code)
+	if out.Error.Code != "session_not_found" {
+		t.Fatalf("expected session_not_found, got %q", out.Error.Code)
 	}
 	if out.RoleCounts == nil {
 		t.Fatal("expected non-nil role_counts map")
@@ -834,6 +834,28 @@ func TestMCP_GetSessionEntries_EmptyPath_TypedOutputIncludesError(t *testing.T) 
 	}
 	if out.Entries == nil {
 		t.Fatal("expected non-nil entries slice")
+	}
+}
+
+func TestMCP_GetSessionEntries_NotFound_ReturnsSessionNotFoundCode(t *testing.T) {
+	ms := newTestMCPServer()
+	result := callTool(t, ms, "get_session_entries", map[string]any{
+		"path": "/nonexistent/session.jsonl",
+	})
+	errOut := parseToolError(t, result)
+	if errOut.Error.Code != "session_not_found" {
+		t.Fatalf("expected session_not_found code, got %q", errOut.Error.Code)
+	}
+}
+
+func TestMCP_GetSessionMetadata_NotFound_ReturnsSessionNotFoundCode(t *testing.T) {
+	ms := newTestMCPServer()
+	result := callTool(t, ms, "get_session_metadata", map[string]any{
+		"path": "/nonexistent/session.jsonl",
+	})
+	errOut := parseToolError(t, result)
+	if errOut.Error.Code != "session_not_found" {
+		t.Fatalf("expected session_not_found code, got %q", errOut.Error.Code)
 	}
 }
 
