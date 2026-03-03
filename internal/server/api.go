@@ -530,6 +530,10 @@ func (s *HTTPServer) handleGetSession(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	session, err := s.loadSession(ctx, path, limit, offset)
 	if err != nil {
+		if errors.Is(err, thinkt.ErrSessionNotFound) {
+			writeError(w, http.StatusNotFound, "session_not_found", err.Error())
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "load_session_failed", err.Error())
 		return
 	}

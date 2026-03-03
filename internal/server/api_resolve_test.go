@@ -210,3 +210,28 @@ func TestHandleResolveSession_FallbackProjectID(t *testing.T) {
 		t.Errorf("ProjectName = %q, want empty", resp.ProjectName)
 	}
 }
+
+func TestHandleGetSession_NotFound(t *testing.T) {
+	srv := newResolveTestServer(&testStore{
+		source:   thinkt.SourceClaude,
+		projects: nil,
+		sessions: nil,
+	})
+
+	escaped := url.PathEscape("/nonexistent/session.jsonl")
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions/"+escaped, nil)
+	w := httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+	if resp.Error != "session_not_found" {
+		t.Errorf("Error = %q, want %q", resp.Error, "session_not_found")
+	}
+}
