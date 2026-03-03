@@ -5,13 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"charm.land/lipgloss/v2"
+
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
 var teamsCmd = &cobra.Command{
@@ -99,15 +101,61 @@ func runTeamsList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-		thinktI18n.T("cmd.teams.header.team", "TEAM"),
-		thinktI18n.T("common.header.source", "SOURCE"),
-		thinktI18n.T("common.header.status", "STATUS"),
-		thinktI18n.T("cmd.teams.header.members", "MEMBERS"),
-		thinktI18n.T("cmd.teams.header.tasks", "TASKS"),
-		thinktI18n.T("cmd.teams.header.created", "CREATED"),
-		thinktI18n.T("cmd.teams.header.lastActivity", "LAST ACTIVITY"))
+	th := theme.Current()
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(th.GetAccent()))
+	primaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(th.TextPrimary.Fg))
+	secondaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(th.TextSecondary.Fg))
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(th.TextMuted.Fg))
+	accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(th.GetAccent()))
+
+	const gap = 2
+	colTeam := 4     // "TEAM"
+	colSource := 6   // "SOURCE"
+	colStatus := 6   // "STATUS"
+	colMembers := 7  // "MEMBERS"
+	colTasks := 5    // "TASKS"
+	colCreated := 12 // "Jan 02 15:04"
+
+	for _, s := range summaries {
+		if len(s.Name) > colTeam {
+			colTeam = len(s.Name)
+		}
+		if len(string(s.Source)) > colSource {
+			colSource = len(string(s.Source))
+		}
+		status := string(s.Status)
+		if status == "" {
+			status = "active"
+		}
+		if len(status) > colStatus {
+			colStatus = len(status)
+		}
+		members := fmt.Sprintf("%d", len(s.Members))
+		if len(members) > colMembers {
+			colMembers = len(members)
+		}
+		tasks := fmt.Sprintf("%d/%d/%d", s.TasksCompleted, s.TasksActive, s.TasksPending)
+		if len(tasks) > colTasks {
+			colTasks = len(tasks)
+		}
+	}
+	colTeam += gap
+	colSource += gap
+	colStatus += gap
+	colMembers += gap
+	colTasks += gap
+	colCreated += gap
+
+	col := func(s lipgloss.Style, w int) lipgloss.Style { return s.Width(w) }
+
+	fmt.Fprintf(os.Stdout, "%s%s%s%s%s%s%s\n",
+		col(headerStyle, colTeam).Render(thinktI18n.T("cmd.teams.header.team", "TEAM")),
+		col(headerStyle, colSource).Render(thinktI18n.T("common.header.source", "SOURCE")),
+		col(headerStyle, colStatus).Render(thinktI18n.T("common.header.status", "STATUS")),
+		col(headerStyle, colMembers).Render(thinktI18n.T("cmd.teams.header.members", "MEMBERS")),
+		col(headerStyle, colTasks).Render(thinktI18n.T("cmd.teams.header.tasks", "TASKS")),
+		col(headerStyle, colCreated).Render(thinktI18n.T("cmd.teams.header.created", "CREATED")),
+		headerStyle.Render(thinktI18n.T("cmd.teams.header.lastActivity", "LAST ACTIVITY")))
 
 	for _, s := range summaries {
 		status := string(s.Status)
@@ -125,11 +173,20 @@ func runTeamsList(cmd *cobra.Command, args []string) error {
 			lastActivity = s.LastActivity
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\t%s\n",
-			s.Name, s.Source, status, len(s.Members),
-			tasks, created, lastActivity)
+		statusStyle := mutedStyle
+		if status == "active" {
+			statusStyle = accentStyle
+		}
+
+		fmt.Fprintf(os.Stdout, "%s%s%s%s%s%s%s\n",
+			col(primaryStyle, colTeam).Render(s.Name),
+			col(secondaryStyle, colSource).Render(string(s.Source)),
+			col(statusStyle, colStatus).Render(status),
+			col(secondaryStyle, colMembers).Render(fmt.Sprintf("%d", len(s.Members))),
+			col(primaryStyle, colTasks).Render(tasks),
+			col(mutedStyle, colCreated).Render(created),
+			mutedStyle.Render(lastActivity))
 	}
-	w.Flush()
 
 	fmt.Println()
 	fmt.Println(thinktI18n.T("cmd.teams.tasksLegend", "Tasks: completed/active/pending"))

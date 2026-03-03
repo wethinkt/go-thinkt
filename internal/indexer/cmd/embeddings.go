@@ -8,9 +8,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"text/tabwriter"
+
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/hybridgroup/yzma/pkg/llama"
 	"github.com/spf13/cobra"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/tui"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
 var embeddingsCmd = &cobra.Command{
@@ -242,14 +244,48 @@ func printModelList(activeModel string) {
 		}
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintf(w, "  %s\t%s\t%s\t%s\t%s\t%s\n",
-		thinktI18n.T("indexer.embeddings.header.model", "MODEL"),
-		thinktI18n.T("indexer.embeddings.header.dim", "DIM"),
-		thinktI18n.T("indexer.embeddings.header.pooling", "POOLING"),
-		thinktI18n.T("indexer.embeddings.header.modelSize", "MODEL SIZE"),
-		thinktI18n.T("indexer.embeddings.header.sessions", "SESSIONS"),
-		thinktI18n.T("indexer.embeddings.header.dbSize", "DB SIZE"),
+	t := theme.Current()
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.GetAccent()))
+	primaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg))
+	secondaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg))
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
+	accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent()))
+
+	// Compute column widths from data to avoid tabwriter ANSI issues.
+	const gap = 2
+	notDownloaded := thinktI18n.T("indexer.embeddings.notDownloaded", "not downloaded")
+	colModel, colDim, colPool, colSize, colSess := 5, 3, 7, len(notDownloaded), 8
+	for _, id := range ids {
+		if len(id) > colModel {
+			colModel = len(id)
+		}
+		spec := embedding.KnownModels[id]
+		if d := len(fmt.Sprintf("%d", spec.Dim)); d > colDim {
+			colDim = d
+		}
+		pooling := "mean"
+		if spec.PoolingType != llama.PoolingTypeMean {
+			pooling = "last-token"
+		}
+		if len(pooling) > colPool {
+			colPool = len(pooling)
+		}
+	}
+	colModel += gap + 2 // +2 for "* " marker prefix
+	colDim += gap
+	colPool += gap
+	colSize += gap
+	colSess += gap
+
+	col := func(s lipgloss.Style, w int) lipgloss.Style { return s.Width(w) }
+
+	fmt.Fprintf(os.Stdout, "  %s%s%s%s%s%s\n",
+		col(headerStyle, colModel).Render(thinktI18n.T("indexer.embeddings.header.model", "MODEL")),
+		col(headerStyle, colDim).Render(thinktI18n.T("indexer.embeddings.header.dim", "DIM")),
+		col(headerStyle, colPool).Render(thinktI18n.T("indexer.embeddings.header.pooling", "POOLING")),
+		col(headerStyle, colSize).Render(thinktI18n.T("indexer.embeddings.header.modelSize", "MODEL SIZE")),
+		col(headerStyle, colSess).Render(thinktI18n.T("indexer.embeddings.header.sessions", "SESSIONS")),
+		headerStyle.Render(thinktI18n.T("indexer.embeddings.header.dbSize", "DB SIZE")),
 	)
 
 	for _, id := range ids {
@@ -259,25 +295,33 @@ func printModelList(activeModel string) {
 			pooling = "last-token"
 		}
 
-		modelSize := thinktI18n.T("indexer.embeddings.notDownloaded", "not downloaded")
+		modelSize := col(mutedStyle, colSize).Render(thinktI18n.T("indexer.embeddings.notDownloaded", "not downloaded"))
 		if size := modelFileSize(id); size >= 0 {
-			modelSize = formatBytes(size)
+			modelSize = col(secondaryStyle, colSize).Render(formatBytes(size))
 		}
 
-		sessionCol := "-"
-		dbSizeCol := "-"
+		sessionCol := col(mutedStyle, colSess).Render("-")
+		dbSizeCol := mutedStyle.Render("-")
 		if st, ok := embStats[id]; ok && st.Count > 0 {
-			sessionCol = fmt.Sprintf("%d", st.Sessions)
-			dbSizeCol = formatBytes(st.Size)
+			sessionCol = col(secondaryStyle, colSess).Render(fmt.Sprintf("%d", st.Sessions))
+			dbSizeCol = secondaryStyle.Render(formatBytes(st.Size))
 		}
 
 		marker := " "
+		nameStyle := primaryStyle
 		if id == activeModel {
-			marker = "*"
+			marker = accentStyle.Render("*")
+			nameStyle = accentStyle.Bold(true)
 		}
-		fmt.Fprintf(w, "%s %s\t%d\t%s\t%s\t%s\t%s\n", marker, id, spec.Dim, pooling, modelSize, sessionCol, dbSizeCol)
+		fmt.Fprintf(os.Stdout, "%s %s%s%s%s%s%s\n",
+			marker,
+			col(nameStyle, colModel).Render(id),
+			col(secondaryStyle, colDim).Render(fmt.Sprintf("%d", spec.Dim)),
+			col(secondaryStyle, colPool).Render(pooling),
+			modelSize,
+			sessionCol,
+			dbSizeCol)
 	}
-	w.Flush()
 }
 
 // modelFileSize returns the on-disk size for a model, or -1 if not downloaded.
@@ -441,57 +485,65 @@ var embeddingsStatusCmd = &cobra.Command{
 			return json.NewEncoder(os.Stdout).Encode(out)
 		}
 
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		t := theme.Current()
+		labelStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.GetAccent()))
+		valueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg))
+		mutedVal := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
+		accentVal := lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent()))
+		secondaryVal := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg))
 
-		enabled := thinktI18n.T("common.status.disabled", "disabled")
+		colLabel := 12 + 2 // "Embedding:" is longest label + gap
+		col := func(s lipgloss.Style, w int) lipgloss.Style { return s.Width(w) }
+
+		enabled := mutedVal.Render(thinktI18n.T("common.status.disabled", "disabled"))
 		if cfg.Embedding.Enabled {
-			enabled = thinktI18n.T("common.status.enabled", "enabled")
+			enabled = accentVal.Render(thinktI18n.T("common.status.enabled", "enabled"))
 		}
-		download := thinktI18n.T("indexer.embeddings.notDownloaded", "not downloaded")
+		download := mutedVal.Render(thinktI18n.T("indexer.embeddings.notDownloaded", "not downloaded"))
 		if modelDownloaded {
-			download = thinktI18n.T("indexer.embeddings.status.ready", "ready")
+			download = accentVal.Render(thinktI18n.T("indexer.embeddings.status.ready", "ready"))
 		}
 
-		fmt.Fprintf(w, "%s\t%s\n", thinktI18n.T("indexer.embeddings.status.embeddingLabel", "Embedding:"), enabled)
-		fmt.Fprintf(w, "%s\t%s (%d dim)\n", thinktI18n.T("indexer.embeddings.status.modelLabel", "Model:"), modelID, spec.Dim)
-		fmt.Fprintf(w, "%s\t%s\n", thinktI18n.T("indexer.embeddings.status.downloadLabel", "Download:"), download)
+		fmt.Fprintf(os.Stdout, "%s%s\n", col(labelStyle, colLabel).Render(thinktI18n.T("indexer.embeddings.status.embeddingLabel", "Embedding:")), enabled)
+		fmt.Fprintf(os.Stdout, "%s%s\n", col(labelStyle, colLabel).Render(thinktI18n.T("indexer.embeddings.status.modelLabel", "Model:")), valueStyle.Render(fmt.Sprintf("%s (%d dim)", modelID, spec.Dim)))
+		fmt.Fprintf(os.Stdout, "%s%s\n", col(labelStyle, colLabel).Render(thinktI18n.T("indexer.embeddings.status.downloadLabel", "Download:")), download)
 		if activeStats.Count == 0 {
-			fmt.Fprintf(w, "%s\t%s\n", thinktI18n.T("indexer.embeddings.status.storedLabel", "Stored:"), thinktI18n.T("indexer.embeddings.status.zeroEmbeddings", "0 embeddings"))
+			fmt.Fprintf(os.Stdout, "%s%s\n", col(labelStyle, colLabel).Render(thinktI18n.T("indexer.embeddings.status.storedLabel", "Stored:")), mutedVal.Render(thinktI18n.T("indexer.embeddings.status.zeroEmbeddings", "0 embeddings")))
 		} else {
 			stored := thinktI18n.Tf("indexer.embeddings.status.storedCount", "%d embeddings across %d sessions", activeStats.Count, activeStats.Sessions)
 			if activeStats.Size > 0 {
 				stored += fmt.Sprintf(" (%s)", formatBytes(activeStats.Size))
 			}
-			fmt.Fprintf(w, "%s\t%s\n", thinktI18n.T("indexer.embeddings.status.storedLabel", "Stored:"), stored)
-			fmt.Fprintf(w, " conversation:\t%d\n", activeStats.Conversation)
-			fmt.Fprintf(w, " reasoning:\t%d\n", activeStats.Reasoning)
+			fmt.Fprintf(os.Stdout, "%s%s\n", col(labelStyle, colLabel).Render(thinktI18n.T("indexer.embeddings.status.storedLabel", "Stored:")), valueStyle.Render(stored))
+			fmt.Fprintf(os.Stdout, " %s%s\n", col(secondaryVal, colLabel-1).Render("conversation:"), secondaryVal.Render(fmt.Sprintf("%d", activeStats.Conversation)))
+			fmt.Fprintf(os.Stdout, " %s%s\n", col(secondaryVal, colLabel-1).Render("reasoning:"), secondaryVal.Render(fmt.Sprintf("%d", activeStats.Reasoning)))
 		}
 
-		serverStatus := thinktI18n.T("indexer.embeddings.status.serverNotRunning", "not running")
+		serverStatus := mutedVal.Render(thinktI18n.T("indexer.embeddings.status.serverNotRunning", "not running"))
 		if serverRunning {
 			if serverModel != "" && serverModel != modelID {
-				serverStatus = thinktI18n.Tf("indexer.embeddings.status.serverRunningModel", "running (model: %s)", serverModel)
+				serverStatus = valueStyle.Render(thinktI18n.Tf("indexer.embeddings.status.serverRunningModel", "running (model: %s)", serverModel))
 			} else if serverEmbedding {
-				serverStatus = thinktI18n.T("indexer.embeddings.status.serverEmbedding", "embedding")
+				s := thinktI18n.T("indexer.embeddings.status.serverEmbedding", "embedding")
 				if embedProgress != nil {
-					serverStatus += fmt.Sprintf(" %d/%d sessions", embedProgress.Done, embedProgress.Total)
+					s += fmt.Sprintf(" %d/%d sessions", embedProgress.Done, embedProgress.Total)
 					if embedProgress.ChunksTotal > 0 {
-						serverStatus += fmt.Sprintf("  %d/%d chunks", embedProgress.ChunksDone, embedProgress.ChunksTotal)
+						s += fmt.Sprintf("  %d/%d chunks", embedProgress.ChunksDone, embedProgress.ChunksTotal)
 					}
 					if embedProgress.SessionID != "" {
 						sid := embedProgress.SessionID
 						if len(sid) > 8 {
 							sid = sid[:8]
 						}
-						serverStatus += fmt.Sprintf(" [%s]", sid)
+						s += fmt.Sprintf(" [%s]", sid)
 					}
 				}
+				serverStatus = accentVal.Render(s)
 			} else {
-				serverStatus = thinktI18n.T("indexer.embeddings.status.serverIdle", "idle")
+				serverStatus = valueStyle.Render(thinktI18n.T("indexer.embeddings.status.serverIdle", "idle"))
 			}
 		}
-		fmt.Fprintf(w, "%s\t%s\n", thinktI18n.T("indexer.embeddings.status.serverLabel", "Server:"), serverStatus)
-		w.Flush()
+		fmt.Fprintf(os.Stdout, "%s%s\n", col(labelStyle, colLabel).Render(thinktI18n.T("indexer.embeddings.status.serverLabel", "Server:")), serverStatus)
 
 		return nil
 	},

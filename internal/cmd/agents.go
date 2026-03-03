@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -122,8 +121,54 @@ func runAgentsList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(w, "STATUS\tSOURCE\tPROJECT\tSESSION\tMACHINE\tAGE")
+	t := theme.Current()
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.GetAccent()))
+	primaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg))
+	secondaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg))
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
+	accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent()))
+
+	const gap = 2
+	colStatus := 6  // "STATUS"
+	colSource := 6  // "SOURCE"
+	colProject := 7 // "PROJECT"
+	colSession := 8 // "SESSION" (always 8 chars after truncation)
+	colMachine := 7 // "MACHINE"
+	for _, a := range list {
+		if len(string(a.Status)) > colStatus {
+			colStatus = len(string(a.Status))
+		}
+		if len(string(a.Source)) > colSource {
+			colSource = len(string(a.Source))
+		}
+		project := shortenPathCLI(a.ProjectPath)
+		if len(project) > colProject {
+			colProject = len(project)
+		}
+		machine := a.MachineName
+		if machine == "" {
+			machine = a.Hostname
+		}
+		if len(machine) > colMachine {
+			colMachine = len(machine)
+		}
+	}
+	colStatus += gap
+	colSource += gap
+	colProject += gap
+	colSession += gap
+	colMachine += gap
+
+	col := func(s lipgloss.Style, w int) lipgloss.Style { return s.Width(w) }
+
+	fmt.Fprintf(os.Stdout, "%s%s%s%s%s%s\n",
+		col(headerStyle, colStatus).Render("STATUS"),
+		col(headerStyle, colSource).Render("SOURCE"),
+		col(headerStyle, colProject).Render("PROJECT"),
+		col(headerStyle, colSession).Render("SESSION"),
+		col(headerStyle, colMachine).Render("MACHINE"),
+		headerStyle.Render("AGE"))
+
 	for _, a := range list {
 		sessionID := a.SessionID
 		if len(sessionID) > 8 {
@@ -135,10 +180,21 @@ func runAgentsList(cmd *cobra.Command, args []string) error {
 		if machine == "" {
 			machine = a.Hostname
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
-			a.Status, a.Source, project, sessionID, machine, age)
+
+		statusStyle := mutedStyle
+		if a.Status == "active" {
+			statusStyle = accentStyle
+		}
+
+		fmt.Fprintf(os.Stdout, "%s%s%s%s%s%s\n",
+			col(statusStyle, colStatus).Render(string(a.Status)),
+			col(secondaryStyle, colSource).Render(string(a.Source)),
+			col(primaryStyle, colProject).Render(project),
+			col(mutedStyle, colSession).Render(sessionID),
+			col(secondaryStyle, colMachine).Render(machine),
+			mutedStyle.Render(age))
 	}
-	return w.Flush()
+	return nil
 }
 
 // followModel wraps AgentTailModel for standalone CLI usage,

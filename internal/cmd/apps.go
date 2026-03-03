@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"text/tabwriter"
 
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
@@ -97,28 +96,45 @@ func runAppsList(cmd *cobra.Command, args []string) error {
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
 	accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent()))
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-		headerStyle.Render(thinktI18n.T("cmd.apps.header.id", "ID")),
-		headerStyle.Render(thinktI18n.T("cmd.apps.header.name", "NAME")),
-		headerStyle.Render(thinktI18n.T("cmd.apps.header.enabled", "ENABLED")),
+	// Use lipgloss Width() instead of tabwriter to handle ANSI correctly.
+	const gap = 2
+	colID := 2
+	colName := 4
+	for _, app := range cfg.AllowedApps {
+		if len(app.ID) > colID {
+			colID = len(app.ID)
+		}
+		if len(app.Name) > colName {
+			colName = len(app.Name)
+		}
+	}
+	colID += gap
+	colName += gap
+	colEnabled := 7 + gap // "ENABLED"
+
+	col := func(s lipgloss.Style, w int) lipgloss.Style { return s.Width(w) }
+
+	fmt.Fprintf(os.Stdout, "%s%s%s%s\n",
+		col(headerStyle, colID).Render(thinktI18n.T("cmd.apps.header.id", "ID")),
+		col(headerStyle, colName).Render(thinktI18n.T("cmd.apps.header.name", "NAME")),
+		col(headerStyle, colEnabled).Render(thinktI18n.T("cmd.apps.header.enabled", "ENABLED")),
 		headerStyle.Render(thinktI18n.T("cmd.apps.header.terminal", "TERMINAL")))
 	for _, app := range cfg.AllowedApps {
-		enabled := mutedStyle.Render(thinktI18n.T("common.no", "no"))
+		enabled := col(mutedStyle, colEnabled).Render(thinktI18n.T("common.no", "no"))
 		if app.Enabled {
-			enabled = accentStyle.Render(thinktI18n.T("common.yes", "yes"))
+			enabled = col(accentStyle, colEnabled).Render(thinktI18n.T("common.yes", "yes"))
 		}
 		terminal := mutedStyle.Render(thinktI18n.T("common.no", "no"))
 		if len(app.ExecRun) > 0 {
 			terminal = accentStyle.Render(thinktI18n.T("common.yes", "yes"))
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-			secondaryStyle.Render(app.ID),
-			primaryStyle.Render(app.Name),
+		fmt.Fprintf(os.Stdout, "%s%s%s%s\n",
+			col(secondaryStyle, colID).Render(app.ID),
+			col(primaryStyle, colName).Render(app.Name),
 			enabled,
 			terminal)
 	}
-	return w.Flush()
+	return nil
 }
 
 func runAppsEnable(cmd *cobra.Command, args []string) error {

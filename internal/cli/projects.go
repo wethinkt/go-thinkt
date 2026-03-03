@@ -9,10 +9,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"text/tabwriter"
 	"text/template"
 
+	"charm.land/lipgloss/v2"
+
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
 // DefaultSummaryTemplate is the default template for project summaries.
@@ -104,7 +106,38 @@ func (f *ProjectsFormatter) FormatShort(projects []thinkt.Project) error {
 
 // FormatVerbose writes project paths with source and metadata in aligned columns.
 func (f *ProjectsFormatter) FormatVerbose(projects []thinkt.Project) error {
-	w := tabwriter.NewWriter(f.w, 0, 0, 2, ' ', 0)
+	t := theme.Current()
+	primaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg))
+	secondaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg))
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
+
+	const gap = 2
+	colPath := 4   // minimum
+	colSource := 6 // "[claude]"
+	colSess := 10  // "N sessions"
+
+	for _, p := range projects {
+		path := p.Path
+		if path == "" {
+			path = "~"
+		}
+		if len(path) > colPath {
+			colPath = len(path)
+		}
+		source := fmt.Sprintf("[%s]", p.Source)
+		if len(source) > colSource {
+			colSource = len(source)
+		}
+		sessions := fmt.Sprintf("%d sessions", p.SessionCount)
+		if len(sessions) > colSess {
+			colSess = len(sessions)
+		}
+	}
+	colPath += gap
+	colSource += gap
+	colSess += gap
+
+	col := func(s lipgloss.Style, w int) lipgloss.Style { return s.Width(w) }
 
 	for _, p := range projects {
 		path := p.Path
@@ -112,13 +145,9 @@ func (f *ProjectsFormatter) FormatVerbose(projects []thinkt.Project) error {
 			path = "~"
 		}
 
-		// Format source with color-friendly indicators
-		source := string(p.Source)
-
-		// Format session count
+		source := fmt.Sprintf("[%s]", p.Source)
 		sessions := fmt.Sprintf("%d sessions", p.SessionCount)
 
-		// Format last modified time
 		var modified string
 		if !p.LastModified.IsZero() {
 			modified = p.LastModified.Format("2006-01-02 15:04")
@@ -126,10 +155,14 @@ func (f *ProjectsFormatter) FormatVerbose(projects []thinkt.Project) error {
 			modified = "-"
 		}
 
-		fmt.Fprintf(w, "%s\t[%s]\t%s\t%s\n", path, source, sessions, modified)
+		fmt.Fprintf(f.w, "%s%s%s%s\n",
+			col(primaryStyle, colPath).Render(path),
+			col(secondaryStyle, colSource).Render(source),
+			col(secondaryStyle, colSess).Render(sessions),
+			mutedStyle.Render(modified))
 	}
 
-	return w.Flush()
+	return nil
 }
 
 // FormatJSON writes projects as JSON.
