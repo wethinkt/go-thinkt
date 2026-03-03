@@ -362,6 +362,15 @@ func (s *Store) listSessionStubsForHash(hash string) ([]thinkt.SessionMeta, erro
 			continue
 		}
 
+		// Use the session directory mtime as a proxy for creation time
+		// (it's created once and rarely modified), while the context
+		// file mtime reflects the last write.
+		dirInfo, _ := entry.Info()
+		createdAt := info.ModTime()
+		if dirInfo != nil {
+			createdAt = dirInfo.ModTime()
+		}
+
 		// Count chunks (context_sub_*.jsonl files)
 		chunkCount := countChunks(sessionPath)
 
@@ -370,7 +379,7 @@ func (s *Store) listSessionStubsForHash(hash string) ([]thinkt.SessionMeta, erro
 			ProjectPath: hash,
 			FullPath:    contextPath,
 			FileSize:    info.Size(),
-			CreatedAt:   info.ModTime(),
+			CreatedAt:   createdAt,
 			ModifiedAt:  info.ModTime(),
 			Source:      thinkt.SourceKimi,
 			WorkspaceID: ws.ID,
