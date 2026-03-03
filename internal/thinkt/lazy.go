@@ -3,6 +3,7 @@ package thinkt
 import (
 	"io"
 	"sync"
+	"sync/atomic"
 )
 
 // GenericLazySession wraps any SessionReader to provide lazy loading capabilities.
@@ -19,6 +20,9 @@ type GenericLazySession struct {
 	// Reader state
 	reader      SessionReader
 	fullyLoaded bool
+
+	// Background line count for progress estimation
+	totalEntries atomic.Int64 // 0 = unknown/scanning, >0 = known
 }
 
 // NewLazySession creates a new lazy session wrapper around a SessionReader.
@@ -34,6 +38,17 @@ func NewLazySession(reader SessionReader) (*GenericLazySession, error) {
 	if err := ls.loadUntilBytes(8 * 1024); err != nil && err != io.EOF {
 		reader.Close()
 		return nil, err
+	}
+
+	// Start background line count for accurate progress estimation
+	if !ls.fullyLoaded && ls.Meta.FullPath != "" {
+		path := ls.Meta.FullPath
+		go func() {
+			n, err := CountLines(path)
+			if err == nil && n > 0 {
+				ls.totalEntries.Store(int64(n))
+			}
+		}()
 	}
 
 	return ls, nil
@@ -157,7 +172,7 @@ func (ls *GenericLazySession) LoadAll() error {
 }
 
 // Progress returns the percentage of content loaded (0.0 to 1.0).
-// For files, this is based on entry count vs the metadata entry count.
+// Uses background line count when available, falls back to metadata entry count.
 // Returns 1.0 if fully loaded.
 func (ls *GenericLazySession) Progress() float64 {
 	ls.mu.Lock()
@@ -165,6 +180,10 @@ func (ls *GenericLazySession) Progress() float64 {
 
 	if ls.fullyLoaded {
 		return 1.0
+	}
+
+	if total := ls.totalEntries.Load(); total > 0 {
+		return float64(len(ls.entries)) / float64(total)
 	}
 
 	if ls.Meta.EntryCount > 0 {

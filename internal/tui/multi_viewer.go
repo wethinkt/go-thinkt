@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
@@ -57,6 +58,12 @@ type MultiViewerModel struct {
 	searchMatches []int           // line numbers (0-indexed) of matches
 	currentMatch  int             // index into searchMatches (-1 = none)
 
+	// Mouse selection state (line-based).
+	selecting          bool
+	selectionStartLine int
+	selectionEndLine   int
+	copyNotice         string
+
 	// Input settling: ignore key events until a real render has occurred.
 	// This prevents stray terminal escape sequences (from Kitty keyboard
 	// protocol queries, cursor position reports, etc.) from being interpreted
@@ -100,6 +107,8 @@ func NewMultiViewerModelWithRegistry(sessionPaths []string, registry *thinkt.Sto
 		displayedEntries: make([]int, len(sessionPaths)),
 		renderBuffer:     50, // Render 50 extra lines beyond viewport
 		filters:          NewRoleFilterSet(),
+		selectionStartLine: -1,
+		selectionEndLine:   -1,
 	}
 }
 
@@ -430,11 +439,38 @@ func (m *MultiViewerModel) invalidateCache() tea.Cmd {
 
 // setViewportContent sets the viewport content, applying search highlighting if active.
 func (m *MultiViewerModel) setViewportContent() {
+	var content string
 	if m.searchQuery != "" && len(m.searchMatches) > 0 {
-		m.viewport.SetContent(m.buildHighlightedContent())
+		content = m.buildHighlightedContent()
 	} else {
-		m.viewport.SetContent(m.rendered)
+		content = m.rendered
 	}
+	if start, end, ok := m.selectedLineRange(); ok {
+		content = highlightSelectedLines(content, start, end)
+	}
+	m.viewport.SetContent(content)
+}
+
+func highlightSelectedLines(content string, startLine, endLine int) string {
+	lines := strings.Split(content, "\n")
+	if len(lines) == 0 {
+		return content
+	}
+
+	if startLine < 0 {
+		startLine = 0
+	}
+	if endLine >= len(lines) {
+		endLine = len(lines) - 1
+	}
+	if startLine > endLine {
+		return content
+	}
+
+	for i := startLine; i <= endLine; i++ {
+		lines[i] = "\033[7m" + lines[i] + "\033[27m"
+	}
+	return strings.Join(lines, "\n")
 }
 
 // buildHighlightedContent returns m.rendered with search matches highlighted.
@@ -1106,11 +1142,40 @@ type scrollbarClickMsg struct {
 // scrollbarWidth is the fixed width of the scrollbar gutter.
 const scrollbarWidth = 1
 
+// estimateOverallProgress returns the average loading progress across all sessions.
+// Returns 0 if no sessions have progress data.
+func (m MultiViewerModel) estimateOverallProgress() float64 {
+	var totalProgress float64
+	var count int
+	for _, s := range m.sessions {
+		if s != nil {
+			p := s.Progress()
+			if p > 0 {
+				totalProgress += p
+				count++
+			}
+		}
+	}
+	if count == 0 {
+		return 0
+	}
+	return totalProgress / float64(count)
+}
+
 // renderScrollbar returns a single-column string showing the scrollbar.
 // Returns "" if there's not enough content to scroll.
 func (m MultiViewerModel) renderScrollbar(height int) string {
 	totalLines := m.viewport.TotalLineCount()
 	visibleLines := m.viewport.VisibleLineCount()
+
+	// Estimate true total from session progress when lazily loading
+	if m.hasMoreData {
+		progress := m.estimateOverallProgress()
+		if progress > 0 && progress < 1.0 {
+			totalLines = int(float64(totalLines) / progress)
+		}
+	}
+
 	if totalLines <= visibleLines || height < 3 {
 		return ""
 	}
@@ -1123,8 +1188,14 @@ func (m MultiViewerModel) renderScrollbar(height int) string {
 		return ""
 	}
 
-	// Thumb position
+	// Thumb position: scale viewport scroll by progress to reflect position in full file
 	scrollPct := m.viewport.ScrollPercent()
+	if m.hasMoreData {
+		progress := m.estimateOverallProgress()
+		if progress > 0 && progress < 1.0 {
+			scrollPct *= progress
+		}
+	}
 	maxThumbTop := trackHeight - thumbSize
 	thumbTop := int(float64(maxThumbTop) * scrollPct)
 
@@ -1179,8 +1250,14 @@ func (m MultiViewerModel) viewContent() string {
 		inputView := m.searchInput.View()
 		footer = prompt + inputView
 	} else {
-		scrollPercent := m.viewport.ScrollPercent() * 100
-		position := viewerInfoStyle.Render(fmt.Sprintf("%3.0f%%", scrollPercent))
+		scrollPercent := m.viewport.ScrollPercent()
+		if m.hasMoreData {
+			progress := m.estimateOverallProgress()
+			if progress > 0 && progress < 1.0 {
+				scrollPercent *= progress
+			}
+		}
+		position := viewerInfoStyle.Render(fmt.Sprintf("%3.0f%%", scrollPercent*100))
 
 		var helpText string
 		if m.searchQuery != "" && len(m.searchMatches) > 0 {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/jsonl"
@@ -34,6 +35,9 @@ type LazySession struct {
 	bytesRead    int64
 	fullyLoaded  bool
 	contentBytes int // estimated displayable content loaded
+
+	// Background line count for progress estimation
+	totalEntries atomic.Int64 // 0 = unknown/scanning, >0 = known
 }
 
 // OpenLazySession opens a session file and preloads metadata.
@@ -56,6 +60,16 @@ func OpenLazySession(path string) (*LazySession, error) {
 	if err := ls.loadUntilBytes(8 * 1024); err != nil && err != io.EOF {
 		reader.Close()
 		return nil, err
+	}
+
+	// Start background line count for accurate progress estimation
+	if !ls.fullyLoaded {
+		go func() {
+			n, err := thinkt.CountLines(path)
+			if err == nil && n > 0 {
+				ls.totalEntries.Store(int64(n))
+			}
+		}()
 	}
 
 	return ls, nil
@@ -181,9 +195,17 @@ func (ls *LazySession) BytesRead() int64 {
 }
 
 // Progress returns the percentage of file read (0.0 to 1.0).
+// Uses background line count when available, falls back to byte-based progress.
 func (ls *LazySession) Progress() float64 {
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
+	if ls.fullyLoaded {
+		return 1.0
+	}
+	if total := ls.totalEntries.Load(); total > 0 {
+		return float64(len(ls.entries)) / float64(total)
+	}
+	// Fallback to byte-based progress
 	if ls.FileSize == 0 {
 		return 1.0
 	}
