@@ -986,185 +986,185 @@ other = "Seleccionar fuentes"
 
 # --- Discover wizard ---
 
-[tui.discover.welcome.title]
+[tui.setup.welcome.title]
 other = "thinkt"
 
-[tui.discover.welcome.header]
+[tui.setup.welcome.header]
 other = "Bienvenido a 🧠 thinkt"
 
-[tui.discover.welcome.tagline]
+[tui.setup.welcome.tagline]
 other = "Tus sesiones de codificación con IA, indexadas y buscables."
 
-[tui.discover.welcome.context]
+[tui.setup.welcome.context]
 other = "Esta guía de configuración se mantiene en línea en tu terminal y aplica los cambios cuando finalizas."
 
-[tui.discover.welcome.body]
+[tui.setup.welcome.body]
 other = "thinkt indexa y busca las trazas de razonamiento dejadas por tus\nasistentes de codificación IA (Claude, Kimi, Gemini y otros), para que\ntú y tus herramientas puedan aprender de conversaciones pasadas."
 
-[tui.discover.welcome.selectLanguage]
+[tui.setup.welcome.selectLanguage]
 other = "Selecciona tu idioma:"
 
-[tui.discover.welcome.prompt]
+[tui.setup.welcome.prompt]
 other = "↑/↓: idioma · Enter: comenzar · esc: salir"
 
-[tui.discover.hint.useCLICommand]
+[tui.setup.hint.useCLICommand]
 other = "usar comando CLI:"
 
-[tui.discover.confirm.help]
+[tui.setup.confirm.help]
 other = "↑/↓ o tab: seleccionar · Y/N: elegir · Enter: confirmar · esc: salir"
 
-[tui.discover.context.languageLabel]
+[tui.setup.context.languageLabel]
 other = "Idioma:"
 
-[tui.discover.context.homeDirLabel]
+[tui.setup.context.homeDirLabel]
 other = "Directorio de inicio:"
 
-[tui.discover.context.sourcesLabel]
+[tui.setup.context.sourcesLabel]
 other = "Fuentes:"
 
-[tui.discover.context.sourcesDiscovered]
+[tui.setup.context.sourcesDiscovered]
 other = "%d detectadas"
 
-[tui.discover.context.sourcesDiscoveredEnabled]
+[tui.setup.context.sourcesDiscoveredEnabled]
 other = "%d detectadas, %d habilitadas"
 
-[tui.discover.context.indexerLabel]
+[tui.setup.context.indexerLabel]
 other = "Indexador:"
 
-[tui.discover.context.embeddingsLabel]
+[tui.setup.context.embeddingsLabel]
 other = "Embeddings:"
 
-[tui.discover.home.title]
+[tui.setup.home.title]
 other = "Directorio de inicio"
 
-[tui.discover.home.body]
+[tui.setup.home.body]
 other = "thinkt almacena su configuración e índice en:"
 
-[tui.discover.home.prompt]
+[tui.setup.home.prompt]
 other = "¿Crear este directorio?"
 
-[tui.discover.home.no]
+[tui.setup.home.no]
 other = "No, salir"
 
-[tui.discover.home.envHint]
+[tui.setup.home.envHint]
 other = "Usa la variable de entorno THINKT_HOME para elegir otra ubicación."
 
-[tui.discover.sources.title]
+[tui.setup.sources.title]
 other = "Descubrimiento de fuentes"
 
-[tui.discover.sources.scanning]
+[tui.setup.sources.scanning]
 other = "Buscando fuentes de sesiones de IA..."
 
-[tui.discover.sources.none]
+[tui.setup.sources.none]
 other = "No se encontraron sesiones de asistentes de IA en esta máquina."
 
-[tui.discover.sources.noneHelp]
+[tui.setup.sources.noneHelp]
 other = "Enter: continuar · esc: salir"
 
-[tui.discover.sources.consent]
+[tui.setup.sources.consent]
 other = "thinkt encuentra conversaciones escaneando rutas conocidas en tu\n  directorio home (ej., ~/.claude/projects/, ~/.kimi/sessions/).\n  Lee los registros de sesión pero nunca los modifica ni elimina."
 
-[tui.discover.sources.oneByOne]
+[tui.setup.sources.oneByOne]
 other = "Revisar cada fuente individualmente"
 
-[tui.discover.sources.all]
+[tui.setup.sources.all]
 other = "Habilitar todas las fuentes"
 
-[tui.discover.sources.disableAll]
+[tui.setup.sources.disableAll]
 other = "Deshabilitar todas las fuentes"
 
-[tui.discover.sources.exitNoSave]
+[tui.setup.sources.exitNoSave]
 other = "Salir sin guardar"
 
-[tui.discover.sources.consentHelp]
+[tui.setup.sources.consentHelp]
 other = "↑/↓: seleccionar · 1-4: elegir · Enter: confirmar · esc: salir"
 
-[tui.discover.approval.title]
+[tui.setup.approval.title]
 other = "Aprobación de fuente"
 
-[tui.discover.approval.path]
+[tui.setup.approval.path]
 other = "Ruta:"
 
-[tui.discover.approval.sessions]
+[tui.setup.approval.sessions]
 other = "Sesiones:"
 
-[tui.discover.approval.size]
+[tui.setup.approval.size]
 other = "Tamaño:"
 
-[tui.discover.approval.range]
+[tui.setup.approval.range]
 other = "Rango:"
 
-[tui.discover.approval.prompt]
+[tui.setup.approval.prompt]
 other = "¿Habilitar esta fuente?"
 
-[tui.discover.summary.title]
+[tui.setup.summary.title]
 other = "Resumen de fuentes"
 
-[tui.discover.summary.total]
+[tui.setup.summary.total]
 other = "Total:"
 
-[tui.discover.summary.noneApproved]
+[tui.setup.summary.noneApproved]
 other = "Ninguna fuente habilitada."
 
-[tui.discover.summary.continue]
+[tui.setup.summary.continue]
 other = "Enter: continuar · esc: salir"
 
-[tui.discover.indexer.title]
+[tui.setup.indexer.title]
 other = "Indexador"
 
-[tui.discover.indexer.body]
+[tui.setup.indexer.body]
 other = "thinkt incluye un indexador en segundo plano que vigila tus archivos\n  de sesión y construye una base de datos con búsqueda (DuckDB). Esto\n  permite búsqueda de texto completo en todas tus conversaciones."
 
-[tui.discover.indexer.resources]
+[tui.setup.indexer.resources]
 other = "Recursos: ~50 MB de disco para el índice, CPU mínimo."
 
-[tui.discover.indexer.reversible]
+[tui.setup.indexer.reversible]
 other = "Reversible:"
 
-[tui.discover.indexer.prompt]
+[tui.setup.indexer.prompt]
 other = "¿Activar el indexador?"
 
-[tui.discover.embeddings.title]
+[tui.setup.embeddings.title]
 other = "Embeddings"
 
-[tui.discover.embeddings.body]
+[tui.setup.embeddings.body]
 other = "thinkt puede generar embeddings para búsqueda semántica — encontrar\n  conversaciones por significado, no solo por palabras clave."
 
-[tui.discover.embeddings.resources]
+[tui.setup.embeddings.resources]
 other = "Requiere descargar un modelo (~70 MB) y usa tu GPU\n  (o CPU como respaldo) para generar embeddings."
 
-[tui.discover.embeddings.reversible]
+[tui.setup.embeddings.reversible]
 other = "Reversible:"
 
-[tui.discover.embeddings.prompt]
+[tui.setup.embeddings.prompt]
 other = "¿Activar embeddings?"
 
-[tui.discover.suggestions.title]
+[tui.setup.suggestions.title]
 other = "¡Configuración completada!"
 
-[tui.discover.suggestions.summary]
+[tui.setup.suggestions.summary]
 other = "Resumen de configuración:"
 
-[tui.discover.suggestions.disabled]
+[tui.setup.suggestions.disabled]
 other = "deshabilitado"
 
-[tui.discover.suggestions.enabled]
+[tui.setup.suggestions.enabled]
 other = "habilitado"
 
-[tui.discover.suggestions.next]
+[tui.setup.suggestions.next]
 other = "Prueba estos comandos:"
 
-[tui.discover.suggestions.cmdWatch]
+[tui.setup.suggestions.cmdWatch]
 other = "Comenzar a indexar sesiones"
 
-[tui.discover.suggestions.cmdSearch]
+[tui.setup.suggestions.cmdSearch]
 other = "Buscar en tus sesiones"
 
-[tui.discover.suggestions.cmdTui]
+[tui.setup.suggestions.cmdTui]
 other = "Abrir el explorador interactivo"
 
-[tui.discover.suggestions.cmdEmbed]
+[tui.setup.suggestions.cmdEmbed]
 other = "Habilitar búsqueda semántica después"
 
-[tui.discover.suggestions.done]
+[tui.setup.suggestions.done]
 other = "Enter: finalizar · esc: salir"

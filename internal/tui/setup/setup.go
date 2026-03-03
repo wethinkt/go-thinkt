@@ -1,8 +1,8 @@
-// Package discover implements the first-run setup wizard TUI for thinkt.
+// Package setup implements the first-run setup wizard TUI for thinkt.
 //
 // It guides the user through language selection, home directory creation,
 // source discovery, indexer configuration, and embedding setup.
-package discover
+package setup
 
 import (
 	"context"
@@ -33,8 +33,8 @@ const (
 )
 
 const (
-	discoverMinWidth = 48
-	discoverMaxWidth = 96
+	setupMinWidth = 48
+	setupMaxWidth = 96
 )
 
 // sourceMode controls how sources are approved.
@@ -52,7 +52,7 @@ type sourceResult struct {
 	Approved bool
 }
 
-// Result holds the final output of the discover wizard.
+// Result holds the final output of the setup wizard.
 type Result struct {
 	Language   string
 	HomeDir    string
@@ -70,7 +70,7 @@ type sourceDiscoveredMsg struct {
 // scanCompleteMsg signals that all sources have been scanned.
 type scanCompleteMsg struct{}
 
-// Model is the BubbleTea model for the discover wizard.
+// Model is the BubbleTea model for the setup wizard.
 type Model struct {
 	step   step
 	width  int
@@ -103,7 +103,7 @@ type Model struct {
 	primary string
 }
 
-// New creates a new discover wizard model.
+// New creates a new setup wizard model.
 func New(factories []thinkt.StoreFactory) Model {
 	t := theme.Current()
 	langs := thinktI18n.AvailableLanguages(thinktI18n.ActiveTag())
@@ -237,7 +237,7 @@ func (m Model) View() tea.View {
 		content = strings.Join(lines, "\n")
 	}
 	if m.height > 0 {
-		// Discover renders in the primary screen buffer, so keep output within a
+		// Setup renders in the primary screen buffer, so keep output within a
 		// fixed top-aligned viewport and reserve one row at the bottom. This helps
 		// avoid terminal scrollback drift when content updates near full height.
 		viewHeight := m.height
@@ -307,7 +307,7 @@ func (m Model) renderCLIHint(cmd string) string {
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.muted))
 	codeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.accent))
 	return fmt.Sprintf("  %s  %s",
-		mutedStyle.Render(thinktI18n.T("tui.discover.hint.useCLICommand", "use CLI command:")),
+		mutedStyle.Render(thinktI18n.T("tui.setup.hint.useCLICommand", "use CLI command:")),
 		codeStyle.Render(cmd),
 	)
 }
@@ -368,14 +368,14 @@ func (m Model) renderStickyContext() string {
 
 	if lang := m.selectedLanguageSummary(); lang != "" {
 		lines = append(lines, fmt.Sprintf("  %s %s",
-			labelStyle.Render(thinktI18n.T("tui.discover.context.languageLabel", "Language:")),
+			labelStyle.Render(thinktI18n.T("tui.setup.context.languageLabel", "Language:")),
 			valueStyle.Render(lang),
 		))
 	}
 
 	if m.result.HomeDir != "" {
 		lines = append(lines, fmt.Sprintf("  %s %s",
-			labelStyle.Render(thinktI18n.T("tui.discover.context.homeDirLabel", "Home Dir:")),
+			labelStyle.Render(thinktI18n.T("tui.setup.context.homeDirLabel", "Home Dir:")),
 			valueStyle.Render(m.result.HomeDir),
 		))
 	}
@@ -388,39 +388,39 @@ func (m Model) renderStickyContext() string {
 				enabled++
 			}
 		}
-		sourceSummary := thinktI18n.Tf("tui.discover.context.sourcesDiscovered", "%d discovered", discovered)
+		sourceSummary := thinktI18n.Tf("tui.setup.context.sourcesDiscovered", "%d discovered", discovered)
 		if m.scanDone && discovered > 0 {
 			sourceSummary = thinktI18n.Tf(
-				"tui.discover.context.sourcesDiscoveredEnabled",
+				"tui.setup.context.sourcesDiscoveredEnabled",
 				"%d discovered, %d enabled",
 				discovered,
 				enabled,
 			)
 		}
 		lines = append(lines, fmt.Sprintf("  %s %s",
-			labelStyle.Render(thinktI18n.T("tui.discover.context.sourcesLabel", "Sources:")),
+			labelStyle.Render(thinktI18n.T("tui.setup.context.sourcesLabel", "Sources:")),
 			valueStyle.Render(sourceSummary),
 		))
 	}
 
 	if m.step > stepIndexer {
-		indexerStatus := thinktI18n.T("tui.discover.suggestions.disabled", "disabled")
+		indexerStatus := thinktI18n.T("tui.setup.suggestions.disabled", "disabled")
 		if m.result.Indexer {
-			indexerStatus = thinktI18n.T("tui.discover.suggestions.enabled", "enabled")
+			indexerStatus = thinktI18n.T("tui.setup.suggestions.enabled", "enabled")
 		}
 		lines = append(lines, fmt.Sprintf("  %s %s",
-			labelStyle.Render(thinktI18n.T("tui.discover.context.indexerLabel", "Indexer:")),
+			labelStyle.Render(thinktI18n.T("tui.setup.context.indexerLabel", "Indexer:")),
 			valueStyle.Render(indexerStatus),
 		))
 	}
 
 	if m.step > stepEmbeddings {
-		embeddingStatus := thinktI18n.T("tui.discover.suggestions.disabled", "disabled")
+		embeddingStatus := thinktI18n.T("tui.setup.suggestions.disabled", "disabled")
 		if m.result.Embeddings {
-			embeddingStatus = thinktI18n.T("tui.discover.suggestions.enabled", "enabled")
+			embeddingStatus = thinktI18n.T("tui.setup.suggestions.enabled", "enabled")
 		}
 		lines = append(lines, fmt.Sprintf("  %s %s",
-			labelStyle.Render(thinktI18n.T("tui.discover.context.embeddingsLabel", "Embeddings:")),
+			labelStyle.Render(thinktI18n.T("tui.setup.context.embeddingsLabel", "Embeddings:")),
 			valueStyle.Render(embeddingStatus),
 		))
 	}
@@ -429,7 +429,7 @@ func (m Model) renderStickyContext() string {
 }
 
 func (m Model) welcomeHeader() string {
-	return thinktI18n.T("tui.discover.welcome.header", "Welcome to 🧠 thinkt")
+	return thinktI18n.T("tui.setup.welcome.header", "Welcome to 🧠 thinkt")
 }
 
 func (m Model) selectedLanguageSummary() string {
@@ -491,7 +491,7 @@ func (m Model) renderVerticalConfirm(noLabel ...string) string {
 	hotkeyDim := lipgloss.NewStyle().Foreground(lipgloss.Color(m.muted))
 	help := lipgloss.NewStyle().Foreground(lipgloss.Color(m.muted))
 
-	helpText := thinktI18n.T("tui.discover.confirm.help",
+	helpText := thinktI18n.T("tui.setup.confirm.help",
 		"↑/↓ or tab: select · Y/N: choose · Enter: confirm · esc: exit")
 	helpRendered := "  " + help.Render(m.withEscQ(helpText))
 
@@ -517,14 +517,14 @@ func (m Model) renderVerticalConfirm(noLabel ...string) string {
 // inlineWidth returns a readable content width for inline, non-fullscreen rendering.
 func (m Model) inlineWidth() int {
 	if m.width <= 0 {
-		return discoverMaxWidth
+		return setupMaxWidth
 	}
 	w := m.width - 2
-	if w < discoverMinWidth {
+	if w < setupMinWidth {
 		return w
 	}
-	if w > discoverMaxWidth {
-		return discoverMaxWidth
+	if w > setupMaxWidth {
+		return setupMaxWidth
 	}
 	return w
 }

@@ -1,4 +1,4 @@
-package discover
+package setup
 
 import (
 	"reflect"
@@ -246,8 +246,8 @@ func TestInlineWidth(t *testing.T) {
 		width int
 		want  int
 	}{
-		{name: "unknown width uses max", width: 0, want: discoverMaxWidth},
-		{name: "large terminal clamps max", width: 180, want: discoverMaxWidth},
+		{name: "unknown width uses max", width: 0, want: setupMaxWidth},
+		{name: "large terminal clamps max", width: 180, want: setupMaxWidth},
 		{name: "normal terminal subtracts margin", width: 80, want: 78},
 		{name: "small terminal keeps available width", width: 40, want: 38},
 	}

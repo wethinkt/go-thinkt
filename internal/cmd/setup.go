@@ -14,25 +14,25 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
-	"github.com/wethinkt/go-thinkt/internal/tui/discover"
+	"github.com/wethinkt/go-thinkt/internal/tui/setup"
 )
 
-var discoverOK bool
+var setupOK bool
 
-var discoverCmd = &cobra.Command{
-	Use:   "discover",
+var setupCmd = &cobra.Command{
+	Use:   "setup",
 	Short: "Scan for AI session sources and configure thinkt",
 	Args:  cobra.NoArgs,
-	RunE:  runDiscover,
+	RunE:  runSetup,
 }
 
-func runDiscover(cmd *cobra.Command, args []string) error {
+func runSetup(cmd *cobra.Command, args []string) error {
 	factories := sources.AllFactories()
 
-	if discoverOK || outputJSON {
-		result, err := discover.RunDefaults(factories)
+	if setupOK || outputJSON {
+		result, err := setup.RunDefaults(factories)
 		if err != nil {
-			return fmt.Errorf("discover defaults: %w", err)
+			return fmt.Errorf("setup defaults: %w", err)
 		}
 		if outputJSON {
 			data, err := json.MarshalIndent(result, "", "  ")
@@ -45,24 +45,24 @@ func runDiscover(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	return runDiscoverInteractive(factories)
+	return runSetupInteractive(factories)
 }
 
-func runDiscoverInteractive(factories []thinkt.StoreFactory) error {
-	model := discover.New(factories)
+func runSetupInteractive(factories []thinkt.StoreFactory) error {
+	model := setup.New(factories)
 	p := tea.NewProgram(model)
 	finalModel, err := p.Run()
 	if err != nil {
-		return fmt.Errorf("discover TUI: %w", err)
+		return fmt.Errorf("setup: %w", err)
 	}
 
-	result := finalModel.(discover.Model).GetResult()
+	result := finalModel.(setup.Model).GetResult()
 	if !result.Completed {
-		fmt.Fprintln(os.Stderr, "Setup cancelled. Run 'thinkt discover' to try again.")
+		fmt.Fprintln(os.Stderr, "Setup cancelled. Run 'thinkt setup' to try again.")
 		return nil
 	}
 
-	if err := discover.SaveResult(result); err != nil {
+	if err := setup.SaveResult(result); err != nil {
 		return fmt.Errorf("save config: %w", err)
 	}
 
@@ -70,7 +70,7 @@ func runDiscoverInteractive(factories []thinkt.StoreFactory) error {
 	return nil
 }
 
-func startIndexerIfEnabled(result discover.Result) {
+func startIndexerIfEnabled(result setup.Result) {
 	if !result.Indexer {
 		return
 	}
@@ -94,8 +94,8 @@ func startIndexerIfEnabled(result discover.Result) {
 	_ = config.StartBackground(c)
 }
 
-// needsDiscover returns true when no config file exists on disk.
-func needsDiscover() bool {
+// needsSetup returns true when no config file exists on disk.
+func needsSetup() bool {
 	_, err := config.Load()
 	return errors.Is(err, config.ErrNoConfig)
 }

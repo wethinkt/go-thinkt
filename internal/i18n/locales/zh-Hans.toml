@@ -986,185 +986,185 @@ other = "选择数据源"
 
 # --- Discover wizard ---
 
-[tui.discover.welcome.title]
+[tui.setup.welcome.title]
 other = "thinkt"
 
-[tui.discover.welcome.header]
+[tui.setup.welcome.header]
 other = "欢迎使用 🧠 thinkt"
 
-[tui.discover.welcome.tagline]
+[tui.setup.welcome.tagline]
 other = "你的 AI 编程会话，已索引且可搜索。"
 
-[tui.discover.welcome.context]
+[tui.setup.welcome.context]
 other = "此引导式设置会以内联方式显示在终端中，并在你完成时应用更改。"
 
-[tui.discover.welcome.body]
+[tui.setup.welcome.body]
 other = "thinkt 索引并搜索你的 AI 编程助手（Claude、Kimi、Gemini 等）留下的\n推理记录，让你和你的工具能从过去的对话中学习。"
 
-[tui.discover.welcome.selectLanguage]
+[tui.setup.welcome.selectLanguage]
 other = "选择语言："
 
-[tui.discover.welcome.prompt]
+[tui.setup.welcome.prompt]
 other = "↑/↓: 语言 · Enter: 开始 · esc: 退出"
 
-[tui.discover.hint.useCLICommand]
+[tui.setup.hint.useCLICommand]
 other = "使用 CLI 命令："
 
-[tui.discover.confirm.help]
+[tui.setup.confirm.help]
 other = "↑/↓ 或 tab: 选择 · Y/N: 选择 · Enter: 确认 · esc: 退出"
 
-[tui.discover.context.languageLabel]
+[tui.setup.context.languageLabel]
 other = "语言："
 
-[tui.discover.context.homeDirLabel]
+[tui.setup.context.homeDirLabel]
 other = "主目录："
 
-[tui.discover.context.sourcesLabel]
+[tui.setup.context.sourcesLabel]
 other = "数据源："
 
-[tui.discover.context.sourcesDiscovered]
+[tui.setup.context.sourcesDiscovered]
 other = "已发现 %d 个"
 
-[tui.discover.context.sourcesDiscoveredEnabled]
+[tui.setup.context.sourcesDiscoveredEnabled]
 other = "已发现 %d 个，已启用 %d 个"
 
-[tui.discover.context.indexerLabel]
+[tui.setup.context.indexerLabel]
 other = "索引器："
 
-[tui.discover.context.embeddingsLabel]
+[tui.setup.context.embeddingsLabel]
 other = "嵌入："
 
-[tui.discover.home.title]
+[tui.setup.home.title]
 other = "主目录"
 
-[tui.discover.home.body]
+[tui.setup.home.body]
 other = "thinkt 将配置和索引存储在："
 
-[tui.discover.home.prompt]
+[tui.setup.home.prompt]
 other = "创建此目录？"
 
-[tui.discover.home.no]
+[tui.setup.home.no]
 other = "不，退出"
 
-[tui.discover.home.envHint]
+[tui.setup.home.envHint]
 other = "使用环境变量 THINKT_HOME 以选择其他位置。"
 
-[tui.discover.sources.title]
+[tui.setup.sources.title]
 other = "数据源发现"
 
-[tui.discover.sources.scanning]
+[tui.setup.sources.scanning]
 other = "正在扫描 AI 编程会话..."
 
-[tui.discover.sources.none]
+[tui.setup.sources.none]
 other = "在此机器上未找到 AI 助手会话。"
 
-[tui.discover.sources.noneHelp]
+[tui.setup.sources.noneHelp]
 other = "Enter: 继续 · esc: 退出"
 
-[tui.discover.sources.consent]
+[tui.setup.sources.consent]
 other = "thinkt 通过扫描主目录中的已知路径来查找对话\n  （如 ~/.claude/projects/、~/.kimi/sessions/）。\n  它只读取会话记录，不会修改或删除任何内容。"
 
-[tui.discover.sources.oneByOne]
+[tui.setup.sources.oneByOne]
 other = "逐个审查每个数据源"
 
-[tui.discover.sources.all]
+[tui.setup.sources.all]
 other = "启用所有数据源"
 
-[tui.discover.sources.disableAll]
+[tui.setup.sources.disableAll]
 other = "禁用所有数据源"
 
-[tui.discover.sources.exitNoSave]
+[tui.setup.sources.exitNoSave]
 other = "退出，不保存"
 
-[tui.discover.sources.consentHelp]
+[tui.setup.sources.consentHelp]
 other = "↑/↓: 选择 · 1-4: 选项 · Enter: 确认 · esc: 退出"
 
-[tui.discover.approval.title]
+[tui.setup.approval.title]
 other = "数据源审批"
 
-[tui.discover.approval.path]
+[tui.setup.approval.path]
 other = "路径："
 
-[tui.discover.approval.sessions]
+[tui.setup.approval.sessions]
 other = "会话数："
 
-[tui.discover.approval.size]
+[tui.setup.approval.size]
 other = "大小："
 
-[tui.discover.approval.range]
+[tui.setup.approval.range]
 other = "范围："
 
-[tui.discover.approval.prompt]
+[tui.setup.approval.prompt]
 other = "启用此数据源？"
 
-[tui.discover.summary.title]
+[tui.setup.summary.title]
 other = "数据源摘要"
 
-[tui.discover.summary.total]
+[tui.setup.summary.total]
 other = "合计："
 
-[tui.discover.summary.noneApproved]
+[tui.setup.summary.noneApproved]
 other = "未启用任何数据源。"
 
-[tui.discover.summary.continue]
+[tui.setup.summary.continue]
 other = "Enter: 继续 · esc: 退出"
 
-[tui.discover.indexer.title]
+[tui.setup.indexer.title]
 other = "索引器"
 
-[tui.discover.indexer.body]
+[tui.setup.indexer.body]
 other = "thinkt 包含一个后台索引器，它监视你的会话文件并构建可搜索的\n  数据库（DuckDB）。这使你能在所有对话中进行全文搜索。"
 
-[tui.discover.indexer.resources]
+[tui.setup.indexer.resources]
 other = "资源占用：索引约 50 MB 磁盘空间，CPU 占用极少。"
 
-[tui.discover.indexer.reversible]
+[tui.setup.indexer.reversible]
 other = "可撤销："
 
-[tui.discover.indexer.prompt]
+[tui.setup.indexer.prompt]
 other = "启用索引器？"
 
-[tui.discover.embeddings.title]
+[tui.setup.embeddings.title]
 other = "语义嵌入"
 
-[tui.discover.embeddings.body]
+[tui.setup.embeddings.body]
 other = "thinkt 可以生成嵌入向量用于语义搜索——按含义而非仅按关键词\n  查找对话。"
 
-[tui.discover.embeddings.resources]
+[tui.setup.embeddings.resources]
 other = "需要下载模型（约 70 MB），使用 GPU（或 CPU 作为后备）\n  来生成嵌入向量。"
 
-[tui.discover.embeddings.reversible]
+[tui.setup.embeddings.reversible]
 other = "可撤销："
 
-[tui.discover.embeddings.prompt]
+[tui.setup.embeddings.prompt]
 other = "启用嵌入？"
 
-[tui.discover.suggestions.title]
+[tui.setup.suggestions.title]
 other = "设置完成！"
 
-[tui.discover.suggestions.summary]
+[tui.setup.suggestions.summary]
 other = "配置摘要："
 
-[tui.discover.suggestions.disabled]
+[tui.setup.suggestions.disabled]
 other = "已禁用"
 
-[tui.discover.suggestions.enabled]
+[tui.setup.suggestions.enabled]
 other = "已启用"
 
-[tui.discover.suggestions.next]
+[tui.setup.suggestions.next]
 other = "试试这些命令："
 
-[tui.discover.suggestions.cmdWatch]
+[tui.setup.suggestions.cmdWatch]
 other = "开始索引会话"
 
-[tui.discover.suggestions.cmdSearch]
+[tui.setup.suggestions.cmdSearch]
 other = "搜索你的会话"
 
-[tui.discover.suggestions.cmdTui]
+[tui.setup.suggestions.cmdTui]
 other = "打开交互式浏览器"
 
-[tui.discover.suggestions.cmdEmbed]
+[tui.setup.suggestions.cmdEmbed]
 other = "稍后启用语义搜索"
 
-[tui.discover.suggestions.done]
+[tui.setup.suggestions.done]
 other = "Enter: 完成 · esc: 退出"

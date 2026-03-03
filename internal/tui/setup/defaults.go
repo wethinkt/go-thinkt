@@ -1,4 +1,4 @@
-package discover
+package setup
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
-// RunDefaults runs the discover wizard with all defaults accepted (--ok mode).
+// RunDefaults runs the setup wizard with all defaults accepted (--ok mode).
 // It detects the locale, scans for sources, enables the indexer, disables
 // embeddings, saves the config, and returns the Result.
 func RunDefaults(factories []thinkt.StoreFactory) (Result, error) {

@@ -15,7 +15,7 @@ import (
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/server"
 	"github.com/wethinkt/go-thinkt/internal/sources"
-	"github.com/wethinkt/go-thinkt/internal/tui/discover"
+	"github.com/wethinkt/go-thinkt/internal/tui/setup"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -79,19 +79,19 @@ Examples:
 			}
 		}
 
-		// Auto-trigger discover wizard on first run.
+		// Auto-trigger setup wizard on first run.
 		// Skip during shell completion — no TTY is available and the TUI would hang.
-		if needsDiscover() && cmd.Name() != "discover" && cmd.Name() != cobra.ShellCompRequestCmd && cmd.Name() != cobra.ShellCompNoDescRequestCmd {
+		if needsSetup() && cmd.Name() != "setup" && cmd.Name() != cobra.ShellCompRequestCmd && cmd.Name() != cobra.ShellCompNoDescRequestCmd {
 			factories := sources.AllFactories()
-			if discoverOK {
-				result, err := discover.RunDefaults(factories)
+			if setupOK {
+				result, err := setup.RunDefaults(factories)
 				if err != nil {
-					return fmt.Errorf("discover defaults: %w", err)
+					return fmt.Errorf("setup defaults: %w", err)
 				}
 				startIndexerIfEnabled(result)
 			} else {
-				if err := runDiscoverInteractive(factories); err != nil {
-					return fmt.Errorf("discover: %w", err)
+				if err := runSetupInteractive(factories); err != nil {
+					return fmt.Errorf("setup: %w", err)
 				}
 			}
 			// Re-init i18n with new config language
@@ -185,10 +185,10 @@ func init() {
 	sessionsViewCmd.Flags().BoolVarP(&sessionViewAll, "all", "a", false, "view all sessions in time order")
 	sessionsViewCmd.Flags().BoolVar(&sessionViewRaw, "raw", false, "output raw text without decoration/rendering")
 
-	// Discover command flags
-	discoverCmd.Flags().BoolVar(&discoverOK, "ok", false, "accept all defaults without prompts")
-	discoverCmd.Flags().BoolVar(&outputJSON, "json", false, "output discovery results as JSON")
-	rootCmd.AddCommand(discoverCmd)
+	// Setup command flags
+	setupCmd.Flags().BoolVar(&setupOK, "ok", false, "accept all defaults without prompts")
+	setupCmd.Flags().BoolVar(&outputJSON, "json", false, "output setup results as JSON")
+	rootCmd.AddCommand(setupCmd)
 
 	// Build command tree
 	sessionsCmd.AddCommand(sessionsListCmd)

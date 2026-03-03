@@ -1,4 +1,4 @@
-package discover
+package setup
 
 import (
 	"encoding/json"

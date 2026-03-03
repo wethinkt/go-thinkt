@@ -1,4 +1,4 @@
-package discover
+package setup
 
 import (
 	"fmt"
@@ -61,16 +61,16 @@ func (m Model) viewWelcome() string {
 
 	// Intro tagline
 	b.WriteString(fmt.Sprintf("  %s\n\n",
-		bodyStyle.Render(thinktI18n.T("tui.discover.welcome.tagline",
+		bodyStyle.Render(thinktI18n.T("tui.setup.welcome.tagline",
 			"Browse, search, analyze, and share your LLM conversations."))))
 
 	b.WriteString(fmt.Sprintf("  %s\n\n",
-		mutedStyle.Render(thinktI18n.T("tui.discover.welcome.context",
+		mutedStyle.Render(thinktI18n.T("tui.setup.welcome.context",
 			"We will guide you through an initial setup to get you started."))))
 
 	// Language picker
 	b.WriteString(fmt.Sprintf("  %s\n\n",
-		mutedStyle.Render(thinktI18n.T("tui.discover.welcome.selectLanguage",
+		mutedStyle.Render(thinktI18n.T("tui.setup.welcome.selectLanguage",
 			"Choose your display language:"))))
 	for i, lang := range m.langs {
 		prefix := "  "
@@ -91,7 +91,7 @@ func (m Model) viewWelcome() string {
 	}
 
 	b.WriteString(fmt.Sprintf("\n  %s\n",
-		mutedStyle.Render(m.withEscQ(thinktI18n.T("tui.discover.welcome.prompt",
+		mutedStyle.Render(m.withEscQ(thinktI18n.T("tui.setup.welcome.prompt",
 			"↑/↓: choose language · Enter: continue · esc: exit")))))
 
 	// CLI hint
