@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -339,6 +340,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if project := s.registry.FindProjectForPath(ctx, cwd); project != nil {
 					tuilog.Log.Info("Shell.Update: auto-detected project from cwd", "project", project.Name, "path", project.Path)
 					// Collect sessions from all sources that have this project path
+					enrichCh := make(chan SessionsUpdatedMsg, 64)
 					var allSessions []thinkt.SessionMeta
 					for _, store := range s.registry.All() {
 						projects, err := store.ListProjects(ctx)
@@ -347,7 +349,12 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 						for _, p := range projects {
 							if p.Path == project.Path {
-								sessions, err := store.ListSessions(ctx, p.ID)
+								sessions, err := store.ListSessions(ctx, p.ID, thinkt.WithEnrich(func(_ string, updated []thinkt.SessionMeta) {
+									select {
+									case enrichCh <- SessionsUpdatedMsg{Sessions: updated}:
+									default:
+									}
+								}))
 								if err == nil {
 									allSessions = append(allSessions, sessions...)
 								}
@@ -362,7 +369,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							Title: project.Name,
 							Model: picker,
 						}, s.width, s.height)
-						cmds = append(cmds, cmd)
+						cmds = append(cmds, cmd, listenForEnrichment(enrichCh))
 						return s, tea.Batch(cmds...)
 					}
 				}
@@ -393,6 +400,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			ctx := context.Background()
 
 			// List sessions from all source variants of the selected project
+			enrichCh := make(chan SessionsUpdatedMsg, 64)
 			var allSessions []thinkt.SessionMeta
 			for _, proj := range msg.AllProjects {
 				tuilog.Log.Info("Shell.Update: listing sessions", "source", proj.Source, "id", proj.ID)
@@ -401,7 +409,12 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					tuilog.Log.Warn("Shell.Update: store not found for source", "source", proj.Source)
 					continue
 				}
-				sessions, err := store.ListSessions(ctx, proj.ID)
+				sessions, err := store.ListSessions(ctx, proj.ID, thinkt.WithEnrich(func(_ string, updated []thinkt.SessionMeta) {
+					select {
+					case enrichCh <- SessionsUpdatedMsg{Sessions: updated}:
+					default:
+					}
+				}))
 				if err != nil {
 					tuilog.Log.Error("Shell.Update: failed to list sessions", "source", proj.Source, "error", err)
 					continue
@@ -417,7 +430,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Title: msg.Selected.Name,
 				Model: picker,
 			}, s.width, s.height)
-			cmds = append(cmds, cmd)
+			cmds = append(cmds, cmd, listenForEnrichment(enrichCh))
 		}
 
 	case SessionPickerResult:
@@ -714,6 +727,29 @@ func (s *Shell) View() tea.View {
 
 	// Fallback for models that don't implement shellContent
 	return current.Model.View()
+}
+
+// SessionsUpdatedMsg is sent when background enrichment produces updated session metadata.
+type SessionsUpdatedMsg struct {
+	Sessions []thinkt.SessionMeta
+	enrichCh <-chan SessionsUpdatedMsg
+}
+
+// listenForEnrichment returns a tea.Cmd that blocks until enrichment data arrives
+// or a timeout expires (signaling enrichment is likely complete).
+func listenForEnrichment(ch <-chan SessionsUpdatedMsg) tea.Cmd {
+	return func() tea.Msg {
+		select {
+		case msg, ok := <-ch:
+			if !ok {
+				return nil
+			}
+			msg.enrichCh = ch
+			return msg
+		case <-time.After(10 * time.Second):
+			return nil // enrichment likely done
+		}
+	}
 }
 
 // Internal message for source loading

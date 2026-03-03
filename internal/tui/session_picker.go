@@ -462,6 +462,29 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ready = true
 		return m, nil
 
+	case SessionsUpdatedMsg:
+		// Merge enriched sessions: replace sessions matching the updated source.
+		if len(msg.Sessions) > 0 {
+			source := msg.Sessions[0].Source
+			var kept []thinkt.SessionMeta
+			for _, s := range m.allSessions {
+				if s.Source != source {
+					kept = append(kept, s)
+				}
+			}
+			m.allSessions = append(kept, msg.Sessions...)
+			rebuildCmd := m.rebuildAndRefresh()
+			var listenCmd tea.Cmd
+			if msg.enrichCh != nil {
+				listenCmd = listenForEnrichment(msg.enrichCh)
+			}
+			return m, tea.Batch(rebuildCmd, listenCmd)
+		}
+		if msg.enrichCh != nil {
+			return m, listenForEnrichment(msg.enrichCh)
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		// Don't handle keys if filtering
 		if m.list.FilterState() == list.Filtering {
