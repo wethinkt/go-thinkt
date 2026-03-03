@@ -740,15 +740,15 @@ func parseListQueryParam(values url.Values, key string) []string {
 func (s *HTTPServer) resolveResumeInfo(ctx context.Context, path string) (*thinkt.ResumeInfo, error) {
 	_, meta, err := s.registry.ResolveSessionByPath(ctx, path)
 	if err != nil {
-		return nil, fmt.Errorf("session_not_found: %w", err)
+		return nil, fmt.Errorf("%w: %v", thinkt.ErrSessionNotFound, err)
 	}
 	if meta == nil {
-		return nil, fmt.Errorf("session_not_found")
+		return nil, thinkt.ErrSessionNotFound
 	}
 
 	resumer, ok := s.registry.GetResumer(meta.Source)
 	if !ok {
-		return nil, fmt.Errorf("resume_not_supported")
+		return nil, thinkt.ErrResumeNotSupported
 	}
 
 	return resumer.ResumeCommand(*meta)
@@ -885,14 +885,13 @@ func sameOrigin(a, b string) bool {
 
 // writeResumeError maps resolveResumeInfo errors to appropriate HTTP responses.
 func writeResumeError(w http.ResponseWriter, err error) {
-	msg := err.Error()
 	switch {
-	case strings.HasPrefix(msg, "session_not_found"):
+	case errors.Is(err, thinkt.ErrSessionNotFound):
 		writeError(w, http.StatusNotFound, "session_not_found", "No session found at path")
-	case strings.HasPrefix(msg, "resume_not_supported"):
+	case errors.Is(err, thinkt.ErrResumeNotSupported):
 		writeError(w, http.StatusNotFound, "resume_not_supported", "Source does not support session resume")
 	default:
-		writeError(w, http.StatusInternalServerError, "resume_failed", msg)
+		writeError(w, http.StatusInternalServerError, "resume_failed", err.Error())
 	}
 }
 
