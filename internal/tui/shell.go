@@ -333,15 +333,22 @@ func (s *Shell) startPreloadedEnrichment() tea.Cmd {
 			if !ok {
 				continue
 			}
-			store.ListSessions(ctx, sp.projectID, thinkt.WithEnrich(func(_ string, updated []thinkt.SessionMeta) {
+			// Re-list with WithEnrich to trigger background enrichment.
+			// The returned sessions include MergeInto data from the
+			// persistent MetadataCache, so send them as an immediate
+			// update even if no enrichment goroutine starts (all cached).
+			sessions, _ := store.ListSessions(ctx, sp.projectID, thinkt.WithEnrich(func(_ string, updated []thinkt.SessionMeta) {
 				select {
 				case enrichCh <- SessionsUpdatedMsg{Sessions: updated}:
 				default:
 				}
 			}))
+			if len(sessions) > 0 {
+				enrichCh <- SessionsUpdatedMsg{Sessions: sessions}
+			}
 		}
 
-		// Wait for first enrichment update or timeout.
+		// Wait for first update (immediate or from enrichment callback).
 		select {
 		case msg, ok := <-enrichCh:
 			if !ok {
