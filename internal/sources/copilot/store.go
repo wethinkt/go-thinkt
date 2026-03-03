@@ -316,16 +316,24 @@ func (s *Store) scanSessions() ([]thinkt.SessionMeta, error) {
 
 		// Try cache first to avoid file parsing
 		if cached, ok := mc.Lookup(fullPath, info.ModTime(), info.Size()); ok {
+			projectPath := cached.ProjectPath
+			if projectPath == "" {
+				projectPath = "unknown"
+			}
+			createdAt := cached.CreatedAt
+			if createdAt.IsZero() {
+				createdAt = info.ModTime()
+			}
 			meta := thinkt.SessionMeta{
 				ID:          id,
-				ProjectPath: "unknown",
+				ProjectPath: projectPath,
 				FullPath:    fullPath,
 				FirstPrompt: cached.FirstPrompt,
 				Model:       cached.Model,
 				EntryCount:  cached.EntryCount,
 				GitBranch:   cached.GitBranch,
 				FileSize:    info.Size(),
-				CreatedAt:   info.ModTime(), // approximation for cache hits
+				CreatedAt:   createdAt,
 				ModifiedAt:  info.ModTime(),
 				Source:      thinkt.SourceCopilot,
 				WorkspaceID: ws.ID,
@@ -346,6 +354,8 @@ func (s *Store) scanSessions() ([]thinkt.SessionMeta, error) {
 			Model:       meta.Model,
 			EntryCount:  meta.EntryCount,
 			GitBranch:   meta.GitBranch,
+			ProjectPath: meta.ProjectPath,
+			CreatedAt:   meta.CreatedAt,
 			ModifiedAt:  info.ModTime(),
 			FileSize:    info.Size(),
 		})

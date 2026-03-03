@@ -29,6 +29,8 @@ type CachedSession struct {
 	Model       string    `json:"model,omitempty"`
 	EntryCount  int       `json:"entry_count,omitempty"`
 	GitBranch   string    `json:"git_branch,omitempty"`
+	ProjectPath string    `json:"project_path,omitempty"`
+	CreatedAt   time.Time `json:"created_at,omitzero"`
 	ModifiedAt  time.Time `json:"modified_at"`
 	FileSize    int64     `json:"file_size"`
 }
@@ -199,6 +201,12 @@ func (mc *MetadataCache) MergeInto(meta *SessionMeta) bool {
 	}
 	if meta.GitBranch == "" {
 		meta.GitBranch = entry.GitBranch
+	}
+	if meta.ProjectPath == "" || meta.ProjectPath == "unknown" {
+		meta.ProjectPath = entry.ProjectPath
+	}
+	if meta.CreatedAt.IsZero() {
+		meta.CreatedAt = entry.CreatedAt
 	}
 
 	return true
