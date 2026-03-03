@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
@@ -18,8 +19,10 @@ const allSessionsCacheKey = "\x00codex_all_sessions"
 
 // Store implements thinkt.Store for Codex CLI sessions.
 type Store struct {
-	baseDir string
-	cache   thinkt.StoreCache
+	baseDir  string
+	cacheDir string // directory for persistent metadata cache
+	cache    thinkt.StoreCache
+	mc       *thinkt.MetadataCache // lazily loaded
 }
 
 // NewStore creates a new Codex store.
@@ -28,7 +31,39 @@ func NewStore(baseDir string) *Store {
 		home, _ := os.UserHomeDir()
 		baseDir = filepath.Join(home, ".codex")
 	}
-	return &Store{baseDir: baseDir}
+	cacheDir := ""
+	if dir, err := config.Dir(); err == nil {
+		cacheDir = filepath.Join(dir, "cache")
+	}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir}
+}
+
+// NewStoreWithCacheDir creates a Codex store with an explicit cache directory.
+// This is primarily useful for testing.
+func NewStoreWithCacheDir(baseDir, cacheDir string) *Store {
+	if baseDir == "" {
+		home, _ := os.UserHomeDir()
+		baseDir = filepath.Join(home, ".codex")
+	}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir}
+}
+
+// metadataCache returns the lazily-loaded persistent metadata cache.
+func (s *Store) metadataCache() *thinkt.MetadataCache {
+	if s.mc != nil {
+		return s.mc
+	}
+	if s.cacheDir == "" {
+		s.mc = &thinkt.MetadataCache{
+			Version:  1,
+			Source:   thinkt.SourceCodex,
+			Sessions: make(map[string]thinkt.CachedSession),
+		}
+		return s.mc
+	}
+	mc, _ := thinkt.LoadMetadataCache(thinkt.SourceCodex, s.cacheDir)
+	s.mc = mc
+	return s.mc
 }
 
 // SetCacheTTL sets the cache time-to-live for this store.
@@ -250,6 +285,7 @@ func (s *Store) scanSessions() ([]thinkt.SessionMeta, error) {
 	}
 
 	ws := s.Workspace()
+	mc := s.metadataCache()
 	sessions := make([]thinkt.SessionMeta, 0, 128)
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -262,16 +298,54 @@ func (s *Store) scanSessions() ([]thinkt.SessionMeta, error) {
 			return nil
 		}
 
+		info, err := d.Info()
+		if err != nil {
+			return nil
+		}
+
+		// Try cache first to avoid file parsing
+		if cached, ok := mc.Lookup(path, info.ModTime(), info.Size()); ok {
+			sessionID := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+			meta := thinkt.SessionMeta{
+				ID:          sessionID,
+				ProjectPath: "unknown",
+				FullPath:    path,
+				FirstPrompt: cached.FirstPrompt,
+				Model:       cached.Model,
+				EntryCount:  cached.EntryCount,
+				GitBranch:   cached.GitBranch,
+				FileSize:    info.Size(),
+				CreatedAt:   info.ModTime(), // approximation for cache hits
+				ModifiedAt:  info.ModTime(),
+				Source:      thinkt.SourceCodex,
+				WorkspaceID: ws.ID,
+				ChunkCount:  1,
+			}
+			sessions = append(sessions, meta)
+			return nil
+		}
+
+		// Cache miss — parse the file
 		meta, err := s.readSessionMetaFast(path, ws.ID)
 		if err != nil || meta == nil {
 			return nil
 		}
+		mc.Set(path, thinkt.CachedSession{
+			FirstPrompt: meta.FirstPrompt,
+			Model:       meta.Model,
+			EntryCount:  meta.EntryCount,
+			GitBranch:   meta.GitBranch,
+			ModifiedAt:  info.ModTime(),
+			FileSize:    info.Size(),
+		})
 		sessions = append(sessions, *meta)
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
+
+	_ = mc.Save()
 
 	sort.Slice(sessions, func(i, j int) bool {
 		return sessions[i].ModifiedAt.After(sessions[j].ModifiedAt)

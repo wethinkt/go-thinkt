@@ -11,6 +11,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
@@ -18,8 +19,10 @@ const allSessionsCacheKey = "\x00copilot_all_sessions"
 
 // Store implements thinkt.Store for Copilot CLI sessions.
 type Store struct {
-	baseDir string
-	cache   thinkt.StoreCache
+	baseDir  string
+	cacheDir string // directory for persistent metadata cache
+	cache    thinkt.StoreCache
+	mc       *thinkt.MetadataCache // lazily loaded
 }
 
 // NewStore creates a new Copilot store.
@@ -28,7 +31,39 @@ func NewStore(baseDir string) *Store {
 		home, _ := os.UserHomeDir()
 		baseDir = filepath.Join(home, ".copilot")
 	}
-	return &Store{baseDir: baseDir}
+	cacheDir := ""
+	if dir, err := config.Dir(); err == nil {
+		cacheDir = filepath.Join(dir, "cache")
+	}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir}
+}
+
+// NewStoreWithCacheDir creates a Copilot store with an explicit cache directory.
+// This is primarily useful for testing.
+func NewStoreWithCacheDir(baseDir, cacheDir string) *Store {
+	if baseDir == "" {
+		home, _ := os.UserHomeDir()
+		baseDir = filepath.Join(home, ".copilot")
+	}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir}
+}
+
+// metadataCache returns the lazily-loaded persistent metadata cache.
+func (s *Store) metadataCache() *thinkt.MetadataCache {
+	if s.mc != nil {
+		return s.mc
+	}
+	if s.cacheDir == "" {
+		s.mc = &thinkt.MetadataCache{
+			Version:  1,
+			Source:   thinkt.SourceCopilot,
+			Sessions: make(map[string]thinkt.CachedSession),
+		}
+		return s.mc
+	}
+	mc, _ := thinkt.LoadMetadataCache(thinkt.SourceCopilot, s.cacheDir)
+	s.mc = mc
+	return s.mc
 }
 
 // SetCacheTTL sets the cache time-to-live for this store.
@@ -249,6 +284,8 @@ func (s *Store) scanSessions() ([]thinkt.SessionMeta, error) {
 		return nil, err // Return empty if dir doesn't exist?
 	}
 
+	mc := s.metadataCache()
+	ws := s.Workspace()
 	var sessions []thinkt.SessionMeta
 	for _, e := range entries {
 		if !e.IsDir() {
@@ -259,17 +296,50 @@ func (s *Store) scanSessions() ([]thinkt.SessionMeta, error) {
 		fullPath := filepath.Join(sessionDir, id, "events.jsonl")
 
 		// Skip if no events file
-		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		info, err := os.Stat(fullPath)
+		if err != nil {
 			continue
 		}
 
+		// Try cache first to avoid file parsing
+		if cached, ok := mc.Lookup(fullPath, info.ModTime(), info.Size()); ok {
+			meta := thinkt.SessionMeta{
+				ID:          id,
+				ProjectPath: "unknown",
+				FullPath:    fullPath,
+				FirstPrompt: cached.FirstPrompt,
+				Model:       cached.Model,
+				EntryCount:  cached.EntryCount,
+				GitBranch:   cached.GitBranch,
+				FileSize:    info.Size(),
+				CreatedAt:   info.ModTime(), // approximation for cache hits
+				ModifiedAt:  info.ModTime(),
+				Source:      thinkt.SourceCopilot,
+				WorkspaceID: ws.ID,
+				ChunkCount:  1,
+			}
+			sessions = append(sessions, meta)
+			continue
+		}
+
+		// Cache miss — parse the file
 		meta, err := s.readSessionMetaFast(id, fullPath)
 		if err != nil {
 			// Skip malformed sessions but log error?
 			continue
 		}
+		mc.Set(fullPath, thinkt.CachedSession{
+			FirstPrompt: meta.FirstPrompt,
+			Model:       meta.Model,
+			EntryCount:  meta.EntryCount,
+			GitBranch:   meta.GitBranch,
+			ModifiedAt:  info.ModTime(),
+			FileSize:    info.Size(),
+		})
 		sessions = append(sessions, *meta)
 	}
+
+	_ = mc.Save()
 	return sessions, nil
 }
 

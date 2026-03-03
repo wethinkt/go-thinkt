@@ -11,14 +11,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 // Store implements thinkt.Store for Gemini CLI sessions.
 type Store struct {
-	baseDir string
-	cache   thinkt.StoreCache
+	baseDir  string
+	cacheDir string // directory for persistent metadata cache
+	cache    thinkt.StoreCache
+	mc       *thinkt.MetadataCache // lazily loaded
 }
 
 // NewStore creates a new Gemini store.
@@ -27,7 +30,39 @@ func NewStore(baseDir string) *Store {
 		home, _ := os.UserHomeDir()
 		baseDir = filepath.Join(home, ".gemini")
 	}
-	return &Store{baseDir: baseDir}
+	cacheDir := ""
+	if dir, err := config.Dir(); err == nil {
+		cacheDir = filepath.Join(dir, "cache")
+	}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir}
+}
+
+// NewStoreWithCacheDir creates a Gemini store with an explicit cache directory.
+// This is primarily useful for testing.
+func NewStoreWithCacheDir(baseDir, cacheDir string) *Store {
+	if baseDir == "" {
+		home, _ := os.UserHomeDir()
+		baseDir = filepath.Join(home, ".gemini")
+	}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir}
+}
+
+// metadataCache returns the lazily-loaded persistent metadata cache.
+func (s *Store) metadataCache() *thinkt.MetadataCache {
+	if s.mc != nil {
+		return s.mc
+	}
+	if s.cacheDir == "" {
+		s.mc = &thinkt.MetadataCache{
+			Version:  1,
+			Source:   thinkt.SourceGemini,
+			Sessions: make(map[string]thinkt.CachedSession),
+		}
+		return s.mc
+	}
+	mc, _ := thinkt.LoadMetadataCache(thinkt.SourceGemini, s.cacheDir)
+	s.mc = mc
+	return s.mc
 }
 
 // SetCacheTTL sets the cache time-to-live for this store.
@@ -177,6 +212,7 @@ func (s *Store) ListSessions(ctx context.Context, projectID string, opts ...thin
 
 		var sessions []thinkt.SessionMeta
 		ws := s.Workspace()
+		mc := s.metadataCache()
 
 		for _, entry := range entries {
 			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".json") {
@@ -186,15 +222,47 @@ func (s *Store) ListSessions(ctx context.Context, projectID string, opts ...thin
 					continue
 				}
 
-				// Partial read to get metadata efficiently
+				// Try cache first to avoid JSON decode
+				if cached, ok := mc.Lookup(fullPath, info.ModTime(), info.Size()); ok {
+					sessionID := strings.TrimSuffix(entry.Name(), ".json")
+					meta := thinkt.SessionMeta{
+						ID:          sessionID,
+						ProjectPath: projectID,
+						FullPath:    fullPath,
+						FirstPrompt: cached.FirstPrompt,
+						Model:       cached.Model,
+						EntryCount:  cached.EntryCount,
+						GitBranch:   cached.GitBranch,
+						FileSize:    info.Size(),
+						CreatedAt:   info.ModTime(), // approximation for cache hits
+						ModifiedAt:  info.ModTime(),
+						Source:      thinkt.SourceGemini,
+						WorkspaceID: ws.ID,
+						ChunkCount:  1,
+					}
+					sessions = append(sessions, meta)
+					continue
+				}
+
+				// Cache miss — full parse
 				meta, err := s.readSessionMeta(fullPath, projectID, info.Size(), info.ModTime(), ws.ID)
 				if err != nil {
 					tuilog.Log.Error("failed to read gemini session meta", "path", fullPath, "error", err)
 					continue
 				}
+				mc.Set(fullPath, thinkt.CachedSession{
+					FirstPrompt: meta.FirstPrompt,
+					Model:       meta.Model,
+					EntryCount:  meta.EntryCount,
+					GitBranch:   meta.GitBranch,
+					ModifiedAt:  info.ModTime(),
+					FileSize:    info.Size(),
+				})
 				sessions = append(sessions, *meta)
 			}
 		}
+
+		_ = mc.Save()
 
 		sort.Slice(sessions, func(i, j int) bool {
 			return sessions[i].ModifiedAt.After(sessions[j].ModifiedAt)

@@ -12,14 +12,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
 // Store implements thinkt.Store for Qwen Code sessions.
 type Store struct {
-	baseDir string
-	cache   thinkt.StoreCache
+	baseDir  string
+	cacheDir string // directory for persistent metadata cache
+	cache    thinkt.StoreCache
+	mc       *thinkt.MetadataCache // lazily loaded
 }
 
 // NewStore creates a new Qwen store.
@@ -28,7 +31,39 @@ func NewStore(baseDir string) *Store {
 		home, _ := os.UserHomeDir()
 		baseDir = filepath.Join(home, ".qwen")
 	}
-	return &Store{baseDir: baseDir}
+	cacheDir := ""
+	if dir, err := config.Dir(); err == nil {
+		cacheDir = filepath.Join(dir, "cache")
+	}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir}
+}
+
+// NewStoreWithCacheDir creates a Qwen store with an explicit cache directory.
+// This is primarily useful for testing.
+func NewStoreWithCacheDir(baseDir, cacheDir string) *Store {
+	if baseDir == "" {
+		home, _ := os.UserHomeDir()
+		baseDir = filepath.Join(home, ".qwen")
+	}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir}
+}
+
+// metadataCache returns the lazily-loaded persistent metadata cache.
+func (s *Store) metadataCache() *thinkt.MetadataCache {
+	if s.mc != nil {
+		return s.mc
+	}
+	if s.cacheDir == "" {
+		s.mc = &thinkt.MetadataCache{
+			Version:  1,
+			Source:   thinkt.SourceQwen,
+			Sessions: make(map[string]thinkt.CachedSession),
+		}
+		return s.mc
+	}
+	mc, _ := thinkt.LoadMetadataCache(thinkt.SourceQwen, s.cacheDir)
+	s.mc = mc
+	return s.mc
 }
 
 // SetCacheTTL sets the cache time-to-live for this store.
@@ -223,6 +258,7 @@ func (s *Store) listSessionsForProject(projectHash string) ([]thinkt.SessionMeta
 	}
 
 	ws := s.Workspace()
+	mc := s.metadataCache()
 	var sessions []thinkt.SessionMeta
 
 	for _, entry := range entries {
@@ -242,15 +278,44 @@ func (s *Store) listSessionsForProject(projectHash string) ([]thinkt.SessionMeta
 			continue
 		}
 
-		// Parse session to get metadata
+		// Try cache first to avoid parsing the JSONL file.
+		if cached, ok := mc.Lookup(fullPath, info.ModTime(), info.Size()); ok {
+			sessions = append(sessions, thinkt.SessionMeta{
+				ID:          strings.TrimSuffix(entry.Name(), ".jsonl"),
+				ProjectPath: projectHash,
+				FullPath:    fullPath,
+				FirstPrompt: cached.FirstPrompt,
+				Model:       cached.Model,
+				EntryCount:  cached.EntryCount,
+				GitBranch:   cached.GitBranch,
+				FileSize:    info.Size(),
+				CreatedAt:   info.ModTime(),
+				ModifiedAt:  info.ModTime(),
+				Source:      thinkt.SourceQwen,
+				WorkspaceID: ws.ID,
+				ChunkCount:  1,
+			})
+			continue
+		}
+
+		// Cache miss — full parse.
 		meta, err := s.readSessionMeta(fullPath, projectHash, info.Size(), info.ModTime(), ws.ID)
 		if err != nil {
 			tuilog.Log.Error("failed to read qwen session meta", "path", fullPath, "error", err)
 			continue
 		}
-
+		mc.Set(fullPath, thinkt.CachedSession{
+			FirstPrompt: meta.FirstPrompt,
+			Model:       meta.Model,
+			EntryCount:  meta.EntryCount,
+			GitBranch:   meta.GitBranch,
+			ModifiedAt:  info.ModTime(),
+			FileSize:    info.Size(),
+		})
 		sessions = append(sessions, *meta)
 	}
+
+	_ = mc.Save()
 
 	return sessions, nil
 }
