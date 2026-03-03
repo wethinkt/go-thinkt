@@ -715,6 +715,36 @@ other = "No se encontraron sesiones"
 [cmd.sources.detail.basePath]
 other = "Ruta base:   %s"
 
+[cmd.sources.detail.labelBasePath]
+other = "Ruta base:"
+
+[cmd.sources.detail.labelDescription]
+other = "Descripción:"
+
+[cmd.sources.detail.labelEnabled]
+other = "Habilitado:"
+
+[cmd.sources.detail.labelID]
+other = "ID:"
+
+[cmd.sources.detail.labelProjects]
+other = "Proyectos:"
+
+[cmd.sources.detail.labelSessions]
+other = "Sesiones:"
+
+[cmd.sources.detail.labelSize]
+other = "Tamaño:"
+
+[cmd.sources.detail.labelSource]
+other = "Fuente:"
+
+[cmd.sources.detail.labelStatus]
+other = "Estado:"
+
+[cmd.sources.detail.labelWorkspace]
+other = "Espacio trab.:"
+
 [cmd.sources.detail.description]
 other = "Descripción: %s"
 
@@ -736,17 +766,38 @@ other = "Espacio trab: %s"
 [cmd.sources.expectedSources]
 other = "\nFuentes esperadas:"
 
+[cmd.sources.allEnabled]
+other = "Todas las fuentes ya están habilitadas."
+
+[cmd.sources.allDisabled]
+other = "Todas las fuentes ya están deshabilitadas."
+
+[cmd.sources.allToggled]
+other = "Todas las fuentes fueron %s."
+
 [cmd.sources.header.basePath]
 other = "Ruta base"
 
+[cmd.sources.header.enabled]
+other = "HABILITADO"
+
 [cmd.sources.header.projects]
 other = "Proyectos"
+
+[cmd.sources.header.sessions]
+other = "SESIONES"
+
+[cmd.sources.header.size]
+other = "TAMAÑO"
 
 [cmd.sources.header.workspace]
 other = "Espacio trab"
 
 [cmd.sources.noSources]
 other = "No se encontraron fuentes."
+
+[cmd.sources.sourceToggled]
+other = "La fuente %q fue %s."
 
 # --- cmd: teams ---
 
@@ -993,19 +1044,19 @@ other = "thinkt"
 other = "Bienvenido a 🧠 thinkt"
 
 [tui.setup.welcome.tagline]
-other = "Tus sesiones de codificación con IA, indexadas y buscables."
+other = "Explora, busca, analiza y comparte tus conversaciones con LLM."
 
 [tui.setup.welcome.context]
-other = "Esta guía de configuración se mantiene en línea en tu terminal y aplica los cambios cuando finalizas."
+other = "Te guiaremos por una configuración inicial para empezar."
 
 [tui.setup.welcome.body]
 other = "thinkt indexa y busca las trazas de razonamiento dejadas por tus\nasistentes de codificación IA (Claude, Kimi, Gemini y otros), para que\ntú y tus herramientas puedan aprender de conversaciones pasadas."
 
 [tui.setup.welcome.selectLanguage]
-other = "Selecciona tu idioma:"
+other = "Elige el idioma de visualización:"
 
 [tui.setup.welcome.prompt]
-other = "↑/↓: idioma · Enter: comenzar · esc: salir"
+other = "↑/↓: elegir idioma · Enter: continuar · esc: salir"
 
 [tui.setup.hint.useCLICommand]
 other = "usar comando CLI:"
@@ -1038,16 +1089,16 @@ other = "Embeddings:"
 other = "Directorio de inicio"
 
 [tui.setup.home.body]
-other = "thinkt almacena su configuración e índice en:"
+other = "thinkt necesita un directorio para configuración, índice local y caché."
 
 [tui.setup.home.prompt]
-other = "¿Crear este directorio?"
+other = "¿Podemos usar este directorio?"
 
 [tui.setup.home.no]
 other = "No, salir"
 
 [tui.setup.home.envHint]
-other = "Usa la variable de entorno THINKT_HOME para elegir otra ubicación."
+other = "Usa la variable de entorno THINKT_HOME para configurar otra ruta."
 
 [tui.setup.sources.title]
 other = "Descubrimiento de fuentes"
@@ -1062,28 +1113,37 @@ other = "No se encontraron sesiones de asistentes de IA en esta máquina."
 other = "Enter: continuar · esc: salir"
 
 [tui.setup.sources.consent]
-other = "thinkt encuentra conversaciones escaneando rutas conocidas en tu\n  directorio home (ej., ~/.claude/projects/, ~/.kimi/sessions/).\n  Lee los registros de sesión pero nunca los modifica ni elimina."
+other = "thinkt escanea rutas concretas en tu directorio home (por ejemplo ~/.claude/ y ~/.codex).\n\n  Solo lee los registros de sesión y nunca modifica ni elimina archivos fuente. Todos los datos permanecen locales, incluso con 'thinkt web'.\n\n  Elige cómo habilitar las fuentes de sesión:"
 
 [tui.setup.sources.oneByOne]
-other = "Revisar cada fuente individualmente"
+other = "Revisar cada fuente antes de habilitarla"
 
 [tui.setup.sources.all]
-other = "Habilitar todas las fuentes"
+other = "Habilitar todas las fuentes detectadas"
 
 [tui.setup.sources.disableAll]
 other = "Deshabilitar todas las fuentes"
 
 [tui.setup.sources.exitNoSave]
-other = "Salir sin guardar"
+other = "Salir de la configuración sin guardar"
 
 [tui.setup.sources.consentHelp]
-other = "↑/↓: seleccionar · 1-4: elegir · Enter: confirmar · esc: salir"
+other = "↑/↓ o tab: seleccionar · 1-4: elegir · Enter: confirmar · esc: salir"
+
+[tui.setup.sources.discovered]
+other = "Fuentes detectadas:"
+
+[tui.setup.sources.scanningCount]
+other = "Escaneando fuentes... %d detectadas hasta ahora."
 
 [tui.setup.approval.title]
 other = "Aprobación de fuente"
 
 [tui.setup.approval.path]
 other = "Ruta:"
+
+[tui.setup.approval.selected]
+other = "Fuente seleccionada:"
 
 [tui.setup.approval.sessions]
 other = "Sesiones:"
@@ -1107,40 +1167,40 @@ other = "Total:"
 other = "Ninguna fuente habilitada."
 
 [tui.setup.summary.continue]
-other = "Enter: continuar · esc: salir"
+other = "Enter: continuar a la configuración del indexador · esc: salir"
 
 [tui.setup.indexer.title]
 other = "Indexador"
 
 [tui.setup.indexer.body]
-other = "thinkt incluye un indexador en segundo plano que vigila tus archivos\n  de sesión y construye una base de datos con búsqueda (DuckDB). Esto\n  permite búsqueda de texto completo en todas tus conversaciones."
+other = "El indexador mantiene una base de datos DuckDB local sincronizada con tus archivos de sesión. Permite búsquedas rápidas, filtros y estadísticas de uso en todas las fuentes."
 
 [tui.setup.indexer.resources]
-other = "Recursos: ~50 MB de disco para el índice, CPU mínimo."
+other = "Uso típico: ~50 MB de disco por cada 10k sesiones, bajo uso de CPU en segundo plano."
 
 [tui.setup.indexer.reversible]
 other = "Reversible:"
 
 [tui.setup.indexer.prompt]
-other = "¿Activar el indexador?"
+other = "¿Habilitar indexación en segundo plano?"
 
 [tui.setup.embeddings.title]
 other = "Embeddings"
 
 [tui.setup.embeddings.body]
-other = "thinkt puede generar embeddings para búsqueda semántica — encontrar\n  conversaciones por significado, no solo por palabras clave."
+other = "Los embeddings habilitan la búsqueda semántica para encontrar sesiones por intención, no solo por palabras exactas. Usa un modelo local (nomic-embed-text-v1.5) y no requiere claves API."
 
 [tui.setup.embeddings.resources]
-other = "Requiere descargar un modelo (~70 MB) y usa tu GPU\n  (o CPU como respaldo) para generar embeddings."
+other = "La descarga inicial del modelo es de aproximadamente 150 MB. La GPU ayuda, pero es opcional.\n\n  El escaneo inicial en segundo plano puede consumir bastantes recursos.\n\n  Desactívalo con 'thinkt embeddings disable'."
 
 [tui.setup.embeddings.reversible]
 other = "Reversible:"
 
 [tui.setup.embeddings.prompt]
-other = "¿Activar embeddings?"
+other = "¿Habilitar búsqueda semántica?"
 
 [tui.setup.suggestions.title]
-other = "¡Configuración completada!"
+other = "Configuración completada"
 
 [tui.setup.suggestions.summary]
 other = "Resumen de configuración:"
@@ -1152,19 +1212,22 @@ other = "deshabilitado"
 other = "habilitado"
 
 [tui.setup.suggestions.next]
-other = "Prueba estos comandos:"
+other = "Siguientes pasos sugeridos:"
 
 [tui.setup.suggestions.cmdWatch]
-other = "Comenzar a indexar sesiones"
+other = "Iniciar el observador del indexador"
 
 [tui.setup.suggestions.cmdSearch]
-other = "Buscar en tus sesiones"
+other = "Ejecutar búsqueda por palabras clave"
 
 [tui.setup.suggestions.cmdTui]
 other = "Abrir el explorador interactivo"
 
 [tui.setup.suggestions.cmdEmbed]
-other = "Habilitar búsqueda semántica después"
+other = "Habilitar búsqueda semántica más adelante"
+
+[tui.setup.suggestions.rerun]
+other = "Puedes ejecutar esta configuración de nuevo en cualquier momento con: thinkt setup"
 
 [tui.setup.suggestions.done]
-other = "Enter: finalizar · esc: salir"
+other = "Enter: finalizar configuración · esc: salir"

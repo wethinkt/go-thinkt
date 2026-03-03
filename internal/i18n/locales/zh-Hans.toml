@@ -715,6 +715,36 @@ other = "未找到会话"
 [cmd.sources.detail.basePath]
 other = "基础路径:  %s"
 
+[cmd.sources.detail.labelBasePath]
+other = "基础路径:"
+
+[cmd.sources.detail.labelDescription]
+other = "描述:"
+
+[cmd.sources.detail.labelEnabled]
+other = "已启用:"
+
+[cmd.sources.detail.labelID]
+other = "ID:"
+
+[cmd.sources.detail.labelProjects]
+other = "项目数:"
+
+[cmd.sources.detail.labelSessions]
+other = "会话数:"
+
+[cmd.sources.detail.labelSize]
+other = "大小:"
+
+[cmd.sources.detail.labelSource]
+other = "数据源:"
+
+[cmd.sources.detail.labelStatus]
+other = "状态:"
+
+[cmd.sources.detail.labelWorkspace]
+other = "工作区:"
+
 [cmd.sources.detail.description]
 other = "描述:      %s"
 
@@ -736,17 +766,38 @@ other = "工作区:    %s"
 [cmd.sources.expectedSources]
 other = "\n预期数据源:"
 
+[cmd.sources.allEnabled]
+other = "所有数据源都已启用。"
+
+[cmd.sources.allDisabled]
+other = "所有数据源都已禁用。"
+
+[cmd.sources.allToggled]
+other = "所有数据源已%s。"
+
 [cmd.sources.header.basePath]
 other = "基础路径"
 
+[cmd.sources.header.enabled]
+other = "启用"
+
 [cmd.sources.header.projects]
 other = "项目数"
+
+[cmd.sources.header.sessions]
+other = "会话数"
+
+[cmd.sources.header.size]
+other = "大小"
 
 [cmd.sources.header.workspace]
 other = "工作区"
 
 [cmd.sources.noSources]
 other = "未找到数据源。"
+
+[cmd.sources.sourceToggled]
+other = "数据源 %q 已%s。"
 
 # --- cmd: teams ---
 
@@ -993,19 +1044,19 @@ other = "thinkt"
 other = "欢迎使用 🧠 thinkt"
 
 [tui.setup.welcome.tagline]
-other = "你的 AI 编程会话，已索引且可搜索。"
+other = "浏览、搜索、分析并分享你的 LLM 对话。"
 
 [tui.setup.welcome.context]
-other = "此引导式设置会以内联方式显示在终端中，并在你完成时应用更改。"
+other = "我们会引导你完成初始设置，帮助你快速开始。"
 
 [tui.setup.welcome.body]
 other = "thinkt 索引并搜索你的 AI 编程助手（Claude、Kimi、Gemini 等）留下的\n推理记录，让你和你的工具能从过去的对话中学习。"
 
 [tui.setup.welcome.selectLanguage]
-other = "选择语言："
+other = "选择显示语言："
 
 [tui.setup.welcome.prompt]
-other = "↑/↓: 语言 · Enter: 开始 · esc: 退出"
+other = "↑/↓: 选择语言 · Enter: 继续 · esc: 退出"
 
 [tui.setup.hint.useCLICommand]
 other = "使用 CLI 命令："
@@ -1038,16 +1089,16 @@ other = "嵌入："
 other = "主目录"
 
 [tui.setup.home.body]
-other = "thinkt 将配置和索引存储在："
+other = "thinkt 需要一个目录来存放配置、本地索引和缓存。"
 
 [tui.setup.home.prompt]
-other = "创建此目录？"
+other = "可以使用此目录吗？"
 
 [tui.setup.home.no]
 other = "不，退出"
 
 [tui.setup.home.envHint]
-other = "使用环境变量 THINKT_HOME 以选择其他位置。"
+other = "使用环境变量 THINKT_HOME 来配置其他目录。"
 
 [tui.setup.sources.title]
 other = "数据源发现"
@@ -1062,28 +1113,37 @@ other = "在此机器上未找到 AI 助手会话。"
 other = "Enter: 继续 · esc: 退出"
 
 [tui.setup.sources.consent]
-other = "thinkt 通过扫描主目录中的已知路径来查找对话\n  （如 ~/.claude/projects/、~/.kimi/sessions/）。\n  它只读取会话记录，不会修改或删除任何内容。"
+other = "thinkt 会扫描你主目录中的特定路径（例如 ~/.claude/ 和 ~/.codex）。\n\n  它只读取会话日志，绝不会修改或删除源文件。即使使用 'thinkt web'，所有数据也都保留在本地。\n\n  请选择如何启用会话数据源："
 
 [tui.setup.sources.oneByOne]
-other = "逐个审查每个数据源"
+other = "启用前逐个审查数据源"
 
 [tui.setup.sources.all]
-other = "启用所有数据源"
+other = "启用所有已发现的数据源"
 
 [tui.setup.sources.disableAll]
 other = "禁用所有数据源"
 
 [tui.setup.sources.exitNoSave]
-other = "退出，不保存"
+other = "退出设置且不保存"
 
 [tui.setup.sources.consentHelp]
-other = "↑/↓: 选择 · 1-4: 选项 · Enter: 确认 · esc: 退出"
+other = "↑/↓ 或 tab: 选择 · 1-4: 选项 · Enter: 确认 · esc: 退出"
+
+[tui.setup.sources.discovered]
+other = "已发现的数据源："
+
+[tui.setup.sources.scanningCount]
+other = "正在扫描数据源... 目前已发现 %d 个。"
 
 [tui.setup.approval.title]
 other = "数据源审批"
 
 [tui.setup.approval.path]
 other = "路径："
+
+[tui.setup.approval.selected]
+other = "当前选中的数据源："
 
 [tui.setup.approval.sessions]
 other = "会话数："
@@ -1107,40 +1167,40 @@ other = "合计："
 other = "未启用任何数据源。"
 
 [tui.setup.summary.continue]
-other = "Enter: 继续 · esc: 退出"
+other = "Enter: 继续到索引器设置 · esc: 退出"
 
 [tui.setup.indexer.title]
 other = "索引器"
 
 [tui.setup.indexer.body]
-other = "thinkt 包含一个后台索引器，它监视你的会话文件并构建可搜索的\n  数据库（DuckDB）。这使你能在所有对话中进行全文搜索。"
+other = "索引器会让本地 DuckDB 数据库与会话文件保持同步。它可在所有数据源上提供快速搜索、筛选和使用统计。"
 
 [tui.setup.indexer.resources]
-other = "资源占用：索引约 50 MB 磁盘空间，CPU 占用极少。"
+other = "典型占用：每 1 万个会话约 50MB 磁盘空间，后台 CPU 占用较低。"
 
 [tui.setup.indexer.reversible]
 other = "可撤销："
 
 [tui.setup.indexer.prompt]
-other = "启用索引器？"
+other = "启用后台索引？"
 
 [tui.setup.embeddings.title]
 other = "语义嵌入"
 
 [tui.setup.embeddings.body]
-other = "thinkt 可以生成嵌入向量用于语义搜索——按含义而非仅按关键词\n  查找对话。"
+other = "嵌入可启用语义搜索，让你按意图而非仅按精确词语查找会话。它使用本地模型（nomic-embed-text-v1.5），无需 API 密钥。"
 
 [tui.setup.embeddings.resources]
-other = "需要下载模型（约 70 MB），使用 GPU（或 CPU 作为后备）\n  来生成嵌入向量。"
+other = "首次下载模型约 150MB。GPU 有帮助，但非必需。\n\n  初始后台扫描可能较耗资源。\n\n  可使用 'thinkt embeddings disable' 关闭。"
 
 [tui.setup.embeddings.reversible]
 other = "可撤销："
 
 [tui.setup.embeddings.prompt]
-other = "启用嵌入？"
+other = "启用语义搜索？"
 
 [tui.setup.suggestions.title]
-other = "设置完成！"
+other = "设置完成"
 
 [tui.setup.suggestions.summary]
 other = "配置摘要："
@@ -1152,13 +1212,13 @@ other = "已禁用"
 other = "已启用"
 
 [tui.setup.suggestions.next]
-other = "试试这些命令："
+other = "建议的下一步："
 
 [tui.setup.suggestions.cmdWatch]
-other = "开始索引会话"
+other = "启动索引器监视"
 
 [tui.setup.suggestions.cmdSearch]
-other = "搜索你的会话"
+other = "执行关键词搜索"
 
 [tui.setup.suggestions.cmdTui]
 other = "打开交互式浏览器"
@@ -1166,5 +1226,8 @@ other = "打开交互式浏览器"
 [tui.setup.suggestions.cmdEmbed]
 other = "稍后启用语义搜索"
 
+[tui.setup.suggestions.rerun]
+other = "你可以随时重新运行此设置：thinkt setup"
+
 [tui.setup.suggestions.done]
-other = "Enter: 完成 · esc: 退出"
+other = "Enter: 完成设置 · esc: 退出"
