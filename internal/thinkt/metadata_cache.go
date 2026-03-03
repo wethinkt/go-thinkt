@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
 // MetadataCache holds cached session metadata for a single source.
 // It is stored as a JSON file at {cacheDir}/sessions-{source}.json.
+// All exported methods are safe for concurrent use.
 type MetadataCache struct {
+	mu        sync.RWMutex
 	Version   int                      `json:"version"`
 	Source    Source                    `json:"source"`
 	UpdatedAt time.Time                `json:"updated_at"`
@@ -28,6 +31,14 @@ type CachedSession struct {
 	GitBranch   string    `json:"git_branch,omitempty"`
 	ModifiedAt  time.Time `json:"modified_at"`
 	FileSize    int64     `json:"file_size"`
+}
+
+// metadataCacheJSON is the on-disk representation without the mutex.
+type metadataCacheJSON struct {
+	Version   int                      `json:"version"`
+	Source    Source                    `json:"source"`
+	UpdatedAt time.Time                `json:"updated_at"`
+	Sessions  map[string]CachedSession `json:"sessions"`
 }
 
 // cacheFileName returns the filename for a source's metadata cache.
@@ -53,16 +64,18 @@ func LoadMetadataCache(source Source, cacheDir string) (*MetadataCache, error) {
 		return mc, nil
 	}
 
-	if err := json.Unmarshal(data, mc); err != nil {
+	var disk metadataCacheJSON
+	if err := json.Unmarshal(data, &disk); err != nil {
 		// Corrupt file: return empty cache, don't propagate error.
-		mc.Sessions = make(map[string]CachedSession)
 		return mc, nil
 	}
 
-	// Ensure dir is set even after deserialization (it's not in JSON).
-	mc.dir = cacheDir
-	// Ensure source is correct (defensive against edited files).
-	mc.Source = source
+	mc.Version = disk.Version
+	mc.Source = source // defensive against edited files
+	mc.UpdatedAt = disk.UpdatedAt
+	if disk.Sessions != nil {
+		mc.Sessions = disk.Sessions
+	}
 
 	return mc, nil
 }
@@ -71,6 +84,8 @@ func LoadMetadataCache(source Source, cacheDir string) (*MetadataCache, error) {
 // match the stored values. A mismatch means the session file changed and the
 // cache entry is stale.
 func (mc *MetadataCache) Lookup(fullPath string, modTime time.Time, fileSize int64) (CachedSession, bool) {
+	mc.mu.RLock()
+	defer mc.mu.RUnlock()
 	entry, ok := mc.Sessions[fullPath]
 	if !ok {
 		return CachedSession{}, false
@@ -83,6 +98,8 @@ func (mc *MetadataCache) Lookup(fullPath string, modTime time.Time, fileSize int
 
 // Set upserts a cache entry for the given session path.
 func (mc *MetadataCache) Set(fullPath string, entry CachedSession) {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
 	mc.Sessions[fullPath] = entry
 }
 
@@ -91,6 +108,9 @@ func (mc *MetadataCache) Set(fullPath string, entry CachedSession) {
 // This allows concurrent processes to each contribute entries without losing
 // the other's work. The write is atomic (temp file + rename).
 func (mc *MetadataCache) Save() error {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+
 	// Create cache directory if needed.
 	if err := os.MkdirAll(mc.dir, 0o755); err != nil {
 		return fmt.Errorf("create cache dir: %w", err)
@@ -101,7 +121,7 @@ func (mc *MetadataCache) Save() error {
 	// Re-read current disk state as the merge base.
 	base := make(map[string]CachedSession)
 	if data, err := os.ReadFile(path); err == nil {
-		var disk MetadataCache
+		var disk metadataCacheJSON
 		if json.Unmarshal(data, &disk) == nil && disk.Sessions != nil {
 			base = disk.Sessions
 		}
@@ -116,7 +136,7 @@ func (mc *MetadataCache) Save() error {
 		merged[k] = v
 	}
 
-	out := MetadataCache{
+	out := metadataCacheJSON{
 		Version:   1,
 		Source:    mc.Source,
 		UpdatedAt: time.Now(),
@@ -158,8 +178,13 @@ func (mc *MetadataCache) Save() error {
 // (mtime + size match). Only fills fields that are currently empty/zero in meta.
 // Returns true if a fresh cache entry was found and fields were potentially merged.
 func (mc *MetadataCache) MergeInto(meta *SessionMeta) bool {
-	entry, ok := mc.Lookup(meta.FullPath, meta.ModifiedAt, meta.FileSize)
+	mc.mu.RLock()
+	entry, ok := mc.Sessions[meta.FullPath]
+	mc.mu.RUnlock()
 	if !ok {
+		return false
+	}
+	if !entry.ModifiedAt.Equal(meta.ModifiedAt) || entry.FileSize != meta.FileSize {
 		return false
 	}
 
