@@ -327,6 +327,7 @@ func (s *Store) listSessionsForProject(projectHash string) ([]thinkt.SessionMeta
 			Model:       meta.Model,
 			EntryCount:  meta.EntryCount,
 			GitBranch:   meta.GitBranch,
+			CreatedAt:   meta.CreatedAt,
 			ModifiedAt:  info.ModTime(),
 			FileSize:    info.Size(),
 		})

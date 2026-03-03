@@ -260,6 +260,8 @@ func (s *Store) startEnrichment(ctx context.Context, projectID string, sessions 
 				FirstPrompt: sess.FirstPrompt,
 				Model:       sess.Model,
 				EntryCount:  sess.EntryCount,
+				ProjectPath: sess.ProjectPath,
+				CreatedAt:   sess.CreatedAt,
 				ModifiedAt:  sess.ModifiedAt,
 				FileSize:    sess.FileSize,
 			})

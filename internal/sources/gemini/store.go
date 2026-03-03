@@ -259,6 +259,7 @@ func (s *Store) ListSessions(ctx context.Context, projectID string, opts ...thin
 					Model:       meta.Model,
 					EntryCount:  meta.EntryCount,
 					GitBranch:   meta.GitBranch,
+					CreatedAt:   meta.CreatedAt,
 					ModifiedAt:  info.ModTime(),
 					FileSize:    info.Size(),
 				})
@@ -542,7 +543,7 @@ func convertSession(g *Session, meta *thinkt.SessionMeta) *thinkt.Session {
 // WatchConfig returns the watch configuration for Gemini session files.
 func (s *Store) WatchConfig() thinkt.WatchConfig {
 	return thinkt.WatchConfig{
-		IncludeDirs: []string{"sessions"},
+		IncludeDirs: []string{"tmp"},
 		MaxDepth:    2,
 	}
 }

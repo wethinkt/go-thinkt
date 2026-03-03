@@ -252,6 +252,8 @@ func (s *Store) startEnrichment(ctx context.Context, projectID string, sessions 
 				Model:       sess.Model,
 				EntryCount:  sess.EntryCount,
 				GitBranch:   sess.GitBranch,
+				ProjectPath: sess.ProjectPath,
+				CreatedAt:   sess.CreatedAt,
 				ModifiedAt:  sess.ModifiedAt,
 				FileSize:    sess.FileSize,
 			})
