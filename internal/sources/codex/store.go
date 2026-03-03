@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
@@ -22,6 +23,7 @@ type Store struct {
 	baseDir  string
 	cacheDir string // directory for persistent metadata cache
 	cache    thinkt.StoreCache
+	mcOnce   sync.Once
 	mc       *thinkt.MetadataCache // lazily loaded
 }
 
@@ -50,19 +52,17 @@ func NewStoreWithCacheDir(baseDir, cacheDir string) *Store {
 
 // metadataCache returns the lazily-loaded persistent metadata cache.
 func (s *Store) metadataCache() *thinkt.MetadataCache {
-	if s.mc != nil {
-		return s.mc
-	}
-	if s.cacheDir == "" {
-		s.mc = &thinkt.MetadataCache{
-			Version:  1,
-			Source:   thinkt.SourceCodex,
-			Sessions: make(map[string]thinkt.CachedSession),
+	s.mcOnce.Do(func() {
+		if s.cacheDir == "" {
+			s.mc = &thinkt.MetadataCache{
+				Version:  1,
+				Source:   thinkt.SourceCodex,
+				Sessions: make(map[string]thinkt.CachedSession),
+			}
+			return
 		}
-		return s.mc
-	}
-	mc, _ := thinkt.LoadMetadataCache(thinkt.SourceCodex, s.cacheDir)
-	s.mc = mc
+		s.mc, _ = thinkt.LoadMetadataCache(thinkt.SourceCodex, s.cacheDir)
+	})
 	return s.mc
 }
 
