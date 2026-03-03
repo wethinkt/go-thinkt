@@ -90,22 +90,33 @@ func runAppsList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	t := theme.Current()
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.GetAccent()))
+	primaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg))
+	secondaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg))
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
+	accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent()))
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-		thinktI18n.T("cmd.apps.header.id", "ID"),
-		thinktI18n.T("cmd.apps.header.name", "NAME"),
-		thinktI18n.T("cmd.apps.header.enabled", "ENABLED"),
-		thinktI18n.T("cmd.apps.header.terminal", "TERMINAL"))
+		headerStyle.Render(thinktI18n.T("cmd.apps.header.id", "ID")),
+		headerStyle.Render(thinktI18n.T("cmd.apps.header.name", "NAME")),
+		headerStyle.Render(thinktI18n.T("cmd.apps.header.enabled", "ENABLED")),
+		headerStyle.Render(thinktI18n.T("cmd.apps.header.terminal", "TERMINAL")))
 	for _, app := range cfg.AllowedApps {
-		enabled := thinktI18n.T("common.no", "no")
+		enabled := mutedStyle.Render(thinktI18n.T("common.no", "no"))
 		if app.Enabled {
-			enabled = thinktI18n.T("common.yes", "yes")
+			enabled = accentStyle.Render(thinktI18n.T("common.yes", "yes"))
 		}
-		terminal := thinktI18n.T("common.no", "no")
+		terminal := mutedStyle.Render(thinktI18n.T("common.no", "no"))
 		if len(app.ExecRun) > 0 {
-			terminal = thinktI18n.T("common.yes", "yes")
+			terminal = accentStyle.Render(thinktI18n.T("common.yes", "yes"))
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", app.ID, app.Name, enabled, terminal)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+			secondaryStyle.Render(app.ID),
+			primaryStyle.Render(app.Name),
+			enabled,
+			terminal)
 	}
 	return w.Flush()
 }
