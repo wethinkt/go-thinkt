@@ -19,6 +19,7 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
+	"github.com/wethinkt/go-thinkt/internal/version"
 )
 
 // MCPServer wraps an MCP server for thinkt.
@@ -41,7 +42,7 @@ func NewMCPServerWithAuth(registry *thinkt.StoreRegistry, authConfig AuthConfig)
 	tuilog.Log.Info("NewMCPServer: creating MCP server", "auth_mode", authConfig.Mode)
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "thinkt",
-		Version: "1.0.0",
+		Version: version.Get(),
 	}, nil)
 
 	ms := &MCPServer{
@@ -740,7 +741,6 @@ func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallTool
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
 }
 
-
 func (ms *MCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallToolRequest, input semanticSearchInput) (*mcp.CallToolResult, any, error) {
 	if strings.TrimSpace(input.Query) == "" {
 		return toolErrorResult("missing_query", "query is required", nil)
@@ -750,7 +750,7 @@ func (ms *MCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallTool
 		Project:     input.Project,
 		Source:      input.Source,
 		Limit:       input.Limit,
-		MaxDistance:  input.MaxDistance,
+		MaxDistance: input.MaxDistance,
 		Diversity:   input.Diversity,
 	}
 	results, err := indexerSemanticSearch(params)
