@@ -193,6 +193,11 @@ func (s *Store) ListSessions(ctx context.Context, projectID string, opts ...thin
 		return nil, err
 	}
 
+	mc := s.metadataCache()
+	for i := range sessions {
+		mc.MergeInto(&sessions[i])
+	}
+
 	if cfg.EnrichCallback != nil && len(sessions) > 0 {
 		cfg.EnrichCallback(projectID, sessions)
 	}

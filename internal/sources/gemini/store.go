@@ -278,6 +278,13 @@ func (s *Store) ListSessions(ctx context.Context, projectID string, opts ...thin
 		return nil, err
 	}
 
+	// Merge any updates from the persistent MetadataCache that may have been
+	// written by another process since the StoreCache was populated.
+	mc := s.metadataCache()
+	for i := range sessions {
+		mc.MergeInto(&sessions[i])
+	}
+
 	// Data is already complete from eager loading. Fire callback once if requested.
 	if cfg.EnrichCallback != nil && len(sessions) > 0 {
 		cfg.EnrichCallback(projectID, sessions)
