@@ -1,7 +1,6 @@
 package copilot
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -462,48 +461,67 @@ func (s *Store) readSessionMeta(id, path string) (*thinkt.SessionMeta, error) {
 	}
 	defer f.Close()
 
-	// Read first few lines to get session.start
-	scanner := bufio.NewScanner(f)
-	var projectPath string
-	var createdAt time.Time
-
-	// Also get file stats
 	info, _ := f.Stat()
 
+	meta := &thinkt.SessionMeta{
+		ID:          id,
+		ProjectPath: "unknown",
+		FullPath:    path,
+		FileSize:    info.Size(),
+		ModifiedAt:  info.ModTime(),
+		Source:      thinkt.SourceCopilot,
+		WorkspaceID: s.Workspace().ID,
+		ChunkCount:  1,
+	}
+
+	scanner := thinkt.NewScannerWithMaxCapacity(f)
 	var entryCount int
 	for scanner.Scan() {
 		entryCount++
-		line := scanner.Bytes()
+		line := bytes.TrimSpace(scanner.Bytes())
 		if len(line) == 0 {
 			continue
 		}
 
-		if entryCount == 1 {
-			var event Event
-			if err := json.Unmarshal(line, &event); err == nil {
-				createdAt = event.Timestamp
-				if event.Type == EventTypeSessionStart {
-					if ctx, ok := event.Data["context"].(map[string]any); ok {
-						if cwd, ok := ctx["cwd"].(string); ok {
-							projectPath = cwd
-						}
-					}
+		var event Event
+		if err := json.Unmarshal(line, &event); err != nil {
+			continue
+		}
+
+		if meta.CreatedAt.IsZero() && !event.Timestamp.IsZero() {
+			meta.CreatedAt = event.Timestamp
+		}
+
+		switch event.Type {
+		case EventTypeSessionStart, EventTypeSessionInfo:
+			if ctx, ok := event.Data["context"].(map[string]any); ok {
+				if cwd, ok := ctx["cwd"].(string); ok && cwd != "" {
+					meta.ProjectPath = cwd
+				}
+			}
+		case EventTypeUserMessage:
+			if meta.FirstPrompt == "" {
+				if transformed, ok := event.Data["transformedContent"].(string); ok && transformed != "" {
+					meta.FirstPrompt = thinkt.TruncateString(transformed, thinkt.DefaultTruncateLength)
+				} else if content, ok := event.Data["content"].(string); ok && content != "" {
+					meta.FirstPrompt = thinkt.TruncateString(content, thinkt.DefaultTruncateLength)
+				}
+			}
+		case EventTypeAssistantMsg:
+			if !thinkt.IsRealModel(meta.Model) {
+				if model, ok := event.Data["model"].(string); ok && thinkt.IsRealModel(model) {
+					meta.Model = model
 				}
 			}
 		}
 	}
 
-	return &thinkt.SessionMeta{
-		ID:          id,
-		ProjectPath: projectPath,
-		FullPath:    path,
-		FileSize:    info.Size(),
-		CreatedAt:   createdAt,
-		ModifiedAt:  info.ModTime(),
-		EntryCount:  entryCount,
-		Source:      thinkt.SourceCopilot,
-		WorkspaceID: s.Workspace().ID,
-	}, nil
+	meta.EntryCount = entryCount
+	if meta.CreatedAt.IsZero() {
+		meta.CreatedAt = meta.ModifiedAt
+	}
+
+	return meta, nil
 }
 
 type sessionReader struct {
