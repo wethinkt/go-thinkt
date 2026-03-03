@@ -2,6 +2,7 @@
 package kimi
 
 import (
+	"bufio"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
@@ -15,14 +16,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/jsonl"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 // Store implements thinkt.Store for Kimi Code sessions.
 type Store struct {
-	baseDir string
-	cache   thinkt.StoreCache
+	baseDir  string
+	cacheDir string // directory for persistent metadata cache
+	cache    thinkt.StoreCache
+	mc       *thinkt.MetadataCache // lazily loaded
 }
 
 // NewStore creates a new Kimi store.
@@ -31,7 +35,39 @@ func NewStore(baseDir string) *Store {
 		home, _ := os.UserHomeDir()
 		baseDir = filepath.Join(home, ".kimi")
 	}
-	return &Store{baseDir: baseDir}
+	cacheDir := ""
+	if dir, err := config.Dir(); err == nil {
+		cacheDir = filepath.Join(dir, "cache")
+	}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir}
+}
+
+// NewStoreWithCacheDir creates a Kimi store with an explicit cache directory.
+// This is primarily useful for testing.
+func NewStoreWithCacheDir(baseDir, cacheDir string) *Store {
+	if baseDir == "" {
+		home, _ := os.UserHomeDir()
+		baseDir = filepath.Join(home, ".kimi")
+	}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir}
+}
+
+// metadataCache returns the lazily-loaded persistent metadata cache.
+func (s *Store) metadataCache() *thinkt.MetadataCache {
+	if s.mc != nil {
+		return s.mc
+	}
+	if s.cacheDir == "" {
+		s.mc = &thinkt.MetadataCache{
+			Version:  1,
+			Source:   thinkt.SourceKimi,
+			Sessions: make(map[string]thinkt.CachedSession),
+		}
+		return s.mc
+	}
+	mc, _ := thinkt.LoadMetadataCache(thinkt.SourceKimi, s.cacheDir)
+	s.mc = mc
+	return s.mc
 }
 
 // SetCacheTTL sets the cache time-to-live for this store.
@@ -149,12 +185,148 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 	}, nil
 }
 
-// ListSessions returns sessions for a project.
+// ListSessions returns sessions for a project. Cached metadata (Model,
+// EntryCount) is merged from the persistent MetadataCache. If WithEnrich
+// is passed, stale sessions are enriched in a background goroutine and
+// the callback is invoked after each session is enriched.
 func (s *Store) ListSessions(ctx context.Context, projectID string, opts ...thinkt.ListSessionsOption) ([]thinkt.SessionMeta, error) {
+	cfg := thinkt.ResolveListOptions(opts)
+
 	hash := s.projectHash(projectID)
-	return s.cache.LoadSessions(hash, func() ([]thinkt.SessionMeta, error) {
+	sessions, err := s.cache.LoadSessions(hash, func() ([]thinkt.SessionMeta, error) {
 		return s.listSessionsForHash(hash)
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Merge cached metadata into sessions missing enriched fields.
+	mc := s.metadataCache()
+	for i := range sessions {
+		mc.MergeInto(&sessions[i])
+	}
+
+	// If enrichment requested, scan stale sessions in background.
+	if cfg.EnrichCallback != nil {
+		s.startEnrichment(ctx, hash, sessions, mc, cfg.EnrichCallback)
+	}
+
+	return sessions, nil
+}
+
+// startEnrichment spawns a goroutine that enriches stale sessions (those
+// missing Model or EntryCount) and notifies the caller via the callback
+// after each session is updated. Note: FirstPrompt is already populated
+// during listing by firstPromptLimited().
+func (s *Store) startEnrichment(ctx context.Context, projectID string, sessions []thinkt.SessionMeta, mc *thinkt.MetadataCache, cb func(string, []thinkt.SessionMeta)) {
+	// Find sessions that need enrichment.
+	var staleIdxs []int
+	for i, sess := range sessions {
+		if sess.FullPath == "" {
+			continue
+		}
+		_, cached := mc.Lookup(sess.FullPath, sess.ModifiedAt, sess.FileSize)
+		if cached {
+			continue // already enriched from cache
+		}
+		if !thinkt.IsRealModel(sess.Model) || sess.EntryCount == 0 {
+			staleIdxs = append(staleIdxs, i)
+		}
+	}
+
+	if len(staleIdxs) == 0 {
+		return
+	}
+
+	// Copy sessions for the goroutine.
+	enriched := make([]thinkt.SessionMeta, len(sessions))
+	copy(enriched, sessions)
+
+	go func() {
+		for _, idx := range staleIdxs {
+			if ctx.Err() != nil {
+				return
+			}
+			sess := &enriched[idx]
+
+			if !thinkt.IsRealModel(sess.Model) {
+				sess.Model = extractKimiModel(sess.FullPath)
+			}
+			if sess.EntryCount == 0 {
+				sess.EntryCount = countKimiLines(sess.FullPath)
+			}
+
+			// Update persistent cache.
+			mc.Set(sess.FullPath, thinkt.CachedSession{
+				FirstPrompt: sess.FirstPrompt,
+				Model:       sess.Model,
+				EntryCount:  sess.EntryCount,
+				ModifiedAt:  sess.ModifiedAt,
+				FileSize:    sess.FileSize,
+			})
+			_ = mc.Save()
+
+			// Update the in-memory StoreCache.
+			result := make([]thinkt.SessionMeta, len(enriched))
+			copy(result, enriched)
+			s.cache.SetSessions(projectID, result, nil)
+
+			// Notify caller.
+			callbackCopy := make([]thinkt.SessionMeta, len(enriched))
+			copy(callbackCopy, enriched)
+			cb(projectID, callbackCopy)
+		}
+	}()
+}
+
+// extractKimiModel scans the first ~50 lines of a Kimi context.jsonl file
+// looking for an assistant entry with a "model" field.
+func extractKimiModel(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 256*1024), 256*1024)
+
+	for i := 0; i < 50 && scanner.Scan(); i++ {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		var entry struct {
+			Role  string `json:"role"`
+			Model string `json:"model"`
+		}
+		if err := json.Unmarshal(line, &entry); err != nil {
+			continue
+		}
+		if entry.Role == "assistant" && entry.Model != "" {
+			return entry.Model
+		}
+	}
+	return ""
+}
+
+// countKimiLines counts non-empty lines in a JSONL file.
+func countKimiLines(path string) int {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+
+	count := 0
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 256*1024), 256*1024)
+	for scanner.Scan() {
+		if len(scanner.Bytes()) > 0 {
+			count++
+		}
+	}
+	return count
 }
 
 func (s *Store) listSessionsForHash(hash string) ([]thinkt.SessionMeta, error) {
