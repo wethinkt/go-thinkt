@@ -267,13 +267,19 @@ other = "Buscar..."
 other = "Coincidencia %d/%d"
 
 [tui.viewer.helpWithMatches]
-other = "%s  ·  n/N: sig/ant  ·  /: buscar  ·  esc: borrar"
+other = "%s  ·  n/N: sig/ant  ·  /: buscar  ·  arrastrar: copiar  ·  esc: borrar"
 
 [tui.viewer.helpNoMatches]
-other = "Sin coincidencias  ·  /: buscar  ·  esc: borrar"
+other = "Sin coincidencias  ·  /: buscar  ·  arrastrar: copiar  ·  esc: borrar"
 
 [tui.viewer.help]
-other = "↑/↓: desplazarse • /: buscar • 1-6: filtros • g/G: inicio/fin • esc: volver • q: salir"
+other = "↑/↓: desplazarse • /: buscar • 1-6: filtros • g/G: inicio/fin • arrastre con ratón: copiar • esc: volver • q: salir"
+
+[tui.viewer.copySelected]
+other = "Selección copiada."
+
+[tui.viewer.copyFailed]
+other = "Falló la copia."
 
 # --- Color picker ---
 

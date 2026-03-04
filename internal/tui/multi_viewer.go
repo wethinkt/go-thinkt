@@ -58,11 +58,12 @@ type MultiViewerModel struct {
 	searchMatches []int           // line numbers (0-indexed) of matches
 	currentMatch  int             // index into searchMatches (-1 = none)
 
-	// Mouse selection state (line-based).
-	selecting          bool
-	selectionStartLine int
-	selectionEndLine   int
-	copyNotice         string
+	// Mouse selection state.
+	selecting      bool
+	selectionStart selectionPos
+	selectionEnd   selectionPos
+	selectionMoved bool
+	copyNotice     string
 
 	// Input settling: ignore key events until a real render has occurred.
 	// This prevents stray terminal escape sequences (from Kitty keyboard
@@ -90,6 +91,11 @@ type entriesRenderedMsg struct {
 	entries  []string // rendered strings
 }
 
+type selectionPos struct {
+	line int
+	cell int // visual cell index within ANSI-stripped line
+}
+
 // NewMultiViewerModel creates a new multi-session viewer.
 func NewMultiViewerModel(sessionPaths []string) MultiViewerModel {
 	return NewMultiViewerModelWithRegistry(sessionPaths, nil)
@@ -107,8 +113,8 @@ func NewMultiViewerModelWithRegistry(sessionPaths []string, registry *thinkt.Sto
 		displayedEntries: make([]int, len(sessionPaths)),
 		renderBuffer:     50, // Render 50 extra lines beyond viewport
 		filters:          NewRoleFilterSet(),
-		selectionStartLine: -1,
-		selectionEndLine:   -1,
+		selectionStart:   selectionPos{line: -1, cell: 0},
+		selectionEnd:     selectionPos{line: -1, cell: 0},
 	}
 }
 
@@ -445,32 +451,124 @@ func (m *MultiViewerModel) setViewportContent() {
 	} else {
 		content = m.rendered
 	}
-	if start, end, ok := m.selectedLineRange(); ok {
-		content = highlightSelectedLines(content, start, end)
+	if start, end, ok := m.selectedRange(); ok {
+		content = highlightSelectedRange(content, start, end)
 	}
 	m.viewport.SetContent(content)
 }
 
-func highlightSelectedLines(content string, startLine, endLine int) string {
+func highlightSelectedRange(content string, start, end selectionPos) string {
 	lines := strings.Split(content, "\n")
 	if len(lines) == 0 {
 		return content
 	}
 
-	if startLine < 0 {
-		startLine = 0
+	if start.line < 0 {
+		start.line = 0
 	}
-	if endLine >= len(lines) {
-		endLine = len(lines) - 1
+	if end.line >= len(lines) {
+		end.line = len(lines) - 1
 	}
-	if startLine > endLine {
+	if start.line > end.line {
 		return content
 	}
 
-	for i := startLine; i <= endLine; i++ {
-		lines[i] = "\033[7m" + lines[i] + "\033[27m"
+	for i := start.line; i <= end.line; i++ {
+		lineStripped := ansi.Strip(lines[i])
+		lineLen := len(lineStripped)
+		if lineLen == 0 {
+			lines[i] = "\033[0;7m \033[0m"
+			continue
+		}
+
+		var spanStart, spanEnd int
+		if i == start.line && i == end.line {
+			spanStart = byteOffsetForCellStart(lineStripped, start.cell)
+			spanEnd = byteOffsetForCellEnd(lineStripped, end.cell)
+		} else if i == start.line {
+			spanStart = byteOffsetForCellStart(lineStripped, start.cell)
+			spanEnd = lineLen
+		} else if i == end.line {
+			spanStart = 0
+			spanEnd = byteOffsetForCellEnd(lineStripped, end.cell)
+		} else {
+			spanStart = 0
+			spanEnd = lineLen
+		}
+		if spanStart >= spanEnd {
+			continue
+		}
+		lines[i] = highlightVisibleSpan(lines[i], spanStart, spanEnd)
 	}
 	return strings.Join(lines, "\n")
+}
+
+// highlightVisibleSpan wraps the visible byte range [start,end) in a selection
+// highlight. Within the highlighted span, existing ANSI styles are stripped and
+// replaced with a reset+reverse-video so the highlight is always visible
+// regardless of the line's original background color.
+func highlightVisibleSpan(line string, start, end int) string {
+	if start < 0 {
+		start = 0
+	}
+	if end <= start {
+		return line
+	}
+
+	hlOn := "\033[0;7m" // reset all attributes, then reverse video
+	hlOff := "\033[0m"  // reset all attributes
+
+	var buf strings.Builder
+	buf.Grow(len(line) + 64)
+	visPos := 0 // byte offset in ANSI-stripped text
+	inHL := false
+	// Capture ANSI sequences seen before highlight so we can restore after.
+	var lastStyle string
+
+	for i := 0; i < len(line); {
+		// Handle ANSI escape sequences.
+		if line[i] == '\033' && i+1 < len(line) && line[i+1] == '[' {
+			j := i + 2
+			for j < len(line) && !isAnsiTerminator(line[j]) {
+				j++
+			}
+			if j < len(line) {
+				j++
+			}
+			seq := line[i:j]
+			if inHL {
+				// Skip existing styles inside the highlight.
+			} else {
+				buf.WriteString(seq)
+				lastStyle = seq
+			}
+			i = j
+			continue
+		}
+
+		if !inHL && visPos == start {
+			buf.WriteString(hlOn)
+			inHL = true
+		}
+
+		buf.WriteByte(line[i])
+		i++
+		visPos++
+
+		if inHL && visPos == end {
+			buf.WriteString(hlOff)
+			// Restore the style that was active before the highlight.
+			if lastStyle != "" {
+				buf.WriteString(lastStyle)
+			}
+			inHL = false
+		}
+	}
+
+	if inHL {
+		buf.WriteString(hlOff)
+	}
+	return buf.String()
 }
 
 // buildHighlightedContent returns m.rendered with search matches highlighted.
@@ -802,6 +900,37 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.viewport.SetYOffset(offset)
 		}
+
+	case selectionStartMsg:
+		m.startSelectionFromMouse(msg.x, msg.y)
+
+	case selectionDragMsg:
+		m.updateSelectionFromMouse(msg.x, msg.y)
+
+	case selectionEndMsg:
+		if !m.selecting {
+			break
+		}
+		m.updateSelectionFromMouse(msg.x, msg.y)
+		if !m.selectionMoved {
+			m.clearSelection()
+			break
+		}
+		selected := m.selectedTextPlain()
+		m.clearSelection()
+		if strings.TrimSpace(selected) != "" {
+			if err := copyTextToClipboard(selected); err != nil {
+				m.copyNotice = thinktI18n.T("tui.viewer.copyFailed", "COPY FAILED")
+			} else {
+				m.copyNotice = thinktI18n.T("tui.viewer.copySelected", "COPIED")
+			}
+			cmds = append(cmds, tea.Tick(1500*time.Millisecond, func(time.Time) tea.Msg {
+				return clearCopyNoticeMsg{}
+			}))
+		}
+
+	case clearCopyNoticeMsg:
+		m.copyNotice = ""
 
 	case tea.WindowSizeMsg:
 		tuilog.Log.Info("MultiViewer.Update: WindowSizeMsg", "width", msg.Width, "height", msg.Height, "wasReady", m.ready)
@@ -1139,8 +1268,300 @@ type scrollbarClickMsg struct {
 	y int // y position within the scrollbar track (0-indexed)
 }
 
+type selectionStartMsg struct {
+	x int
+	y int
+}
+
+type selectionDragMsg struct {
+	x int
+	y int
+}
+
+type selectionEndMsg struct {
+	x int
+	y int
+}
+
+type clearCopyNoticeMsg struct{}
+
 // scrollbarWidth is the fixed width of the scrollbar gutter.
 const scrollbarWidth = 1
+
+func (m MultiViewerModel) contentTopY() int {
+	if m.standalone {
+		return 1 // standalone header takes one line
+	}
+	return 0
+}
+
+func (m MultiViewerModel) contentInnerTopY() int {
+	return m.contentTopY() + 1 // inside border (below top border line)
+}
+
+func (m MultiViewerModel) contentInnerLeftX() int {
+	return 1 // inside border (right of left border line)
+}
+
+func (m MultiViewerModel) contentInnerWidth() int {
+	borderWidth := m.width - 2 - scrollbarWidth
+	inner := borderWidth - 2 // strip box borders
+	if inner < 0 {
+		return 0
+	}
+	return inner
+}
+
+func (m MultiViewerModel) contentInnerRightX() int {
+	return m.contentInnerLeftX() + m.contentInnerWidth() - 1
+}
+
+func (m MultiViewerModel) lineIndexFromMouseY(y int) (int, bool) {
+	contentHeight := m.height - 4
+	if contentHeight <= 0 {
+		return 0, false
+	}
+
+	top := m.contentInnerTopY()
+	bottom := top + contentHeight - 1
+	if y < top || y > bottom {
+		return 0, false
+	}
+
+	line := m.viewport.YOffset() + (y - top)
+	if line < 0 {
+		line = 0
+	}
+	maxLine := m.viewport.TotalLineCount() - 1
+	if maxLine >= 0 && line > maxLine {
+		line = maxLine
+	}
+	return line, true
+}
+
+func byteOffsetForCellStart(s string, cell int) int {
+	if cell <= 0 {
+		return 0
+	}
+
+	cells := 0
+	for i, r := range s {
+		if cell <= cells {
+			return i
+		}
+		w := ansi.StringWidth(string(r))
+		if w <= 0 {
+			w = 1
+		}
+		next := cells + w
+		if cell < next {
+			return i
+		}
+		cells = next
+	}
+	return len(s)
+}
+
+func byteOffsetForCellEnd(s string, cell int) int {
+	if cell < 0 || len(s) == 0 {
+		return 0
+	}
+
+	cells := 0
+	for i, r := range s {
+		w := ansi.StringWidth(string(r))
+		if w <= 0 {
+			w = 1
+		}
+		next := cells + w
+		if cell < next {
+			return i + len(string(r))
+		}
+		cells = next
+	}
+	return len(s)
+}
+
+func (m MultiViewerModel) positionFromMouse(x, y int) (selectionPos, bool) {
+	line, ok := m.lineIndexFromMouseY(y)
+	if !ok || m.rendered == "" {
+		return selectionPos{}, false
+	}
+
+	lines := strings.Split(m.rendered, "\n")
+	if len(lines) == 0 {
+		return selectionPos{}, false
+	}
+	if line < 0 {
+		line = 0
+	}
+	if line >= len(lines) {
+		line = len(lines) - 1
+	}
+
+	innerWidth := m.contentInnerWidth()
+	if innerWidth <= 0 {
+		return selectionPos{}, false
+	}
+	cell := x - m.contentInnerLeftX()
+	if cell < 0 {
+		cell = 0
+	}
+	if cell > innerWidth {
+		cell = innerWidth
+	}
+
+	return selectionPos{line: line, cell: cell}, true
+}
+
+func (m MultiViewerModel) clampedPositionFromMouse(x, y int) (selectionPos, bool) {
+	if m.rendered == "" {
+		return selectionPos{}, false
+	}
+
+	lines := strings.Split(m.rendered, "\n")
+	if len(lines) == 0 {
+		return selectionPos{}, false
+	}
+
+	line, ok := m.lineIndexFromMouseY(y)
+	if !ok {
+		if y < m.contentInnerTopY() {
+			line = m.viewport.YOffset()
+		} else {
+			line = m.viewport.YOffset() + m.viewport.VisibleLineCount() - 1
+		}
+	}
+	if line < 0 {
+		line = 0
+	}
+	if line >= len(lines) {
+		line = len(lines) - 1
+	}
+
+	innerWidth := m.contentInnerWidth()
+	if innerWidth <= 0 {
+		return selectionPos{}, false
+	}
+	left := m.contentInnerLeftX()
+	right := m.contentInnerRightX()
+	if x < left {
+		x = left
+	} else if x > right {
+		x = right
+	}
+	cell := x - left
+
+	return selectionPos{line: line, cell: cell}, true
+}
+
+func (m *MultiViewerModel) startSelectionFromMouse(x, y int) {
+	pos, ok := m.positionFromMouse(x, y)
+	if !ok {
+		return
+	}
+	m.selecting = true
+	m.selectionStart = pos
+	m.selectionEnd = pos
+	m.selectionMoved = false
+	m.copyNotice = ""
+	m.setViewportContent()
+}
+
+func (m *MultiViewerModel) updateSelectionFromMouse(x, y int) {
+	if !m.selecting {
+		return
+	}
+	pos, ok := m.clampedPositionFromMouse(x, y)
+	if !ok {
+		return
+	}
+	if pos.line != m.selectionStart.line || pos.cell != m.selectionStart.cell {
+		m.selectionMoved = true
+	}
+	m.selectionEnd = pos
+	m.setViewportContent()
+}
+
+func (m MultiViewerModel) selectedRange() (selectionPos, selectionPos, bool) {
+	if m.selectionStart.line < 0 || m.selectionEnd.line < 0 {
+		return selectionPos{}, selectionPos{}, false
+	}
+
+	start := m.selectionStart
+	end := m.selectionEnd
+	if start.line > end.line || (start.line == end.line && start.cell > end.cell) {
+		start, end = end, start
+	}
+	return start, end, true
+}
+
+func (m MultiViewerModel) selectedTextPlain() string {
+	start, end, ok := m.selectedRange()
+	if !ok || m.rendered == "" {
+		return ""
+	}
+
+	raw := strings.Split(m.rendered, "\n")
+	if len(raw) == 0 {
+		return ""
+	}
+
+	lines := make([]string, len(raw))
+	for i := range raw {
+		lines[i] = ansi.Strip(raw[i])
+	}
+
+	if start.line >= len(lines) {
+		return ""
+	}
+	if end.line >= len(lines) {
+		end.line = len(lines) - 1
+	}
+
+	if start.line == end.line {
+		line := lines[start.line]
+		s := byteOffsetForCellStart(line, start.cell)
+		e := byteOffsetForCellEnd(line, end.cell)
+		if s >= e {
+			return ""
+		}
+		return line[s:e]
+	}
+
+	var parts []string
+	first := lines[start.line]
+	s := byteOffsetForCellStart(first, start.cell)
+	if s < 0 {
+		s = 0
+	}
+	if s > len(first) {
+		s = len(first)
+	}
+	parts = append(parts, first[s:])
+	for i := start.line + 1; i < end.line; i++ {
+		parts = append(parts, lines[i])
+	}
+	last := lines[end.line]
+	e := byteOffsetForCellEnd(last, end.cell)
+	if e < 0 {
+		e = 0
+	}
+	if e > len(last) {
+		e = len(last)
+	}
+	parts = append(parts, last[:e])
+
+	return strings.Join(parts, "\n")
+}
+
+func (m *MultiViewerModel) clearSelection() {
+	m.selecting = false
+	m.selectionStart = selectionPos{line: -1, cell: 0}
+	m.selectionEnd = selectionPos{line: -1, cell: 0}
+	m.selectionMoved = false
+	m.setViewportContent()
+}
 
 // estimateOverallProgress returns the average loading progress across all sessions.
 // Returns 0 if no sessions have progress data.
@@ -1262,15 +1683,26 @@ func (m MultiViewerModel) viewContent() string {
 		var helpText string
 		if m.searchQuery != "" && len(m.searchMatches) > 0 {
 			matchInfo := thinktI18n.Tf("tui.viewer.matchInfo", "Match %d/%d", m.currentMatch+1, len(m.searchMatches))
-			helpText = thinktI18n.Tf("tui.viewer.helpWithMatches", "%s  ·  n/N: next/prev  ·  /: search  ·  esc: clear", matchInfo)
+			helpText = thinktI18n.Tf("tui.viewer.helpWithMatches", "%s  ·  n/N: next/prev  ·  /: search  ·  drag: copy  ·  esc: clear", matchInfo)
 		} else if m.searchQuery != "" {
-			helpText = thinktI18n.T("tui.viewer.helpNoMatches", "No matches  ·  /: search  ·  esc: clear")
+			helpText = thinktI18n.T("tui.viewer.helpNoMatches", "No matches  ·  /: search  ·  drag: copy  ·  esc: clear")
 		} else {
-			helpText = thinktI18n.T("tui.viewer.help", "↑/↓: scroll • /: search • 1-6: filters • g/G: top/bottom • esc: back • q: quit")
+			helpText = thinktI18n.T("tui.viewer.help", "↑/↓: scroll • /: search • 1-6: filters • g/G: top/bottom • mouse drag: copy • esc: back • q: quit")
+		}
+		var rightLabel string
+		if m.copyNotice != "" {
+			rightLabel = lipgloss.NewStyle().Reverse(true).Render(" " + m.copyNotice + " ")
+		} else {
+			rightLabel = position
 		}
 		help := viewerHelpStyle.Render(helpText)
-		footerWidth := m.width - lipgloss.Width(position) - 4
-		footer = help + lipgloss.NewStyle().Width(footerWidth).Align(lipgloss.Right).Render(position)
+		helpWidth := lipgloss.Width(help)
+		rightWidth := lipgloss.Width(rightLabel)
+		gap := m.width - helpWidth - rightWidth
+		if gap < 1 {
+			gap = 1
+		}
+		footer = help + strings.Repeat(" ", gap) + rightLabel
 	}
 
 	// Content with scrollbar
@@ -1293,17 +1725,42 @@ func (m MultiViewerModel) configureMouseView(v *tea.View) {
 	v.MouseMode = tea.MouseModeCellMotion
 
 	// Scrollbar is the rightmost column.
-	// The track starts at y=2: header (y=0) + border top (y=1) + first track line (y=2).
-	scrollbarX := m.width - 1
-	trackTop := 2
+	// Track starts below the content border top.
+	scrollbarX := m.width - 3
+	trackTop := m.contentInnerTopY()
 	v.OnMouse = func(msg tea.MouseMsg) tea.Cmd {
 		mouse := msg.Mouse()
 		switch msg.(type) {
-		case tea.MouseClickMsg, tea.MouseMotionMsg:
-			if mouse.X == scrollbarX && mouse.Y >= trackTop {
+		case tea.MouseClickMsg:
+			if mouse.X >= scrollbarX && mouse.X <= m.width && mouse.Y >= trackTop {
 				return func() tea.Msg {
 					return scrollbarClickMsg{y: mouse.Y - trackTop}
 				}
+			}
+			if mouse.Button == tea.MouseLeft {
+				if _, ok := m.lineIndexFromMouseY(mouse.Y); ok {
+					return func() tea.Msg {
+						return selectionStartMsg{x: mouse.X, y: mouse.Y}
+					}
+				}
+			}
+		case tea.MouseMotionMsg:
+			motionScrollbarX := scrollbarX - 2
+			if mouse.X >= motionScrollbarX && mouse.X <= m.width && mouse.Y >= trackTop {
+				return func() tea.Msg {
+					return scrollbarClickMsg{y: mouse.Y - trackTop}
+				}
+			}
+			// Some terminals report drag motion with MouseNone. If we're already
+			// selecting, continue updating the range regardless of button flag.
+			if m.selecting || mouse.Button == tea.MouseLeft {
+				return func() tea.Msg {
+					return selectionDragMsg{x: mouse.X, y: mouse.Y}
+				}
+			}
+		case tea.MouseReleaseMsg:
+			return func() tea.Msg {
+				return selectionEndMsg{x: mouse.X, y: mouse.Y}
 			}
 		}
 		return nil

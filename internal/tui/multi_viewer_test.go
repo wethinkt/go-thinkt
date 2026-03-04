@@ -101,3 +101,42 @@ func TestTruncateDebugLine(t *testing.T) {
 		t.Fatalf("short string should be unchanged, got %q", short)
 	}
 }
+
+func TestSelectedTextPlainCharacterPreciseForward(t *testing.T) {
+	m := MultiViewerModel{
+		rendered:       "abcdef",
+		selectionStart: selectionPos{line: 0, cell: 2}, // c
+		selectionEnd:   selectionPos{line: 0, cell: 4}, // e
+	}
+
+	got := m.selectedTextPlain()
+	if got != "cde" {
+		t.Fatalf("selectedTextPlain forward = %q, want %q", got, "cde")
+	}
+}
+
+func TestSelectedTextPlainCharacterPreciseReverse(t *testing.T) {
+	m := MultiViewerModel{
+		rendered:       "abcdef",
+		selectionStart: selectionPos{line: 0, cell: 4}, // e
+		selectionEnd:   selectionPos{line: 0, cell: 2}, // c
+	}
+
+	got := m.selectedTextPlain()
+	if got != "cde" {
+		t.Fatalf("selectedTextPlain reverse = %q, want %q", got, "cde")
+	}
+}
+
+func TestSelectedTextPlainCharacterPreciseMultiline(t *testing.T) {
+	m := MultiViewerModel{
+		rendered:       "abcd\nwxyz",
+		selectionStart: selectionPos{line: 0, cell: 2}, // c
+		selectionEnd:   selectionPos{line: 1, cell: 1}, // x
+	}
+
+	got := m.selectedTextPlain()
+	if got != "cd\nwx" {
+		t.Fatalf("selectedTextPlain multiline = %q, want %q", got, "cd\\nwx")
+	}
+}

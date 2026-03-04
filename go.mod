@@ -7,6 +7,7 @@ require (
 	charm.land/bubbletea/v2 v2.0.0
 	charm.land/lipgloss/v2 v2.0.0
 	github.com/BurntSushi/toml v1.6.0
+	github.com/atotto/clipboard v0.1.4
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/charmbracelet/x/ansi v0.11.6
 	github.com/coder/websocket v1.8.14
@@ -43,7 +44,6 @@ require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/alecthomas/chroma/v2 v2.23.1 // indirect
 	github.com/apache/arrow-go/v18 v18.5.1 // indirect
-	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.41.2 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.5 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.32.10 // indirect

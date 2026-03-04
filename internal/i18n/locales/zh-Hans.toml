@@ -267,13 +267,19 @@ other = "搜索..."
 other = "匹配 %d/%d"
 
 [tui.viewer.helpWithMatches]
-other = "%s  ·  n/N: 下一个/上一个  ·  /: 搜索  ·  esc: 清除"
+other = "%s  ·  n/N: 下一个/上一个  ·  /: 搜索  ·  拖拽: 复制  ·  esc: 清除"
 
 [tui.viewer.helpNoMatches]
-other = "无匹配  ·  /: 搜索  ·  esc: 清除"
+other = "无匹配  ·  /: 搜索  ·  拖拽: 复制  ·  esc: 清除"
 
 [tui.viewer.help]
-other = "↑/↓: 滚动 • /: 搜索 • 1-6: 过滤器 • g/G: 顶部/底部 • esc: 返回 • q: 退出"
+other = "↑/↓: 滚动 • /: 搜索 • 1-6: 过滤器 • g/G: 顶部/底部 • 鼠标拖拽: 复制 • esc: 返回 • q: 退出"
+
+[tui.viewer.copySelected]
+other = "已复制所选内容。"
+
+[tui.viewer.copyFailed]
+other = "复制失败。"
 
 # --- Color picker ---
 
