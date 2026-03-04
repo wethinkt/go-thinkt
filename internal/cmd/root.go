@@ -80,8 +80,8 @@ Examples:
 		}
 
 		// Auto-trigger setup wizard on first run.
-		// Skip during shell completion — no TTY is available and the TUI would hang.
-		if needsSetup() && cmd.Name() != "setup" && cmd.Name() != cobra.ShellCompRequestCmd && cmd.Name() != cobra.ShellCompNoDescRequestCmd {
+		// Skip for commands that don't need config (docs, completions, etc.).
+		if !skipSetup(cmd) && needsSetup() {
 			factories := sources.AllFactories()
 			if setupOK {
 				result, err := setup.RunDefaults(factories)

@@ -53,7 +53,7 @@ func runSetupInteractive(factories []thinkt.StoreFactory) error {
 	p := tea.NewProgram(model)
 	finalModel, err := p.Run()
 	if err != nil {
-		return fmt.Errorf("setup: %w", err)
+		return fmt.Errorf("setup requires a terminal; run 'thinkt setup --ok' to configure with defaults: %w", err)
 	}
 
 	result := finalModel.(setup.Model).GetResult()
@@ -98,4 +98,17 @@ func startIndexerIfEnabled(result setup.Result) {
 func needsSetup() bool {
 	_, err := config.Load()
 	return errors.Is(err, config.ErrNoConfig)
+}
+
+// skipSetup returns true for commands that don't need config and should
+// not trigger the first-run setup wizard.
+func skipSetup(cmd *cobra.Command) bool {
+	switch cmd.Name() {
+	case "setup",
+		"help",
+		"docs", "markdown", "man", // doc generation
+		cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
+		return true
+	}
+	return false
 }
