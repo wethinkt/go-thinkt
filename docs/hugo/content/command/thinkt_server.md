@@ -32,9 +32,8 @@ thinkt server [flags]
 ### Options
 
 ```
-      --cors-origin string   CORS Access-Control-Allow-Origin (default "*" when unauthenticated, disabled when authenticated; env: THINKT_CORS_ORIGIN)
-  -h, --help                 help for server
-      --no-indexer           don't auto-start the background indexer
+  -h, --help         help for server
+      --no-indexer   don't auto-start the background indexer
 ```
 
 ### Options inherited from parent commands
