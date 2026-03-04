@@ -54,8 +54,8 @@ thinkt [flags]
 * [thinkt search](thinkt_search.md)	 - Search for text across indexed sessions
 * [thinkt semantic](thinkt_semantic.md)	 - Search sessions by meaning using on-device embeddings
 * [thinkt server](thinkt_server.md)	 - Manage the local HTTP server for trace exploration
-* [thinkt setup](thinkt_setup.md)	 - Guided configuration of thinkt
 * [thinkt sessions](thinkt_sessions.md)	 - View and manage sessions across all sources
+* [thinkt setup](thinkt_setup.md)	 - Scan for AI session sources and configure thinkt
 * [thinkt sources](thinkt_sources.md)	 - Manage and view available session sources
 * [thinkt teams](thinkt_teams.md)	 - List and inspect agent teams
 * [thinkt theme](thinkt_theme.md)	 - Browse and manage TUI themes
