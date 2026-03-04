@@ -105,7 +105,7 @@ func needsSetup() bool {
 func skipSetup(cmd *cobra.Command) bool {
 	switch cmd.Name() {
 	case "setup",
-		"help",
+		"help", "completion",
 		"docs", "markdown", "man", // doc generation
 		cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
 		return true
