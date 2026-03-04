@@ -294,6 +294,11 @@ tasks:
       - xcrun notarytool submit thinkt.zip --key "$MACOS_NOTARY_KEY" --key-id "$MACOS_NOTARY_KEY_ID" --issuer "$MACOS_NOTARY_ISSUER_ID" --wait
 
   release:test:
-    desc: Test release build with goreleaser
+    desc: Test release build with goreleaser (via goreleaser-cross)
     cmds:
-      - goreleaser release --snapshot --clean
+      - |
+        docker run --rm \
+          -v $(pwd):/go/src/github.com/wethinkt/go-thinkt \
+          -w /go/src/github.com/wethinkt/go-thinkt \
+          ghcr.io/goreleaser/goreleaser-cross:{{.GORELEASER_CROSS_VERSION}} \
+          release --snapshot --clean --skip=publish,notarize,homebrew_casks
