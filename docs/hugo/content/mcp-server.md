@@ -358,7 +358,7 @@ Restart Claude Desktop to load the new MCP server.
 Add `thinkt` to your Claude Code MCP settings via CLI:
 
 ```bash
-claude mcp add --transport stdio thinkt -- thinkt server mcp
+claude mcp add thinkt -- thinkt server mcp
 claude mcp list
 ```
 

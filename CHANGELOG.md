@@ -2,6 +2,15 @@
 
 ## v0.7.5 (2026-03-04)
 
+  * **Consolidated Release & Homebrew Cask**
+    - Single `brew install --cask thinkt` now installs all 4 binaries: `thinkt`, `thinkt-indexer`, `thinkt-exporter`, and `thinkt-collector`
+    - Merged two goreleaser configs into one unified build via `goreleaser-cross` for darwin and linux
+    - Added native Windows build job (`.goreleaser-windows.yml`) with CGO support for DuckDB
+    - All platform archives now contain the full binary suite, shell completions, and man pages
+    - Removed separate `thinkt-indexer` homebrew cask
+    - Moved indexer Docker image config into the main goreleaser config
+    - Dropped FreeBSD builds (can be re-added as non-CGO supplement later)
+  
 * **First-Run Discover Setup**
   - Added `thinkt discover` with interactive setup plus non-interactive `--ok` and machine-readable `--json` modes
   - Root command now auto-triggers discover when config does not exist, then reinitializes i18n with the chosen language
@@ -15,7 +24,6 @@
   - All help text is i18n-aware with Spanish and Chinese translations
   - Added Hugo documentation pages for `thinkt help`, `thinkt help cheat`, and `thinkt help llms`
   - Updated README, llms.txt, and command reference docs
-
 
 * **Session Metadata Cache**
   - Added `MetadataCache` type for persistent session metadata, avoiding repeated deep JSONL parsing on every list

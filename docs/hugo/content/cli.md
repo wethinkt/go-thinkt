@@ -69,7 +69,7 @@ The TUI navigates through three screens: **Project Picker** → **Session Picker
 | `q` / `ctrl+c` | Quit |
 
 {{< hint info >}}
-**Tip:** The TUI auto-detects sessions from Claude Code, Kimi Code, Gemini CLI, Copilot CLI, Codex CLI, and Qwen Code. If launched from a project directory, it skips straight to the session picker.
+**Tip: ** The TUI auto-detects sessions from Claude Code, Kimi Code, Gemini CLI, Copilot CLI, Codex CLI, and Qwen Code. If launched from a project directory, it skips straight to the session picker.
 {{< /hint >}}
 
 ---

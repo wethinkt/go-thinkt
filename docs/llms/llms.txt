@@ -51,7 +51,7 @@ thinkt exposes session data via Model Context Protocol (MCP).
 
 ### Setup
 
-Claude Code:   claude mcp add --transport stdio thinkt -- thinkt server mcp
+Claude Code:   claude mcp add thinkt -- thinkt server mcp
 Kimi Code:     kimi mcp add --transport stdio thinkt -- thinkt server mcp
 Gemini CLI:    gemini mcp add --transport stdio thinkt -- thinkt server mcp
 

@@ -5,7 +5,7 @@ weight: 25
 
 # Guide for AI Assistants
 
-This page is designed for AI assistants and LLMs to understand how to use thinkt tools effectively. For the plain-text version optimized for LLM context windows, see [`/llms.txt`](https://github.com/wethinkt/go-thinkt/blob/main/llms.txt).
+This page is designed for AI assistants and LLMs to understand how to use thinkt tools effectively. For the plain-text version optimized for LLM context windows, see [`/llms.txt`](https://github.com/wethinkt/go-thinkt/blob/main/llms.txt) or invoke `thinkt docs llms`.
 
 ## What is thinkt?
 
