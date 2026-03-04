@@ -279,7 +279,6 @@ func init() {
 	themeListCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
 
 	// Server command flags shared across subcommands
-	serverCmd.PersistentFlags().StringVar(&serveCORSOrigin, "cors-origin", "", "CORS Access-Control-Allow-Origin (default \"*\" when unauthenticated, disabled when authenticated; env: THINKT_CORS_ORIGIN)")
 	serverCmd.PersistentFlags().BoolVar(&serveNoIndexer, "no-indexer", false, "don't auto-start the background indexer")
 
 	// Server run subcommand (foreground server)
@@ -292,8 +291,10 @@ func init() {
 	serverRunCmd.Flags().StringVar(&serveDev, "dev", "", "dev mode: proxy non-API routes to this URL (e.g. http://localhost:8784)")
 	serverRunCmd.Flags().StringVar(&apiToken, "token", "", "bearer token for API authentication (default: use THINKT_API_TOKEN env var)")
 	serverRunCmd.Flags().BoolVar(&serveNoAuth, "no-auth", false, "disable authentication (allow unauthenticated access)")
+	serverRunCmd.Flags().StringVar(&serveCORSOrigin, "cors-origin", "", "CORS Access-Control-Allow-Origin (default \"*\" when unauthenticated, disabled when authenticated; env: THINKT_CORS_ORIGIN)")
 
 	serverStartCmd.Flags().BoolVar(&serveNoAuth, "no-auth", false, "disable authentication (allow unauthenticated access)")
+	serverStartCmd.Flags().StringVar(&serveCORSOrigin, "cors-origin", "", "CORS Access-Control-Allow-Origin (default \"*\" when unauthenticated, disabled when authenticated; env: THINKT_CORS_ORIGIN)")
 	serverCmd.AddCommand(serverStartCmd)
 
 	serverCmd.AddCommand(serverRunCmd)

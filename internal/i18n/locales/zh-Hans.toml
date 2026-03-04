@@ -1237,3 +1237,95 @@ other = "你可以随时重新运行此设置：thinkt setup"
 
 [tui.setup.suggestions.done]
 other = "Enter: 完成设置 · esc: 退出"
+
+# --- cmd: help ---
+
+[cmd.help.heading]
+other = "thinkt 帮助 — AI 编程会话浏览器。"
+
+[cmd.help.usage]
+other = "用法："
+
+[cmd.help.topics]
+other = "帮助主题："
+
+[cmd.help.commands]
+other = "可用命令："
+
+[cmd.help.examples]
+other = "示例："
+
+[cmd.help.example.llms]
+other = "AI 助手使用指南"
+
+[cmd.help.example.server]
+other = "server 命令帮助"
+
+[cmd.help.example.setup]
+other = "源配置帮助"
+
+[cmd.help.topic.llms]
+other = "LLM 和 AI 助手使用指南"
+
+[cmd.help.cmd.setup]
+other = "扫描 AI 会话源并配置 thinkt"
+
+[cmd.help.cmd.tui]
+other = "启动交互式 TUI 浏览器"
+
+[cmd.help.cmd.server]
+other = "管理本地 HTTP 服务器"
+
+[cmd.help.cmd.web]
+other = "在浏览器中打开 Web 界面"
+
+[cmd.help.cmd.sources]
+other = "管理和查看可用的会话源"
+
+[cmd.help.cmd.projects]
+other = "列出和管理项目"
+
+[cmd.help.cmd.sessions]
+other = "查看和管理会话"
+
+[cmd.help.cmd.search]
+other = "在已索引的会话中搜索文本"
+
+[cmd.help.cmd.semantic]
+other = "使用本地嵌入模型按语义搜索会话"
+
+[cmd.help.cmd.prompts]
+other = "从跟踪文件中提取和管理提示词"
+
+[cmd.help.cmd.agents]
+other = "列出活跃的代理（本地和远程）"
+
+[cmd.help.cmd.teams]
+other = "列出和检查代理团队"
+
+[cmd.help.cmd.apps]
+other = "管理应用程序和默认终端"
+
+[cmd.help.cmd.embeddings]
+other = "管理嵌入模型、存储和同步"
+
+[cmd.help.cmd.indexer]
+other = "通过 DuckDB 进行专业索引和搜索"
+
+[cmd.help.cmd.collect]
+other = "启动跟踪收集服务器"
+
+[cmd.help.cmd.export]
+other = "导出跟踪到远程收集器"
+
+[cmd.help.cmd.language]
+other = "获取或设置显示语言"
+
+[cmd.help.cmd.theme]
+other = "浏览和管理 TUI 主题"
+
+[cmd.help.cmd.version]
+other = "显示版本信息"
+
+[cmd.help.cmd.completion]
+other = "为指定的 shell 生成自动补全脚本"

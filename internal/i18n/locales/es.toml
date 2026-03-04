@@ -1237,3 +1237,95 @@ other = "Puedes ejecutar esta configuración de nuevo en cualquier momento con: 
 
 [tui.setup.suggestions.done]
 other = "Enter: finalizar configuración · esc: salir"
+
+# --- cmd: help ---
+
+[cmd.help.heading]
+other = "Ayuda para thinkt — explorador de sesiones de codificación IA."
+
+[cmd.help.usage]
+other = "Uso:"
+
+[cmd.help.topics]
+other = "Temas de ayuda:"
+
+[cmd.help.commands]
+other = "Comandos disponibles:"
+
+[cmd.help.examples]
+other = "Ejemplos:"
+
+[cmd.help.example.llms]
+other = "Guía de uso para asistentes IA"
+
+[cmd.help.example.server]
+other = "Ayuda del comando server"
+
+[cmd.help.example.setup]
+other = "Ayuda para configurar fuentes"
+
+[cmd.help.topic.llms]
+other = "Guía de uso para LLMs y asistentes IA"
+
+[cmd.help.cmd.setup]
+other = "Buscar fuentes de sesiones IA y configurar thinkt"
+
+[cmd.help.cmd.tui]
+other = "Abrir el explorador interactivo TUI"
+
+[cmd.help.cmd.server]
+other = "Administrar el servidor HTTP local"
+
+[cmd.help.cmd.web]
+other = "Abrir la interfaz web en el navegador"
+
+[cmd.help.cmd.sources]
+other = "Administrar y ver fuentes de sesiones disponibles"
+
+[cmd.help.cmd.projects]
+other = "Listar y administrar proyectos"
+
+[cmd.help.cmd.sessions]
+other = "Ver y administrar sesiones"
+
+[cmd.help.cmd.search]
+other = "Buscar texto en sesiones indexadas"
+
+[cmd.help.cmd.semantic]
+other = "Buscar sesiones por significado usando embeddings locales"
+
+[cmd.help.cmd.prompts]
+other = "Extraer y administrar prompts de archivos de traza"
+
+[cmd.help.cmd.agents]
+other = "Listar agentes activos (locales y remotos)"
+
+[cmd.help.cmd.teams]
+other = "Listar e inspeccionar equipos de agentes"
+
+[cmd.help.cmd.apps]
+other = "Administrar aplicaciones y terminal por defecto"
+
+[cmd.help.cmd.embeddings]
+other = "Administrar modelo de embeddings, almacenamiento y sincronización"
+
+[cmd.help.cmd.indexer]
+other = "Indexación y búsqueda especializada vía DuckDB"
+
+[cmd.help.cmd.collect]
+other = "Iniciar servidor recolector de trazas"
+
+[cmd.help.cmd.export]
+other = "Exportar trazas a un recolector remoto"
+
+[cmd.help.cmd.language]
+other = "Obtener o establecer el idioma de visualización"
+
+[cmd.help.cmd.theme]
+other = "Explorar y administrar temas del TUI"
+
+[cmd.help.cmd.version]
+other = "Mostrar información de la versión"
+
+[cmd.help.cmd.completion]
+other = "Generar el script de autocompletado para el shell especificado"
