@@ -42,6 +42,7 @@ The left sidebar shows all detected AI coding assistant sources:
 | Gemini | Blue | Gemini CLI sessions |
 | Copilot | Green | GitHub Copilot CLI sessions |
 | Codex | Azure | Codex CLI sessions |
+| Qwen | Teal | Qwen Code sessions |
 
 Each source displays:
 - **Name** with color-coded indicator

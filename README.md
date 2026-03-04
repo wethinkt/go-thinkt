@@ -32,6 +32,7 @@ We have a common `thinkt` interface to enable uniform access to various `Sources
   - [*Gemini CLI*](https://geminicli.com) from Google
   - [*Copilot CLI*](https://github.com/features/copilot/cli) from GitHub
   - [*Codex CLI*](https://github.com/openai/codex) from OpenAI
+  - [*Qwen Code*](https://www.qwen.ai) from Alibaba
 
 Right now much of the implementation is in package `internal`, but we will eventually build out a public package as it stabilizes.
 
@@ -40,7 +41,7 @@ Right now much of the implementation is in package `internal`, but we will event
 ## Features
 
 - **Interactive TUI**: Navigate projects, sessions, and conversation content with a keyboard-driven terminal interface
-- **Multi-Source Support**: Works with Claude Code (`~/.claude`), Kimi Code (`~/.kimi`), Gemini CLI (`~/.gemini`), Copilot CLI (`~/.copilot`), and Codex CLI (`~/.codex`) — sessions from all sources are shown together
+- **Multi-Source Support**: Works with Claude Code (`~/.claude`), Kimi Code (`~/.kimi`), Gemini CLI (`~/.gemini`), Copilot CLI (`~/.copilot`), Codex CLI (`~/.codex`), and Qwen Code (`~/.qwen`) — sessions from all sources are shown together
 - **Tree View**: Browse projects in a collapsible tree grouped by directory, or switch to a flat list
 - **Agent Teams**: Inspect multi-agent teams (Claude Code), including members, tasks, and messages
 - **Analytics**: Token usage, tool frequency, word analysis, activity timelines via `thinkt-indexer`
@@ -148,7 +149,7 @@ thinkt tui --log /tmp/thinkt-debug.log
 |---------|-------------|
 | `thinkt` | Launch interactive TUI (default) |
 | `thinkt tui` | Launch interactive TUI |
-| `thinkt sources` | List available sources (claude, kimi, gemini, copilot, codex) |
+| `thinkt sources` | List available sources (claude, kimi, gemini, copilot, codex, qwen) |
 | `thinkt sources status` | Show detailed source status |
 | `thinkt projects` | List all projects (detailed columns) |
 | `thinkt projects --short` | List project paths only |
@@ -529,6 +530,7 @@ Available MCP tools:
 - `list_sessions` - List sessions for a project
 - `get_session_metadata` - Get session metadata
 - `get_session_entries` - Get session content with pagination
+- `list_active_sessions` - List currently active AI coding sessions
 - `search_sessions` - Search across indexed sessions (supports regex)
 - `semantic_search` - Search by meaning using on-device embeddings
 - `get_usage_stats` - Get aggregate usage statistics

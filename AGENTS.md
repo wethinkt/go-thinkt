@@ -20,7 +20,7 @@ The tool supports multiple AI coding assistants via a `Store` interface:
 - **Codex CLI** (`~/.codex`)
 - **Qwen Code** (`~/.qwen`)
 
-Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot|codex|qwen` flags to filter.
+Sources are auto-discovered. Use `--source claude|kimi|gemini|copilot|codex|qwen` flags to filter.
 
 ### Key Packages
 
@@ -56,11 +56,15 @@ Sources are auto-discovered. Use `--source kimi|claude|gemini|copilot|codex|qwen
 ```
 thinkt
 ├── tui                 # Interactive TUI browser (default)
+├── setup               # Scan for AI session sources and configure thinkt
 ├── server              # HTTP/MCP servers
+│   ├── run             # Run server in foreground (default)
 │   ├── start           # Start server in background
 │   ├── stop            # Stop background server
 │   ├── status          # Show server status
 │   ├── logs            # View server logs
+│   ├── http-logs       # View HTTP access logs
+│   ├── metrics         # View server metrics
 │   ├── mcp             # MCP server (stdio or HTTP)
 │   ├── token           # Generate secure authentication token
 │   └── fingerprint     # Display machine fingerprint
@@ -68,20 +72,32 @@ thinkt
 │   └── lite            # Lightweight debug webapp
 ├── sources             # Source management
 │   ├── list
-│   └── status
+│   ├── status
+│   ├── enable
+│   └── disable
 ├── projects            # Project management
+│   ├── list
 │   ├── tree
 │   ├── summary
+│   ├── view
 │   ├── delete
 │   └── copy
 ├── sessions            # Session management
 │   ├── list
 │   ├── summary
 │   ├── view
+│   ├── resolve
+│   ├── resume
 │   ├── delete
 │   └── copy
+├── agents              # Active agent detection
+│   └── follow          # Live-tail an agent's conversation
+├── search              # Full-text search across indexed sessions
+├── semantic            # Semantic search by meaning
+├── embeddings          # Manage embedding models
 ├── export              # Export traces to remote collector
 ├── collect             # Start trace collector server
+│   └── export-parquet  # Export collector data to Parquet
 ├── teams               # Agent team management
 │   └── list
 ├── prompts             # Prompt extraction
@@ -89,15 +105,51 @@ thinkt
 │   ├── list
 │   ├── info
 │   └── templates
-└── theme               # Theme management
-    ├── list
-    ├── set
-    └── builder
+├── indexer             # DuckDB-powered indexer management
+│   ├── start
+│   ├── stop
+│   ├── status
+│   ├── sync
+│   ├── search
+│   ├── semantic
+│   ├── sessions
+│   ├── stats
+│   ├── metrics
+│   ├── logs
+│   ├── embeddings
+│   └── version
+├── theme               # Theme management
+│   ├── browse
+│   ├── list
+│   ├── show
+│   ├── set
+│   ├── import
+│   └── builder
+├── language            # Display language management
+│   ├── get
+│   ├── set
+│   └── list
+├── apps                # Open-in app management
+│   ├── list
+│   ├── enable
+│   ├── disable
+│   ├── get-terminal
+│   └── set-terminal
+├── completion          # Shell completion scripts
+├── docs                # Documentation generation
+│   ├── markdown
+│   └── man
+└── version             # Print version information
 
 thinkt-indexer          # DuckDB-powered indexer (separate binary)
 ├── sync                # Full sync of all sessions
 ├── search              # Search across indexed sessions
+├── semantic            # Semantic search management
+├── sessions            # List indexed sessions
 ├── stats               # Show usage statistics
+├── embeddings          # Embedding management
+├── metrics             # Prometheus metrics
+├── logs                # View indexer logs
 └── watch               # Watch for changes and auto-index
 
 thinkt-exporter         # Standalone trace exporter (separate binary)
@@ -280,8 +332,10 @@ The REST API (`thinkt server`) exposes indexer functionality via `internal/serve
 | Endpoint | Handler | Description |
 |----------|---------|-------------|
 | `GET /api/v1/search` | `handleSearchSessions` | Search indexed sessions with filters |
+| `GET /api/v1/semantic-search` | `handleSemanticSearch` | Semantic search using embeddings |
 | `GET /api/v1/stats` | `handleGetStats` | Aggregate usage statistics |
 | `GET /api/v1/indexer/health` | `handleIndexerHealth` | Indexer binary and DB health |
+| `GET /api/v1/indexer/status` | `handleIndexerStatus` | Live indexer status (sync, embedding progress) |
 
 These endpoints shell out to the `thinkt-indexer` binary (same pattern as MCP tools).
 

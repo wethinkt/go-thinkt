@@ -15,6 +15,7 @@ thinkt provides unified access to AI coding assistant session data from:
 - **Gemini CLI** (`~/.gemini/`)
 - **Copilot CLI** (`~/.copilot/`)
 - **Codex CLI** (`~/.codex/`)
+- **Qwen Code** (`~/.qwen/`)
 
 Access methods: CLI, REST API, MCP, Go library.
 
@@ -58,6 +59,7 @@ MCP provides direct tool access for AI assistants.
 | `list_sessions` | Sessions for project | `project_id`, `source` |
 | `get_session_metadata` | Session overview | `path`, `summary_only?` |
 | `get_session_entries` | Session content | `path`, `limit`, `offset`, `roles`, `include_thinking` |
+| `list_active_sessions` | Active coding sessions | none |
 | `search_sessions` | Search across indexed sessions (supports regex) | `query`, `project?`, `source?`, `limit?`, `case_sensitive?`, `regex?` |
 | `semantic_search` | Search by meaning using embeddings | `query`, `project?`, `source?`, `limit?`, `max_distance?`, `diversity?` |
 
@@ -110,7 +112,7 @@ GET /indexer/status                  # Live indexer status
 ```go
 import "github.com/wethinkt/go-thinkt/internal/thinkt"
 
-discovery := thinkt.NewDiscovery(claude.Factory(), kimi.Factory(), gemini.Factory(), copilot.Factory(), codex.Factory())
+discovery := thinkt.NewDiscovery(claude.Factory(), kimi.Factory(), gemini.Factory(), copilot.Factory(), codex.Factory(), qwen.Factory())
 registry, _ := discovery.Discover(ctx)
 projects, _ := registry.ListAllProjects(ctx)
 ```
@@ -120,7 +122,7 @@ projects, _ := registry.ListAllProjects(ctx)
 ## Data Model
 
 ```
-Source (claude|kimi|gemini|copilot|codex)
+Source (claude|kimi|gemini|copilot|codex|qwen)
   ├── Project (directory path)
   │     └── Session (JSONL file)
   │           └── Entry (message)

@@ -71,6 +71,7 @@ The container runs as user `thinkt` with home directory `/data`. Mount your loca
 | Gemini CLI | `~/.gemini` | `/data/.gemini` |
 | Copilot CLI | `~/.copilot` | `/data/.copilot` |
 | Codex CLI | `~/.codex` | `/data/.codex` |
+| Qwen Code | `~/.qwen` | `/data/.qwen` |
 
 ### Mount Examples
 
@@ -257,7 +258,7 @@ For persistent server deployment, use Docker Compose:
 services:
   thinkt:
     image: ghcr.io/wethinkt/thinkt:latest
-    command: serve --host 0.0.0.0
+    command: server --host 0.0.0.0
     ports:
       - "8784:8784"
     volumes:

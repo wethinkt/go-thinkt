@@ -1,7 +1,7 @@
 # thinkt — AI Coding Session Explorer
 
 thinkt provides unified access to AI coding assistant session data.
-Supported sources: Claude Code, Kimi Code, Gemini CLI, GitHub Copilot CLI, Codex CLI.
+Supported sources: Claude Code, Kimi Code, Gemini CLI, GitHub Copilot CLI, Codex CLI, Qwen Code.
 
 This guide is for LLMs and AI assistants using thinkt programmatically.
 Run: thinkt help llms | pbcopy  (or pipe into your context window)
@@ -10,7 +10,7 @@ Run: thinkt help llms | pbcopy  (or pipe into your context window)
 
 ## Data Model
 
-Source (claude | kimi | gemini | copilot | codex)
+Source (claude | kimi | gemini | copilot | codex | qwen)
   └── Project (directory where the AI assistant was used)
         └── Session (JSONL conversation file)
               └── Entry (single message: user | assistant | tool | system)
@@ -84,11 +84,22 @@ Claude Desktop / others — add to config JSON:
              roles?: string[], max_content_length?: 500, include_thinking?: false}
     Output: {entries[], has_more, total, returned}
 
+  list_active_sessions
+    Input:  (none)
+    Output: {sessions: [{session_id, source, project_path, session_path, last_modified}]}
+    Note:   Detects active sessions via IDE lock files and file modification times.
+
   search_sessions
     Input:  {query: string, project?: string, source?: string,
              limit?: 50, limit_per_session?: 2, case_sensitive?: false, regex?: false}
     Output: {sessions: [{session_id, project_name, source, path, matches}], total_matches}
     Note:   Requires thinkt-indexer to be installed and sessions indexed.
+
+  semantic_search
+    Input:  {query: string, project?: string, source?: string,
+             limit?: 20, max_distance?: float, diversity?: false}
+    Output: {results: [{session_id, entry_uuid, distance, role, project_name, source, session_path, first_prompt}]}
+    Note:   Requires thinkt-indexer with semantic search enabled.
 
   get_usage_stats
     Input:  (none)
@@ -124,6 +135,13 @@ Without a token, the API runs unauthenticated.
   GET  /projects?source=claude            Filter by source
   GET  /projects/{projectID}/sessions     List sessions (projectID = URL-encoded path)
   GET  /sessions/{path}?limit=10&offset=0 Get session content (path = URL-encoded)
+  GET  /sessions/{path}/metadata          Get session metadata and previews
+  GET  /search?q=query                    Full-text search across indexed sessions
+  GET  /semantic-search?q=query           Semantic search using embeddings
+  GET  /stats                             Aggregate usage statistics
+  GET  /indexer/health                    Check indexer availability
+  GET  /indexer/status                    Live indexer status
+  GET  /teams                             List agent teams (Claude Code)
   GET  /themes                            List themes
   GET  /open-in/apps                      List open-in apps
   POST /open-in                           Open path in app
@@ -154,7 +172,16 @@ Without a token, the API runs unauthenticated.
   THINKT_CORS_ORIGIN      CORS Access-Control-Allow-Origin header
   THINKT_LOG_FILE         Write debug log to this file path
   THINKT_PROFILE          Write CPU profile to this file path
+  THINKT_HOME             thinkt config and data directory (default: ~/.thinkt)
+  THINKT_CLAUDE_HOME      Override default Claude Code home directory
+  THINKT_KIMI_HOME        Override default Kimi Code home directory
+  THINKT_GEMINI_HOME      Override default Gemini CLI home directory
   THINKT_COPILOT_HOME     Override default Copilot CLI home directory
+  THINKT_CODEX_HOME       Override default Codex CLI home directory
+  THINKT_QWEN_HOME        Override default Qwen Code home directory
+  THINKT_LANG             Override UI language (BCP 47 tag)
+  THINKT_COLLECTOR_URL    Collector endpoint URL for exporter
+  THINKT_API_KEY          Bearer token for collector authentication
 
 ---
 

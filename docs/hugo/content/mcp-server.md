@@ -21,7 +21,7 @@ The MCP server supports two transport modes:
 
 ## Available Tools
 
-The MCP server exposes eight tools for exploring session data:
+The MCP server exposes nine tools for exploring session data:
 
 ### list_sources
 
@@ -57,7 +57,7 @@ By default, projects with `path_exists: false` are hidden unless `include_delete
 **Parameters:**
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `source` | string | No | Filter by source (e.g., `claude`, `kimi`, `gemini`, `copilot`, `codex`) |
+| `source` | string | No | Filter by source (e.g., `claude`, `kimi`, `gemini`, `copilot`, `codex`, `qwen`) |
 | `include_deleted` | bool | No | Include projects where `path_exists` is false (default: false) |
 
 **Returns:**
@@ -205,6 +205,29 @@ Get session entry content with pagination and filtering.
 
 ---
 
+### list_active_sessions
+
+List currently active AI coding sessions detected on the local machine via IDE lock files and file modification times.
+
+**Parameters:** None
+
+**Returns:**
+```json
+{
+  "sessions": [
+    {
+      "session_id": "abc-123",
+      "source": "claude",
+      "project_path": "/Users/you/code/my-project",
+      "session_path": "/Users/you/.claude/projects/abc123/session.jsonl",
+      "last_modified": "2026-03-04T10:30:00Z"
+    }
+  ]
+}
+```
+
+---
+
 ### search_sessions
 
 Search for text across all indexed sessions. Requires `thinkt-indexer` to be installed and sessions to be indexed with `thinkt-indexer sync`.
@@ -214,7 +237,7 @@ Search for text across all indexed sessions. Requires `thinkt-indexer` to be ins
 |------|------|----------|---------|-------------|
 | `query` | string | Yes | - | Search query text |
 | `project` | string | No | - | Filter by project name |
-| `source` | string | No | - | Filter by source (`claude`, `kimi`, `gemini`, `copilot`, `codex`) |
+| `source` | string | No | - | Filter by source (`claude`, `kimi`, `gemini`, `copilot`, `codex`, `qwen`) |
 | `limit` | int | No | 50 | Maximum total matches |
 | `limit_per_session` | int | No | 2 | Maximum matches per session (0 for no limit) |
 | `case_sensitive` | bool | No | false | Enable case-sensitive matching |
@@ -253,7 +276,7 @@ Search for sessions by meaning using on-device embeddings. Requires `thinkt-inde
 |------|------|----------|---------|-------------|
 | `query` | string | Yes | - | Natural language search query |
 | `project` | string | No | - | Filter by project name |
-| `source` | string | No | - | Filter by source (`claude`, `kimi`, `gemini`, `copilot`, `codex`) |
+| `source` | string | No | - | Filter by source (`claude`, `kimi`, `gemini`, `copilot`, `codex`, `qwen`) |
 | `limit` | int | No | 20 | Maximum results |
 | `max_distance` | float | No | 0 | Max cosine distance threshold (0 = no threshold) |
 | `diversity` | bool | No | false | Enable diversity scoring to spread results across sessions |
@@ -343,7 +366,7 @@ claude mcp list
 
 ### Kimi Code
 
-Add `thinkt` to your Claude Code MCP settings via CLI:
+Add `thinkt` to your Kimi Code MCP settings via CLI:
 
 ```bash
 kimi mcp add --transport stdio thinkt -- thinkt server mcp

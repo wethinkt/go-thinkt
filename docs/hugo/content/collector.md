@@ -210,7 +210,7 @@ Returns `{"status": "ok"}`. No authentication required.
 
 ### Storage
 
-The collector uses its own DuckDB database file (`~/.thinkt/collector.duckdb`), separate from the indexer's `index.duckdb`. This ensures no contention between local indexing and remote trace collection.
+The collector uses its own DuckDB database file (`~/.thinkt/collector.duckdb`), separate from the indexer's `indexer.duckdb`. This ensures no contention between local indexing and remote trace collection.
 
 **Schema:**
 
@@ -261,7 +261,7 @@ thinkt export [flags]
 |------|-------------|---------|
 | `--collector-url` | Collector endpoint URL | (auto-discover) |
 | `--api-key` | Bearer token for collector auth | (none) |
-| `--source` | Filter by source (`claude\|kimi\|gemini\|copilot\|codex`) | (all) |
+| `--source` | Filter by source (`claude\|kimi\|gemini\|copilot\|codex\|qwen`) | (all) |
 | `--forward` | Continuous watch mode | `false` |
 | `--flush` | Flush the disk buffer and exit | `false` |
 | `--quiet, -q` | Suppress non-error output | `false` |
@@ -381,9 +381,8 @@ Keys: `esc` back, `q` quit, `j/k` scroll.
 | Service | Port | Description |
 |---------|------|-------------|
 | `thinkt collect` | 8785 | Trace collector HTTP server |
-| `thinkt serve` | 8784 | Full web interface and REST API |
-| `thinkt serve lite` | 8785 | Lightweight debug webapp |
-| `thinkt serve mcp --port` | 8786 | MCP server over HTTP |
+| `thinkt server` | 8784 | Full web interface and REST API |
+| `thinkt server mcp --port` | 8786 | MCP server over HTTP |
 
 ---
 

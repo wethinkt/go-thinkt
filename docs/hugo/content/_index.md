@@ -17,6 +17,7 @@ We have a common `thinkt` interface to enable uniform access to various `Sources
   - `gemini` [**Gemini CLI**](https://geminicli.com) from Google
   - `copilot` [**Copilot CLI**](https://github.com/features/copilot/cli) from GitHub
   - `codex` [**Codex CLI**](https://github.com/openai/codex) from OpenAI
+  - `qwen` [**Qwen Code**](https://www.qwen.ai) from Alibaba
 
 ## Quick Start
 
@@ -41,7 +42,7 @@ thinkt search "authentication"
 
 - **Interactive TUI** - Navigate projects, sessions, and conversations with a keyboard-driven terminal UI
 - **Tree View** - Browse projects in a collapsible tree grouped by directory
-- **Multi-Source Support** - Auto-discovers Claude Code, Kimi Code, Gemini CLI, Copilot CLI, and Codex CLI sessions
+- **Multi-Source Support** - Auto-discovers Claude Code, Kimi Code, Gemini CLI, Copilot CLI, Codex CLI, and Qwen Code sessions
 - **Agent Teams** - Inspect multi-agent teams (Claude Code), including members, tasks, and messages
 - **Prompt Extraction** - Extract user prompts in markdown, JSON, or plain text
 - [**Themes**](/themes) - 14 built-in color schemes (Dracula, Nord, Catppuccin, etc.) with interactive browser and iTerm2 import
