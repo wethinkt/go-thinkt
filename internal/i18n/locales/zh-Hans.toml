@@ -916,7 +916,7 @@ other = "折叠/展开"
 other = "确认"
 
 [tui.help.down]
-other = "下"
+other = "向下"
 
 [tui.help.expand]
 other = "展开"
@@ -994,7 +994,7 @@ other = "树形/平铺"
 other = "树形视图"
 
 [tui.help.up]
-other = "上"
+other = "向上"
 
 [tui.projectPicker.title]
 other = "%d 个项目 · %s %s"

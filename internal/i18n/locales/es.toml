@@ -350,10 +350,10 @@ other = "El servidor de indexación no está en ejecución."
 other = "Estado:        %s\n"
 
 [indexer.syncStatus.uptime]
-other = "Tiempo activ.: %ds\n"
+other = "Tiempo de activ.: %ds\n"
 
 [indexer.syncStatus.watcher]
-other = "Vigilante:     %v\n"
+other = "Observador:     %v\n"
 
 [indexer.syncStatus.model]
 other = "Modelo:        %s (%d dim)\n"
@@ -982,7 +982,7 @@ other = "alternar otros"
 other = "alternar pensamiento"
 
 [tui.help.toggleTools]
-other = "alternar herram"
+other = "alternar herram."
 
 [tui.help.toggleUser]
 other = "alternar usuario"

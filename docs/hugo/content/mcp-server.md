@@ -342,6 +342,7 @@ Edit `%APPDATA%\Claude\claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
+    "thinkt": {
       "command": "thinkt",
       "args": ["server", "mcp"]
     }
