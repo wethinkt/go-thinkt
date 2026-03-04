@@ -301,4 +301,4 @@ tasks:
           -v $(pwd):/go/src/github.com/wethinkt/go-thinkt \
           -w /go/src/github.com/wethinkt/go-thinkt \
           ghcr.io/goreleaser/goreleaser-cross:{{.GORELEASER_CROSS_VERSION}} \
-          release --snapshot --clean --skip=publish,notarize,homebrew_casks
+          release --snapshot --clean --skip=publish,notarize,homebrew,docker
