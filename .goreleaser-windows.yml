@@ -2,6 +2,7 @@
 # .goreleaser-windows.yml
 # Native Windows build for all binaries (CGO enabled for DuckDB)
 # Runs on windows-latest runner and appends to the release created by .goreleaser.yml
+# Only amd64 — arm64 requires a cross-compiler not available on windows-latest
 
 version: 2
 
@@ -19,32 +20,12 @@ builds:
     ldflags:
       - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
 
-  - id: thinkt-windows-arm64
-    main: ./cmd/thinkt
-    binary: thinkt
-    goos: [windows]
-    goarch: [arm64]
-    env:
-      - CGO_ENABLED=1
-    ldflags:
-      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
-
   # ── thinkt-exporter ────────────────────────────────────────────────────
   - id: exporter-windows-amd64
     main: ./cmd/thinkt-exporter
     binary: thinkt-exporter
     goos: [windows]
     goarch: [amd64]
-    env:
-      - CGO_ENABLED=1
-    ldflags:
-      - -s -w -X main.version={{.Version}}
-
-  - id: exporter-windows-arm64
-    main: ./cmd/thinkt-exporter
-    binary: thinkt-exporter
-    goos: [windows]
-    goarch: [arm64]
     env:
       - CGO_ENABLED=1
     ldflags:
@@ -61,16 +42,6 @@ builds:
     ldflags:
       - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
 
-  - id: indexer-windows-arm64
-    main: ./cmd/thinkt-indexer
-    binary: thinkt-indexer
-    goos: [windows]
-    goarch: [arm64]
-    env:
-      - CGO_ENABLED=1
-    ldflags:
-      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
-
   # ── thinkt-collector ───────────────────────────────────────────────────
   - id: collector-windows-amd64
     main: ./cmd/thinkt-collector
@@ -82,27 +53,13 @@ builds:
     ldflags:
       - -s -w -X main.version={{.Version}}
 
-  - id: collector-windows-arm64
-    main: ./cmd/thinkt-collector
-    binary: thinkt-collector
-    goos: [windows]
-    goarch: [arm64]
-    env:
-      - CGO_ENABLED=1
-    ldflags:
-      - -s -w -X main.version={{.Version}}
-
 archives:
   - id: default
     ids:
       - thinkt-windows-amd64
-      - thinkt-windows-arm64
       - exporter-windows-amd64
-      - exporter-windows-arm64
       - indexer-windows-amd64
-      - indexer-windows-arm64
       - collector-windows-amd64
-      - collector-windows-arm64
     formats:
       - zip
     name_template: >-
