@@ -101,14 +101,17 @@ func needsSetup() bool {
 }
 
 // skipSetup returns true for commands that don't need config and should
-// not trigger the first-run setup wizard.
+// not trigger the first-run setup wizard. Checks the command and all
+// its parents so that subcommands like "completion bash" are also skipped.
 func skipSetup(cmd *cobra.Command) bool {
-	switch cmd.Name() {
-	case "setup",
-		"help", "completion",
-		"docs", "markdown", "man", // doc generation
-		cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
-		return true
+	for c := cmd; c != nil; c = c.Parent() {
+		switch c.Name() {
+		case "setup",
+			"help", "completion",
+			"docs", "markdown", "man", // doc generation
+			cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
+			return true
+		}
 	}
 	return false
 }
