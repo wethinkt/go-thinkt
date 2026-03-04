@@ -108,8 +108,18 @@ docker run ghcr.io/wethinkt/thinkt:latest --help
 ## Quick Start
 
 ```bash
+# First-time setup
+thinkt setup
+
 # Launch interactive TUI (default)
 thinkt
+
+# Get help
+thinkt help                # Overview of all commands
+thinkt help cheat          # Visual command tree
+thinkt help cheat --json   # Machine-readable command tree
+thinkt help llms           # Usage guide for AI assistants
+thinkt help <command>      # Help for a specific command
 
 # List available sources
 thinkt sources list
@@ -148,6 +158,10 @@ thinkt tui --log /tmp/thinkt-debug.log
 | Command | Description |
 |---------|-------------|
 | `thinkt` | Launch interactive TUI (default) |
+| `thinkt setup` | Scan for AI session sources and configure thinkt |
+| `thinkt help` | Overview of all commands and help topics |
+| `thinkt help cheat` | Visual command tree (`--json` for machine-readable) |
+| `thinkt help llms` | Usage guide for LLMs and AI assistants |
 | `thinkt tui` | Launch interactive TUI |
 | `thinkt sources` | List available sources (claude, kimi, gemini, copilot, codex, qwen) |
 | `thinkt sources status` | Show detailed source status |

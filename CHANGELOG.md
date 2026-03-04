@@ -1,12 +1,21 @@
 # `go-thinkt` CHANGELOG
 
-## v0.7.5 (2026-03-03)
+## v0.7.5 (2026-03-04)
 
 * **First-Run Discover Setup**
   - Added `thinkt discover` with interactive setup plus non-interactive `--ok` and machine-readable `--json` modes
   - Root command now auto-triggers discover when config does not exist, then reinitializes i18n with the chosen language
   - New inline discover wizard flow with progressive source scanning, per-source approval, sticky context, ESC-to-exit, and improved step UX
   - Discover defaults now save source selections, indexer/embeddings choices, and `discovered_at` metadata
+
+* **Help System Overhaul**
+  - `thinkt help` now shows help topics and all available commands instead of delegating to root help
+  - Added `thinkt help cheat` — visual command tree with box-drawing glyphs and `--json` output
+  - Added `thinkt help llms` — pipe-friendly usage guide for AI assistants (unchanged content)
+  - All help text is i18n-aware with Spanish and Chinese translations
+  - Added Hugo documentation pages for `thinkt help`, `thinkt help cheat`, and `thinkt help llms`
+  - Updated README, llms.txt, and command reference docs
+
 
 * **Session Metadata Cache**
   - Added `MetadataCache` type for persistent session metadata, avoiding repeated deep JSONL parsing on every list

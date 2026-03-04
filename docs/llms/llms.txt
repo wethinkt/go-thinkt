@@ -25,6 +25,11 @@ Teams (Claude Code only):
 
 All commands below support --json for machine-readable output unless noted.
 
+  thinkt help                           Overview of all commands and help topics
+  thinkt help cheat [--json]            Full command tree (visual or JSON)
+  thinkt help llms                      This guide (pipe-friendly)
+  thinkt help <command>                 Help for a specific command
+
   thinkt sources list [--json]          List available sources and status
   thinkt projects list [--json]         List all projects (--source claude to filter)
   thinkt sessions resolve [--json]      Resolve a session by ID or path
@@ -194,4 +199,5 @@ Without a token, the API runs unauthenticated.
   - Use search — search_sessions uses full-text search across all indexed sessions
   - Session resume — thinkt sessions resume can reopen a session in the original tool
   - OpenAPI discovery — GET /swagger/doc.json on a running server for full API spec
+  - Command discovery — thinkt help cheat --json gives the full command tree as JSON
   - This output is pipe-friendly — thinkt help llms is designed to be piped into context
