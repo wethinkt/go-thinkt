@@ -11,7 +11,7 @@ permissions:
   packages: write
 
 jobs:
-  release:
+  release-main:
     runs-on: ubuntu-latest
     env:
       GORELEASER_CROSS_VERSION: v1.25.6
@@ -40,24 +40,7 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run GoReleaser (Main)
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          version: "~> v2"
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
-          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
-          MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
-          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
-          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
-          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
-
-      - name: Cleanup generated files
-        run: rm -rf manpages completions
-
-      - name: Run GoReleaser (Indexer)
+      - name: Run GoReleaser (Main — darwin + linux)
         run: |
           docker run \
             --rm \
@@ -73,7 +56,7 @@ jobs:
             -v $(pwd):/go/src/github.com/${{ github.repository }} \
             -w /go/src/github.com/${{ github.repository }} \
             ghcr.io/goreleaser/goreleaser-cross:${{ env.GORELEASER_CROSS_VERSION }} \
-            release --clean -f .goreleaser-indexer.yml
+            release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
@@ -82,3 +65,26 @@ jobs:
           MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
           MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
           MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+
+  release-windows:
+    runs-on: windows-latest
+    needs: [release-main]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run GoReleaser (Windows)
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean -f .goreleaser-windows.yml --append
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
