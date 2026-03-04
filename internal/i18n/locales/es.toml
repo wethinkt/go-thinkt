@@ -1267,6 +1267,15 @@ other = "Ayuda para configurar fuentes"
 [cmd.help.topic.llms]
 other = "Guía de uso para LLMs y asistentes IA"
 
+[cmd.help.topic.cheat]
+other = "Árbol de comandos de referencia rápida"
+
+[cmd.help.cheat.heading]
+other = "thinkt — hoja de referencia de comandos"
+
+[cmd.help.cheat.footer]
+other = "Ejecuta 'thinkt help <comando>' para uso detallado."
+
 [cmd.help.cmd.setup]
 other = "Buscar fuentes de sesiones IA y configurar thinkt"
 

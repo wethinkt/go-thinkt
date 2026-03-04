@@ -1267,6 +1267,15 @@ other = "源配置帮助"
 [cmd.help.topic.llms]
 other = "LLM 和 AI 助手使用指南"
 
+[cmd.help.topic.cheat]
+other = "命令速查表"
+
+[cmd.help.cheat.heading]
+other = "thinkt — 命令速查表"
+
+[cmd.help.cheat.footer]
+other = "运行 'thinkt help <命令>' 查看详细用法。"
+
 [cmd.help.cmd.setup]
 other = "扫描 AI 会话源并配置 thinkt"
 

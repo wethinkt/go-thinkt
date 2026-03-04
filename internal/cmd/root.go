@@ -206,6 +206,8 @@ func init() {
 	promptsCmd.AddCommand(templatesCmd)
 
 	helpCmd.AddCommand(helpLlmsCmd)
+	helpCheatCmd.Flags().BoolVar(&cheatJSON, "json", false, "output as JSON")
+	helpCmd.AddCommand(helpCheatCmd)
 	rootCmd.SetHelpCommand(helpCmd)
 
 	rootCmd.AddCommand(tuiCmd)

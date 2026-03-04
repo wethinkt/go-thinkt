@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -42,6 +43,7 @@ type helpEntry struct {
 
 var helpTopics = []helpEntry{
 	{"llms", "cmd.help.topic.llms", "Usage guide for LLMs and AI assistants"},
+	{"cheat", "cmd.help.topic.cheat", "Quick-reference command tree"},
 }
 
 var helpCommands = []helpEntry{
@@ -104,4 +106,112 @@ var helpLlmsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Print(llms.Text)
 	},
+}
+
+var cheatJSON bool
+
+var helpCheatCmd = &cobra.Command{
+	Use:   "cheat",
+	Short: "Quick-reference command tree",
+	Long:  "Print a compact cheat sheet showing every command and subcommand.",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if cheatJSON {
+			return printCheatSheetJSON()
+		}
+		printCheatSheet()
+		return nil
+	},
+}
+
+// localizedShort returns the i18n description for a command, checking
+// cmd.help.cmd.<name> first (where curated translations live), then
+// falling back to the cobra Short string.
+func localizedShort(c *cobra.Command) string {
+	key := "cmd.help.cmd." + c.Name()
+	if v := thinktI18n.T(key, ""); v != "" {
+		return v
+	}
+	return c.Short
+}
+
+func printCheatSheet() {
+	fmt.Println("🧠 " + thinktI18n.T("cmd.help.cheat.heading", "thinkt — command cheat sheet"))
+	fmt.Println()
+
+	cmds := rootCmd.Commands()
+	// Filter to visible, non-help commands.
+	visible := cmds[:0]
+	for _, c := range cmds {
+		if !c.Hidden && c.Name() != "help" {
+			visible = append(visible, c)
+		}
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 2, 0, 2, ' ', 0)
+	for i, sub := range visible {
+		isLast := i == len(visible)-1
+		connector := "├── "
+		if isLast {
+			connector = "└── "
+		}
+		fmt.Fprintf(w, "  %s%s\t%s\n", connector, sub.Name(), localizedShort(sub))
+
+		children := sub.Commands()
+		// Filter hidden children.
+		vis := children[:0]
+		for _, ch := range children {
+			if !ch.Hidden {
+				vis = append(vis, ch)
+			}
+		}
+
+		continuation := "│   "
+		if isLast {
+			continuation = "    "
+		}
+		for j, child := range vis {
+			childConn := "├── "
+			if j == len(vis)-1 {
+				childConn = "└── "
+			}
+			fmt.Fprintf(w, "  %s%s%s\t%s\n", continuation, childConn, child.Name(), localizedShort(child))
+		}
+
+		// Blank spacer line between sections.
+		if !isLast {
+			fmt.Fprintf(w, "  │\n")
+		}
+	}
+	w.Flush()
+	fmt.Println()
+	fmt.Println(thinktI18n.T("cmd.help.cheat.footer", "Run 'thinkt help <command>' for detailed usage."))
+}
+
+type cheatCommand struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Subcommands []cheatCommand  `json:"subcommands,omitempty"`
+}
+
+func printCheatSheetJSON() error {
+	cmds := rootCmd.Commands()
+	var result []cheatCommand
+	for _, sub := range cmds {
+		if sub.Hidden || sub.Name() == "help" {
+			continue
+		}
+		entry := cheatCommand{Name: sub.Name(), Description: localizedShort(sub)}
+		for _, child := range sub.Commands() {
+			if !child.Hidden {
+				entry.Subcommands = append(entry.Subcommands, cheatCommand{
+					Name:        child.Name(),
+					Description: localizedShort(child),
+				})
+			}
+		}
+		result = append(result, entry)
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(result)
 }
