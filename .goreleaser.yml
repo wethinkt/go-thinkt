@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # .goreleaser.yml
+# Consolidated build for all binaries via goreleaser-cross (CGO enabled)
+# Windows builds are handled by .goreleaser-windows.yml
 
 version: 2
 
@@ -19,48 +21,231 @@ before:
     - sh -c 'go run ./cmd/thinkt docs man -o ./manpages/'
 
 builds:
-  - id: default
+  # ── thinkt ─────────────────────────────────────────────────────────────
+  - id: thinkt-linux-amd64
     main: ./cmd/thinkt
     binary: thinkt
+    goos: [linux]
+    goarch: [amd64]
     env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-      - darwin
-      - freebsd
-      - windows
-    goarch:
-      - amd64
-      - arm64
+      - CGO_ENABLED=1
+      - CC=x86_64-linux-gnu-gcc
+      - CXX=x86_64-linux-gnu-g++
     ldflags:
       - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
 
-  - id: exporter
+  - id: thinkt-linux-arm64
+    main: ./cmd/thinkt
+    binary: thinkt
+    goos: [linux]
+    goarch: [arm64]
+    env:
+      - CGO_ENABLED=1
+      - CC=aarch64-linux-gnu-gcc
+      - CXX=aarch64-linux-gnu-g++
+    ldflags:
+      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
+
+  - id: thinkt-darwin-amd64
+    main: ./cmd/thinkt
+    binary: thinkt
+    goos: [darwin]
+    goarch: [amd64]
+    env:
+      - MACOSX_DEPLOYMENT_TARGET=11.0
+      - CGO_ENABLED=1
+      - CC=o64-clang
+      - CXX=o64-clang++
+    ldflags:
+      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
+
+  - id: thinkt-darwin-arm64
+    main: ./cmd/thinkt
+    binary: thinkt
+    goos: [darwin]
+    goarch: [arm64]
+    env:
+      - MACOSX_DEPLOYMENT_TARGET=11.0
+      - CGO_ENABLED=1
+      - CC=oa64-clang
+      - CXX=oa64-clang++
+    ldflags:
+      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
+
+  # ── thinkt-indexer ─────────────────────────────────────────────────────
+  - id: indexer-linux-amd64
+    main: ./cmd/thinkt-indexer
+    binary: thinkt-indexer
+    goos: [linux]
+    goarch: [amd64]
+    env:
+      - CGO_ENABLED=1
+      - CC=x86_64-linux-gnu-gcc
+      - CXX=x86_64-linux-gnu-g++
+    ldflags:
+      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
+
+  - id: indexer-linux-arm64
+    main: ./cmd/thinkt-indexer
+    binary: thinkt-indexer
+    goos: [linux]
+    goarch: [arm64]
+    env:
+      - CGO_ENABLED=1
+      - CC=aarch64-linux-gnu-gcc
+      - CXX=aarch64-linux-gnu-g++
+    ldflags:
+      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
+
+  - id: indexer-darwin-amd64
+    main: ./cmd/thinkt-indexer
+    binary: thinkt-indexer
+    goos: [darwin]
+    goarch: [amd64]
+    env:
+      - MACOSX_DEPLOYMENT_TARGET=11.0
+      - CGO_ENABLED=1
+      - CC=o64-clang
+      - CXX=o64-clang++
+    ldflags:
+      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
+
+  - id: indexer-darwin-arm64
+    main: ./cmd/thinkt-indexer
+    binary: thinkt-indexer
+    goos: [darwin]
+    goarch: [arm64]
+    env:
+      - MACOSX_DEPLOYMENT_TARGET=11.0
+      - CGO_ENABLED=1
+      - CC=oa64-clang
+      - CXX=oa64-clang++
+    ldflags:
+      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
+
+  # ── thinkt-exporter ────────────────────────────────────────────────────
+  - id: exporter-linux-amd64
     main: ./cmd/thinkt-exporter
     binary: thinkt-exporter
+    goos: [linux]
+    goarch: [amd64]
     env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-      - darwin
-      - freebsd
-      - windows
-    goarch:
-      - amd64
-      - arm64
+      - CGO_ENABLED=1
+      - CC=x86_64-linux-gnu-gcc
+      - CXX=x86_64-linux-gnu-g++
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+  - id: exporter-linux-arm64
+    main: ./cmd/thinkt-exporter
+    binary: thinkt-exporter
+    goos: [linux]
+    goarch: [arm64]
+    env:
+      - CGO_ENABLED=1
+      - CC=aarch64-linux-gnu-gcc
+      - CXX=aarch64-linux-gnu-g++
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+  - id: exporter-darwin-amd64
+    main: ./cmd/thinkt-exporter
+    binary: thinkt-exporter
+    goos: [darwin]
+    goarch: [amd64]
+    env:
+      - MACOSX_DEPLOYMENT_TARGET=11.0
+      - CGO_ENABLED=1
+      - CC=o64-clang
+      - CXX=o64-clang++
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+  - id: exporter-darwin-arm64
+    main: ./cmd/thinkt-exporter
+    binary: thinkt-exporter
+    goos: [darwin]
+    goarch: [arm64]
+    env:
+      - MACOSX_DEPLOYMENT_TARGET=11.0
+      - CGO_ENABLED=1
+      - CC=oa64-clang
+      - CXX=oa64-clang++
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+  # ── thinkt-collector ───────────────────────────────────────────────────
+  - id: collector-linux-amd64
+    main: ./cmd/thinkt-collector
+    binary: thinkt-collector
+    goos: [linux]
+    goarch: [amd64]
+    env:
+      - CGO_ENABLED=1
+      - CC=x86_64-linux-gnu-gcc
+      - CXX=x86_64-linux-gnu-g++
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+  - id: collector-linux-arm64
+    main: ./cmd/thinkt-collector
+    binary: thinkt-collector
+    goos: [linux]
+    goarch: [arm64]
+    env:
+      - CGO_ENABLED=1
+      - CC=aarch64-linux-gnu-gcc
+      - CXX=aarch64-linux-gnu-g++
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+  - id: collector-darwin-amd64
+    main: ./cmd/thinkt-collector
+    binary: thinkt-collector
+    goos: [darwin]
+    goarch: [amd64]
+    env:
+      - MACOSX_DEPLOYMENT_TARGET=11.0
+      - CGO_ENABLED=1
+      - CC=o64-clang
+      - CXX=o64-clang++
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+  - id: collector-darwin-arm64
+    main: ./cmd/thinkt-collector
+    binary: thinkt-collector
+    goos: [darwin]
+    goarch: [arm64]
+    env:
+      - MACOSX_DEPLOYMENT_TARGET=11.0
+      - CGO_ENABLED=1
+      - CC=oa64-clang
+      - CXX=oa64-clang++
     ldflags:
       - -s -w -X main.version={{.Version}}
 
 archives:
   - id: default
     ids:
-      - default
+      - thinkt-linux-amd64
+      - thinkt-linux-arm64
+      - thinkt-darwin-amd64
+      - thinkt-darwin-arm64
+      - exporter-linux-amd64
+      - exporter-linux-arm64
+      - exporter-darwin-amd64
+      - exporter-darwin-arm64
+      - indexer-linux-amd64
+      - indexer-linux-arm64
+      - indexer-darwin-amd64
+      - indexer-darwin-arm64
+      - collector-linux-amd64
+      - collector-linux-arm64
+      - collector-darwin-amd64
+      - collector-darwin-arm64
     formats:
       - tar.gz
-    format_overrides:
-      - goos: windows
-        formats:
-          - zip
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
     files:
@@ -70,18 +255,6 @@ archives:
       - src: ./completions/*
         dst: completions/
         strip_parent: true
-
-  - id: exporter
-    ids:
-      - exporter
-    formats:
-      - tar.gz
-    format_overrides:
-      - goos: windows
-        formats:
-          - zip
-    name_template: >-
-      thinkt-exporter_{{ .Version }}_{{ .Os }}_{{ .Arch }}
 
 checksum:
   name_template: checksums.txt
@@ -98,7 +271,14 @@ notarize:
   macos:
     - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
       ids:
-        - default
+        - thinkt-darwin-amd64
+        - thinkt-darwin-arm64
+        - exporter-darwin-amd64
+        - exporter-darwin-arm64
+        - indexer-darwin-amd64
+        - indexer-darwin-arm64
+        - collector-darwin-amd64
+        - collector-darwin-arm64
       sign:
         certificate: "{{.Env.MACOS_SIGN_P12}}"
         password: "{{.Env.MACOS_SIGN_PASSWORD}}"
@@ -125,6 +305,9 @@ homebrew_casks:
     license: MIT
     binaries:
       - thinkt
+      - thinkt-indexer
+      - thinkt-exporter
+      - thinkt-collector
     completions:
       bash: completions/thinkt.bash
       zsh: completions/thinkt.zsh
@@ -221,7 +404,7 @@ homebrew_casks:
 dockers:
   - id: linux-amd64
     ids:
-      - default
+      - thinkt-linux-amd64
     dockerfile: etc/Dockerfile.goreleaser
     image_templates:
       - "ghcr.io/wethinkt/thinkt:{{ .Version }}-amd64"
@@ -239,7 +422,7 @@ dockers:
 
   - id: linux-arm64
     ids:
-      - default
+      - thinkt-linux-arm64
     dockerfile: etc/Dockerfile.goreleaser
     image_templates:
       - "ghcr.io/wethinkt/thinkt:{{ .Version }}-arm64"
@@ -258,7 +441,7 @@ dockers:
 
   - id: exporter-linux-amd64
     ids:
-      - exporter
+      - exporter-linux-amd64
     dockerfile: etc/Dockerfile.goreleaser-exporter
     image_templates:
       - "ghcr.io/wethinkt/thinkt-exporter:{{ .Version }}-amd64"
@@ -276,7 +459,7 @@ dockers:
 
   - id: exporter-linux-arm64
     ids:
-      - exporter
+      - exporter-linux-arm64
     dockerfile: etc/Dockerfile.goreleaser-exporter
     image_templates:
       - "ghcr.io/wethinkt/thinkt-exporter:{{ .Version }}-arm64"
@@ -286,6 +469,43 @@ dockers:
       - "--platform=linux/arm64"
       - "--label=org.opencontainers.image.title=thinkt-exporter"
       - "--label=org.opencontainers.image.description=Exports LLM conversation traces to thinkt"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.source={{ .GitURL }}"
+    use: buildx
+    goarch: arm64
+
+  - id: indexer-linux-amd64
+    ids:
+      - indexer-linux-amd64
+    dockerfile: etc/Dockerfile.indexer
+    image_templates:
+      - "ghcr.io/wethinkt/thinkt-indexer:{{ .Version }}-amd64"
+      - "ghcr.io/wethinkt/thinkt-indexer:latest-amd64"
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title=thinkt-indexer"
+      - "--label=org.opencontainers.image.description=thinkt indexer"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.source={{ .GitURL }}"
+    use: buildx
+
+  - id: indexer-linux-arm64
+    ids:
+      - indexer-linux-arm64
+    dockerfile: etc/Dockerfile.indexer
+    image_templates:
+      - "ghcr.io/wethinkt/thinkt-indexer:{{ .Version }}-arm64"
+      - "ghcr.io/wethinkt/thinkt-indexer:latest-arm64"
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title=thinkt-indexer"
+      - "--label=org.opencontainers.image.description=thinkt indexer"
       - "--label=org.opencontainers.image.version={{ .Version }}"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
@@ -313,3 +533,13 @@ docker_manifests:
     image_templates:
       - "ghcr.io/wethinkt/thinkt-exporter:latest-amd64"
       - "ghcr.io/wethinkt/thinkt-exporter:latest-arm64"
+
+  - name_template: "ghcr.io/wethinkt/thinkt-indexer:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/wethinkt/thinkt-indexer:{{ .Version }}-amd64"
+      - "ghcr.io/wethinkt/thinkt-indexer:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/wethinkt/thinkt-indexer:latest"
+    image_templates:
+      - "ghcr.io/wethinkt/thinkt-indexer:latest-amd64"
+      - "ghcr.io/wethinkt/thinkt-indexer:latest-arm64"
