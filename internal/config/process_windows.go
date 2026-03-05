@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+
+	"golang.org/x/sys/windows"
 )
 
 // isProcessAlive checks whether a process with the given PID exists.
@@ -13,15 +15,17 @@ func isProcessAlive(pid int) bool {
 	if pid <= 0 {
 		return false
 	}
-	p, err := os.FindProcess(pid)
+	handle, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(pid))
 	if err != nil {
 		return false
 	}
-	// On Windows, FindProcess always succeeds. Signal(0) is not supported,
-	// so we rely on the fact that FindProcess doesn't error for valid PIDs.
-	// This is a best-effort check.
-	_ = p
-	return true
+	defer windows.CloseHandle(handle)
+
+	var exitCode uint32
+	if err := windows.GetExitCodeProcess(handle, &exitCode); err != nil {
+		return false
+	}
+	return exitCode == windows.STILL_ACTIVE
 }
 
 // stopProcess on Windows just kills.

@@ -211,6 +211,92 @@ func TestHandleResolveSession_FallbackProjectID(t *testing.T) {
 	}
 }
 
+func TestNormalizeSessionPathInput(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "unix absolute path",
+			input: "/tmp/session.jsonl",
+			want:  "/tmp/session.jsonl",
+		},
+		{
+			name:  "relative path gets rooted",
+			input: "tmp/session.jsonl",
+			want:  "/tmp/session.jsonl",
+		},
+		{
+			name:  "windows drive path preserved",
+			input: `C:\Users\test\session.jsonl`,
+			want:  `C:\Users\test\session.jsonl`,
+		},
+		{
+			name:  "windows UNC path preserved",
+			input: `\\server\share\session.jsonl`,
+			want:  `\\server\share\session.jsonl`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := normalizeSessionPathInput(tt.input); got != tt.want {
+				t.Fatalf("normalizeSessionPathInput(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHandleResolveSession_WindowsPath(t *testing.T) {
+	sessionPath := `C:\Users\test\project\session.jsonl`
+	projectID := `C:\Users\test\project`
+
+	store := &testStore{
+		source: thinkt.SourceCodex,
+		projects: []thinkt.Project{
+			{
+				ID:         projectID,
+				Name:       "project",
+				Path:       projectID,
+				Source:     thinkt.SourceCodex,
+				PathExists: true,
+			},
+		},
+		sessions: map[string][]thinkt.SessionMeta{
+			projectID: {
+				{
+					ID:          "sess-win",
+					FullPath:    sessionPath,
+					ProjectPath: projectID,
+					Source:      thinkt.SourceCodex,
+				},
+			},
+		},
+	}
+
+	srv := newResolveTestServer(store)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions/resolve?path="+url.QueryEscape(sessionPath), nil)
+	w := httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp SessionResolveResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+	if resp.SessionPath != sessionPath {
+		t.Fatalf("SessionPath = %q, want %q", resp.SessionPath, sessionPath)
+	}
+	if resp.ProjectID != projectID {
+		t.Fatalf("ProjectID = %q, want %q", resp.ProjectID, projectID)
+	}
+}
+
 func TestHandleGetSession_NotFound(t *testing.T) {
 	srv := newResolveTestServer(&testStore{
 		source:   thinkt.SourceClaude,

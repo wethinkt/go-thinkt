@@ -15,7 +15,6 @@ import (
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/server"
 	"github.com/wethinkt/go-thinkt/internal/sources"
-	"github.com/wethinkt/go-thinkt/internal/tui/setup"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -84,14 +83,17 @@ Examples:
 		if !skipSetup(cmd) && needsSetup() {
 			factories := sources.AllFactories()
 			if setupOK {
-				result, err := setup.RunDefaults(factories)
+				result, err := runSetupDefaultsFn(factories)
 				if err != nil {
 					return fmt.Errorf("setup defaults: %w", err)
 				}
 				startIndexerIfEnabled(result)
 			} else {
-				if err := runSetupInteractive(factories); err != nil {
+				if err := runSetupInteractiveFn(factories); err != nil {
 					return fmt.Errorf("setup: %w", err)
+				}
+				if needsSetup() {
+					return errSetupIncomplete
 				}
 			}
 			// Re-init i18n with new config language

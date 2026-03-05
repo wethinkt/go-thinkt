@@ -27,8 +27,8 @@ type Watcher struct {
 	dbPath       string
 	embDBDir     string
 	registry     *thinkt.StoreRegistry
-	embedder     *embedding.Embedder          // shared, owned by caller (e.g. server)
-	debounce     time.Duration                // debounce delay for file changes
+	embedder     *embedding.Embedder // shared, owned by caller (e.g. server)
+	debounce     time.Duration       // debounce delay for file changes
 	watcher      *fsnotify.Watcher
 	done         chan struct{}
 	mu           sync.Mutex
@@ -256,19 +256,14 @@ func (w *Watcher) watchLoop(ctx context.Context) {
 				return
 			}
 
-			// We only care about writes to .jsonl files
-			if !strings.HasSuffix(event.Name, ".jsonl") {
-				continue
-			}
-
-			if event.Op&fsnotify.Write == fsnotify.Write {
-				// Debounce ingestion
-				if timer, ok := timers[event.Name]; ok {
+			if shouldHandleWatcherEvent(event) {
+				path := event.Name
+				if timer, ok := timers[path]; ok {
 					timer.Stop()
 				}
 
-				timers[event.Name] = time.AfterFunc(w.debounce, func() {
-					w.handleFileChange(event.Name)
+				timers[path] = time.AfterFunc(w.debounce, func() {
+					w.handleFileChange(path)
 				})
 			}
 
@@ -284,6 +279,13 @@ func (w *Watcher) watchLoop(ctx context.Context) {
 			return
 		}
 	}
+}
+
+func shouldHandleWatcherEvent(event fsnotify.Event) bool {
+	if !strings.HasSuffix(event.Name, ".jsonl") {
+		return false
+	}
+	return event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename) != 0
 }
 
 func (w *Watcher) handleFileChange(path string) {

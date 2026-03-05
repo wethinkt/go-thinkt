@@ -18,6 +18,9 @@ import (
 )
 
 var setupOK bool
+var errSetupIncomplete = errors.New("setup did not complete")
+var runSetupDefaultsFn = setup.RunDefaults
+var runSetupInteractiveFn = runSetupInteractive
 
 var setupCmd = &cobra.Command{
 	Use:   "setup",
@@ -30,7 +33,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 	factories := sources.AllFactories()
 
 	if setupOK || outputJSON {
-		result, err := setup.RunDefaults(factories)
+		result, err := runSetupDefaultsFn(factories)
 		if err != nil {
 			return fmt.Errorf("setup defaults: %w", err)
 		}
@@ -45,7 +48,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	return runSetupInteractive(factories)
+	return runSetupInteractiveFn(factories)
 }
 
 func runSetupInteractive(factories []thinkt.StoreFactory) error {

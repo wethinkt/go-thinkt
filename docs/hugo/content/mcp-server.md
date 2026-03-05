@@ -381,7 +381,13 @@ kimi mcp list
 Add `thinkt` to your Gemini MCP settings via CLI:
 
 ```bash
-gemini mcp add --transport stdio thinkt -- thinkt server mcp
+# add thinkt mcp to your user for every project
+gemini mcp add --scope user thinkt thinkt server mcp
+
+# add it for just the current project
+gemini mcp add thinkt thinkt server mcp
+
+# test it
 gemini mcp list
 ```
 

@@ -91,12 +91,12 @@ type ErrorResponse struct {
 // Clients can use this to immediately synchronize sidebar/header state for deep-links
 // instead of scanning projects and sessions client-side.
 type SessionResolveResponse struct {
-	ProjectID     string       `json:"project_id"`
-	ProjectName   string       `json:"project_name"`
+	ProjectID     string        `json:"project_id"`
+	ProjectName   string        `json:"project_name"`
 	ProjectSource thinkt.Source `json:"project_source"`
-	SessionID     string       `json:"session_id"`
-	SessionPath   string       `json:"session_path"`
-	WorkspaceID   string       `json:"workspace_id,omitempty"`
+	SessionID     string        `json:"session_id"`
+	SessionPath   string        `json:"session_path"`
+	WorkspaceID   string        `json:"workspace_id,omitempty"`
 }
 
 // ServerInfoResponse contains server identity and runtime metadata.
@@ -150,14 +150,10 @@ func (s *HTTPServer) handleGetInfo(w http.ResponseWriter, r *http.Request) {
 // @Router /sessions/resolve [get]
 // @Security BearerAuth
 func (s *HTTPServer) handleResolveSession(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimSpace(r.URL.Query().Get("path"))
+	path := normalizeSessionPathInput(r.URL.Query().Get("path"))
 	if path == "" {
 		writeError(w, http.StatusBadRequest, "missing_path", "Query parameter 'path' is required")
 		return
-	}
-
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
 	}
 
 	ctx := r.Context()
@@ -705,10 +701,28 @@ func extractWildcardPath(r *http.Request) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !strings.HasPrefix(decoded, "/") {
-		decoded = "/" + decoded
+	return normalizeSessionPathInput(decoded), nil
+}
+
+func normalizeSessionPathInput(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
 	}
-	return decoded, nil
+	if strings.HasPrefix(path, "/") || isWindowsAbsolutePath(path) {
+		return path
+	}
+	return "/" + path
+}
+
+func isWindowsAbsolutePath(path string) bool {
+	if len(path) >= 3 &&
+		((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z')) &&
+		path[1] == ':' &&
+		(path[2] == '\\' || path[2] == '/') {
+		return true
+	}
+	return strings.HasPrefix(path, `\\`)
 }
 
 func rewriteWildcardPath(r *http.Request, path string) {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -164,6 +165,39 @@ func TestResumeSession_UnsupportedSourceReturnsResumeNotSupported(t *testing.T) 
 	}
 }
 
+func TestResumeSession_UnsupportedSourceReturnsResumeNotSupported_WindowsPath(t *testing.T) {
+	sessionPath := `C:\tmp\fake-session.jsonl`
+
+	reg := thinkt.NewRegistry()
+	reg.Register(&fakeStoreNoResume{
+		source: "fake",
+		metas: map[string]*thinkt.SessionMeta{
+			sessionPath: {
+				Source:   "fake",
+				FullPath: sessionPath,
+			},
+		},
+	})
+
+	srv := NewHTTPServerWithAuth(reg, DefaultConfig(), AuthConfig{Mode: AuthModeNone})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions/"+url.PathEscape(sessionPath)+"/resume", nil)
+	w := httptest.NewRecorder()
+	srv.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, w.Code)
+	}
+
+	var resp ErrorResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Error != "resume_not_supported" {
+		t.Fatalf("expected error code %q, got %q", "resume_not_supported", resp.Error)
+	}
+}
+
 // fakeStoreNoResume implements thinkt.Store but NOT thinkt.SessionResumer,
 // so GetResumer returns false for its source.
 type fakeStoreNoResume struct {
@@ -171,8 +205,8 @@ type fakeStoreNoResume struct {
 	metas  map[string]*thinkt.SessionMeta
 }
 
-func (f *fakeStoreNoResume) Source() thinkt.Source         { return f.source }
-func (f *fakeStoreNoResume) Workspace() thinkt.Workspace   { return thinkt.Workspace{} }
+func (f *fakeStoreNoResume) Source() thinkt.Source       { return f.source }
+func (f *fakeStoreNoResume) Workspace() thinkt.Workspace { return thinkt.Workspace{} }
 func (f *fakeStoreNoResume) ListProjects(context.Context) ([]thinkt.Project, error) {
 	return nil, nil
 }
