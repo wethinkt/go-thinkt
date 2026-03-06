@@ -17,6 +17,11 @@
 * **Token Management**
   - Enhanced token management commands with improved help descriptions
 
+* **Search: RPC-First with Direct DB Fallback**
+  - TUI search and indexer CLI now use the indexer RPC when available, avoiding DuckDB lock contention on ext4 and other filesystems without reflink support
+  - Falls back to direct read-only DB access when the indexer isn't running
+  - Clear error messages when the index database doesn't exist ("run 'thinkt-indexer sync' to build the search index")
+
 * **Bug Fixes**
   - Hardened setup, watcher, and Windows path handling
 

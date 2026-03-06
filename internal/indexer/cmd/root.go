@@ -98,6 +98,9 @@ func getDB() (*db.DB, error) {
 }
 
 func getReadOnlyDB() (*db.DB, error) {
+	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("index database not found at %s — run 'thinkt-indexer sync' to create it", dbPath)
+	}
 	return db.OpenReadOnly(dbPath)
 }
 

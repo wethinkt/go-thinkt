@@ -29,7 +29,7 @@ var sessionsCmd = &cobra.Command{
 
 		db, err := getReadOnlyDB()
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot list sessions: %w", err)
 		}
 		defer db.Close()
 

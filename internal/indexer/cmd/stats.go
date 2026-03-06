@@ -86,10 +86,10 @@ func getStats() (*statsData, error) {
 		// Fall through to inline on RPC failure
 	}
 
-	// Inline fallback
+	// Inline fallback — works when the indexer is not running.
 	db, err := getReadOnlyDB()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot load stats: %w", err)
 	}
 	defer db.Close()
 

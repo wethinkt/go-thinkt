@@ -137,10 +137,10 @@ func doSearch(queryText string) ([]search.SessionResult, int, error) {
 		// Fall through to inline on RPC failure
 	}
 
-	// Inline fallback
+	// Inline fallback — works when the indexer is not running.
 	db, err := getReadOnlyDB()
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("cannot search: %w", err)
 	}
 	defer db.Close()
 
