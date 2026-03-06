@@ -1,5 +1,25 @@
 # `go-thinkt` CHANGELOG
 
+## v0.7.6 (2026-03-06)
+
+* **Setup Wizard: Apps, Terminal & Embedding Model**
+  - Added app discovery step to `thinkt setup` — multi-select checklist to enable/disable discovered apps
+  - Added default terminal detection from `TERM_PROGRAM` and `TERM` environment variables
+  - Terminal confirmation step with auto-detected default and manual picker fallback
+  - Embedding model picker when enabling embeddings — choose between nomic-embed-text-v1.5 (~140MB) and qwen3-embedding-0.6b (~800MB)
+  - Setup flow is now: Welcome → Home → Sources → Apps → Terminal → Indexer → Embeddings → Model → Suggestions
+  - `--ok` mode auto-detects terminal and accepts all defaults
+  - Full i18n coverage (en, zh-Hans, es) for all new steps
+
+* **Indexer: Copy-on-Read Snapshots**
+  - Added filesystem snapshot-based copy-on-read fallback with platform-specific implementations (darwin, linux, windows)
+
+* **Token Management**
+  - Enhanced token management commands with improved help descriptions
+
+* **Bug Fixes**
+  - Hardened setup, watcher, and Windows path handling
+
 ## v0.7.5 (2026-03-04)
 
   * **Consolidated Release & Homebrew Cask**
