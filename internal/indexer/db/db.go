@@ -3,8 +3,8 @@ package db
 import (
 	"database/sql"
 	_ "embed"
+	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -153,7 +153,7 @@ func migrate(db *sql.DB) error {
 const (
 	readOnlyRetries = 5 // direct-open retries before falling back to copy
 	retryDelay      = 100 * time.Millisecond
-	copyRetries     = 10 // how many times to try copy-then-validate
+	copyRetries     = 10 // how many times to try snapshot-then-validate
 )
 
 // OpenReadOnly opens a DuckDB database at the given path in read-only mode.
@@ -162,10 +162,10 @@ const (
 //  1. Retry the direct read-only open a few times with a short delay. This
 //     handles the common case where the watcher's brief open-on-demand lock
 //     is released within milliseconds.
-//  2. If the lock persists (e.g. a long-running sync), fall back to copying
-//     the main database file and opening the copy. Because a checkpoint can
-//     race with our copy, the copy is validated by opening it; if the copy
-//     is corrupt the attempt is retried.
+//  2. If the lock persists (e.g. a long-running sync), fall back to taking a
+//     filesystem snapshot of the main database file and opening the snapshot.
+//     If the filesystem cannot provide a safe snapshot, fail closed rather
+//     than risk a torn copy of a live DuckDB file.
 //
 // See: https://github.com/duckdb/duckdb/discussions/14676
 func OpenReadOnly(path string) (*DB, error) {
@@ -216,27 +216,31 @@ func isLockError(err error) bool {
 		strings.Contains(msg, "same database file with a different configuration")
 }
 
-// openReadOnlyCopy copies the main database file to a temp directory, opens
-// the copy read-only, and validates it by reading actual table data. If the
-// copy was taken during a checkpoint and is corrupt, it retries after a delay.
+// openReadOnlyCopy takes a filesystem-level snapshot of the main database file,
+// opens the snapshot read-only, and validates it by reading actual table data.
+// If the filesystem cannot provide a safe snapshot, it fails closed rather than
+// risking a torn byte copy of a live DuckDB file.
 func openReadOnlyCopy(path string, lastDirectErr error) (*DB, error) {
 	for attempt := range copyRetries {
 		if attempt > 0 {
 			time.Sleep(retryDelay)
 		}
 
-		tempDir, err := os.MkdirTemp("", "thinkt-db-*")
+		tempDir, err := makeCopyTempDir(path)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create temp dir for copy-on-read: %w", err)
 		}
 
-		// Copy only the main database file (not the WAL). Skipping the
-		// WAL means we read data as of the last completed checkpoint,
-		// which is acceptably stale.
+		// Snapshot only the main database file (not the WAL). Skipping the
+		// WAL means we read data as of the last completed checkpoint, which
+		// is acceptably stale.
 		destPath := filepath.Join(tempDir, filepath.Base(path))
-		if err := stableCopy(path, destPath); err != nil {
+		if err := snapshotCopy(path, destPath); err != nil {
 			os.RemoveAll(tempDir)
-			tuilog.Log.Warn("db: copy-on-read attempt failed while copying", "attempt", attempt+1, "error", err)
+			if errors.Is(err, errSnapshotCopyUnavailable) {
+				return nil, fmt.Errorf("database is locked and safe copy-on-read is unavailable on this filesystem: %w", lastDirectErr)
+			}
+			tuilog.Log.Warn("db: copy-on-read attempt failed while snapshotting", "attempt", attempt+1, "error", err)
 			continue
 		}
 
@@ -256,11 +260,10 @@ func openReadOnlyCopy(path string, lastDirectErr error) (*DB, error) {
 			continue
 		}
 
-		// Validate by reading actual table data to ensure data blocks
-		// are intact (SELECT 1 would only test the header). A missing
-		// table is acceptable — it means the schema hasn't been
-		// checkpointed yet (stale but valid). Only IO/checksum errors
-		// indicate a corrupt copy that should be retried.
+		// Validate by reading actual table data to ensure data blocks are
+		// intact. A missing table is acceptable — it means the schema
+		// hasn't been checkpointed yet (stale but valid). Only IO/checksum
+		// errors indicate a corrupt copy that should be retried.
 		if err := validateCopy(db); err != nil {
 			db.Close()
 			os.RemoveAll(tempDir)
@@ -282,63 +285,66 @@ func openReadOnlyCopy(path string, lastDirectErr error) (*DB, error) {
 // Returns nil if the copy is usable (even if tables don't exist yet due to
 // the schema not being checkpointed — that's stale but valid).
 func validateCopy(db *sql.DB) error {
-	// Try reading actual table data to exercise data block reads.
-	_, err := db.Exec("SELECT count(*) FROM projects")
-	if err == nil {
+	checks := []func(*sql.DB) error{
+		func(db *sql.DB) error {
+			var rows, idBytes, nameBytes int64
+			return db.QueryRow("SELECT count(*), coalesce(sum(length(id)), 0), coalesce(sum(length(name)), 0) FROM projects").Scan(&rows, &idBytes, &nameBytes)
+		},
+		func(db *sql.DB) error {
+			var rows, idBytes, pathBytes int64
+			return db.QueryRow("SELECT count(*), coalesce(sum(length(id)), 0), coalesce(sum(length(path)), 0) FROM sessions").Scan(&rows, &idBytes, &pathBytes)
+		},
+		func(db *sql.DB) error {
+			var rows, sessionBytes, uuidBytes int64
+			return db.QueryRow("SELECT count(*), coalesce(sum(length(session_id)), 0), coalesce(sum(length(uuid)), 0) FROM entries").Scan(&rows, &sessionBytes, &uuidBytes)
+		},
+		func(db *sql.DB) error {
+			var rows, fileBytes int64
+			return db.QueryRow("SELECT count(*), coalesce(sum(length(file_path)), 0) FROM sync_state").Scan(&rows, &fileBytes)
+		},
+		func(db *sql.DB) error {
+			var rows, idBytes, hashBytes int64
+			return db.QueryRow("SELECT count(*), coalesce(sum(length(id)), 0), coalesce(sum(length(text_hash)), 0) FROM embeddings").Scan(&rows, &idBytes, &hashBytes)
+		},
+	}
+
+	for _, check := range checks {
+		err := check(db)
+		if err == nil {
+			return nil
+		}
+		// "Table does not exist" means the schema hasn't been checkpointed yet.
+		// The copy is stale but structurally valid.
+		if strings.Contains(err.Error(), "does not exist") {
+			continue
+		}
+		return err
+	}
+
+	var rows int64
+	err := db.QueryRow("SELECT count(*) FROM migrations").Scan(&rows)
+	if err == nil || strings.Contains(err.Error(), "does not exist") {
 		return nil
 	}
-	// "Table does not exist" means the schema hasn't been checkpointed yet.
-	// The copy is stale but structurally valid.
-	if strings.Contains(err.Error(), "does not exist") {
-		return nil
-	}
-	// Any other error (IO errors, checksum mismatches) indicates corruption.
 	return err
 }
 
-// errFileChangedDuringCopy is returned by stableCopy when the source file
-// size changed during the copy, indicating a checkpoint was in progress.
-var errFileChangedDuringCopy = fmt.Errorf("file changed during copy")
+func makeCopyTempDir(path string) (string, error) {
+	parent := filepath.Dir(path)
+	tempDir, err := os.MkdirTemp(parent, ".thinkt-db-*")
+	if err == nil {
+		return tempDir, nil
+	}
+	return os.MkdirTemp("", "thinkt-db-*")
+}
 
-// stableCopy copies src to dst and verifies the source file size did not
-// change during the copy. If it did, the copy may be inconsistent.
-func stableCopy(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
+func snapshotCopy(src, dst string) error {
+	if err := trySnapshotCopy(src, dst); err != nil {
+		if errors.Is(err, errSnapshotCopyUnavailable) {
+			return err
+		}
 		return err
 	}
-	defer in.Close()
-
-	// Snapshot file size before copying.
-	infoBefore, err := in.Stat()
-	if err != nil {
-		return err
-	}
-	sizeBefore := infoBefore.Size()
-
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	if _, err := io.Copy(out, in); err != nil {
-		return err
-	}
-	if err := out.Close(); err != nil {
-		return err
-	}
-
-	// Check the source file size after the copy. If it changed, a
-	// checkpoint was likely in progress and the copy is suspect.
-	infoAfter, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-	if infoAfter.Size() != sizeBefore {
-		return errFileChangedDuringCopy
-	}
-
 	return nil
 }
 
