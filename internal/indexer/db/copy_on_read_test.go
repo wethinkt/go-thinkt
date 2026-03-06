@@ -9,8 +9,27 @@ import (
 	"testing"
 )
 
+// snapshotSupported probes whether the filesystem backing dir supports
+// reflink/clone snapshots. Tests that rely on copy-on-read call this to
+// skip gracefully on filesystems like ext4 that don't support it.
+func snapshotSupported(t *testing.T, dir string) bool {
+	t.Helper()
+	src := filepath.Join(dir, "probe-src")
+	dst := filepath.Join(dir, "probe-dst")
+	if err := os.WriteFile(src, []byte("probe"), 0600); err != nil {
+		t.Fatalf("failed to write probe file: %v", err)
+	}
+	err := trySnapshotCopy(src, dst)
+	os.Remove(src)
+	os.Remove(dst)
+	return err == nil
+}
+
 func TestCopyOnReadFallback(t *testing.T) {
 	tmpDir := t.TempDir()
+	if !snapshotSupported(t, tmpDir) {
+		t.Skip("filesystem does not support reflink/clone snapshots")
+	}
 	dbPath := filepath.Join(tmpDir, "test.duckdb")
 
 	// Open a read-write connection (simulates the watcher holding the lock)
@@ -64,6 +83,9 @@ func TestCopyOnReadFallback(t *testing.T) {
 
 func TestCopyOnReadCleanup(t *testing.T) {
 	tmpDir := t.TempDir()
+	if !snapshotSupported(t, tmpDir) {
+		t.Skip("filesystem does not support reflink/clone snapshots")
+	}
 	dbPath := filepath.Join(tmpDir, "test.duckdb")
 
 	// Open a read-write connection
@@ -170,6 +192,9 @@ func TestCopyOnReadStress(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
+	if !snapshotSupported(t, tmpDir) {
+		t.Skip("filesystem does not support reflink/clone snapshots")
+	}
 	dbPath := filepath.Join(tmpDir, "stress.duckdb")
 
 	// Open writer and seed initial data + checkpoint so the main file has
