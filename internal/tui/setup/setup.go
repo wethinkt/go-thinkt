@@ -13,6 +13,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
@@ -26,8 +27,11 @@ const (
 	stepHome
 	stepSourceConsent
 	stepSourceApproval
+	stepApps
+	stepTerminal
 	stepIndexer
 	stepEmbeddings
+	stepEmbeddingModel
 	stepSuggestions
 	stepDone
 )
@@ -57,9 +61,12 @@ type Result struct {
 	Language   string
 	HomeDir    string
 	Sources    map[string]bool
-	Indexer    bool
-	Embeddings bool
-	Completed  bool
+	Apps       map[string]bool // app ID -> enabled
+	Terminal   string          // default terminal app ID
+	Indexer        bool
+	Embeddings     bool
+	EmbeddingModel string // embedding model ID
+	Completed      bool
 }
 
 // sourceDiscoveredMsg carries a single source discovery result.
@@ -93,6 +100,18 @@ type Model struct {
 	// Language selection
 	langs  []thinktI18n.LangInfo
 	cursor int
+
+	// App selection
+	apps         []config.AppConfig // discovered apps for checklist
+	appCursor    int                // cursor position in app list
+	termApps     []config.AppConfig // terminal apps (have ExecRun)
+	detectedTerm string             // auto-detected terminal app ID
+	termCursor   int                // cursor for terminal picker
+	termPicking  bool               // true when showing terminal picker
+
+	// Embedding model selection
+	embModelIDs []string // sorted model IDs
+	embCursor   int      // cursor in model list
 
 	// Yes/No button selector (true = Yes focused)
 	confirm bool
@@ -183,10 +202,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateSourceConsent(msg)
 	case stepSourceApproval:
 		return m.updateSourceApproval(msg)
+	case stepApps:
+		return m.updateApps(msg)
+	case stepTerminal:
+		return m.updateTerminal(msg)
 	case stepIndexer:
 		return m.updateIndexer(msg)
 	case stepEmbeddings:
 		return m.updateEmbeddings(msg)
+	case stepEmbeddingModel:
+		return m.updateEmbeddingModel(msg)
 	case stepSuggestions:
 		return m.updateSuggestions(msg)
 	case stepDone:
@@ -215,10 +240,16 @@ func (m Model) View() tea.View {
 		content = m.viewSourceConsent()
 	case stepSourceApproval:
 		content = m.viewSourceApproval()
+	case stepApps:
+		content = m.viewApps()
+	case stepTerminal:
+		content = m.viewTerminal()
 	case stepIndexer:
 		content = m.viewIndexer()
 	case stepEmbeddings:
 		content = m.viewEmbeddings()
+	case stepEmbeddingModel:
+		content = m.viewEmbeddingModel()
 	case stepSuggestions:
 		content = m.viewSuggestions()
 	case stepDone:
@@ -403,6 +434,26 @@ func (m Model) renderStickyContext() string {
 		))
 	}
 
+	if len(m.apps) > 0 && m.step > stepApps {
+		enabled := 0
+		for _, app := range m.apps {
+			if app.Enabled {
+				enabled++
+			}
+		}
+		lines = append(lines, fmt.Sprintf("  %s %s",
+			labelStyle.Render(thinktI18n.T("tui.setup.context.appsLabel", "Apps:")),
+			valueStyle.Render(thinktI18n.Tf("tui.setup.context.appsEnabled", "%d enabled", enabled)),
+		))
+	}
+
+	if m.result.Terminal != "" && m.step > stepTerminal {
+		lines = append(lines, fmt.Sprintf("  %s %s",
+			labelStyle.Render(thinktI18n.T("tui.setup.context.terminalLabel", "Terminal:")),
+			valueStyle.Render(m.result.Terminal),
+		))
+	}
+
 	if m.step > stepIndexer {
 		indexerStatus := thinktI18n.T("tui.setup.suggestions.disabled", "disabled")
 		if m.result.Indexer {
@@ -422,6 +473,13 @@ func (m Model) renderStickyContext() string {
 		lines = append(lines, fmt.Sprintf("  %s %s",
 			labelStyle.Render(thinktI18n.T("tui.setup.context.embeddingsLabel", "Embeddings:")),
 			valueStyle.Render(embeddingStatus),
+		))
+	}
+
+	if m.result.EmbeddingModel != "" && m.step > stepEmbeddingModel {
+		lines = append(lines, fmt.Sprintf("  %s %s",
+			labelStyle.Render(thinktI18n.T("tui.setup.context.embeddingModelLabel", "Model:")),
+			valueStyle.Render(m.result.EmbeddingModel),
 		))
 	}
 
@@ -535,7 +593,7 @@ func (m Model) stepIndicator() string {
 	if m.step == stepWelcome || m.step == stepSuggestions || m.step == stepDone {
 		return ""
 	}
-	total := 6 // home through suggestions (excluding welcome and done)
+	total := 9 // home through suggestions (excluding welcome and done)
 	current := int(m.step)
 	style := lipgloss.NewStyle().Foreground(lipgloss.Color(m.muted))
 	return style.Render(fmt.Sprintf("[%d/%d]", current, total))

@@ -1238,6 +1238,59 @@ other = "Puedes ejecutar esta configuración de nuevo en cualquier momento con: 
 [tui.setup.suggestions.done]
 other = "Enter: finalizar configuración · esc: salir"
 
+# --- Setup: Apps step ---
+
+[tui.setup.apps.title]
+other = "Aplicaciones"
+
+[tui.setup.apps.body]
+other = "Selecciona en qué aplicaciones thinkt puede abrir archivos y ejecutar comandos."
+
+[tui.setup.apps.help]
+other = "↑/↓: navegar · Espacio: alternar · Enter: continuar · esc: salir"
+
+[tui.setup.apps.terminal]
+other = "(terminal)"
+
+[tui.setup.terminal.title]
+other = "Terminal por defecto"
+
+[tui.setup.terminal.pick]
+other = "Selecciona tu terminal por defecto:"
+
+[tui.setup.terminal.pickHelp]
+other = "↑/↓: navegar · Enter: seleccionar · esc: salir"
+
+[tui.setup.terminal.detected]
+other = "Se detectó"
+
+[tui.setup.terminal.useAsDefault]
+other = " como tu terminal. ¿Usar como predeterminado?"
+
+[tui.setup.context.appsLabel]
+other = "Aplicaciones:"
+
+[tui.setup.context.appsEnabled]
+other = "%d habilitadas"
+
+[tui.setup.context.terminalLabel]
+other = "Terminal:"
+
+[tui.setup.embeddingModel.title]
+other = "Modelo de embeddings"
+
+[tui.setup.embeddingModel.body]
+other = "Selecciona el modelo de embeddings para búsqueda semántica:"
+
+[tui.setup.embeddingModel.help]
+other = "↑/↓: navegar · Enter: seleccionar · esc: salir"
+
+[tui.setup.embeddingModel.default]
+other = "(predeterminado)"
+
+[tui.setup.context.embeddingModelLabel]
+other = "Modelo:"
+
 # --- cmd: help ---
 
 [cmd.help.heading]

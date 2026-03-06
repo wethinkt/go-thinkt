@@ -6,6 +6,7 @@ import (
 
 	"github.com/wethinkt/go-thinkt/internal/config"
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
+	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
@@ -32,13 +33,22 @@ func RunDefaults(factories []thinkt.StoreFactory) (Result, error) {
 		sources[string(info.Source)] = true
 	}
 
+	// Auto-detect terminal from environment
+	apps := config.DefaultApps()
+	terminal := config.DetectTerminal(apps)
+	if terminal == "" {
+		terminal = "terminal"
+	}
+
 	result := Result{
-		Language:   lang,
-		HomeDir:    homeDir,
-		Sources:    sources,
-		Indexer:    true,
-		Embeddings: false,
-		Completed:  true,
+		Language:       lang,
+		HomeDir:        homeDir,
+		Sources:        sources,
+		Terminal:       terminal,
+		Indexer:        true,
+		Embeddings:     false,
+		EmbeddingModel: embedding.DefaultModelID,
+		Completed:      true,
 	}
 
 	if err := SaveResult(result); err != nil {
@@ -54,13 +64,27 @@ func SaveResult(result Result) error {
 	cfg.Language = result.Language
 	cfg.Indexer.Watch = result.Indexer
 	cfg.Embedding.Enabled = result.Embeddings
+	if result.EmbeddingModel != "" {
+		cfg.Embedding.Model = result.EmbeddingModel
+	}
 
 	now := time.Now()
 	cfg.DiscoveredAt = &now
 
+	cfg.Terminal = result.Terminal
+
 	cfg.Sources = make(map[string]config.SourceConfig, len(result.Sources))
 	for name, enabled := range result.Sources {
 		cfg.Sources[name] = config.SourceConfig{Enabled: enabled}
+	}
+
+	// Apply app enabled/disabled preferences from setup
+	if result.Apps != nil {
+		for i := range cfg.AllowedApps {
+			if enabled, ok := result.Apps[cfg.AllowedApps[i].ID]; ok {
+				cfg.AllowedApps[i].Enabled = enabled
+			}
+		}
 	}
 
 	return config.Save(cfg)

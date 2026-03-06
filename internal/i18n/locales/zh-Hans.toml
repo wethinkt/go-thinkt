@@ -1238,6 +1238,59 @@ other = "你可以随时重新运行此设置：thinkt setup"
 [tui.setup.suggestions.done]
 other = "Enter: 完成设置 · esc: 退出"
 
+# --- Setup: Apps step ---
+
+[tui.setup.apps.title]
+other = "应用"
+
+[tui.setup.apps.body]
+other = "选择 thinkt 可以用来打开文件和运行命令的应用。"
+
+[tui.setup.apps.help]
+other = "↑/↓: 导航 · 空格: 切换 · Enter: 继续 · esc: 退出"
+
+[tui.setup.apps.terminal]
+other = "（终端）"
+
+[tui.setup.terminal.title]
+other = "默认终端"
+
+[tui.setup.terminal.pick]
+other = "选择默认终端应用："
+
+[tui.setup.terminal.pickHelp]
+other = "↑/↓: 导航 · Enter: 选择 · esc: 退出"
+
+[tui.setup.terminal.detected]
+other = "检测到"
+
+[tui.setup.terminal.useAsDefault]
+other = "为你的终端。设为默认？"
+
+[tui.setup.context.appsLabel]
+other = "应用："
+
+[tui.setup.context.appsEnabled]
+other = "已启用 %d 个"
+
+[tui.setup.context.terminalLabel]
+other = "终端："
+
+[tui.setup.embeddingModel.title]
+other = "嵌入模型"
+
+[tui.setup.embeddingModel.body]
+other = "选择用于语义搜索的嵌入模型："
+
+[tui.setup.embeddingModel.help]
+other = "↑/↓: 导航 · Enter: 选择 · esc: 退出"
+
+[tui.setup.embeddingModel.default]
+other = "（默认）"
+
+[tui.setup.context.embeddingModelLabel]
+other = "模型："
+
 # --- cmd: help ---
 
 [cmd.help.heading]

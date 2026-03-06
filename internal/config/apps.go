@@ -223,3 +223,65 @@ func (c Config) GetEnabledApps() []AppInfo {
 	}
 	return enabled
 }
+
+// DetectTerminal checks TERM_PROGRAM and TERM environment variables
+// to identify the current terminal app from the provided app list.
+// Returns the matching app ID, or empty string if no match.
+func DetectTerminal(apps []AppConfig) string {
+	return DetectTerminalFrom(apps, os.Getenv("TERM_PROGRAM"), os.Getenv("TERM"))
+}
+
+// DetectTerminalFrom identifies the current terminal from explicit env values.
+// Exported for testing without modifying environment.
+func DetectTerminalFrom(apps []AppConfig, termProgram, term string) string {
+	// Build list of enabled terminal apps (those with ExecRun)
+	type termApp struct {
+		id   string
+		name string
+	}
+	var terminals []termApp
+	for _, app := range apps {
+		if len(app.ExecRun) > 0 && app.Enabled {
+			terminals = append(terminals, termApp{id: app.ID, name: app.Name})
+		}
+	}
+
+	// Known TERM_PROGRAM values that don't match app ID/Name directly
+	termProgramMap := map[string]string{
+		"Apple_Terminal": "terminal",
+		"iTerm.app":     "iterm",
+	}
+
+	if termProgram != "" {
+		// Check explicit mapping first
+		if id, ok := termProgramMap[termProgram]; ok {
+			for _, t := range terminals {
+				if t.id == id {
+					return id
+				}
+			}
+		}
+		// Check case-insensitive match against app ID and name
+		lower := strings.ToLower(termProgram)
+		for _, t := range terminals {
+			if strings.ToLower(t.id) == lower || strings.ToLower(t.name) == lower {
+				return t.id
+			}
+		}
+	}
+
+	// Parse TERM for xterm-{name} pattern
+	if term != "" && strings.HasPrefix(term, "xterm-") {
+		suffix := strings.ToLower(strings.TrimPrefix(term, "xterm-"))
+		// Skip generic suffixes
+		if suffix != "256color" && suffix != "color" {
+			for _, t := range terminals {
+				if strings.ToLower(t.id) == suffix || strings.ToLower(t.name) == suffix {
+					return t.id
+				}
+			}
+		}
+	}
+
+	return ""
+}

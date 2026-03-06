@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 )
@@ -25,8 +26,9 @@ func (m Model) selectConsentChoice(choice int) (tea.Model, tea.Cmd) {
 		return m, m.startProgressiveScan()
 	case 2:
 		m.sourceMode = sourceModeDisableAll
-		m.confirm = true // indexer defaults to Yes
-		m.step = stepIndexer
+		m.apps = config.DefaultApps()
+		m.appCursor = 0
+		m.step = stepApps
 		return m, nil
 	case 3:
 		m.result.Completed = false
@@ -163,8 +165,9 @@ func (m Model) updateSourceApproval(msg tea.Msg) (tea.Model, tea.Cmd) {
 				for _, src := range m.sources {
 					m.result.Sources[string(src.Info.Source)] = src.Approved
 				}
-				m.confirm = true // indexer defaults to Yes
-				m.step = stepIndexer
+				m.apps = config.DefaultApps()
+				m.appCursor = 0
+				m.step = stepApps
 				return m, nil
 			}
 		}
