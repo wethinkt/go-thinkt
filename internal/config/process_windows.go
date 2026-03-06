@@ -25,7 +25,10 @@ func isProcessAlive(pid int) bool {
 	if err := windows.GetExitCodeProcess(handle, &exitCode); err != nil {
 		return false
 	}
-	return exitCode == windows.STILL_ACTIVE
+	// STATUS_PENDING (259) means the process is still running.
+	// This constant is not exported by golang.org/x/sys/windows.
+	const STATUS_PENDING = 259
+	return exitCode == STATUS_PENDING
 }
 
 // stopProcess on Windows just kills.
