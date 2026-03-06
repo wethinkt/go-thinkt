@@ -461,24 +461,44 @@ Examples:
 
 var serverTokenCmd = &cobra.Command{
 	Use:   "token",
-	Short: "Generate a secure authentication token",
+	Short: "Manage authentication tokens",
+	Long:  `Manage authentication tokens for API and MCP server access.`,
+	RunE:  runServerTokenShow,
+}
+
+var serverTokenShowCmd = &cobra.Command{
+	Use:   "show",
+	Short: "Print the running server's authentication token",
+	Long: `Print the authentication token for a running server.
+
+Exits with an error if no server is running or it has no token.
+
+Examples:
+  thinkt server token show             # Print the active token
+  thinkt server token show | pbcopy    # Copy to clipboard (macOS)`,
+	RunE: runServerTokenShow,
+}
+
+var serverTokenGenerateCmd = &cobra.Command{
+	Use:   "generate",
+	Short: "Generate a new authentication token",
 	Long: `Generate a cryptographically secure random token for API/MCP authentication.
 
 The token can be used with:
-  - thinkt server --token <token>      # Secure the REST API
+  - thinkt server run --token <token>  # Secure the REST API
   - thinkt server mcp --token <token>  # Secure the MCP server
   - THINKT_MCP_TOKEN env var           # Same as above
 
 The token format is: thinkt_YYYYMMDD_<random>
 
 Examples:
-  thinkt server token                  # Generate and print a token
-  thinkt server token | pbcopy         # Copy to clipboard (macOS)
-  thinkt server token | xclip -sel c   # Copy to clipboard (Linux)
-  thinkt server token | clip           # Copy to clipboard (Windows)
-  export THINKT_MCP_TOKEN=$(thinkt server token)
-  thinkt server mcp --port 8786        # Uses token from env`,
-	RunE: runServerToken,
+  thinkt server token generate                  # Generate and print a token
+  thinkt server token generate | pbcopy         # Copy to clipboard (macOS)
+  thinkt server token generate | xclip -sel c   # Copy to clipboard (Linux)
+  thinkt server token generate | clip           # Copy to clipboard (Windows)
+  export THINKT_MCP_TOKEN=$(thinkt server token generate)
+  thinkt server mcp --port 8786                 # Uses token from env`,
+	RunE: runServerTokenGenerate,
 }
 
 var serverFingerprintCmd = &cobra.Command{
@@ -643,14 +663,19 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 	return srv.ListenAndServe(ctx)
 }
 
-func runServerToken(cmd *cobra.Command, args []string) error {
-	// If a server is running, print its token from the instance registry
-	if inst := config.FindInstanceByType(config.InstanceServer); inst != nil && inst.Token != "" {
-		fmt.Println(inst.Token)
-		return nil
+func runServerTokenShow(cmd *cobra.Command, args []string) error {
+	inst := config.FindInstanceByType(config.InstanceServer)
+	if inst == nil {
+		return fmt.Errorf("no server is running")
 	}
+	if inst.Token == "" {
+		return fmt.Errorf("server is running but has no token (started without authentication)")
+	}
+	fmt.Println(inst.Token)
+	return nil
+}
 
-	// Otherwise generate a new token
+func runServerTokenGenerate(cmd *cobra.Command, args []string) error {
 	token, err := server.GenerateSecureTokenWithPrefix()
 	if err != nil {
 		return fmt.Errorf("failed to generate token: %w", err)

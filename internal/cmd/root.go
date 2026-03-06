@@ -282,8 +282,10 @@ func init() {
 	themeShowCmd.Flags().BoolVar(&outputJSON, "json", false, "output theme as JSON")
 	themeListCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
 
-	// Server command flags shared across subcommands
-	serverCmd.PersistentFlags().BoolVar(&serveNoIndexer, "no-indexer", false, "don't auto-start the background indexer")
+	// --no-indexer only applies to commands that actually start a server
+	for _, cmd := range []*cobra.Command{serverRunCmd, serverStartCmd, serverMcpCmd} {
+		cmd.Flags().BoolVar(&serveNoIndexer, "no-indexer", false, "don't auto-start the background indexer")
+	}
 
 	// Server run subcommand (foreground server)
 	serverRunCmd.Flags().IntVarP(&servePort, "port", "p", server.DefaultPortServer, "server port")
@@ -318,7 +320,9 @@ func init() {
 
 	serverCmd.AddCommand(serverMetricsCmd)
 
-	// Server token subcommand
+	// Server token subcommands
+	serverTokenCmd.AddCommand(serverTokenShowCmd)
+	serverTokenCmd.AddCommand(serverTokenGenerateCmd)
 	serverCmd.AddCommand(serverTokenCmd)
 
 	// Server fingerprint subcommand
