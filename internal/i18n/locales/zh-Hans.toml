@@ -1220,17 +1220,17 @@ other = "已启用"
 [tui.setup.suggestions.next]
 other = "建议的下一步："
 
-[tui.setup.suggestions.cmdWatch]
-other = "启动索引器监视"
+[tui.setup.suggestions.cmdWeb]
+other = "打开网页应用"
 
 [tui.setup.suggestions.cmdSearch]
 other = "执行关键词搜索"
 
-[tui.setup.suggestions.cmdTui]
-other = "打开交互式浏览器"
+[tui.setup.suggestions.cmdProjects]
+other = "在 TUI 中探索 LLM 项目"
 
-[tui.setup.suggestions.cmdEmbed]
-other = "稍后启用语义搜索"
+[tui.setup.suggestions.cmdTheme]
+other = "更改您的 TUI 主题"
 
 [tui.setup.suggestions.rerun]
 other = "你可以随时重新运行此设置：thinkt setup"

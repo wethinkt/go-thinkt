@@ -1220,17 +1220,17 @@ other = "habilitado"
 [tui.setup.suggestions.next]
 other = "Siguientes pasos sugeridos:"
 
-[tui.setup.suggestions.cmdWatch]
-other = "Iniciar el observador del indexador"
+[tui.setup.suggestions.cmdWeb]
+other = "Abrir la aplicación web"
 
 [tui.setup.suggestions.cmdSearch]
 other = "Ejecutar búsqueda por palabras clave"
 
-[tui.setup.suggestions.cmdTui]
-other = "Abrir el explorador interactivo"
+[tui.setup.suggestions.cmdProjects]
+other = "Explorar proyectos de LLM en una TUI"
 
-[tui.setup.suggestions.cmdEmbed]
-other = "Habilitar búsqueda semántica más adelante"
+[tui.setup.suggestions.cmdTheme]
+other = "Cambia el tema de tu TUI"
 
 [tui.setup.suggestions.rerun]
 other = "Puedes ejecutar esta configuración de nuevo en cualquier momento con: thinkt setup"

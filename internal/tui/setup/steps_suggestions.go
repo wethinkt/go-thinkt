@@ -39,25 +39,22 @@ func (m Model) viewSuggestions() string {
 		bodyStyle.Render(thinktI18n.T("tui.setup.suggestions.next", "Suggested next steps:"))))
 
 	const cmdCol = 42
-	if m.result.Indexer {
-		b.WriteString(fmt.Sprintf("    %s %s\n",
-			padRight(codeStyle.Render("thinkt indexer watch"), cmdCol),
-			mutedStyle.Render(thinktI18n.T("tui.setup.suggestions.cmdWatch", "Start the indexer watcher"))))
-	}
+
+	b.WriteString(fmt.Sprintf("    %s %s\n",
+		padRight(codeStyle.Render("thinkt projects"), cmdCol),
+		mutedStyle.Render(thinktI18n.T("tui.setup.suggestions.cmdProjects", "Explore LLM projects in a TUI"))))
+
+	b.WriteString(fmt.Sprintf("    %s %s\n",
+		padRight(codeStyle.Render("thinkt web"), cmdCol),
+		mutedStyle.Render(thinktI18n.T("tui.setup.suggestions.cmdWeb", "Open the web app"))))
 
 	b.WriteString(fmt.Sprintf("    %s %s\n",
 		padRight(codeStyle.Render("thinkt search"), cmdCol),
 		mutedStyle.Render(thinktI18n.T("tui.setup.suggestions.cmdSearch", "Run keyword search"))))
 
 	b.WriteString(fmt.Sprintf("    %s %s\n",
-		padRight(codeStyle.Render("thinkt tui"), cmdCol),
-		mutedStyle.Render(thinktI18n.T("tui.setup.suggestions.cmdTui", "Open the interactive browser"))))
-
-	if !m.result.Embeddings {
-		b.WriteString(fmt.Sprintf("    %s %s\n",
-			padRight(codeStyle.Render("thinkt config set embedding.enabled true"), cmdCol),
-			mutedStyle.Render(thinktI18n.T("tui.setup.suggestions.cmdEmbed", "Enable semantic search later"))))
-	}
+		padRight(codeStyle.Render("thinkt theme"), cmdCol),
+		mutedStyle.Render(thinktI18n.T("tui.setup.suggestions.cmdTheme", "Change your TUI theme"))))
 
 	b.WriteString(fmt.Sprintf("\n  %s\n",
 		mutedStyle.Render(thinktI18n.T("tui.setup.suggestions.rerun", "You can rerun this setup anytime with: thinkt setup"))))
