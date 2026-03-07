@@ -36,6 +36,7 @@ ARG TARGETARCH
 RUN DEBIAN_FRONTEND=noninteractive apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ca-certificates \
+        libffi8 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -m -d /data -u 5454 thinkt
 
