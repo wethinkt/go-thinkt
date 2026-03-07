@@ -1,5 +1,15 @@
 # `go-thinkt` CHANGELOG
 
+## v0.7.7 (2026-03-06)
+
+* **Server CLI Cleanup**
+  - `server start` now accepts `--port`, `--host`, `--quiet`, `--token`, and `--cors-origin` flags, passing them through to `server run`
+  - Removed `--no-open` flag and auto-open browser behavior from `server run`
+
+* **Setup Suggestions Polish**
+  - Refreshed post-setup suggested commands: `thinkt projects`, `thinkt web`, `thinkt search`, `thinkt theme`
+  - Removed conditional suggestions for indexer watch and embedding enablement
+
 ## v0.7.6 (2026-03-06)
 
 * **Setup Wizard: Apps, Terminal & Embedding Model**
