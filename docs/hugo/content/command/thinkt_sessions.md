@@ -54,12 +54,12 @@ thinkt sessions [flags]
 
 ### SEE ALSO
 
-* [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
-* [thinkt sessions copy](thinkt_sessions_copy.md)	 - Copy a session to a target location
-* [thinkt sessions delete](thinkt_sessions_delete.md)	 - Delete a session
-* [thinkt sessions list](thinkt_sessions_list.md)	 - List sessions (auto-detects project from cwd)
-* [thinkt sessions resolve](thinkt_sessions_resolve.md)	 - Resolve a session query to its canonical path
-* [thinkt sessions resume](thinkt_sessions_resume.md)	 - Resume a session in its original CLI tool
-* [thinkt sessions summary](thinkt_sessions_summary.md)	 - Show detailed session summary
-* [thinkt sessions view](thinkt_sessions_view.md)	 - View a session in the terminal (interactive picker)
+* [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
+* [thinkt sessions copy](thinkt_sessions_copy/)	 - Copy a session to a target location
+* [thinkt sessions delete](thinkt_sessions_delete/)	 - Delete a session
+* [thinkt sessions list](thinkt_sessions_list/)	 - List sessions (auto-detects project from cwd)
+* [thinkt sessions resolve](thinkt_sessions_resolve/)	 - Resolve a session query to its canonical path
+* [thinkt sessions resume](thinkt_sessions_resume/)	 - Resume a session in its original CLI tool
+* [thinkt sessions summary](thinkt_sessions_summary/)	 - Show detailed session summary
+* [thinkt sessions view](thinkt_sessions_view/)	 - View a session in the terminal (interactive picker)
 

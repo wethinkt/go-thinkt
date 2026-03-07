@@ -41,6 +41,6 @@ thinkt teams [flags]
 
 ### SEE ALSO
 
-* [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
-* [thinkt teams list](thinkt_teams_list.md)	 - List all discovered teams
+* [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
+* [thinkt teams list](thinkt_teams_list/)	 - List all discovered teams
 

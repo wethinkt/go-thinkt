@@ -24,5 +24,5 @@ thinkt semantic [flags]
 
 ### SEE ALSO
 
-* [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
+* [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
 

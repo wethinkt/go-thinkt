@@ -37,6 +37,7 @@ thinkt server mcp [flags]
   -h, --help                  help for mcp
       --host string           host to bind MCP HTTP server (default "localhost")
       --log string            write debug log to file
+      --no-indexer            don't auto-start the background indexer
   -p, --port int              run MCP over HTTP on this port
       --stdio                 use stdio transport (default if no --port)
       --token string          bearer token for HTTP authentication (default: use THINKT_MCP_TOKEN env var)
@@ -45,11 +46,10 @@ thinkt server mcp [flags]
 ### Options inherited from parent commands
 
 ```
-      --no-indexer   don't auto-start the background indexer
-  -v, --verbose      verbose output
+  -v, --verbose   verbose output
 ```
 
 ### SEE ALSO
 
-* [thinkt server](thinkt_server.md)	 - Manage the local HTTP server for trace exploration
+* [thinkt server](thinkt_server/)	 - Manage the local HTTP server for trace exploration
 

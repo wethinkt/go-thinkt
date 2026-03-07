@@ -33,18 +33,18 @@ Examples:
 
 ### SEE ALSO
 
-* [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
-* [thinkt indexer embeddings](thinkt_indexer_embeddings.md)	 - Manage embedding model, storage, and sync
-* [thinkt indexer help](thinkt_indexer_help.md)	 - Help about any command
-* [thinkt indexer logs](thinkt_indexer_logs.md)	 - View indexer logs
-* [thinkt indexer metrics](thinkt_indexer_metrics.md)	 - Show Prometheus metrics from the running indexer
-* [thinkt indexer search](thinkt_indexer_search.md)	 - Search for text across indexed sessions
-* [thinkt indexer semantic](thinkt_indexer_semantic.md)	 - Semantic search and index management
-* [thinkt indexer sessions](thinkt_indexer_sessions.md)	 - List sessions for a project from the index
-* [thinkt indexer start](thinkt_indexer_start.md)	 - Start indexer in background
-* [thinkt indexer stats](thinkt_indexer_stats.md)	 - Show usage statistics from the index
-* [thinkt indexer status](thinkt_indexer_status.md)	 - Show indexer status
-* [thinkt indexer stop](thinkt_indexer_stop.md)	 - Stop background indexer
-* [thinkt indexer sync](thinkt_indexer_sync.md)	 - Synchronize all local sessions into the index
-* [thinkt indexer version](thinkt_indexer_version.md)	 - Print version information
+* [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
+* [thinkt indexer embeddings](thinkt_indexer_embeddings/)	 - Manage embedding model, storage, and sync
+* [thinkt indexer help](thinkt_indexer_help/)	 - Help about any command
+* [thinkt indexer logs](thinkt_indexer_logs/)	 - View indexer logs
+* [thinkt indexer metrics](thinkt_indexer_metrics/)	 - Show Prometheus metrics from the running indexer
+* [thinkt indexer search](thinkt_indexer_search/)	 - Search for text across indexed sessions
+* [thinkt indexer semantic](thinkt_indexer_semantic/)	 - Semantic search and index management
+* [thinkt indexer sessions](thinkt_indexer_sessions/)	 - List sessions for a project from the index
+* [thinkt indexer start](thinkt_indexer_start/)	 - Start indexer in background
+* [thinkt indexer stats](thinkt_indexer_stats/)	 - Show usage statistics from the index
+* [thinkt indexer status](thinkt_indexer_status/)	 - Show indexer status
+* [thinkt indexer stop](thinkt_indexer_stop/)	 - Stop background indexer
+* [thinkt indexer sync](thinkt_indexer_sync/)	 - Synchronize all local sessions into the index
+* [thinkt indexer version](thinkt_indexer_version/)	 - Print version information
 

@@ -40,10 +40,10 @@ thinkt apps [flags]
 
 ### SEE ALSO
 
-* [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
-* [thinkt apps disable](thinkt_apps_disable.md)	 - Disable an app
-* [thinkt apps enable](thinkt_apps_enable.md)	 - Enable an app
-* [thinkt apps get-terminal](thinkt_apps_get-terminal.md)	 - Show the configured default terminal app
-* [thinkt apps list](thinkt_apps_list.md)	 - List all apps with enabled/disabled status
-* [thinkt apps set-terminal](thinkt_apps_set-terminal.md)	 - Set the default terminal app
+* [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
+* [thinkt apps disable](thinkt_apps_disable/)	 - Disable an app
+* [thinkt apps enable](thinkt_apps_enable/)	 - Enable an app
+* [thinkt apps get-terminal](thinkt_apps_get-terminal/)	 - Show the configured default terminal app
+* [thinkt apps list](thinkt_apps_list/)	 - List all apps with enabled/disabled status
+* [thinkt apps set-terminal](thinkt_apps_set-terminal/)	 - Set the default terminal app
 

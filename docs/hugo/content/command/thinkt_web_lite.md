@@ -31,5 +31,5 @@ thinkt web lite [flags]
 
 ### SEE ALSO
 
-* [thinkt web](thinkt_web.md)	 - Open the web interface in your browser
+* [thinkt web](thinkt_web/)	 - Open the web interface in your browser
 

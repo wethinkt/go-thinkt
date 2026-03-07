@@ -25,5 +25,5 @@ thinkt prompts templates [flags]
 
 ### SEE ALSO
 
-* [thinkt prompts](thinkt_prompts.md)	 - Extract and manage prompts from trace files
+* [thinkt prompts](thinkt_prompts/)	 - Extract and manage prompts from trace files
 

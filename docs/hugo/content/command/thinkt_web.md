@@ -32,6 +32,6 @@ thinkt web [flags]
 
 ### SEE ALSO
 
-* [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
-* [thinkt web lite](thinkt_web_lite.md)	 - Open the lightweight web interface
+* [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
+* [thinkt web lite](thinkt_web_lite/)	 - Open the lightweight web interface
 

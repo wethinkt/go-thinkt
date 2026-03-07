@@ -42,11 +42,11 @@ thinkt theme [flags]
 
 ### SEE ALSO
 
-* [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
-* [thinkt theme browse](thinkt_theme_browse.md)	 - Browse and preview themes interactively
-* [thinkt theme builder](thinkt_theme_builder.md)	 - Launch interactive theme builder
-* [thinkt theme import](thinkt_theme_import.md)	 - Import an iTerm2 color scheme as a theme
-* [thinkt theme list](thinkt_theme_list.md)	 - List all available themes
-* [thinkt theme set](thinkt_theme_set.md)	 - Set the active theme
-* [thinkt theme show](thinkt_theme_show.md)	 - Display a theme with styled samples
+* [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
+* [thinkt theme browse](thinkt_theme_browse/)	 - Browse and preview themes interactively
+* [thinkt theme builder](thinkt_theme_builder/)	 - Launch interactive theme builder
+* [thinkt theme import](thinkt_theme_import/)	 - Import an iTerm2 color scheme as a theme
+* [thinkt theme list](thinkt_theme_list/)	 - List all available themes
+* [thinkt theme set](thinkt_theme_set/)	 - Set the active theme
+* [thinkt theme show](thinkt_theme_show/)	 - Display a theme with styled samples
 

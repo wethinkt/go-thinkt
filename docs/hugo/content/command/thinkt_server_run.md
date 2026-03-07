@@ -20,7 +20,7 @@ thinkt server run [flags]
       --http-log string      write HTTP access log to file (default: stdout, unless --quiet)
       --log string           write debug log to file
       --no-auth              disable authentication (allow unauthenticated access)
-      --no-open              don't auto-open browser
+      --no-indexer           don't auto-start the background indexer
   -p, --port int             server port (default 8784)
   -q, --quiet                suppress HTTP request logging (errors still go to stderr)
       --token string         bearer token for API authentication (default: use THINKT_API_TOKEN env var)
@@ -29,11 +29,10 @@ thinkt server run [flags]
 ### Options inherited from parent commands
 
 ```
-      --no-indexer   don't auto-start the background indexer
-  -v, --verbose      verbose output
+  -v, --verbose   verbose output
 ```
 
 ### SEE ALSO
 
-* [thinkt server](thinkt_server.md)	 - Manage the local HTTP server for trace exploration
+* [thinkt server](thinkt_server/)	 - Manage the local HTTP server for trace exploration
 

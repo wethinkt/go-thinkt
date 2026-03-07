@@ -36,9 +36,9 @@ Examples:
 
 ### SEE ALSO
 
-* [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
-* [thinkt prompts extract](thinkt_prompts_extract.md)	 - Extract prompts from a trace file
-* [thinkt prompts info](thinkt_prompts_info.md)	 - Show session information
-* [thinkt prompts list](thinkt_prompts_list.md)	 - List available trace files
-* [thinkt prompts templates](thinkt_prompts_templates.md)	 - List available templates and show template variables
+* [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
+* [thinkt prompts extract](thinkt_prompts_extract/)	 - Extract prompts from a trace file
+* [thinkt prompts info](thinkt_prompts_info/)	 - Show session information
+* [thinkt prompts list](thinkt_prompts_list/)	 - List available trace files
+* [thinkt prompts templates](thinkt_prompts_templates/)	 - List available templates and show template variables
 

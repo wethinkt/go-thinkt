@@ -40,5 +40,5 @@ thinkt completion fish [flags]
 
 ### SEE ALSO
 
-* [thinkt completion](thinkt_completion.md)	 - Generate the autocompletion script for the specified shell
+* [thinkt completion](thinkt_completion/)	 - Generate the autocompletion script for the specified shell
 

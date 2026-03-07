@@ -39,5 +39,5 @@ thinkt sources list [flags]
 
 ### SEE ALSO
 
-* [thinkt sources](thinkt_sources.md)	 - Manage and view available session sources
+* [thinkt sources](thinkt_sources/)	 - Manage and view available session sources
 

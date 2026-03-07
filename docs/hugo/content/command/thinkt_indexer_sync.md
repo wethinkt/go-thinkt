@@ -28,5 +28,5 @@ thinkt indexer sync [flags]
 
 ### SEE ALSO
 
-* [thinkt indexer](thinkt_indexer.md)	 - Specialized indexing and search via DuckDB (requires thinkt-indexer)
+* [thinkt indexer](thinkt_indexer/)	 - Specialized indexing and search via DuckDB (requires thinkt-indexer)
 

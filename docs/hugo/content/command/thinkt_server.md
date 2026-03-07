@@ -32,8 +32,7 @@ thinkt server [flags]
 ### Options
 
 ```
-  -h, --help         help for server
-      --no-indexer   don't auto-start the background indexer
+  -h, --help   help for server
 ```
 
 ### Options inherited from parent commands
@@ -44,15 +43,15 @@ thinkt server [flags]
 
 ### SEE ALSO
 
-* [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
-* [thinkt server fingerprint](thinkt_server_fingerprint.md)	 - Display the machine fingerprint
-* [thinkt server http-logs](thinkt_server_http-logs.md)	 - View HTTP access logs
-* [thinkt server logs](thinkt_server_logs.md)	 - View server logs
-* [thinkt server mcp](thinkt_server_mcp.md)	 - Start MCP server for AI tool integration
-* [thinkt server metrics](thinkt_server_metrics.md)	 - Fetch Prometheus metrics from the running server
-* [thinkt server run](thinkt_server_run.md)	 - Start server in foreground
-* [thinkt server start](thinkt_server_start.md)	 - Start server in background
-* [thinkt server status](thinkt_server_status.md)	 - Show server status
-* [thinkt server stop](thinkt_server_stop.md)	 - Stop background server
-* [thinkt server token](thinkt_server_token.md)	 - Generate a secure authentication token
+* [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
+* [thinkt server fingerprint](thinkt_server_fingerprint/)	 - Display the machine fingerprint
+* [thinkt server http-logs](thinkt_server_http-logs/)	 - View HTTP access logs
+* [thinkt server logs](thinkt_server_logs/)	 - View server logs
+* [thinkt server mcp](thinkt_server_mcp/)	 - Start MCP server for AI tool integration
+* [thinkt server metrics](thinkt_server_metrics/)	 - Fetch Prometheus metrics from the running server
+* [thinkt server run](thinkt_server_run/)	 - Start server in foreground
+* [thinkt server start](thinkt_server_start/)	 - Start server in background
+* [thinkt server status](thinkt_server_status/)	 - Show server status
+* [thinkt server stop](thinkt_server_stop/)	 - Stop background server
+* [thinkt server token](thinkt_server_token/)	 - Manage authentication tokens
 

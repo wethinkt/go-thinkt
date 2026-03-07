@@ -25,5 +25,5 @@ thinkt language get [flags]
 
 ### SEE ALSO
 
-* [thinkt language](thinkt_language.md)	 - Get or set the display language
+* [thinkt language](thinkt_language/)	 - Get or set the display language
 

@@ -47,5 +47,5 @@ thinkt sessions list [flags]
 
 ### SEE ALSO
 
-* [thinkt sessions](thinkt_sessions.md)	 - View and manage sessions across all sources
+* [thinkt sessions](thinkt_sessions/)	 - View and manage sessions across all sources
 

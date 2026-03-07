@@ -39,10 +39,10 @@ thinkt projects [flags]
 
 ### SEE ALSO
 
-* [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
-* [thinkt projects copy](thinkt_projects_copy.md)	 - Copy project sessions to a target directory
-* [thinkt projects list](thinkt_projects_list.md)	 - List projects from all sources
-* [thinkt projects summary](thinkt_projects_summary.md)	 - Show detailed project summary
-* [thinkt projects tree](thinkt_projects_tree.md)	 - Show projects in a tree view
-* [thinkt projects view](thinkt_projects_view.md)	 - Interactive project browser
+* [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
+* [thinkt projects copy](thinkt_projects_copy/)	 - Copy project sessions to a target directory
+* [thinkt projects list](thinkt_projects_list/)	 - List projects from all sources
+* [thinkt projects summary](thinkt_projects_summary/)	 - Show detailed project summary
+* [thinkt projects tree](thinkt_projects_tree/)	 - Show projects in a tree view
+* [thinkt projects view](thinkt_projects_view/)	 - Interactive project browser
 

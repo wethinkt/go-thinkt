@@ -40,5 +40,5 @@ thinkt collect export-parquet [flags]
 
 ### SEE ALSO
 
-* [thinkt collect](thinkt_collect.md)	 - Start trace collector server
+* [thinkt collect](thinkt_collect/)	 - Start trace collector server
 

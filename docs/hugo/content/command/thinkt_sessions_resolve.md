@@ -37,5 +37,5 @@ thinkt sessions resolve <session> [flags]
 
 ### SEE ALSO
 
-* [thinkt sessions](thinkt_sessions.md)	 - View and manage sessions across all sources
+* [thinkt sessions](thinkt_sessions/)	 - View and manage sessions across all sources
 

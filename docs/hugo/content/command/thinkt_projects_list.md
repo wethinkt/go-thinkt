@@ -42,5 +42,5 @@ thinkt projects list [flags]
 
 ### SEE ALSO
 
-* [thinkt projects](thinkt_projects.md)	 - Manage and view projects
+* [thinkt projects](thinkt_projects/)	 - Manage and view projects
 

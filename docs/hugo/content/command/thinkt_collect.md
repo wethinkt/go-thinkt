@@ -47,6 +47,6 @@ thinkt collect [flags]
 
 ### SEE ALSO
 
-* [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
-* [thinkt collect export-parquet](thinkt_collect_export-parquet.md)	 - Export collected traces to Parquet files
+* [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
+* [thinkt collect export-parquet](thinkt_collect_export-parquet/)	 - Export collected traces to Parquet files
 

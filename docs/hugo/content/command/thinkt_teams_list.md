@@ -27,5 +27,5 @@ thinkt teams list [flags]
 
 ### SEE ALSO
 
-* [thinkt teams](thinkt_teams.md)	 - List and inspect agent teams
+* [thinkt teams](thinkt_teams/)	 - List and inspect agent teams
 

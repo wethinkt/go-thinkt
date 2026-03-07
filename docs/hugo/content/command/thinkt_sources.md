@@ -40,9 +40,9 @@ thinkt sources [flags]
 
 ### SEE ALSO
 
-* [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
-* [thinkt sources disable](thinkt_sources_disable.md)	 - Disable a source
-* [thinkt sources enable](thinkt_sources_enable.md)	 - Enable a source
-* [thinkt sources list](thinkt_sources_list.md)	 - List available session sources
-* [thinkt sources status](thinkt_sources_status.md)	 - Show detailed source status
+* [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
+* [thinkt sources disable](thinkt_sources_disable/)	 - Disable a source
+* [thinkt sources enable](thinkt_sources_enable/)	 - Enable a source
+* [thinkt sources list](thinkt_sources_list/)	 - List available session sources
+* [thinkt sources status](thinkt_sources_status/)	 - Show detailed source status
 

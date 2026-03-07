@@ -4,26 +4,11 @@ title: "thinkt server token"
 
 ## thinkt server token
 
-Generate a secure authentication token
+Manage authentication tokens
 
 ### Synopsis
 
-Generate a cryptographically secure random token for API/MCP authentication.
-
-The token can be used with:
-  - thinkt server --token <token>      # Secure the REST API
-  - thinkt server mcp --token <token>  # Secure the MCP server
-  - THINKT_MCP_TOKEN env var           # Same as above
-
-The token format is: thinkt_YYYYMMDD_<random>
-
-Examples:
-  thinkt server token                  # Generate and print a token
-  thinkt server token | pbcopy         # Copy to clipboard (macOS)
-  thinkt server token | xclip -sel c   # Copy to clipboard (Linux)
-  thinkt server token | clip           # Copy to clipboard (Windows)
-  export THINKT_MCP_TOKEN=$(thinkt server token)
-  thinkt server mcp --port 8786        # Uses token from env
+Manage authentication tokens for API and MCP server access.
 
 ```
 thinkt server token [flags]
@@ -38,11 +23,12 @@ thinkt server token [flags]
 ### Options inherited from parent commands
 
 ```
-      --no-indexer   don't auto-start the background indexer
-  -v, --verbose      verbose output
+  -v, --verbose   verbose output
 ```
 
 ### SEE ALSO
 
-* [thinkt server](thinkt_server.md)	 - Manage the local HTTP server for trace exploration
+* [thinkt server](thinkt_server/)	 - Manage the local HTTP server for trace exploration
+* [thinkt server token generate](thinkt_server_token_generate/)	 - Generate a new authentication token
+* [thinkt server token show](thinkt_server_token_show/)	 - Print the running server's authentication token
 

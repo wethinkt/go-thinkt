@@ -37,8 +37,8 @@ thinkt language [flags]
 
 ### SEE ALSO
 
-* [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
-* [thinkt language get](thinkt_language_get.md)	 - Show current display language
-* [thinkt language list](thinkt_language_list.md)	 - List available languages
-* [thinkt language set](thinkt_language_set.md)	 - Set the display language
+* [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
+* [thinkt language get](thinkt_language_get/)	 - Show current display language
+* [thinkt language list](thinkt_language_list/)	 - List available languages
+* [thinkt language set](thinkt_language_set/)	 - Set the display language
 

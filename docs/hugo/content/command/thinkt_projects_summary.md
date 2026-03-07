@@ -38,8 +38,7 @@ Each SessionSummary has:
   .GitBranch     string  - Git branch (if any)
 
 Example custom template:
-  {{range .}}{{.DisplayName}}: {{.SessionCount}} sessions
-  {{end}}
+  
 
 ```
 thinkt projects summary [flags]
@@ -65,5 +64,5 @@ thinkt projects summary [flags]
 
 ### SEE ALSO
 
-* [thinkt projects](thinkt_projects.md)	 - Manage and view projects
+* [thinkt projects](thinkt_projects/)	 - Manage and view projects
 

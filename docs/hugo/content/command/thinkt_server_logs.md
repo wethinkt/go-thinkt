@@ -21,11 +21,10 @@ thinkt server logs [flags]
 ### Options inherited from parent commands
 
 ```
-      --no-indexer   don't auto-start the background indexer
-  -v, --verbose      verbose output
+  -v, --verbose   verbose output
 ```
 
 ### SEE ALSO
 
-* [thinkt server](thinkt_server.md)	 - Manage the local HTTP server for trace exploration
+* [thinkt server](thinkt_server/)	 - Manage the local HTTP server for trace exploration
 

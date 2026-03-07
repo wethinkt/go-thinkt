@@ -36,5 +36,5 @@ thinkt theme import <file.itermcolors> [flags]
 
 ### SEE ALSO
 
-* [thinkt theme](thinkt_theme.md)	 - Browse and manage TUI themes
+* [thinkt theme](thinkt_theme/)	 - Browse and manage TUI themes
 

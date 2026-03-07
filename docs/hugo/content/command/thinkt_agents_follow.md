@@ -38,5 +38,5 @@ thinkt agents follow [session-id] [flags]
 
 ### SEE ALSO
 
-* [thinkt agents](thinkt_agents.md)	 - List active agents (local and remote)
+* [thinkt agents](thinkt_agents/)	 - List active agents (local and remote)
 

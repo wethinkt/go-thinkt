@@ -43,6 +43,6 @@ thinkt agents [flags]
 
 ### SEE ALSO
 
-* [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
-* [thinkt agents follow](thinkt_agents_follow.md)	 - Live-tail an agent's conversation
+* [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
+* [thinkt agents follow](thinkt_agents_follow/)	 - Live-tail an agent's conversation
 

@@ -81,7 +81,7 @@ title: "%s"
 `, title)
 		}
 		linkHandler := func(name string) string {
-			return name
+			return strings.TrimSuffix(name, ".md") + "/"
 		}
 
 		if err := doc.GenMarkdownTreeCustom(rootCmd, docsOutputDir, prepender, linkHandler); err != nil {

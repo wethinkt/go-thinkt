@@ -29,5 +29,5 @@ thinkt apps set-terminal [id] [flags]
 
 ### SEE ALSO
 
-* [thinkt apps](thinkt_apps.md)	 - Manage open-in apps and default terminal
+* [thinkt apps](thinkt_apps/)	 - Manage open-in apps and default terminal
 
