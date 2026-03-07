@@ -97,7 +97,7 @@ other = "Ayuda"
 other = "↑/↓: navegar • intro: seleccionar • q/esc: cancelar"
 
 [cmd.server.starting]
-other = "🚀 Iniciando servidor en segundo plano..."
+other = "🧠 Iniciando servidor en segundo plano..."
 
 # --- Renderer labels ---
 
@@ -703,10 +703,10 @@ other = "   Token: %s"
 other = "   Tiempo activo: %s"
 
 [cmd.server.stopped]
-other = "✅ Servidor detenido."
+other = "✅ 🧠 thinkt servidor detenido."
 
 [cmd.server.stopping]
-other = "🛑 Deteniendo servidor (PID: %d)..."
+other = "🛑 Deteniendo 🧠 servidor (PID: %d)..."
 
 [cmd.server.stoppingIndexer]
 other = "📇 Deteniendo subproceso indexador (PID: %d)..."

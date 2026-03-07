@@ -97,7 +97,7 @@ other = "帮助"
 other = "↑/↓: 导航 • 回车: 选择 • q/esc: 取消"
 
 [cmd.server.starting]
-other = "🚀 正在后台启动服务器..."
+other = "🧠 正在后台启动服务器..."
 
 # --- Renderer labels ---
 

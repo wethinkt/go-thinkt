@@ -1,30 +1,27 @@
-# go-thinkt
+# 🧠 thinkt
 
 [![CI](https://github.com/wethinkt/go-thinkt/actions/workflows/ci.yml/badge.svg)](https://github.com/wethinkt/go-thinkt/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/wethinkt/go-thinkt.svg)](https://pkg.go.dev/github.com/wethinkt/go-thinkt)
 [![User Guide](https://img.shields.io/badge/User%20Guide-6B2DAD)](https://wethinkt.github.io/go-thinkt/)
 
 
-**This tool is still in alpha stages and is for educational purposes only in its current state. Consider running it [in a container](#docker).**
+`thinkt` is a platform for exploring, analyzing, and sharing conversation traces from AI coding assistants.   You can learn more about us at [wethinkt.com](https://wethinkt.com).
 
-`thinkt` is a CLI tool for exploring conversation traces from AI coding assistants.   You can learn more about us at [wethinkt.com](https://wethinkt.com).
-
-There are many local agentic coding environments such as Claude Code, Kimi Code, and Gemini CLI.  As you use them, session data is written locally.  `thinkt` unlocks those "thinking traces" for you.
+There are many local agentic coding environments such as Claude Code, Kimi Code, and Gemini CLI.  As you use them, session data is written locally.  `thinkt` unlocks that conversation data for you.
 
 You can use `thinkt` to...
 
- * *Explore* the conversation traces with a CLI, TUI, or webapp
- * *Analyze* and index these traces for understanding and governance
+ * *Explore* and search the conversation traces with a CLI, TUI, or webapp
+ * *Analyze* these conversations for understanding and governance
  * *Share* these with your tooling and LLMs via an OpenAPI HTTP server and MCP server
 
-All of these LLM Assistant `Source`s have similar structures and use common machinery such as JSONL file: 
+All of these LLM assistant `Source`s have similar structures and use common machinery such as JSONL file: 
  * `Project`s located in *local folders*, which hold many:
- * `Session`s that has many conversation
- * `Turn`s, which each have:
-    * one `User Input`
-    * multiple `Tool Call`s and `Tool Result`
-    * multiple `Thinking` blocks
-    * one `LLM Output`
+   * `Session`s that have many conversation `Turn`s, which each have:
+      * one `User Input`
+        * multiple `Tool Call`s and `Tool Result`
+        * multiple `Thinking` blocks
+      * one `LLM Output`
 
 We have a common `thinkt` interface to enable uniform access to various `Sources`.  We maintain a library of implementations and currently support:
   - [*Claude Code*](https://claude.com/product/claude-code) from Anthropic
@@ -34,7 +31,18 @@ We have a common `thinkt` interface to enable uniform access to various `Sources
   - [*Codex CLI*](https://github.com/openai/codex) from OpenAI
   - [*Qwen Code*](https://www.qwen.ai) from Alibaba
 
-Right now much of the implementation is in package `internal`, but we will eventually build out a public package as it stabilizes.
+All of this structured data is exposed to you to easily navigate:
+
+ * [CLI command-line tool](https://wethinkt.github.io/go-thinkt/cli/) for quick listing and tooling
+ * TUI for working in the terminal
+ * WebApp for working in the browser
+ * [MCP Server](https://wethinkt.github.io/go-thinkt/mcp-server/ ) for LLMs access to tools
+
+For developers, we have an [OpenAPI server](https://wethinkt.github.io/go-thinkt/rest-api/) and a the [`ts-thinkt` TypeScript package](https://github.com/wethinkt/ts-thinkt/blob/main/README.md).  Gophers, right now most of the implementation is in [package `internal`](./internal/); stabilizing a public package is on our roadmap.
+
+Integrated in `thinkt` is an [indexer](https://wethinkt.github.io/go-thinkt/command/thinkt_indexer/) to speed up searches and other operations, as well as support for [semantic search]() local inferencing support
+
+For beyond local deployments, we also have [`thinkt-exporter` and `thinkt-collector`](https://wethinkt.github.io/go-thinkt/collector/) tools.
 
 ## [User Guide](https://wethinkt.github.io/go-thinkt/)
 
@@ -74,6 +82,7 @@ go install github.com/wethinkt/go-thinkt/cmd/thinkt@latest
 ```bash
 git clone --recurse-submodules https://github.com/wethinkt/go-thinkt.git
 cd go-thinkt
+task dev-deps
 task build
 ```
 

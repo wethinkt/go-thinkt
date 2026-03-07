@@ -283,7 +283,7 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Println(thinktI18n.T("cmd.server.starting", "🚀 Starting server in background..."))
+	fmt.Println(thinktI18n.T("cmd.server.starting", "🧠 Starting thinkt server in background..."))
 
 	confDir, err := config.Dir()
 	if err != nil {
@@ -385,11 +385,11 @@ func runServerStop(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Println(thinktI18n.Tf("cmd.server.stopping", "🛑 Stopping server (PID: %d)...", inst.PID))
+	fmt.Println(thinktI18n.Tf("cmd.server.stopping", "🛑 Stopping 🧠 thinkt server (PID: %d)...", inst.PID))
 	if err := config.StopInstance(*inst); err != nil {
 		return fmt.Errorf("failed to stop server: %w", err)
 	}
-	fmt.Println(thinktI18n.T("cmd.server.stopped", "✅ Server stopped."))
+	fmt.Println(thinktI18n.T("cmd.server.stopped", "✅ 🧠 thinkt server stopped."))
 	return nil
 }
 
