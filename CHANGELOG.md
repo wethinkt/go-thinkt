@@ -1,5 +1,14 @@
 # `go-thinkt` CHANGELOG
 
+## v0.7.8 (2026-03-06)
+
+* **Docker: Upgrade to Debian Trixie**
+  - Upgraded all Dockerfiles from Debian Bookworm to Trixie (build and runtime stages)
+  - Added `libffi8` runtime dependency for goreleaser and indexer images
+
+* **Documentation**
+  - Fixed broken SEE ALSO cross-reference links in Hugo command docs
+
 ## v0.7.7 (2026-03-06)
 
 * **Server CLI Cleanup**
