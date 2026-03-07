@@ -296,7 +296,7 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 	if err := os.MkdirAll(logsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create logs directory: %w", err)
 	}
-	runArgs := []string{"server", "run", "--no-open",
+	runArgs := []string{"server", "run",
 		"--log", filepath.Join(logsDir, "server.log"),
 		"--http-log", filepath.Join(logsDir, "server.http.log"),
 	}
@@ -309,8 +309,14 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 	if serveQuiet {
 		runArgs = append(runArgs, "--quiet")
 	}
+	if apiToken != "" {
+		runArgs = append(runArgs, "--token", apiToken)
+	}
 	if serveNoAuth {
 		runArgs = append(runArgs, "--no-auth")
+	}
+	if serveCORSOrigin != "" {
+		runArgs = append(runArgs, "--cors-origin", serveCORSOrigin)
 	}
 	if serveNoIndexer {
 		runArgs = append(runArgs, "--no-indexer")
@@ -460,10 +466,11 @@ Examples:
 }
 
 var serverTokenCmd = &cobra.Command{
-	Use:   "token",
-	Short: "Manage authentication tokens",
-	Long:  `Manage authentication tokens for API and MCP server access.`,
-	RunE:  runServerTokenShow,
+	Use:          "token",
+	Short:        "Manage authentication tokens",
+	Long:         `Manage authentication tokens for API and MCP server access.`,
+	SilenceUsage: true,
+	RunE:         runServerTokenShow,
 }
 
 var serverTokenShowCmd = &cobra.Command{
@@ -476,12 +483,15 @@ Exits with an error if no server is running or it has no token.
 Examples:
   thinkt server token show             # Print the active token
   thinkt server token show | pbcopy    # Copy to clipboard (macOS)`,
-	RunE: runServerTokenShow,
+	Args:         cobra.NoArgs,
+	SilenceUsage: true,
+	RunE:         runServerTokenShow,
 }
 
 var serverTokenGenerateCmd = &cobra.Command{
-	Use:   "generate",
-	Short: "Generate a new authentication token",
+	Use:          "generate",
+	Short:        "Generate a new authentication token",
+	SilenceUsage: true,
 	Long: `Generate a cryptographically secure random token for API/MCP authentication.
 
 The token can be used with:
@@ -645,19 +655,6 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 	// Print startup message
 	fmt.Println(thinktI18n.T("cmd.server.httpStarting", "🚀 Thinkt server starting..."))
 	fmt.Println(thinktI18n.T("cmd.server.servingTraces", "📁 Serving traces from local sources"))
-
-	// Auto-open browser if requested (after small delay for server to start)
-	if !serveNoOpen {
-		go func() {
-			displayURL := fmt.Sprintf("http://%s", srv.Addr())
-			openURL := displayURL
-			if resolvedToken != "" {
-				openURL += "#token=" + url.QueryEscape(resolvedToken)
-			}
-			fmt.Println(thinktI18n.Tf("cmd.server.openingBrowser", "🌐 Opening %s in browser...", displayURL))
-			openBrowser(openURL)
-		}()
-	}
 
 	// Start server
 	return srv.ListenAndServe(ctx)

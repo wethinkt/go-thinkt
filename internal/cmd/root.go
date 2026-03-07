@@ -28,8 +28,9 @@ var (
 
 // rootCmd is the root command for the CLI.
 var rootCmd = &cobra.Command{
-	Use:   "thinkt",
-	Short: "Tools for AI assistant session exploration and extraction",
+	Use:          "thinkt",
+	Short:        "Tools for AI assistant session exploration and extraction",
+	SilenceErrors: true,
 	Long: `thinkt provides tools for exploring and extracting data from AI coding assistant sessions.
 
 Supports: Claude Code, Kimi Code, Gemini CLI, GitHub Copilot CLI, Codex CLI
@@ -290,7 +291,6 @@ func init() {
 	// Server run subcommand (foreground server)
 	serverRunCmd.Flags().IntVarP(&servePort, "port", "p", server.DefaultPortServer, "server port")
 	serverRunCmd.Flags().StringVar(&serveHost, "host", "localhost", "server host")
-	serverRunCmd.Flags().BoolVar(&serveNoOpen, "no-open", false, "don't auto-open browser")
 	serverRunCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
 	serverRunCmd.Flags().BoolVarP(&serveQuiet, "quiet", "q", false, "suppress HTTP request logging (errors still go to stderr)")
 	serverRunCmd.Flags().StringVar(&serveHTTPLog, "http-log", "", "write HTTP access log to file (default: stdout, unless --quiet)")
@@ -299,6 +299,10 @@ func init() {
 	serverRunCmd.Flags().BoolVar(&serveNoAuth, "no-auth", false, "disable authentication (allow unauthenticated access)")
 	serverRunCmd.Flags().StringVar(&serveCORSOrigin, "cors-origin", "", "CORS Access-Control-Allow-Origin (default \"*\" when unauthenticated, disabled when authenticated; env: THINKT_CORS_ORIGIN)")
 
+	serverStartCmd.Flags().IntVarP(&servePort, "port", "p", server.DefaultPortServer, "server port")
+	serverStartCmd.Flags().StringVar(&serveHost, "host", "localhost", "server host")
+	serverStartCmd.Flags().BoolVarP(&serveQuiet, "quiet", "q", false, "suppress HTTP request logging (errors still go to stderr)")
+	serverStartCmd.Flags().StringVar(&apiToken, "token", "", "bearer token for API authentication (default: use THINKT_API_TOKEN env var)")
 	serverStartCmd.Flags().BoolVar(&serveNoAuth, "no-auth", false, "disable authentication (allow unauthenticated access)")
 	serverStartCmd.Flags().StringVar(&serveCORSOrigin, "cors-origin", "", "CORS Access-Control-Allow-Origin (default \"*\" when unauthenticated, disabled when authenticated; env: THINKT_CORS_ORIGIN)")
 	serverCmd.AddCommand(serverStartCmd)
