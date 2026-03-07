@@ -52,7 +52,7 @@ Running thinkt in a container provides several benefits:
 - `linux/arm64`
 
 **Image Details:**
-- Base: `debian:bookworm-slim`
+- Base: `debian:trixie-slim`
 - User: `thinkt` (UID 5454)
 - Working directory: `/data`
 
@@ -328,7 +328,7 @@ The container runs as non-root user `thinkt` (UID 5454), limiting potential dama
 
 ### Minimal Image
 
-The image is based on `debian:bookworm-slim` and contains only:
+The image is based on `debian:trixie-slim` and contains only:
 - The `thinkt` binary
 - CA certificates (for HTTPS)
 - Basic system libraries

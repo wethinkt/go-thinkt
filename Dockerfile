@@ -2,10 +2,10 @@
 # Copyright (c) 2026 Neomantra Corp / BrainSTM
 
 ARG THINKT_BUILD_BASE="golang"
-ARG THINKT_BUILD_TAG="1.25-bookworm"
+ARG THINKT_BUILD_TAG="1.25-trixie"
 
 ARG THINKT_RUNTIME_BASE="debian"
-ARG THINKT_RUNTIME_TAG="bookworm-slim"
+ARG THINKT_RUNTIME_TAG="trixie-slim"
 
 ##############################################################################
 # Builder
@@ -27,9 +27,9 @@ RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/thinkt ./cmd/thinkt
 FROM ${THINKT_RUNTIME_BASE}:${THINKT_RUNTIME_TAG} AS runtime
 
 ARG THINKT_BUILD_BASE="golang"
-ARG THINKT_BUILD_TAG="1.25-bookworm"
+ARG THINKT_BUILD_TAG="1.25-trixie"
 ARG THINKT_RUNTIME_BASE="debian"
-ARG THINKT_RUNTIME_TAG="bookworm-slim"
+ARG THINKT_RUNTIME_TAG="trixie-slim"
 ARG TARGETARCH
 
 # Install ca-certificates and create non-root user with home at /data

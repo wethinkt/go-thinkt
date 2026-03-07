@@ -476,7 +476,7 @@ Two Dockerfiles exist:
 | `Dockerfile` | Multi-stage build for CI and local use. Builds binary from source. |
 | `Dockerfile.goreleaser` | Simple runtime image for GoReleaser. Uses pre-built cross-compiled binary. |
 
-Both use `debian:bookworm-slim` runtime.
+Both use `debian:trixie-slim` runtime.
 
 - Runs as non-root user `thinkt` (uid 5454)
 - Home directory: `/data` (so `~/.claude` → `/data/.claude`)
