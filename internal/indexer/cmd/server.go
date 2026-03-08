@@ -56,36 +56,16 @@ type indexerServer struct {
 	shutdownCtx    context.Context
 	shutdownCancel context.CancelFunc
 
-	// Sync coordination: one sync runs at a time, but multiple clients
-	// can subscribe to its progress stream.
-	indexMu     sync.Mutex
-	indexSubs   []rpcSubscriber
-	indexSubsMu sync.Mutex
-	indexDone   chan struct{}
-	indexResult *rpc.Response
-	indexErr    error
-
-	// Embed sync coordination: independent from index sync.
-	embedMu     sync.Mutex
-	embedSubs   []rpcSubscriber
-	embedSubsMu sync.Mutex
-	embedDone   chan struct{}
-	embedResult *rpc.Response
-	embedErr    error
+	// Sync coordination: one operation per gate, with progress fan-out.
+	indexGate indexer.SyncGate
+	embedGate indexer.SyncGate
+	sumGate   indexer.SyncGate
+	sumDB     *db.DB // separate summaries database (per-model)
 
 	// embedCancelMu guards embedCancelFn, which is set while a sync is in progress.
-	// Separate from embedMu to avoid deadlock with reloadMu.
+	// Separate from embedGate to avoid deadlock with reloadMu.
 	embedCancelMu sync.Mutex
 	embedCancelFn context.CancelFunc
-
-	// Summarize sync coordination: independent from index/embed sync.
-	sumMu     sync.Mutex
-	sumSubs   []rpcSubscriber
-	sumSubsMu sync.Mutex
-	sumDone   chan struct{}
-	sumResult *rpc.Response
-	sumErr    error
-	sumDB     *db.DB // separate summaries database (per-model)
 
 	// GPU mutex: serializes embed and summarize sync so only one uses
 	// the GPU (yzma/llama.cpp) at a time.
@@ -102,196 +82,221 @@ type indexerServer struct {
 	embedProg *rpc.ProgressInfo
 }
 
-type rpcSubscriber struct {
-	id int
-	fn func(rpc.Progress)
-}
+func (s *indexerServer) HandleIndexSync(ctx context.Context, params rpc.SyncParams, send func(rpc.Progress)) (*rpc.Response, error) {
+	return s.indexGate.Run(send, func(broadcast func(rpc.Progress)) (*rpc.Response, error) {
+		// Cancel if either the request context or the server shutdown context is done.
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		go func() {
+			select {
+			case <-ctx.Done():
+			case <-s.shutdownCtx.Done():
+				cancel()
+			}
+		}()
 
-var nextSubID int
+		s.stateMu.Lock()
+		s.syncing = true
+		s.stateMu.Unlock()
+		defer func() {
+			s.stateMu.Lock()
+			s.syncing = false
+			s.syncProg = nil
+			s.stateMu.Unlock()
+		}()
 
-// broadcastToSubs sends a progress event to a subscriber list (sync or embed).
-func broadcastToSubs(mu *sync.Mutex, subs *[]rpcSubscriber, p rpc.Progress) {
-	mu.Lock()
-	snapshot := make([]rpcSubscriber, len(*subs))
-	copy(snapshot, *subs)
-	mu.Unlock()
+		ingester := indexer.NewIngester(s.db, s.embDB, nil, s.registry, s.embedder, nil)
 
-	for _, sub := range snapshot {
-		sub.fn(p)
-	}
-}
+		ingester.OnProgress = func(pIdx, pTotal, sIdx, sTotal int, message string) {
+			s.stateMu.Lock()
+			s.syncProg = &rpc.ProgressInfo{
+				Done: sIdx, Total: sTotal,
+				Project: pIdx, ProjectTotal: pTotal, ProjectName: message,
+				Message: fmt.Sprintf("Project %d/%d %s", pIdx, pTotal, message),
+			}
+			s.stateMu.Unlock()
 
-// addSubscriber adds a progress listener to a subscriber list and returns a removal function.
-func addSubscriber(mu *sync.Mutex, subs *[]rpcSubscriber, fn func(rpc.Progress)) func() {
-	mu.Lock()
-	nextSubID++
-	id := nextSubID
-	*subs = append(*subs, rpcSubscriber{id: id, fn: fn})
-	mu.Unlock()
+			broadcast(rpc.ProgressFrom(rpc.SyncProgressData{
+				Project: pIdx, ProjectTotal: pTotal,
+				Session: sIdx, SessionTotal: sTotal,
+				Message: message,
+			}))
+		}
 
-	return func() {
-		mu.Lock()
-		defer mu.Unlock()
-		for i, sub := range *subs {
-			if sub.id == id {
-				*subs = append((*subs)[:i], (*subs)[i+1:]...)
-				break
+		projects, err := s.registry.ListAllProjects(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list projects: %w", err)
+		}
+
+		if params.Force {
+			tuilog.Log.Info("indexer: force sync requested, clearing sync state")
+			if _, err := s.db.ExecContext(ctx, "DELETE FROM sync_state"); err != nil {
+				tuilog.Log.Warn("indexer: failed to clear sync state", "error", err)
 			}
 		}
-	}
-}
 
-func (s *indexerServer) HandleIndexSync(ctx context.Context, params rpc.SyncParams, send func(rpc.Progress)) (*rpc.Response, error) {
-	if !s.indexMu.TryLock() {
-		// Sync already in progress — subscribe to its progress stream and wait.
-		remove := addSubscriber(&s.indexSubsMu, &s.indexSubs, send)
-		defer remove()
-		<-s.indexDone
-		return s.indexResult, s.indexErr
-	}
-	defer s.indexMu.Unlock()
-
-	// Set up done channel for subscribers to wait on.
-	s.indexDone = make(chan struct{})
-
-	// The initiator is also a subscriber.
-	remove := addSubscriber(&s.indexSubsMu, &s.indexSubs, send)
-
-	// Ensure subscribers see the result and get cleaned up.
-	var indexResp *rpc.Response
-	var indexErr error
-	defer func() {
-		s.indexResult = indexResp
-		s.indexErr = indexErr
-		remove()
-		close(s.indexDone)
-	}()
-
-	// Cancel if either the request context or the server shutdown context is done.
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	go func() {
-		select {
-		case <-ctx.Done():
-		case <-s.shutdownCtx.Done():
-			cancel()
+		totalProjects := len(projects)
+		for idx, p := range projects {
+			if ctx.Err() != nil {
+				tuilog.Log.Warn("indexer: sync cancelled")
+				break
+			}
+			if err := ingester.IngestProject(ctx, p, idx+1, totalProjects); err != nil {
+				tuilog.Log.Error("indexer: failed to index project", "project", p.Name, "error", err)
+			}
 		}
-	}()
 
-	s.stateMu.Lock()
-	s.syncing = true
-	s.stateMu.Unlock()
-	defer func() {
-		s.stateMu.Lock()
-		s.syncing = false
-		s.syncProg = nil
-		s.stateMu.Unlock()
-	}()
-
-	ingester := indexer.NewIngester(s.db, s.embDB, nil, s.registry, s.embedder, nil)
-
-	// Wire up progress reporting
-	ingester.OnProgress = func(pIdx, pTotal, sIdx, sTotal int, message string) {
-		s.stateMu.Lock()
-		s.syncProg = &rpc.ProgressInfo{
-			Done: sIdx, Total: sTotal,
-			Project: pIdx, ProjectTotal: pTotal, ProjectName: message,
-			Message: fmt.Sprintf("Project %d/%d %s", pIdx, pTotal, message),
-		}
-		s.stateMu.Unlock()
-
-		broadcastToSubs(&s.indexSubsMu, &s.indexSubs, rpc.ProgressFrom(rpc.SyncProgressData{
-			Project: pIdx, ProjectTotal: pTotal,
-			Session: sIdx, SessionTotal: sTotal,
-			Message: message,
-		}))
-	}
-
-	projects, err := s.registry.ListAllProjects(ctx)
-	if err != nil {
-		indexErr = fmt.Errorf("list projects: %w", err)
-		return nil, indexErr
-	}
-
-	if params.Force {
-		tuilog.Log.Info("indexer: force sync requested, clearing sync state")
-		if _, err := s.db.ExecContext(ctx, "DELETE FROM sync_state"); err != nil {
-			tuilog.Log.Warn("indexer: failed to clear sync state", "error", err)
-		}
-	}
-
-	totalProjects := len(projects)
-	for idx, p := range projects {
-		if ctx.Err() != nil {
-			tuilog.Log.Warn("indexer: sync cancelled")
-			break
-		}
-		if err := ingester.IngestProject(ctx, p, idx+1, totalProjects); err != nil {
-			tuilog.Log.Error("indexer: failed to index project", "project", p.Name, "error", err)
-		}
-	}
-
-	indexResp, err = rpc.OKResponse(rpc.SyncData{Projects: totalProjects})
-	return indexResp, err
+		return rpc.OKResponse(rpc.SyncData{Projects: totalProjects})
+	})
 }
 
 func (s *indexerServer) HandleEmbedSync(ctx context.Context, params rpc.EmbedSyncParams, send func(rpc.Progress)) (*rpc.Response, error) {
-	if !s.embedMu.TryLock() {
-		// Embed sync already in progress — subscribe and wait.
-		remove := addSubscriber(&s.embedSubsMu, &s.embedSubs, send)
-		defer remove()
-		<-s.embedDone
-		return s.embedResult, s.embedErr
-	}
-	defer s.embedMu.Unlock()
-
-	s.embedDone = make(chan struct{})
-	remove := addSubscriber(&s.embedSubsMu, &s.embedSubs, send)
-
-	var embedResp *rpc.Response
-	var embedErr error
-	defer func() {
-		s.embedResult = embedResp
-		s.embedErr = embedErr
-		remove()
-		close(s.embedDone)
-	}()
-
-	ctx, cancel := context.WithCancel(ctx)
-	s.embedCancelMu.Lock()
-	s.embedCancelFn = cancel
-	s.embedCancelMu.Unlock()
-	defer func() {
-		cancel()
+	return s.embedGate.Run(send, func(broadcast func(rpc.Progress)) (*rpc.Response, error) {
+		ctx, cancel := context.WithCancel(ctx)
 		s.embedCancelMu.Lock()
-		s.embedCancelFn = nil
+		s.embedCancelFn = cancel
 		s.embedCancelMu.Unlock()
-	}()
-	go func() {
-		select {
-		case <-ctx.Done():
-		case <-s.shutdownCtx.Done():
+		defer func() {
 			cancel()
+			s.embedCancelMu.Lock()
+			s.embedCancelFn = nil
+			s.embedCancelMu.Unlock()
+		}()
+		go func() {
+			select {
+			case <-ctx.Done():
+			case <-s.shutdownCtx.Done():
+				cancel()
+			}
+		}()
+
+		// Serialize GPU access: only one of embed/summarize runs at a time.
+		s.gpuMu.Lock()
+		defer s.gpuMu.Unlock()
+
+		// Lazy-init embedder if not already loaded
+		if s.embedder == nil {
+			cfg, err := config.Load()
+			if err != nil || !cfg.Embedding.Enabled {
+				return &rpc.Response{OK: false, Error: "embedding not enabled"}, nil
+			}
+			modelID := cfg.Embedding.Model
+			tuilog.Log.Info("indexer: lazy-loading embedding model", "model", modelID)
+
+			if err := embedding.EnsureModel(modelID, func(downloaded, total int64) {
+				if total > 0 {
+					broadcast(rpc.ProgressFrom(rpc.ModelDownloadProgressData{
+						ModelDownload: true,
+						Downloaded:    downloaded,
+						Total:         total,
+						Percent:       float64(downloaded) / float64(total) * 100,
+					}))
+				}
+			}); err != nil {
+				return nil, fmt.Errorf("ensure embedding model: %w", err)
+			}
+
+			e, err := embedding.NewEmbedder(modelID, "")
+			if err != nil {
+				return nil, fmt.Errorf("create embedder: %w", err)
+			}
+
+			if s.embDB == nil || s.embDBModel != e.EmbedModelID() {
+				if s.embDB != nil {
+					s.embDB.Close()
+				}
+				d, err := getEmbeddingsDB(e.EmbedModelID(), e.Dim())
+				if err != nil {
+					e.Close()
+					return nil, fmt.Errorf("open embeddings database: %w", err)
+				}
+				s.embDB = d
+				s.embDBModel = e.EmbedModelID()
+			}
+
+			s.embedder = e
+			if s.watcher != nil {
+				s.watcher.SetEmbedder(e)
+			}
+			tuilog.Log.Info("indexer: embedder loaded", "model", e.EmbedModelID(), "dim", e.Dim())
 		}
-	}()
 
-	// Serialize GPU access: only one of embed/summarize runs at a time.
-	s.gpuMu.Lock()
-	defer s.gpuMu.Unlock()
+		s.stateMu.Lock()
+		s.embedding = true
+		s.stateMu.Unlock()
+		defer func() {
+			s.stateMu.Lock()
+			s.embedding = false
+			s.embedProg = nil
+			s.stateMu.Unlock()
+		}()
 
-	// Lazy-init embedder if not already loaded
-	if s.embedder == nil {
+		ingester := indexer.NewIngester(s.db, s.embDB, nil, s.registry, s.embedder, nil)
+		ingester.Verbose = verbose
+
+		if params.Force {
+			tuilog.Log.Info("indexer: force embed sync requested, clearing embed state")
+			if s.embDB != nil {
+				if _, err := s.embDB.ExecContext(ctx, "DELETE FROM embeddings"); err != nil {
+					tuilog.Log.Warn("indexer: failed to clear embeddings", "error", err)
+				}
+			}
+		}
+
+		ingester.OnEmbedProgress = func(done, total, chunks, entries int, sessionID, sessionPath string, elapsed time.Duration) {
+			s.stateMu.Lock()
+			s.embedProg = &rpc.ProgressInfo{Done: done, Total: total, SessionID: sessionID, Entries: entries}
+			s.stateMu.Unlock()
+
+			broadcast(rpc.ProgressFrom(rpc.EmbedProgressData{
+				Done: done, Total: total,
+				Chunks: chunks, Entries: entries,
+				SessionID:   sessionID,
+				SessionPath: sessionPath,
+				ElapsedMs:   elapsed.Milliseconds(),
+			}))
+		}
+		ingester.OnEmbedChunkProgress = func(chunksDone, chunksTotal, tokensDone int, sessionID string) {
+			s.stateMu.Lock()
+			if s.embedProg != nil {
+				s.embedProg.ChunksDone = chunksDone
+				s.embedProg.ChunksTotal = chunksTotal
+			}
+			s.stateMu.Unlock()
+
+			broadcast(rpc.ProgressFrom(rpc.EmbedChunkProgressData{
+				ChunksDone:  chunksDone,
+				ChunksTotal: chunksTotal,
+				TokensDone:  tokensDone,
+				SessionID:   sessionID,
+			}))
+		}
+
+		if err := ingester.EmbedAllSessions(ctx); err != nil {
+			tuilog.Log.Error("indexer: embedding pass failed", "error", err)
+		}
+
+		return &rpc.Response{OK: true}, nil
+	})
+}
+
+func (s *indexerServer) HandleSummarizeSync(ctx context.Context, params rpc.SummarizeSyncParams, send func(rpc.Progress)) (*rpc.Response, error) {
+	return s.sumGate.Run(send, func(broadcast func(rpc.Progress)) (*rpc.Response, error) {
 		cfg, err := config.Load()
-		if err != nil || !cfg.Embedding.Enabled {
-			embedResp = &rpc.Response{OK: false, Error: "embedding not enabled"}
-			return embedResp, nil
+		if err != nil || !cfg.Summarization.Enabled {
+			return &rpc.Response{OK: false, Error: "summarization not enabled"}, nil
 		}
-		modelID := cfg.Embedding.Model
-		tuilog.Log.Info("indexer: lazy-loading embedding model", "model", modelID)
 
-		if err := embedding.EnsureModel(modelID, func(downloaded, total int64) {
+		// Serialize GPU access: only one of embed/summarize runs at a time.
+		s.gpuMu.Lock()
+		defer s.gpuMu.Unlock()
+
+		modelID := cfg.Summarization.Model
+
+		// Download model if needed.
+		if err := summarize.EnsureModel(modelID, func(downloaded, total int64) {
 			if total > 0 {
-				broadcastToSubs(&s.embedSubsMu, &s.embedSubs, rpc.ProgressFrom(rpc.ModelDownloadProgressData{
+				broadcast(rpc.ProgressFrom(rpc.ModelDownloadProgressData{
 					ModelDownload: true,
 					Downloaded:    downloaded,
 					Total:         total,
@@ -299,179 +304,42 @@ func (s *indexerServer) HandleEmbedSync(ctx context.Context, params rpc.EmbedSyn
 				}))
 			}
 		}); err != nil {
-			embedErr = fmt.Errorf("ensure embedding model: %w", err)
-			return nil, embedErr
+			return nil, fmt.Errorf("ensure summarization model: %w", err)
 		}
 
-		e, err := embedding.NewEmbedder(modelID, "")
+		summarizer, err := summarize.NewSummarizer(modelID, "")
 		if err != nil {
-			embedErr = fmt.Errorf("create embedder: %w", err)
-			return nil, embedErr
+			return nil, fmt.Errorf("create summarizer: %w", err)
 		}
+		defer summarizer.Close()
 
-		if s.embDB == nil || s.embDBModel != e.EmbedModelID() {
-			if s.embDB != nil {
-				s.embDB.Close()
-			}
-			d, err := getEmbeddingsDB(e.EmbedModelID(), e.Dim())
+		// Lazy-init summaries DB.
+		if s.sumDB == nil {
+			d, err := getSummariesDB(modelID)
 			if err != nil {
-				e.Close()
-				embedErr = fmt.Errorf("open embeddings database: %w", err)
-				return nil, embedErr
+				return nil, fmt.Errorf("open summaries database: %w", err)
 			}
-			s.embDB = d
-			s.embDBModel = e.EmbedModelID()
+			s.sumDB = d
 		}
 
-		s.embedder = e
-		if s.watcher != nil {
-			s.watcher.SetEmbedder(e)
-		}
-		tuilog.Log.Info("indexer: embedder loaded", "model", e.EmbedModelID(), "dim", e.Dim())
-	}
+		ingester := indexer.NewIngester(s.db, nil, s.sumDB, s.registry, nil, summarizer)
+		ingester.Verbose = verbose
 
-	s.stateMu.Lock()
-	s.embedding = true
-	s.stateMu.Unlock()
-	defer func() {
-		s.stateMu.Lock()
-		s.embedding = false
-		s.embedProg = nil
-		s.stateMu.Unlock()
-	}()
-
-	ingester := indexer.NewIngester(s.db, s.embDB, nil, s.registry, s.embedder, nil)
-	ingester.Verbose = verbose
-
-	if params.Force {
-		tuilog.Log.Info("indexer: force embed sync requested, clearing embed state")
-		if s.embDB != nil {
-			if _, err := s.embDB.ExecContext(ctx, "DELETE FROM embeddings"); err != nil {
-				tuilog.Log.Warn("indexer: failed to clear embeddings", "error", err)
-			}
-		}
-	}
-
-	ingester.OnEmbedProgress = func(done, total, chunks, entries int, sessionID, sessionPath string, elapsed time.Duration) {
-		s.stateMu.Lock()
-		s.embedProg = &rpc.ProgressInfo{Done: done, Total: total, SessionID: sessionID, Entries: entries}
-		s.stateMu.Unlock()
-
-		broadcastToSubs(&s.embedSubsMu, &s.embedSubs, rpc.ProgressFrom(rpc.EmbedProgressData{
-			Done: done, Total: total,
-			Chunks: chunks, Entries: entries,
-			SessionID:   sessionID,
-			SessionPath: sessionPath,
-			ElapsedMs:   elapsed.Milliseconds(),
-		}))
-	}
-	ingester.OnEmbedChunkProgress = func(chunksDone, chunksTotal, tokensDone int, sessionID string) {
-		s.stateMu.Lock()
-		if s.embedProg != nil {
-			s.embedProg.ChunksDone = chunksDone
-			s.embedProg.ChunksTotal = chunksTotal
-		}
-		s.stateMu.Unlock()
-
-		broadcastToSubs(&s.embedSubsMu, &s.embedSubs, rpc.ProgressFrom(rpc.EmbedChunkProgressData{
-			ChunksDone:  chunksDone,
-			ChunksTotal: chunksTotal,
-			TokensDone:  tokensDone,
-			SessionID:   sessionID,
-		}))
-	}
-
-	if err := ingester.EmbedAllSessions(ctx); err != nil {
-		tuilog.Log.Error("indexer: embedding pass failed", "error", err)
-	}
-
-	embedResp = &rpc.Response{OK: true}
-	return embedResp, nil
-}
-
-func (s *indexerServer) HandleSummarizeSync(ctx context.Context, params rpc.SummarizeSyncParams, send func(rpc.Progress)) (*rpc.Response, error) {
-	if !s.sumMu.TryLock() {
-		remove := addSubscriber(&s.sumSubsMu, &s.sumSubs, send)
-		defer remove()
-		<-s.sumDone
-		return s.sumResult, s.sumErr
-	}
-	defer s.sumMu.Unlock()
-
-	s.sumDone = make(chan struct{})
-	remove := addSubscriber(&s.sumSubsMu, &s.sumSubs, send)
-
-	var sumResp *rpc.Response
-	var sumErr error
-	defer func() {
-		s.sumResult = sumResp
-		s.sumErr = sumErr
-		remove()
-		close(s.sumDone)
-	}()
-
-	cfg, err := config.Load()
-	if err != nil || !cfg.Summarization.Enabled {
-		sumResp = &rpc.Response{OK: false, Error: "summarization not enabled"}
-		return sumResp, nil
-	}
-
-	// Serialize GPU access: only one of embed/summarize runs at a time.
-	s.gpuMu.Lock()
-	defer s.gpuMu.Unlock()
-
-	modelID := cfg.Summarization.Model
-
-	// Download model if needed.
-	if err := summarize.EnsureModel(modelID, func(downloaded, total int64) {
-		if total > 0 {
-			broadcastToSubs(&s.sumSubsMu, &s.sumSubs, rpc.ProgressFrom(rpc.ModelDownloadProgressData{
-				ModelDownload: true,
-				Downloaded:    downloaded,
-				Total:         total,
-				Percent:       float64(downloaded) / float64(total) * 100,
+		ingester.OnSummarizeProgress = func(done, total int, sessionID string, elapsed time.Duration) {
+			broadcast(rpc.ProgressFrom(rpc.SummarizeProgressData{
+				Done:      done,
+				Total:     total,
+				SessionID: sessionID,
+				ElapsedMs: elapsed.Milliseconds(),
 			}))
 		}
-	}); err != nil {
-		sumErr = fmt.Errorf("ensure summarization model: %w", err)
-		return nil, sumErr
-	}
 
-	summarizer, err := summarize.NewSummarizer(modelID, "")
-	if err != nil {
-		sumErr = fmt.Errorf("create summarizer: %w", err)
-		return nil, sumErr
-	}
-	defer summarizer.Close()
-
-	// Lazy-init summaries DB.
-	if s.sumDB == nil {
-		d, err := getSummariesDB(modelID)
-		if err != nil {
-			sumErr = fmt.Errorf("open summaries database: %w", err)
-			return nil, sumErr
+		if err := ingester.SummarizeAllSessions(ctx); err != nil {
+			tuilog.Log.Error("indexer: summarization pass failed", "error", err)
 		}
-		s.sumDB = d
-	}
 
-	ingester := indexer.NewIngester(s.db, nil, s.sumDB, s.registry, nil, summarizer)
-	ingester.Verbose = verbose
-
-	ingester.OnSummarizeProgress = func(done, total int, sessionID string, elapsed time.Duration) {
-		broadcastToSubs(&s.sumSubsMu, &s.sumSubs, rpc.ProgressFrom(rpc.SummarizeProgressData{
-			Done:      done,
-			Total:     total,
-			SessionID: sessionID,
-			ElapsedMs: elapsed.Milliseconds(),
-		}))
-	}
-
-	if err := ingester.SummarizeAllSessions(ctx); err != nil {
-		tuilog.Log.Error("indexer: summarization pass failed", "error", err)
-	}
-
-	sumResp = &rpc.Response{OK: true}
-	return sumResp, nil
+		return &rpc.Response{OK: true}, nil
+	})
 }
 
 func (s *indexerServer) HandleSearch(ctx context.Context, params rpc.SearchParams) (*rpc.Response, error) {
@@ -707,11 +575,10 @@ func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, 
 
 		newModel := cfg.Embedding.Model
 		go func() {
-			// Wait for the cancelled sync to fully exit and release embedMu before
-			// attempting a new sync — otherwise we'd subscribe to the dying run.
-			s.embedMu.Lock()
+			// Wait for the cancelled sync to fully exit before attempting a
+			// new sync — otherwise we'd subscribe to the dying run.
+			s.embedGate.WaitIdle()
 			shutdown := s.shutdownCtx.Err() != nil
-			s.embedMu.Unlock()
 			if shutdown {
 				return
 			}
