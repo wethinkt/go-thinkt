@@ -23,6 +23,8 @@ type Handler interface {
 	HandleStatus(ctx context.Context) (*Response, error)
 	HandleMetrics(ctx context.Context) (*Response, error)
 	HandleConfigReload(ctx context.Context) (*Response, error)
+	HandleListProjects(ctx context.Context, params ListProjectsParams) (*Response, error)
+	HandleListSessions(ctx context.Context, params ListSessionsParams) (*Response, error)
 }
 
 // Server listens on a Unix domain socket and dispatches RPC requests to a Handler.
@@ -178,6 +180,26 @@ func (s *Server) handleConn(conn net.Conn) {
 
 	case MethodConfigReload:
 		resp, handlerErr = s.handler.HandleConfigReload(ctx)
+
+	case MethodListProjects:
+		var params ListProjectsParams
+		if req.Params != nil {
+			if err := json.Unmarshal(req.Params, &params); err != nil {
+				writeJSON(conn, Response{OK: false, Error: "invalid list_projects params: " + err.Error()})
+				return
+			}
+		}
+		resp, handlerErr = s.handler.HandleListProjects(ctx, params)
+
+	case MethodListSessions:
+		var params ListSessionsParams
+		if req.Params != nil {
+			if err := json.Unmarshal(req.Params, &params); err != nil {
+				writeJSON(conn, Response{OK: false, Error: "invalid list_sessions params: " + err.Error()})
+				return
+			}
+		}
+		resp, handlerErr = s.handler.HandleListSessions(ctx, params)
 
 	default:
 		writeJSON(conn, Response{OK: false, Error: fmt.Sprintf("unknown method: %q", req.Method)})

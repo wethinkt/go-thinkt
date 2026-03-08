@@ -373,6 +373,21 @@ func (ms *MCPServer) handleListSources(ctx context.Context, req *mcp.CallToolReq
 }
 
 func (ms *MCPServer) handleListProjects(ctx context.Context, req *mcp.CallToolRequest, input listProjectsInput) (*mcp.CallToolResult, listProjectsOutput, error) {
+	// Try indexer RPC first for richer metadata.
+	if data, err := indexerListProjects(rpc.ListProjectsParams{
+		Source: input.Source,
+		Limit:  input.Limit,
+		Offset: input.Offset,
+	}); err == nil {
+		pInfos := make([]projectInfo, 0, len(data.Projects))
+		for _, p := range data.Projects {
+			pInfos = append(pInfos, projectInfo{ID: p.ID, Name: p.Name, Path: p.Path, SessionCount: p.SessionCount, Source: p.Source, PathExists: true})
+		}
+		output := listProjectsOutput{Projects: pInfos, Total: data.Total, Returned: data.Returned}
+		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
+	}
+
+	// Fallback: filesystem via StoreRegistry.
 	projects, err := ms.registry.ListAllProjects(ctx)
 	if err != nil {
 		return nil, listProjectsOutput{}, err
@@ -430,6 +445,29 @@ func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRe
 		return r, errorListSessionsOutput("missing_source", "source is required", nil), err
 	}
 
+	// Try indexer RPC first for richer metadata (accurate entry_count, model).
+	if data, err := indexerListSessions(rpc.ListSessionsParams{
+		ProjectID: input.ProjectID,
+		Source:    string(source),
+		Limit:    input.Limit,
+		Offset:   input.Offset,
+	}); err == nil && data.Total > 0 {
+		sInfos := make([]sessionInfo, 0, len(data.Sessions))
+		for _, s := range data.Sessions {
+			sInfos = append(sInfos, sessionInfo{
+				ID:         s.ID,
+				Path:       s.Path,
+				EntryCount: s.EntryCount,
+				Model:      s.Model,
+				CreatedAt:  s.CreatedAt,
+				ModifiedAt: s.UpdatedAt,
+			})
+		}
+		output := listSessionsOutput{Sessions: sInfos, Total: data.Total, Returned: data.Returned}
+		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
+	}
+
+	// Fallback: filesystem via StoreRegistry.
 	limit := input.Limit
 	if limit <= 0 {
 		limit = 20
@@ -438,9 +476,6 @@ func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRe
 	if start < 0 {
 		start = 0
 	}
-
-	var sInfos []sessionInfo
-	var total int
 
 	store, ok := ms.registry.Get(source)
 	if !ok {
@@ -455,8 +490,8 @@ func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRe
 
 	sort.Slice(allSessions, func(i, j int) bool { return allSessions[i].ModifiedAt.After(allSessions[j].ModifiedAt) })
 
-	total = len(allSessions)
-	sInfos = []sessionInfo{}
+	total := len(allSessions)
+	sInfos := []sessionInfo{}
 	if start < total {
 		end := start + limit
 		if end > total {

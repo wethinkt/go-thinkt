@@ -66,6 +66,14 @@ func (m *mockHandler) HandleMetrics(_ context.Context) (*Response, error) {
 	return &Response{OK: true, Data: data}, nil
 }
 
+func (m *mockHandler) HandleListProjects(_ context.Context, params ListProjectsParams) (*Response, error) {
+	return OKResponse(ListProjectsData{Projects: []ProjectData{}, Total: 0, Returned: 0})
+}
+
+func (m *mockHandler) HandleListSessions(_ context.Context, params ListSessionsParams) (*Response, error) {
+	return OKResponse(ListSessionsData{Sessions: []SessionData{}, Total: 0, Returned: 0})
+}
+
 func (m *mockHandler) HandleStatus(_ context.Context) (*Response, error) {
 	m.statusCalled = true
 	data, _ := json.Marshal(StatusData{

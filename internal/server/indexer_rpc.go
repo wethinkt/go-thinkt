@@ -70,6 +70,44 @@ func indexerStats() (json.RawMessage, error) {
 	return resp.Data, nil
 }
 
+// indexerListProjects calls the indexer RPC list_projects method.
+func indexerListProjects(params rpc.ListProjectsParams) (*rpc.ListProjectsData, error) {
+	if !rpc.ServerAvailable() {
+		return nil, errIndexerUnavailable
+	}
+	resp, err := rpc.Call(rpc.MethodListProjects, params, nil)
+	if err != nil {
+		return nil, fmt.Errorf("rpc list_projects: %w", err)
+	}
+	if !resp.OK {
+		return nil, fmt.Errorf("rpc list_projects: %s", resp.Error)
+	}
+	var data rpc.ListProjectsData
+	if err := json.Unmarshal(resp.Data, &data); err != nil {
+		return nil, fmt.Errorf("unmarshal list_projects response: %w", err)
+	}
+	return &data, nil
+}
+
+// indexerListSessions calls the indexer RPC list_sessions method.
+func indexerListSessions(params rpc.ListSessionsParams) (*rpc.ListSessionsData, error) {
+	if !rpc.ServerAvailable() {
+		return nil, errIndexerUnavailable
+	}
+	resp, err := rpc.Call(rpc.MethodListSessions, params, nil)
+	if err != nil {
+		return nil, fmt.Errorf("rpc list_sessions: %w", err)
+	}
+	if !resp.OK {
+		return nil, fmt.Errorf("rpc list_sessions: %s", resp.Error)
+	}
+	var data rpc.ListSessionsData
+	if err := json.Unmarshal(resp.Data, &data); err != nil {
+		return nil, fmt.Errorf("unmarshal list_sessions response: %w", err)
+	}
+	return &data, nil
+}
+
 // indexerMetrics calls the indexer RPC metrics method and returns Prometheus text.
 func indexerMetrics() (string, error) {
 	if !rpc.ServerAvailable() {

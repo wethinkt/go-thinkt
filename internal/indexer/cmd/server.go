@@ -602,6 +602,143 @@ func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, 
 	return resp, nil
 }
 
+func (s *indexerServer) HandleListProjects(ctx context.Context, params rpc.ListProjectsParams) (*rpc.Response, error) {
+	limit := params.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+	offset := params.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	// Count total matching projects.
+	countQuery := "SELECT count(*) FROM projects"
+	var countArgs []any
+	if params.Source != "" {
+		countQuery += " WHERE source = ?"
+		countArgs = append(countArgs, params.Source)
+	}
+	var total int
+	if err := s.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&total); err != nil {
+		return nil, fmt.Errorf("count projects: %w", err)
+	}
+
+	// Fetch projects with session counts.
+	query := `SELECT p.id, p.name, p.path, p.source, count(s.id) AS session_count
+		FROM projects p
+		LEFT JOIN sessions s ON s.project_id = p.id`
+	var args []any
+	if params.Source != "" {
+		query += " WHERE p.source = ?"
+		args = append(args, params.Source)
+	}
+	query += " GROUP BY p.id, p.name, p.path, p.source ORDER BY session_count DESC LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query projects: %w", err)
+	}
+	defer rows.Close()
+
+	var projects []rpc.ProjectData
+	for rows.Next() {
+		var p rpc.ProjectData
+		if err := rows.Scan(&p.ID, &p.Name, &p.Path, &p.Source, &p.SessionCount); err != nil {
+			return nil, fmt.Errorf("scan project: %w", err)
+		}
+		projects = append(projects, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate projects: %w", err)
+	}
+	if projects == nil {
+		projects = []rpc.ProjectData{}
+	}
+
+	return rpc.OKResponse(rpc.ListProjectsData{Projects: projects, Total: total, Returned: len(projects)})
+}
+
+func (s *indexerServer) HandleListSessions(ctx context.Context, params rpc.ListSessionsParams) (*rpc.Response, error) {
+	limit := params.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	offset := params.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	// Build WHERE clause.
+	var where []string
+	var args []any
+	if params.ProjectID != "" {
+		where = append(where, "s.project_id = ?")
+		args = append(args, params.ProjectID)
+	}
+	if params.Source != "" {
+		where = append(where, "p.source = ?")
+		args = append(args, params.Source)
+	}
+
+	whereClause := ""
+	if len(where) > 0 {
+		whereClause = " WHERE " + strings.Join(where, " AND ")
+	}
+
+	// Count total.
+	var total int
+	countQuery := "SELECT count(*) FROM sessions s LEFT JOIN projects p ON s.project_id = p.id" + whereClause
+	if err := s.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, fmt.Errorf("count sessions: %w", err)
+	}
+
+	// Fetch sessions.
+	query := `SELECT s.id, s.path, s.model, s.entry_count, s.created_at, s.updated_at
+		FROM sessions s LEFT JOIN projects p ON s.project_id = p.id` + whereClause +
+		" ORDER BY s.updated_at DESC NULLS LAST LIMIT ? OFFSET ?"
+	fetchArgs := append(args, limit, offset)
+
+	rows, err := s.db.QueryContext(ctx, query, fetchArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("query sessions: %w", err)
+	}
+	defer rows.Close()
+
+	var sessions []rpc.SessionData
+	for rows.Next() {
+		var sd rpc.SessionData
+		var createdAt, updatedAt *time.Time
+		var entryCount *int
+		var model *string
+		if err := rows.Scan(&sd.ID, &sd.Path, &model, &entryCount, &createdAt, &updatedAt); err != nil {
+			return nil, fmt.Errorf("scan session: %w", err)
+		}
+		if model != nil {
+			sd.Model = *model
+		}
+		if entryCount != nil {
+			sd.EntryCount = *entryCount
+		}
+		if createdAt != nil {
+			sd.CreatedAt = createdAt.Format(time.RFC3339)
+		}
+		if updatedAt != nil {
+			sd.UpdatedAt = updatedAt.Format(time.RFC3339)
+		}
+		sessions = append(sessions, sd)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate sessions: %w", err)
+	}
+	if sessions == nil {
+		sessions = []rpc.SessionData{}
+	}
+
+	return rpc.OKResponse(rpc.ListSessionsData{Sessions: sessions, Total: total, Returned: len(sessions)})
+}
+
 func runServer(cmdObj *cobra.Command, args []string) error {
 	// 0. Load config
 	cfg, err := config.Load()

@@ -18,6 +18,8 @@ const (
 	MethodStatus         = "status"
 	MethodMetrics        = "metrics"
 	MethodConfigReload   = "config_reload"
+	MethodListProjects   = "list_projects"
+	MethodListSessions   = "list_sessions"
 )
 
 // ---------------------------------------------------------------------------
@@ -222,4 +224,56 @@ type ModelDownloadProgressData struct {
 	Downloaded    int64   `json:"downloaded"`
 	Total         int64   `json:"total"`
 	Percent       float64 `json:"percent"`
+}
+
+// ---------------------------------------------------------------------------
+// list_projects / list_sessions
+// ---------------------------------------------------------------------------
+
+// ListProjectsParams for the list_projects method.
+type ListProjectsParams struct {
+	Source string `json:"source,omitempty"`
+	Limit  int    `json:"limit,omitempty"`
+	Offset int    `json:"offset,omitempty"`
+}
+
+// ListProjectsData is the response payload for MethodListProjects.
+type ListProjectsData struct {
+	Projects []ProjectData `json:"projects"`
+	Total    int           `json:"total"`
+	Returned int           `json:"returned"`
+}
+
+// ProjectData represents a project in the index.
+type ProjectData struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Path         string `json:"path"`
+	Source       string `json:"source"`
+	SessionCount int    `json:"session_count"`
+}
+
+// ListSessionsParams for the list_sessions method.
+type ListSessionsParams struct {
+	ProjectID string `json:"project_id"`
+	Source    string `json:"source,omitempty"`
+	Limit     int    `json:"limit,omitempty"`
+	Offset    int    `json:"offset,omitempty"`
+}
+
+// ListSessionsData is the response payload for MethodListSessions.
+type ListSessionsData struct {
+	Sessions []SessionData `json:"sessions"`
+	Total    int           `json:"total"`
+	Returned int           `json:"returned"`
+}
+
+// SessionData represents a session in the index.
+type SessionData struct {
+	ID         string `json:"id"`
+	Path       string `json:"path"`
+	Model      string `json:"model,omitempty"`
+	EntryCount int    `json:"entry_count"`
+	CreatedAt  string `json:"created_at,omitempty"`
+	UpdatedAt  string `json:"updated_at,omitempty"`
 }
