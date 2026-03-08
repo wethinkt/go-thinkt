@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 )
@@ -11,6 +12,7 @@ import (
 // subscribes to the progress stream and waits for the same result.
 type SyncGate struct {
 	mu     sync.Mutex
+	doneMu sync.Mutex // guards done, result, err reads/writes
 	subsMu sync.Mutex
 	subs   []rpcSubscriber
 	done   chan struct{}
@@ -19,11 +21,11 @@ type SyncGate struct {
 }
 
 type rpcSubscriber struct {
-	id int
+	id uint64
 	fn func(rpc.Progress)
 }
 
-var nextSubID int
+var nextSubID atomic.Uint64
 
 // Run attempts to execute fn. If another Run is already in progress, the
 // caller subscribes to its progress and blocks until it completes, returning
@@ -32,21 +34,40 @@ func (g *SyncGate) Run(send func(rpc.Progress), fn func(broadcast func(rpc.Progr
 	if !g.mu.TryLock() {
 		remove := g.addSubscriber(send)
 		defer remove()
-		<-g.done
-		return g.result, g.err
+		// Snapshot done under doneMu so we always wait on the
+		// current run's channel, not a stale closed one.
+		g.doneMu.Lock()
+		ch := g.done
+		g.doneMu.Unlock()
+		<-ch
+		g.doneMu.Lock()
+		r, e := g.result, g.err
+		g.doneMu.Unlock()
+		return r, e
 	}
 	defer g.mu.Unlock()
 
+	// Initialize done channel under doneMu before any subscriber can see it.
+	g.doneMu.Lock()
 	g.done = make(chan struct{})
+	g.doneMu.Unlock()
+
 	remove := g.addSubscriber(send)
 
 	defer func() {
 		remove()
+		// Close done after setting result/err, all under doneMu,
+		// so subscribers see consistent state.
+		g.doneMu.Lock()
 		close(g.done)
+		g.doneMu.Unlock()
 	}()
 
-	g.result, g.err = fn(g.Broadcast)
-	return g.result, g.err
+	resp, err := fn(g.Broadcast)
+	g.doneMu.Lock()
+	g.result, g.err = resp, err
+	g.doneMu.Unlock()
+	return resp, err
 }
 
 // WaitIdle blocks until no Run is in progress.
@@ -69,8 +90,7 @@ func (g *SyncGate) Broadcast(p rpc.Progress) {
 
 func (g *SyncGate) addSubscriber(fn func(rpc.Progress)) func() {
 	g.subsMu.Lock()
-	nextSubID++
-	id := nextSubID
+	id := nextSubID.Add(1)
 	g.subs = append(g.subs, rpcSubscriber{id: id, fn: fn})
 	g.subsMu.Unlock()
 
