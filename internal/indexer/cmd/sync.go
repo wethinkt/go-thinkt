@@ -86,7 +86,7 @@ func runIndexSync() error {
 	defer database.Close()
 
 	registry := cmd.CreateSourceRegistryFiltered(cfg.Indexer.Sources)
-	ingester := indexer.NewIngester(database, nil, registry, nil)
+	ingester := indexer.NewIngester(database, nil, nil, registry, nil, nil)
 
 	ctx := context.Background()
 

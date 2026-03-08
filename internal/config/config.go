@@ -15,7 +15,8 @@ const (
 	defaultDirName    = ".thinkt"
 	defaultConfigFile = "config.json"
 	defaultTheme      = "dark"
-	defaultEmbedModel = "nomic-embed-text-v1.5"
+	defaultEmbedModel         = "nomic-embed-text-v1.5"
+	defaultSummarizationModel = "qwen2.5-3b-instruct"
 	defaultDebounce   = "2s"
 	defaultDirPerms   = 0755
 	defaultFilePerms  = 0600
@@ -38,14 +39,21 @@ type Config struct {
 	Language     string                  `json:"language,omitempty"`      // BCP 47 language tag (e.g., "en", "zh-Hans", "ja")
 	Terminal     string                  `json:"terminal,omitempty"`      // App ID for default terminal (e.g., "ghostty", "kitty")
 	AllowedApps  []AppConfig             `json:"allowed_apps,omitempty"`  // Apps allowed for open-in
-	Embedding    EmbeddingConfig         `json:"embedding"`               // Embedding settings
-	Indexer      IndexerConfig           `json:"indexer"`                 // Indexer settings
+	Embedding     EmbeddingConfig      `json:"embedding"`      // Embedding settings
+	Summarization SummarizationConfig `json:"summarization"` // Summarization settings
+	Indexer       IndexerConfig       `json:"indexer"`       // Indexer settings
 }
 
 // EmbeddingConfig holds embedding-related settings.
 type EmbeddingConfig struct {
 	Enabled bool   `json:"enabled"` // Enable GPU embedding
 	Model   string `json:"model"`   // Embedding model ID
+}
+
+// SummarizationConfig holds summarization-related settings.
+type SummarizationConfig struct {
+	Enabled bool   `json:"enabled"` // Enable local summarization
+	Model   string `json:"model"`   // Summarization model ID
 }
 
 // IndexerConfig holds indexer-related settings.
@@ -145,6 +153,10 @@ func Default() Config {
 		Embedding: EmbeddingConfig{
 			Enabled: false,
 			Model:   defaultEmbedModel,
+		},
+		Summarization: SummarizationConfig{
+			Enabled: false,
+			Model:   defaultSummarizationModel,
 		},
 		Indexer: IndexerConfig{
 			Sources:  []string{},

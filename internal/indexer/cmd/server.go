@@ -20,6 +20,7 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/indexer"
 	"github.com/wethinkt/go-thinkt/internal/indexer/db"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
+	"github.com/wethinkt/go-thinkt/internal/indexer/summarize"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -76,6 +77,19 @@ type indexerServer struct {
 	// Separate from embedMu to avoid deadlock with reloadMu.
 	embedCancelMu sync.Mutex
 	embedCancelFn context.CancelFunc
+
+	// Summarize sync coordination: independent from index/embed sync.
+	sumMu     sync.Mutex
+	sumSubs   []rpcSubscriber
+	sumSubsMu sync.Mutex
+	sumDone   chan struct{}
+	sumResult *rpc.Response
+	sumErr    error
+	sumDB     *db.DB // separate summaries database (per-model)
+
+	// GPU mutex: serializes embed and summarize sync so only one uses
+	// the GPU (yzma/llama.cpp) at a time.
+	gpuMu sync.Mutex
 
 	// Config reload coordination
 	reloadMu sync.Mutex
@@ -174,7 +188,7 @@ func (s *indexerServer) HandleIndexSync(ctx context.Context, params rpc.SyncPara
 		s.stateMu.Unlock()
 	}()
 
-	ingester := indexer.NewIngester(s.db, s.embDB, s.registry, s.embedder)
+	ingester := indexer.NewIngester(s.db, s.embDB, nil, s.registry, s.embedder, nil)
 
 	// Wire up progress reporting
 	ingester.OnProgress = func(pIdx, pTotal, sIdx, sTotal int, message string) {
@@ -261,6 +275,10 @@ func (s *indexerServer) HandleEmbedSync(ctx context.Context, params rpc.EmbedSyn
 		}
 	}()
 
+	// Serialize GPU access: only one of embed/summarize runs at a time.
+	s.gpuMu.Lock()
+	defer s.gpuMu.Unlock()
+
 	// Lazy-init embedder if not already loaded
 	if s.embedder == nil {
 		cfg, err := config.Load()
@@ -322,7 +340,7 @@ func (s *indexerServer) HandleEmbedSync(ctx context.Context, params rpc.EmbedSyn
 		s.stateMu.Unlock()
 	}()
 
-	ingester := indexer.NewIngester(s.db, s.embDB, s.registry, s.embedder)
+	ingester := indexer.NewIngester(s.db, s.embDB, nil, s.registry, s.embedder, nil)
 	ingester.Verbose = verbose
 
 	if params.Force {
@@ -369,6 +387,91 @@ func (s *indexerServer) HandleEmbedSync(ctx context.Context, params rpc.EmbedSyn
 
 	embedResp = &rpc.Response{OK: true}
 	return embedResp, nil
+}
+
+func (s *indexerServer) HandleSummarizeSync(ctx context.Context, params rpc.SummarizeSyncParams, send func(rpc.Progress)) (*rpc.Response, error) {
+	if !s.sumMu.TryLock() {
+		remove := addSubscriber(&s.sumSubsMu, &s.sumSubs, send)
+		defer remove()
+		<-s.sumDone
+		return s.sumResult, s.sumErr
+	}
+	defer s.sumMu.Unlock()
+
+	s.sumDone = make(chan struct{})
+	remove := addSubscriber(&s.sumSubsMu, &s.sumSubs, send)
+
+	var sumResp *rpc.Response
+	var sumErr error
+	defer func() {
+		s.sumResult = sumResp
+		s.sumErr = sumErr
+		remove()
+		close(s.sumDone)
+	}()
+
+	cfg, err := config.Load()
+	if err != nil || !cfg.Summarization.Enabled {
+		sumResp = &rpc.Response{OK: false, Error: "summarization not enabled"}
+		return sumResp, nil
+	}
+
+	// Serialize GPU access: only one of embed/summarize runs at a time.
+	s.gpuMu.Lock()
+	defer s.gpuMu.Unlock()
+
+	modelID := cfg.Summarization.Model
+
+	// Download model if needed.
+	if err := summarize.EnsureModel(modelID, func(downloaded, total int64) {
+		if total > 0 {
+			broadcastToSubs(&s.sumSubsMu, &s.sumSubs, rpc.ProgressFrom(rpc.ModelDownloadProgressData{
+				ModelDownload: true,
+				Downloaded:    downloaded,
+				Total:         total,
+				Percent:       float64(downloaded) / float64(total) * 100,
+			}))
+		}
+	}); err != nil {
+		sumErr = fmt.Errorf("ensure summarization model: %w", err)
+		return nil, sumErr
+	}
+
+	summarizer, err := summarize.NewSummarizer(modelID, "")
+	if err != nil {
+		sumErr = fmt.Errorf("create summarizer: %w", err)
+		return nil, sumErr
+	}
+	defer summarizer.Close()
+
+	// Lazy-init summaries DB.
+	if s.sumDB == nil {
+		d, err := getSummariesDB(modelID)
+		if err != nil {
+			sumErr = fmt.Errorf("open summaries database: %w", err)
+			return nil, sumErr
+		}
+		s.sumDB = d
+	}
+
+	ingester := indexer.NewIngester(s.db, nil, s.sumDB, s.registry, nil, summarizer)
+	ingester.Verbose = verbose
+
+	ingester.OnSummarizeProgress = func(done, total int, sessionID string, elapsed time.Duration) {
+		broadcastToSubs(&s.sumSubsMu, &s.sumSubs, rpc.ProgressFrom(rpc.SummarizeProgressData{
+			Done:      done,
+			Total:     total,
+			SessionID: sessionID,
+			ElapsedMs: elapsed.Milliseconds(),
+		}))
+	}
+
+	if err := ingester.SummarizeAllSessions(ctx); err != nil {
+		tuilog.Log.Error("indexer: summarization pass failed", "error", err)
+	}
+
+	sumResp = &rpc.Response{OK: true}
+	return sumResp, nil
 }
 
 func (s *indexerServer) HandleSearch(ctx context.Context, params rpc.SearchParams) (*rpc.Response, error) {
@@ -731,6 +834,19 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 				tuilog.Log.Info("indexer: initial embed sync complete")
 			}
 		}
+
+		// If summarization is enabled, start summarize sync after embed sync
+		if cfg.Summarization.Enabled {
+			tuilog.Log.Info("indexer: starting initial summarize sync")
+			resp, err := srv.HandleSummarizeSync(shutdownCtx, rpc.SummarizeSyncParams{}, func(rpc.Progress) {})
+			if err != nil {
+				tuilog.Log.Error("indexer: initial summarize sync error", "error", err)
+			} else if resp != nil && !resp.OK {
+				tuilog.Log.Error("indexer: initial summarize sync failed", "error", resp.Error)
+			} else {
+				tuilog.Log.Info("indexer: initial summarize sync complete")
+			}
+		}
 	}()
 
 	if !quiet {
@@ -761,6 +877,9 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 	}
 	if srv.embDB != nil {
 		srv.embDB.Close()
+	}
+	if srv.sumDB != nil {
+		srv.sumDB.Close()
 	}
 
 	tuilog.Log.Info("indexer: server stopped")

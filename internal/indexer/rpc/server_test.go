@@ -35,6 +35,10 @@ func (m *mockHandler) HandleEmbedSync(_ context.Context, params EmbedSyncParams,
 	return &Response{OK: true, Data: json.RawMessage(`{"embedded":2}`)}, nil
 }
 
+func (m *mockHandler) HandleSummarizeSync(_ context.Context, params SummarizeSyncParams, send func(Progress)) (*Response, error) {
+	return &Response{OK: true}, nil
+}
+
 func (m *mockHandler) HandleSearch(_ context.Context, params SearchParams) (*Response, error) {
 	m.searchCalled = true
 	m.lastSearchParams = params

@@ -11,6 +11,7 @@ import (
 const (
 	MethodIndexSync      = "index_sync"
 	MethodEmbedSync      = "embed_sync"
+	MethodSummarizeSync  = "summarize_sync"
 	MethodSearch         = "search"
 	MethodSemanticSearch = "semantic_search"
 	MethodStats          = "stats"
@@ -74,6 +75,9 @@ type SyncParams struct {
 type EmbedSyncParams struct {
 	Force bool `json:"force,omitempty"` // re-embed everything
 }
+
+// SummarizeSyncParams for the summarize_sync method.
+type SummarizeSyncParams struct{}
 
 // SearchParams for the search method.
 type SearchParams struct {
@@ -202,6 +206,14 @@ type EmbedChunkProgressData struct {
 	ChunksTotal int    `json:"chunks_total"`
 	TokensDone  int    `json:"tokens_done"`
 	SessionID   string `json:"session_id"`
+}
+
+// SummarizeProgressData is sent during summarize sync to report per-session progress.
+type SummarizeProgressData struct {
+	Done      int    `json:"done"`
+	Total     int    `json:"total"`
+	SessionID string `json:"session_id"`
+	ElapsedMs int64  `json:"elapsed_ms"`
 }
 
 // ModelDownloadProgressData is sent during embedding model download.

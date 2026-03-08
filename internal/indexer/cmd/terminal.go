@@ -154,6 +154,11 @@ func (sp *SyncProgress) renderDualLine(phase, count1 string, pct1 float64, count
 	sp.Print(line)
 }
 
+// RenderLine renders a generic progress line with phase, count, detail, and percentage.
+func (sp *SyncProgress) RenderLine(phase, count, detail string, pct float64) {
+	sp.renderLine(phase, count, detail, pct)
+}
+
 // RenderDownload renders a model download progress line.
 func (sp *SyncProgress) RenderDownload(modelID string, pct float64) {
 	if !sp.isTTY {

@@ -179,7 +179,6 @@ With an argument, switches directly to the specified model.`,
 		if _, err := embedding.LookupModel(newModel); err != nil {
 			fmt.Fprint(os.Stderr, thinktI18n.Tf("indexer.embeddings.model.unknown", "Unknown model %q. Available models:\n\n", newModel))
 			printModelList(cfg.Embedding.Model)
-			cmd.SilenceErrors = true
 			return fmt.Errorf("unknown model %q", newModel)
 		}
 
@@ -676,7 +675,7 @@ var embeddingsSyncCmd = &cobra.Command{
 		defer embDB.Close()
 
 		registry := cmd.CreateSourceRegistryFiltered(cfg.Indexer.Sources)
-		ingester := indexer.NewIngester(database, embDB, registry, embedder)
+		ingester := indexer.NewIngester(database, embDB, nil, registry, embedder, nil)
 		ingester.Verbose = verbose
 
 		ctx := context.Background()

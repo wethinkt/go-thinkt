@@ -1,5 +1,18 @@
 # `go-thinkt` CHANGELOG
 
+## v0.8.0 (unreleased)
+
+* **Local Summarization**
+  - New `internal/indexer/summarize` package — local 3B generative model (Qwen 2.5 3B Instruct) for thinking block summarization via yzma/llama.cpp
+  - Separate per-model summaries DuckDB at `~/.thinkt/summaries/<model-id>.duckdb` with `(session_id, entry_uuid)` common key matching entries and embeddings tables
+  - Per-entry thinking block classification: summary, category (idea/discovery/concern/decision/pattern/rejected), entities, and relevance score
+  - Session-level summaries via `__session__` sentinel key
+  - Greedy (temp=0) autoregressive generation with JSON-structured output and robust fallback parsing
+  - `thinkt-indexer summarize` CLI with `list`, `run`, `enable`, `disable`, `model`, `status`, `sync`, `purge` subcommands (mirrors embeddings pattern)
+  - `SummarizationConfig` in `~/.thinkt/config.json` (opt-in, disabled by default)
+  - `Ingester.SummarizeAllSessions()` for batch summarization of indexed sessions
+  - Exported `embedding.EnsureRuntime()` for shared llama.cpp runtime setup
+
 ## v0.7.8 (2026-03-06)
 
 * **Docker: Upgrade to Debian Trixie**

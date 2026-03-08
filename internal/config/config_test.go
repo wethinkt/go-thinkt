@@ -368,6 +368,16 @@ func TestLoadDoesNotAutoCreateConfig(t *testing.T) {
 	}
 }
 
+func TestDefaultSummarizationConfig(t *testing.T) {
+	cfg := Default()
+	if cfg.Summarization.Enabled {
+		t.Error("default summarization should be disabled")
+	}
+	if cfg.Summarization.Model != "qwen2.5-3b-instruct" {
+		t.Errorf("default model = %q, want %q", cfg.Summarization.Model, "qwen2.5-3b-instruct")
+	}
+}
+
 func TestSourceConfigRoundTrip(t *testing.T) {
 	cfg := Config{
 		Theme: "dark",

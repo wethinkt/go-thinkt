@@ -95,7 +95,7 @@ func NewEmbedder(modelID, modelPath string) (*Embedder, error) {
 		return nil, fmt.Errorf("model file not found: %w", err)
 	}
 
-	libPath, err := ensureRuntime()
+	libPath, err := EnsureRuntime()
 	if err != nil {
 		return nil, fmt.Errorf("ensure runtime: %w", err)
 	}
@@ -386,7 +386,8 @@ func findGGUFFile(root, preferredName string) (string, error) {
 
 // --- runtime helpers ---
 
-func ensureRuntime() (string, error) {
+// EnsureRuntime ensures the llama.cpp runtime library is installed and returns its path.
+func EnsureRuntime() (string, error) {
 	libPath := defaultLibPath()
 
 	absPath, err := filepath.Abs(libPath)

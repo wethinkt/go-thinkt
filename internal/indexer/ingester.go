@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -12,16 +13,19 @@ import (
 
 	"github.com/wethinkt/go-thinkt/internal/indexer/db"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
+	"github.com/wethinkt/go-thinkt/internal/indexer/summarize"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 // Ingester handles the process of reading data from thinkt stores
 // and writing it to the DuckDB index.
 type Ingester struct {
-	db       *db.DB
-	embDB    *db.DB // separate embeddings database (nil if embedding unavailable)
-	registry *thinkt.StoreRegistry
-	embedder *embedding.Embedder // nil if embedding unavailable
+	db         *db.DB
+	embDB      *db.DB                   // separate embeddings database (nil if embedding unavailable)
+	sumDB      *db.DB                   // separate summaries database (nil if unavailable)
+	registry   *thinkt.StoreRegistry
+	embedder   *embedding.Embedder      // nil if embedding unavailable
+	summarizer *summarize.Summarizer    // nil if unavailable
 	OnProgress  func(pIdx, pTotal, sIdx, sTotal int, message string)
 
 	// OnEmbedProgress is called during EmbedAllSessions with progress updates.
@@ -33,6 +37,9 @@ type Ingester struct {
 	// providing within-session progress visibility.
 	OnEmbedChunkProgress func(chunksDone, chunksTotal, tokensDone int, sessionID string)
 
+	// OnSummarizeProgress is called during SummarizeAllSessions with progress updates.
+	OnSummarizeProgress func(done, total int, sessionID string, elapsed time.Duration)
+
 	// Verbose enables additional warning output (e.g. skipped sessions).
 	Verbose bool
 }
@@ -40,18 +47,26 @@ type Ingester struct {
 // NewIngester creates a new Ingester instance.
 // The embDB may be nil if embedding is unavailable.
 // The embedder may be nil if embedding is unavailable.
-func NewIngester(database *db.DB, embDB *db.DB, registry *thinkt.StoreRegistry, embedder *embedding.Embedder) *Ingester {
+// The sumDB and summarizer may be nil if summarization is unavailable.
+func NewIngester(database *db.DB, embDB *db.DB, sumDB *db.DB, registry *thinkt.StoreRegistry, embedder *embedding.Embedder, summarizer *summarize.Summarizer) *Ingester {
 	return &Ingester{
-		db:       database,
-		embDB:    embDB,
-		registry: registry,
-		embedder: embedder,
+		db:         database,
+		embDB:      embDB,
+		sumDB:      sumDB,
+		registry:   registry,
+		embedder:   embedder,
+		summarizer: summarizer,
 	}
 }
 
 // HasEmbedder returns true if an embedding backend is available.
 func (i *Ingester) HasEmbedder() bool {
 	return i.embedder != nil
+}
+
+// HasSummarizer returns true if a summarization backend is available.
+func (i *Ingester) HasSummarizer() bool {
+	return i.summarizer != nil && i.sumDB != nil
 }
 
 // Close releases resources held by the ingester.
@@ -625,4 +640,198 @@ func (i *Ingester) embedSession(ctx context.Context, sessionID string, source st
 	}
 
 	return stored, nil
+}
+
+// SummarizeAllSessions finds sessions with thinking blocks that lack summaries and generates them.
+func (i *Ingester) SummarizeAllSessions(ctx context.Context) error {
+	if i.summarizer == nil || i.sumDB == nil {
+		return nil
+	}
+
+	// Phase 1: Get sessions with thinking entries from index DB.
+	rows, err := i.db.QueryContext(ctx, `
+		SELECT DISTINCT s.id
+		FROM sessions s
+		JOIN entries e ON e.session_id = s.id
+		WHERE e.thinking_len > 0
+		ORDER BY s.id`)
+	if err != nil {
+		return fmt.Errorf("query sessions with thinking: %w", err)
+	}
+	defer rows.Close()
+
+	var allSessionIDs []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return fmt.Errorf("scan session: %w", err)
+		}
+		allSessionIDs = append(allSessionIDs, id)
+	}
+
+	if len(allSessionIDs) == 0 {
+		return nil
+	}
+
+	// Phase 2: Get sessions that already have __session__ summaries.
+	sumRows, err := i.sumDB.QueryContext(ctx, `
+		SELECT DISTINCT session_id
+		FROM summaries
+		WHERE entry_uuid = '__session__'`)
+	if err != nil {
+		return fmt.Errorf("query existing summaries: %w", err)
+	}
+	defer sumRows.Close()
+
+	summarized := make(map[string]bool)
+	for sumRows.Next() {
+		var sid string
+		if err := sumRows.Scan(&sid); err != nil {
+			return fmt.Errorf("scan summary session: %w", err)
+		}
+		summarized[sid] = true
+	}
+
+	// Phase 3: Diff — find sessions needing summarization.
+	var sessions []string
+	for _, sid := range allSessionIDs {
+		if !summarized[sid] {
+			sessions = append(sessions, sid)
+		}
+	}
+
+	if len(sessions) == 0 {
+		return nil
+	}
+
+	total := len(sessions)
+	for idx, sid := range sessions {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		start := time.Now()
+		if err := i.summarizeSessionFromDB(ctx, sid); err != nil && i.Verbose {
+			fmt.Fprintf(os.Stderr, "\nWarning: summarization failed for session %s: %v\n", sid, err)
+		}
+		if i.OnSummarizeProgress != nil {
+			i.OnSummarizeProgress(idx+1, total, sid, time.Since(start))
+		}
+	}
+
+	return nil
+}
+
+// summarizeSessionFromDB reads a session from its source file and summarizes it.
+func (i *Ingester) summarizeSessionFromDB(ctx context.Context, sessionID string) error {
+	// Look up session path and source
+	var path, projectID string
+	err := i.db.QueryRowContext(ctx, `
+		SELECT s.path, s.project_id FROM sessions s WHERE s.id = ?`, sessionID).Scan(&path, &projectID)
+	if err != nil {
+		return fmt.Errorf("lookup session %s: %w", sessionID, err)
+	}
+
+	var source string
+	err = i.db.QueryRowContext(ctx, `SELECT source FROM projects WHERE id = ?`, projectID).Scan(&source)
+	if err != nil {
+		return fmt.Errorf("lookup project %s: %w", projectID, err)
+	}
+
+	store, ok := i.registry.Get(thinkt.Source(source))
+	if !ok {
+		return fmt.Errorf("no store for source %s", source)
+	}
+
+	reader, err := store.OpenSession(ctx, sessionID)
+	if err != nil {
+		return fmt.Errorf("open session %s: %w", sessionID, err)
+	}
+	if reader == nil {
+		return fmt.Errorf("session %s: file not found (may have been deleted)", sessionID)
+	}
+	defer reader.Close()
+
+	var entries []thinkt.Entry
+	for {
+		entry, err := reader.ReadNext()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("read entry: %w", err)
+		}
+		entries = append(entries, *entry)
+	}
+
+	return i.summarizeSession(ctx, sessionID, entries)
+}
+
+// summarizeSession generates summaries for thinking blocks and a session-level summary.
+func (i *Ingester) summarizeSession(ctx context.Context, sessionID string, entries []thinkt.Entry) error {
+	if i.summarizer == nil || i.sumDB == nil {
+		return nil
+	}
+
+	// Summarize individual entries with thinking blocks.
+	for _, e := range entries {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		thinkingText := summarize.ExtractThinkingText(e)
+		if thinkingText == "" {
+			continue
+		}
+
+		result, err := i.summarizer.Summarize(ctx, thinkingText)
+		if err != nil {
+			if i.Verbose {
+				fmt.Fprintf(os.Stderr, "\nWarning: summarize entry %s failed: %v\n", e.UUID, err)
+			}
+			continue
+		}
+
+		entitiesJSON, _ := json.Marshal(result.Entities)
+
+		if _, err := i.sumDB.ExecContext(ctx, `
+			INSERT INTO summaries (session_id, entry_uuid, summary, category, entities, relevance, model)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT (session_id, entry_uuid) DO UPDATE SET
+				summary = excluded.summary,
+				category = excluded.category,
+				entities = excluded.entities,
+				relevance = excluded.relevance,
+				model = excluded.model,
+				created_at = current_timestamp`,
+			sessionID, e.UUID, result.Summary, result.Category,
+			string(entitiesJSON), result.Relevance, i.summarizer.ModelID(),
+		); err != nil {
+			return fmt.Errorf("store summary for entry %s: %w", e.UUID, err)
+		}
+	}
+
+	// Build session-level summary.
+	sessionCtx := summarize.ExtractSessionContext(entries)
+	if sessionCtx == "" {
+		return nil
+	}
+
+	sessionResult, err := i.summarizer.SummarizeSession(ctx, sessionCtx)
+	if err != nil {
+		return fmt.Errorf("session summary: %w", err)
+	}
+
+	if _, err := i.sumDB.ExecContext(ctx, `
+		INSERT INTO summaries (session_id, entry_uuid, summary, category, entities, relevance, model)
+		VALUES (?, '__session__', ?, NULL, NULL, NULL, ?)
+		ON CONFLICT (session_id, entry_uuid) DO UPDATE SET
+			summary = excluded.summary,
+			model = excluded.model,
+			created_at = current_timestamp`,
+		sessionID, sessionResult.Summary, i.summarizer.ModelID(),
+	); err != nil {
+		return fmt.Errorf("store session summary: %w", err)
+	}
+
+	return nil
 }

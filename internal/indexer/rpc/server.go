@@ -16,6 +16,7 @@ import (
 type Handler interface {
 	HandleIndexSync(ctx context.Context, params SyncParams, send func(Progress)) (*Response, error)
 	HandleEmbedSync(ctx context.Context, params EmbedSyncParams, send func(Progress)) (*Response, error)
+	HandleSummarizeSync(ctx context.Context, params SummarizeSyncParams, send func(Progress)) (*Response, error)
 	HandleSearch(ctx context.Context, params SearchParams) (*Response, error)
 	HandleSemanticSearch(ctx context.Context, params SemanticSearchParams) (*Response, error)
 	HandleStats(ctx context.Context) (*Response, error)
@@ -138,6 +139,13 @@ func (s *Server) handleConn(conn net.Conn) {
 			writeJSON(conn, p)
 		}
 		resp, handlerErr = s.handler.HandleEmbedSync(ctx, params, send)
+
+	case MethodSummarizeSync:
+		send := func(p Progress) {
+			p.Progress = true
+			writeJSON(conn, p)
+		}
+		resp, handlerErr = s.handler.HandleSummarizeSync(ctx, SummarizeSyncParams{}, send)
 
 	case MethodSearch:
 		var params SearchParams

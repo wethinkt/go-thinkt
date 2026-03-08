@@ -51,11 +51,35 @@ func EmbeddingsPathForModel(dir, modelID string) string {
 	return filepath.Join(dir, safe+".duckdb")
 }
 
+// DefaultSummariesDir returns the directory that holds per-model summaries databases.
+func DefaultSummariesDir() (string, error) {
+	dir, err := config.Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "summaries"), nil
+}
+
+// SummariesPathForModel returns the DB file path for a given model inside dir.
+// Characters unsafe for filenames are replaced with '_'.
+func SummariesPathForModel(dir, modelID string) string {
+	safe := strings.Map(func(r rune) rune {
+		if r == '/' || r == '\\' || r == ':' || r == '*' || r == '?' || r == '"' || r == '<' || r == '>' || r == '|' {
+			return '_'
+		}
+		return r
+	}, modelID)
+	return filepath.Join(dir, safe+".duckdb")
+}
+
 //go:embed schema/init.sql
 var initSQL string
 
 //go:embed schema/embeddings.sql
 var embeddingsSQL string
+
+//go:embed schema/summaries.sql
+var summariesSQL string
 
 // IndexSchema returns the schema SQL for the index database.
 func IndexSchema() string { return initSQL }
@@ -65,6 +89,9 @@ func IndexSchema() string { return initSQL }
 func EmbeddingsSchemaForDim(dim int) string {
 	return strings.ReplaceAll(embeddingsSQL, "{DIM}", strconv.Itoa(dim))
 }
+
+// SummariesSchema returns the raw schema SQL for the summaries database.
+func SummariesSchema() string { return summariesSQL }
 
 // DB wraps the DuckDB connection
 type DB struct {
@@ -82,6 +109,11 @@ func Open(path string) (*DB, error) {
 // dim specifies the embedding dimension for the schema (e.g. 768 for nomic, 1024 for qwen3).
 func OpenEmbeddings(path string, dim int) (*DB, error) {
 	return openWithSchema(path, EmbeddingsSchemaForDim(dim))
+}
+
+// OpenSummaries initializes or opens a DuckDB summaries database at the given path.
+func OpenSummaries(path string) (*DB, error) {
+	return openWithSchema(path, summariesSQL)
 }
 
 // openWithSchema opens a DuckDB database, runs the given schema SQL, and hardens security.

@@ -20,6 +20,7 @@ func isTTY() bool {
 var (
 	dbPath   string
 	embDBDir string
+	sumDBDir string
 	logPath  string
 	verbose  bool
 	quiet    bool
@@ -29,7 +30,8 @@ var (
 var rootCmd = &cobra.Command{
 	Use:          "thinkt-indexer",
 	Short:        "DuckDB-powered indexer for thinkt",
-	SilenceUsage: true, // Don't show usage on RunE errors
+	SilenceUsage:  true, // Don't show usage on RunE errors
+	SilenceErrors: true, // Prevent Cobra from printing errors (we handle them in Execute)
 	Long: `thinkt-indexer provides a specialized tool for indexing and searching
 AI assistant sessions using DuckDB.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -86,8 +88,10 @@ func localizeCommands(cmd *cobra.Command, prefix string) {
 func init() {
 	defaultDBPath, _ := db.DefaultPath()
 	defaultEmbDBDir, _ := db.DefaultEmbeddingsDir()
+	defaultSumDBDir, _ := db.DefaultSummariesDir()
 	rootCmd.PersistentFlags().StringVar(&dbPath, "db", defaultDBPath, "path to DuckDB index database file")
 	rootCmd.PersistentFlags().StringVar(&embDBDir, "embeddings-dir", defaultEmbDBDir, "directory for per-model DuckDB embedding files")
+	rootCmd.PersistentFlags().StringVar(&sumDBDir, "summaries-dir", defaultSumDBDir, "directory for per-model DuckDB summary files")
 	rootCmd.PersistentFlags().StringVar(&logPath, "log", "", "path to log file")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress progress output")
@@ -111,5 +115,15 @@ func getEmbeddingsDB(modelID string, dim int) (*db.DB, error) {
 
 func getReadOnlyEmbeddingsDB(modelID string) (*db.DB, error) {
 	path := db.EmbeddingsPathForModel(embDBDir, modelID)
+	return db.OpenReadOnly(path)
+}
+
+func getSummariesDB(modelID string) (*db.DB, error) {
+	path := db.SummariesPathForModel(sumDBDir, modelID)
+	return db.OpenSummaries(path)
+}
+
+func getReadOnlySummariesDB(modelID string) (*db.DB, error) {
+	path := db.SummariesPathForModel(sumDBDir, modelID)
 	return db.OpenReadOnly(path)
 }

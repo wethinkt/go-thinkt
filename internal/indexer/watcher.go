@@ -361,7 +361,7 @@ func (w *Watcher) reindexSession(realPath string, entry sessionIndexEntry) {
 			return
 		}
 
-		ingester := NewIngester(database, embDB, w.registry, w.embedder)
+		ingester := NewIngester(database, embDB, nil, w.registry, w.embedder, nil)
 		if err := ingester.IngestAndEmbedSession(ctx, entry.projectID, entry.session); err != nil {
 			tuilog.Log.Error("watcher: failed to re-index session", "session_id", entry.session.ID, "error", err)
 		}
