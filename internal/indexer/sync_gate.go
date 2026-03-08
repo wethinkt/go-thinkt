@@ -11,11 +11,14 @@ import (
 // fan-out. If a second caller arrives while the operation is running, it
 // subscribes to the progress stream and waits for the same result.
 type SyncGate struct {
-	mu     sync.Mutex
-	doneMu sync.Mutex // guards done, result, err reads/writes
+	stateMu sync.Mutex
+	run     *syncGateRun
+}
+
+type syncGateRun struct {
+	done   chan struct{}
 	subsMu sync.Mutex
 	subs   []rpcSubscriber
-	done   chan struct{}
 	result *rpc.Response
 	err    error
 }
@@ -31,75 +34,73 @@ var nextSubID atomic.Uint64
 // caller subscribes to its progress and blocks until it completes, returning
 // the same result. Only one fn runs at a time.
 func (g *SyncGate) Run(send func(rpc.Progress), fn func(broadcast func(rpc.Progress)) (*rpc.Response, error)) (*rpc.Response, error) {
-	if !g.mu.TryLock() {
-		remove := g.addSubscriber(send)
+	g.stateMu.Lock()
+	if run := g.run; run != nil {
+		remove := run.addSubscriber(send)
+		g.stateMu.Unlock()
 		defer remove()
-		// Snapshot done under doneMu so we always wait on the
-		// current run's channel, not a stale closed one.
-		g.doneMu.Lock()
-		ch := g.done
-		g.doneMu.Unlock()
-		<-ch
-		g.doneMu.Lock()
-		r, e := g.result, g.err
-		g.doneMu.Unlock()
-		return r, e
+
+		<-run.done
+		return run.result, run.err
 	}
-	defer g.mu.Unlock()
 
-	// Initialize done channel under doneMu before any subscriber can see it.
-	g.doneMu.Lock()
-	g.done = make(chan struct{})
-	g.doneMu.Unlock()
+	run := &syncGateRun{done: make(chan struct{})}
+	g.run = run
+	remove := run.addSubscriber(send)
+	g.stateMu.Unlock()
 
-	remove := g.addSubscriber(send)
+	defer remove()
 
-	defer func() {
-		remove()
-		// Close done after setting result/err, all under doneMu,
-		// so subscribers see consistent state.
-		g.doneMu.Lock()
-		close(g.done)
-		g.doneMu.Unlock()
-	}()
+	resp, err := fn(run.Broadcast)
 
-	resp, err := fn(g.Broadcast)
-	g.doneMu.Lock()
-	g.result, g.err = resp, err
-	g.doneMu.Unlock()
+	g.stateMu.Lock()
+	run.result, run.err = resp, err
+	close(run.done)
+	if g.run == run {
+		g.run = nil
+	}
+	g.stateMu.Unlock()
+
 	return resp, err
 }
 
 // WaitIdle blocks until no Run is in progress.
 func (g *SyncGate) WaitIdle() {
-	g.mu.Lock()
-	g.mu.Unlock() //nolint:SA2001 // intentional barrier
+	for {
+		g.stateMu.Lock()
+		run := g.run
+		g.stateMu.Unlock()
+		if run == nil {
+			return
+		}
+		<-run.done
+	}
 }
 
 // Broadcast sends a progress event to all subscribers.
-func (g *SyncGate) Broadcast(p rpc.Progress) {
-	g.subsMu.Lock()
-	snapshot := make([]rpcSubscriber, len(g.subs))
-	copy(snapshot, g.subs)
-	g.subsMu.Unlock()
+func (r *syncGateRun) Broadcast(p rpc.Progress) {
+	r.subsMu.Lock()
+	snapshot := make([]rpcSubscriber, len(r.subs))
+	copy(snapshot, r.subs)
+	r.subsMu.Unlock()
 
 	for _, sub := range snapshot {
 		sub.fn(p)
 	}
 }
 
-func (g *SyncGate) addSubscriber(fn func(rpc.Progress)) func() {
-	g.subsMu.Lock()
+func (r *syncGateRun) addSubscriber(fn func(rpc.Progress)) func() {
+	r.subsMu.Lock()
 	id := nextSubID.Add(1)
-	g.subs = append(g.subs, rpcSubscriber{id: id, fn: fn})
-	g.subsMu.Unlock()
+	r.subs = append(r.subs, rpcSubscriber{id: id, fn: fn})
+	r.subsMu.Unlock()
 
 	return func() {
-		g.subsMu.Lock()
-		defer g.subsMu.Unlock()
-		for i, sub := range g.subs {
+		r.subsMu.Lock()
+		defer r.subsMu.Unlock()
+		for i, sub := range r.subs {
 			if sub.id == id {
-				g.subs = append(g.subs[:i], g.subs[i+1:]...)
+				r.subs = append(r.subs[:i], r.subs[i+1:]...)
 				break
 			}
 		}
