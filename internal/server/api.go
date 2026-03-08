@@ -288,6 +288,8 @@ func (s *HTTPServer) handleGetSources(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param source query string false "Filter by source (e.g., 'claude', 'kimi')"
 // @Param include_deleted query bool false "Include projects with path_exists=false (default false)"
+// @Param limit query int false "Maximum number of projects to return (default: 20, 0 for all)"
+// @Param offset query int false "Number of projects to skip (default: 0)"
 // @Success 200 {object} ProjectsResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
@@ -295,7 +297,6 @@ func (s *HTTPServer) handleGetSources(w http.ResponseWriter, r *http.Request) {
 // @Router /projects [get]
 // @Security BearerAuth
 func (s *HTTPServer) handleGetProjects(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
 	sourceFilter := r.URL.Query().Get("source")
 	includeDeleted := false
 	if raw := strings.TrimSpace(r.URL.Query().Get("include_deleted")); raw != "" {
@@ -307,24 +308,16 @@ func (s *HTTPServer) handleGetProjects(w http.ResponseWriter, r *http.Request) {
 		includeDeleted = parsed
 	}
 
-	projects, err := s.registry.ListAllProjects(ctx)
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+
+	result, err := listProjects(r.Context(), s.registry, sourceFilter, includeDeleted, limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "list_projects_failed", err.Error())
 		return
 	}
 
-	filtered := make([]thinkt.Project, 0, len(projects))
-	for _, p := range projects {
-		if !includeDeleted && p.Path != "" && !p.PathExists {
-			continue
-		}
-		if sourceFilter != "" && string(p.Source) != sourceFilter {
-			continue
-		}
-		filtered = append(filtered, p)
-	}
-
-	writeJSON(w, http.StatusOK, ProjectsResponse{Projects: filtered})
+	writeJSON(w, http.StatusOK, ProjectsResponse{Projects: result.Projects})
 }
 
 // handleGetProjectSessionsBySource returns sessions for a project in a specific source.
@@ -429,11 +422,14 @@ func decodeProjectIDParam(rawProjectID string) (string, error) {
 // findSessionsForSourceProject finds sessions for a project in a specific source.
 func (s *HTTPServer) findSessionsForSourceProject(ctx context.Context, sourceName, projectID string) ([]thinkt.SessionMeta, error) {
 	source := thinkt.Source(strings.ToLower(strings.TrimSpace(sourceName)))
-	store, ok := s.registry.Get(source)
-	if !ok {
+	if _, ok := s.registry.Get(source); !ok {
 		return nil, &unknownSourceSessionsError{source: source}
 	}
-	return store.ListSessions(ctx, projectID, thinkt.WithEnrich(func(_ string, _ []thinkt.SessionMeta) {}))
+	result, err := listSessions(ctx, s.registry, source, projectID, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	return result.Sessions, nil
 }
 
 // findSessionsForProject finds sessions for a project across all stores.
@@ -443,13 +439,13 @@ func (s *HTTPServer) findSessionsForProject(ctx context.Context, projectID strin
 	var matched []thinkt.SessionMeta
 
 	for _, store := range s.registry.All() {
-		sessions, err := store.ListSessions(ctx, projectID, thinkt.WithEnrich(func(_ string, _ []thinkt.SessionMeta) {}))
-		if err != nil || len(sessions) == 0 {
+		result, err := listSessions(ctx, s.registry, store.Source(), projectID, 0, 0)
+		if err != nil || result.Total == 0 {
 			continue
 		}
 		sources = append(sources, store.Source())
 		if len(matched) == 0 {
-			matched = sessions
+			matched = result.Sessions
 		}
 	}
 

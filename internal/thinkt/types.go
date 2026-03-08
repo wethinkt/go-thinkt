@@ -5,6 +5,7 @@ package thinkt
 import (
 	"context"
 	"os"
+	"sort"
 	"sync"
 	"time"
 
@@ -453,9 +454,21 @@ func (r *StoreRegistry) AvailableSources(ctx context.Context) []Source {
 
 // ListAllProjects returns projects from all registered stores.
 // It checks whether each project's directory still exists on disk.
-func (r *StoreRegistry) ListAllProjects(ctx context.Context) ([]Project, error) {
+// Options can filter by source, exclude deleted projects, and paginate.
+func (r *StoreRegistry) ListAllProjects(ctx context.Context, opts ...ListProjectsOption) ([]Project, error) {
+	cfg := ResolveListProjectsOptions(opts)
+
+	// Build source filter set.
+	sourceSet := make(map[string]bool, len(cfg.Sources))
+	for _, s := range cfg.Sources {
+		sourceSet[s] = true
+	}
+
 	var all []Project
 	for _, store := range r.All() {
+		if len(sourceSet) > 0 && !sourceSet[string(store.Source())] {
+			continue
+		}
 		projects, err := store.ListProjects(ctx)
 		if err != nil {
 			tuilog.Log.Warn("thinkt registry: list projects failed", "source", store.Source(), "error", err)
@@ -467,6 +480,38 @@ func (r *StoreRegistry) ListAllProjects(ctx context.Context) ([]Project, error) 
 		}
 		all = append(all, projects...)
 	}
+
+	// Only apply filtering/sorting/pagination when options are provided.
+	if len(opts) == 0 {
+		return all, nil
+	}
+
+	// Filter deleted projects unless requested.
+	if !cfg.IncludeDeleted {
+		filtered := all[:0]
+		for _, p := range all {
+			if p.Path != "" && !p.PathExists {
+				continue
+			}
+			filtered = append(filtered, p)
+		}
+		all = filtered
+	}
+
+	// Sort by last modified descending.
+	sort.Slice(all, func(i, j int) bool { return all[i].LastModified.After(all[j].LastModified) })
+
+	// Paginate.
+	if cfg.Offset > 0 {
+		if cfg.Offset >= len(all) {
+			return []Project{}, nil
+		}
+		all = all[cfg.Offset:]
+	}
+	if cfg.Limit > 0 && cfg.Limit < len(all) {
+		all = all[:cfg.Limit]
+	}
+
 	return all, nil
 }
 

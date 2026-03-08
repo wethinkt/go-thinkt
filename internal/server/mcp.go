@@ -373,64 +373,15 @@ func (ms *MCPServer) handleListSources(ctx context.Context, req *mcp.CallToolReq
 }
 
 func (ms *MCPServer) handleListProjects(ctx context.Context, req *mcp.CallToolRequest, input listProjectsInput) (*mcp.CallToolResult, listProjectsOutput, error) {
-	// Try indexer RPC first for richer metadata.
-	if data, err := indexerListProjects(rpc.ListProjectsParams{
-		Source: input.Source,
-		Limit:  input.Limit,
-		Offset: input.Offset,
-	}); err == nil {
-		pInfos := make([]projectInfo, 0, len(data.Projects))
-		for _, p := range data.Projects {
-			pInfos = append(pInfos, projectInfo{ID: p.ID, Name: p.Name, Path: p.Path, SessionCount: p.SessionCount, Source: p.Source, PathExists: true})
-		}
-		output := listProjectsOutput{Projects: pInfos, Total: data.Total, Returned: data.Returned}
-		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
-	}
-
-	// Fallback: filesystem via StoreRegistry.
-	projects, err := ms.registry.ListAllProjects(ctx)
+	result, err := listProjects(ctx, ms.registry, input.Source, input.IncludeDeleted, input.Limit, input.Offset)
 	if err != nil {
 		return nil, listProjectsOutput{}, err
 	}
-	limit := input.Limit
-	if limit <= 0 {
-		limit = 20
+	pInfos := make([]projectInfo, 0, len(result.Projects))
+	for _, p := range result.Projects {
+		pInfos = append(pInfos, projectInfo{ID: p.ID, Name: p.Name, Path: p.Path, SessionCount: p.SessionCount, Source: string(p.Source), LastModified: p.LastModified, PathExists: p.PathExists})
 	}
-	var filtered []thinkt.Project
-	if input.Source != "" {
-		for _, p := range projects {
-			if !input.IncludeDeleted && p.Path != "" && !p.PathExists {
-				continue
-			}
-			if string(p.Source) == input.Source {
-				filtered = append(filtered, p)
-			}
-		}
-	} else {
-		for _, p := range projects {
-			if !input.IncludeDeleted && p.Path != "" && !p.PathExists {
-				continue
-			}
-			filtered = append(filtered, p)
-		}
-	}
-	sort.Slice(filtered, func(i, j int) bool { return filtered[i].LastModified.After(filtered[j].LastModified) })
-	total := len(filtered)
-	pInfos := []projectInfo{}
-	start := input.Offset
-	if start < 0 {
-		start = 0
-	}
-	if start < total {
-		end := start + limit
-		if end > total {
-			end = total
-		}
-		for _, p := range filtered[start:end] {
-			pInfos = append(pInfos, projectInfo{ID: p.ID, Name: p.Name, Path: p.Path, SessionCount: p.SessionCount, Source: string(p.Source), LastModified: p.LastModified, PathExists: p.PathExists})
-		}
-	}
-	output := listProjectsOutput{Projects: pInfos, Total: total, Returned: len(pInfos)}
+	output := listProjectsOutput{Projects: pInfos, Total: result.Total, Returned: result.Returned}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
 }
 
@@ -444,71 +395,29 @@ func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRe
 		r, _, err := toolErrorResult("missing_source", "source is required", nil)
 		return r, errorListSessionsOutput("missing_source", "source is required", nil), err
 	}
-
-	// Try indexer RPC first for richer metadata (accurate entry_count, model).
-	if data, err := indexerListSessions(rpc.ListSessionsParams{
-		ProjectID: input.ProjectID,
-		Source:    string(source),
-		Limit:    input.Limit,
-		Offset:   input.Offset,
-	}); err == nil && data.Total > 0 {
-		sInfos := make([]sessionInfo, 0, len(data.Sessions))
-		for _, s := range data.Sessions {
-			sInfos = append(sInfos, sessionInfo{
-				ID:         s.ID,
-				Path:       s.Path,
-				EntryCount: s.EntryCount,
-				Model:      s.Model,
-				CreatedAt:  s.CreatedAt,
-				ModifiedAt: s.UpdatedAt,
-			})
-		}
-		output := listSessionsOutput{Sessions: sInfos, Total: data.Total, Returned: data.Returned}
-		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
-	}
-
-	// Fallback: filesystem via StoreRegistry.
-	limit := input.Limit
-	if limit <= 0 {
-		limit = 20
-	}
-	start := input.Offset
-	if start < 0 {
-		start = 0
-	}
-
-	store, ok := ms.registry.Get(source)
-	if !ok {
+	if _, ok := ms.registry.Get(source); !ok {
 		r, _, err := toolErrorResult("unknown_source", fmt.Sprintf("unknown source: %s", source), nil)
 		return r, errorListSessionsOutput("unknown_source", fmt.Sprintf("unknown source: %s", source), nil), err
 	}
-	allSessions, err := store.ListSessions(ctx, input.ProjectID, thinkt.WithEnrich(func(_ string, _ []thinkt.SessionMeta) {}))
+
+	result, err := listSessions(ctx, ms.registry, source, input.ProjectID, input.Limit, input.Offset)
 	if err != nil {
 		r, _, retErr := toolErrorResult("list_sessions_failed", "failed to list sessions", err)
 		return r, errorListSessionsOutput("list_sessions_failed", "failed to list sessions", err), retErr
 	}
 
-	sort.Slice(allSessions, func(i, j int) bool { return allSessions[i].ModifiedAt.After(allSessions[j].ModifiedAt) })
-
-	total := len(allSessions)
-	sInfos := []sessionInfo{}
-	if start < total {
-		end := start + limit
-		if end > total {
-			end = total
+	sInfos := make([]sessionInfo, 0, len(result.Sessions))
+	for _, s := range result.Sessions {
+		si := sessionInfo{ID: s.ID, Path: s.FullPath, EntryCount: s.EntryCount, FileSize: s.FileSize, Source: string(s.Source), Model: s.Model}
+		if !s.CreatedAt.IsZero() {
+			si.CreatedAt = s.CreatedAt.Format(time.RFC3339)
 		}
-		for _, s := range allSessions[start:end] {
-			si := sessionInfo{ID: s.ID, Path: s.FullPath, EntryCount: s.EntryCount, FileSize: s.FileSize, Source: string(s.Source), Model: s.Model}
-			if !s.CreatedAt.IsZero() {
-				si.CreatedAt = s.CreatedAt.Format(time.RFC3339)
-			}
-			if !s.ModifiedAt.IsZero() {
-				si.ModifiedAt = s.ModifiedAt.Format(time.RFC3339)
-			}
-			sInfos = append(sInfos, si)
+		if !s.ModifiedAt.IsZero() {
+			si.ModifiedAt = s.ModifiedAt.Format(time.RFC3339)
 		}
+		sInfos = append(sInfos, si)
 	}
-	output := listSessionsOutput{Sessions: sInfos, Total: total, Returned: len(sInfos)}
+	output := listSessionsOutput{Sessions: sInfos, Total: result.Total, Returned: result.Returned}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
 }
 

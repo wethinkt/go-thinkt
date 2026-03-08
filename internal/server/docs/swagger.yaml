@@ -994,6 +994,14 @@ paths:
         in: query
         name: include_deleted
         type: boolean
+      - description: 'Maximum number of projects to return (default: 20, 0 for all)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Number of projects to skip (default: 0)'
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
