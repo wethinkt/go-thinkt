@@ -74,7 +74,7 @@ func buildHub() *agents.AgentHub {
 	detector := thinkt.NewActiveSessionDetector(registry)
 
 	// Find collector URLs from running instances
-	var collectorURLs []string
+	var collectors []agents.CollectorEndpoint
 	instances, err := config.ListInstances()
 	if err == nil {
 		for _, inst := range instances {
@@ -83,14 +83,17 @@ func buildHub() *agents.AgentHub {
 				if host == "" {
 					host = "localhost"
 				}
-				collectorURLs = append(collectorURLs, fmt.Sprintf("http://%s:%d", host, inst.Port))
+				collectors = append(collectors, agents.CollectorEndpoint{
+					URL:   fmt.Sprintf("http://%s:%d", host, inst.Port),
+					Token: inst.Token,
+				})
 			}
 		}
 	}
 
 	return agents.NewHub(agents.HubConfig{
-		Detector:      detector,
-		CollectorURLs: collectorURLs,
+		Detector:   detector,
+		Collectors: collectors,
 	})
 }
 

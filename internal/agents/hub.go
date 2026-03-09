@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"sync"
@@ -17,11 +18,17 @@ import (
 // DefaultPollInterval is how often the hub refreshes its agent list.
 const DefaultPollInterval = 5 * time.Second
 
+type CollectorEndpoint struct {
+	URL   string
+	Token string
+}
+
 // HubConfig configures the AgentHub.
 type HubConfig struct {
-	CollectorURLs []string
-	PollInterval  time.Duration
-	Detector      *thinkt.ActiveSessionDetector
+	Collectors   []CollectorEndpoint
+	PollInterval time.Duration
+	Detector     *thinkt.ActiveSessionDetector
+	HTTPClient   *http.Client
 }
 
 // AgentHub merges local and remote agent detection into a single queryable interface.
@@ -29,6 +36,7 @@ type AgentHub struct {
 	config      HubConfig
 	detector    *thinkt.ActiveSessionDetector
 	localFP     string
+	httpClient  *http.Client
 	mu          sync.RWMutex
 	agents      []UnifiedAgent
 	subscribers []*hubSubscriber
@@ -44,13 +52,17 @@ func NewHub(cfg HubConfig) *AgentHub {
 	if cfg.PollInterval == 0 {
 		cfg.PollInterval = DefaultPollInterval
 	}
+	if cfg.HTTPClient == nil {
+		cfg.HTTPClient = &http.Client{Timeout: 5 * time.Second}
+	}
 
 	localFP, _ := fingerprint.GetFingerprint()
 
 	h := &AgentHub{
-		config:   cfg,
-		detector: cfg.Detector,
-		localFP:  localFP,
+		config:     cfg,
+		detector:   cfg.Detector,
+		localFP:    localFP,
+		httpClient: cfg.HTTPClient,
 	}
 
 	return h
@@ -142,8 +154,7 @@ func (h *AgentHub) Stream(ctx context.Context, agentID string, backlog int) (<-c
 
 	if agent.CollectorURL != "" {
 		wsURL := agent.CollectorURL + "/v1/sessions/" + agent.SessionID + "/ws"
-		// TODO: pass auth token from config
-		return StreamRemote(ctx, wsURL, "")
+		return streamRemoteFn(ctx, wsURL, agent.CollectorToken)
 	}
 
 	return nil, fmt.Errorf("no stream source for agent %s", agentID)
@@ -204,8 +215,8 @@ func (h *AgentHub) poll(ctx context.Context) {
 	}
 
 	// Remote collectors
-	for _, url := range h.config.CollectorURLs {
-		remotes := h.fetchRemoteAgents(ctx, url)
+	for _, collector := range h.config.Collectors {
+		remotes := h.fetchRemoteAgents(ctx, collector)
 		newAgents = append(newAgents, remotes...)
 	}
 
@@ -237,22 +248,35 @@ func (h *AgentHub) poll(ctx context.Context) {
 	h.mu.Unlock()
 }
 
-func (h *AgentHub) fetchRemoteAgents(ctx context.Context, collectorURL string) []UnifiedAgent {
-	client := &http.Client{Timeout: 5 * time.Second}
+var streamRemoteFn = StreamRemote
 
-	req, err := http.NewRequestWithContext(ctx, "GET", collectorURL+"/v1/agents", nil)
+func (h *AgentHub) fetchRemoteAgents(ctx context.Context, collector CollectorEndpoint) []UnifiedAgent {
+	req, err := http.NewRequestWithContext(ctx, "GET", collector.URL+"/v1/agents", nil)
 	if err != nil {
 		return nil
 	}
+	if collector.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+collector.Token)
+	}
 
-	resp, err := client.Do(req)
+	resp, err := h.httpClient.Do(req)
 	if err != nil {
-		tuilog.Log.Warn("Failed to fetch remote agents", "url", collectorURL, "error", err)
+		tuilog.Log.Warn("Failed to fetch remote agents", "url", collector.URL, "error", err)
 		return nil
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		fields := []any{"url", collector.URL, "status", resp.StatusCode}
+		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+			fields = append(fields, "auth", "collector token rejected or missing")
+		}
+		if body, err := io.ReadAll(io.LimitReader(resp.Body, 512)); err == nil {
+			if text := string(body); text != "" {
+				fields = append(fields, "body", text)
+			}
+		}
+		tuilog.Log.Warn("Failed to fetch remote agents", fields...)
 		return nil
 	}
 
@@ -277,21 +301,22 @@ func (h *AgentHub) fetchRemoteAgents(ctx context.Context, collectorURL string) [
 	var result []UnifiedAgent
 	for _, a := range agents {
 		result = append(result, UnifiedAgent{
-			ID:           a.InstanceID,
-			Source:       a.Platform,
-			ProjectPath:  a.Project,
-			SessionID:    a.InstanceID, // remote agents use instance ID as session
-			Hostname:     a.Hostname,
-			Status:       a.Status,
-			DetectedAt:   a.StartedAt,
-			LastSeen:     a.LastHeartbeat,
-			MachineID:    a.MachineID,
-			MachineName:  a.Hostname,
-			InstanceID:   a.InstanceID,
-			Region:       a.Region,
-			Version:      a.Version,
-			TraceCount:   a.TraceCount,
-			CollectorURL: collectorURL,
+			ID:             a.InstanceID,
+			Source:         a.Platform,
+			ProjectPath:    a.Project,
+			SessionID:      a.InstanceID, // remote agents use instance ID as session
+			Hostname:       a.Hostname,
+			Status:         a.Status,
+			DetectedAt:     a.StartedAt,
+			LastSeen:       a.LastHeartbeat,
+			MachineID:      a.MachineID,
+			MachineName:    a.Hostname,
+			InstanceID:     a.InstanceID,
+			Region:         a.Region,
+			Version:        a.Version,
+			TraceCount:     a.TraceCount,
+			CollectorURL:   collector.URL,
+			CollectorToken: collector.Token,
 		})
 	}
 	return result

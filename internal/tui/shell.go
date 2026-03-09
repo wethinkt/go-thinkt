@@ -852,7 +852,7 @@ func (s *Shell) PushAgentsPage() (tea.Cmd, bool) {
 	if s.hub == nil {
 		detector := thinkt.NewActiveSessionDetector(s.registry)
 
-		var collectorURLs []string
+		var collectors []agents.CollectorEndpoint
 		instances, err := config.ListInstances()
 		if err == nil {
 			for _, inst := range instances {
@@ -861,14 +861,17 @@ func (s *Shell) PushAgentsPage() (tea.Cmd, bool) {
 					if host == "" {
 						host = "localhost"
 					}
-					collectorURLs = append(collectorURLs, fmt.Sprintf("http://%s:%d", host, inst.Port))
+					collectors = append(collectors, agents.CollectorEndpoint{
+						URL:   fmt.Sprintf("http://%s:%d", host, inst.Port),
+						Token: inst.Token,
+					})
 				}
 			}
 		}
 
 		s.hub = agents.NewHub(agents.HubConfig{
-			Detector:      detector,
-			CollectorURLs: collectorURLs,
+			Detector:   detector,
+			Collectors: collectors,
 		})
 	}
 

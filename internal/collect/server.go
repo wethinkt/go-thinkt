@@ -142,6 +142,7 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		PID:       os.Getpid(),
 		Port:      s.config.Port,
 		Host:      s.config.Host,
+		Token:     s.config.Token,
 		StartedAt: time.Now(),
 	}
 	if err := config.RegisterInstance(inst); err != nil {
