@@ -28,8 +28,8 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:          "thinkt-indexer",
-	Short:        "DuckDB-powered indexer for thinkt",
+	Use:           "thinkt-indexer",
+	Short:         "DuckDB-powered indexer for thinkt",
 	SilenceUsage:  true, // Don't show usage on RunE errors
 	SilenceErrors: true, // Prevent Cobra from printing errors (we handle them in Execute)
 	Long: `thinkt-indexer provides a specialized tool for indexing and searching
@@ -121,9 +121,4 @@ func getReadOnlyEmbeddingsDB(modelID string) (*db.DB, error) {
 func getSummariesDB(modelID string) (*db.DB, error) {
 	path := db.SummariesPathForModel(sumDBDir, modelID)
 	return db.OpenSummaries(path)
-}
-
-func getReadOnlySummariesDB(modelID string) (*db.DB, error) {
-	path := db.SummariesPathForModel(sumDBDir, modelID)
-	return db.OpenReadOnly(path)
 }
