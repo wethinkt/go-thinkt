@@ -26,4 +26,3 @@ func TestIsSessionPath_FallbackQwenProjectsPath(t *testing.T) {
 		t.Fatalf("expected fallback .qwen/projects path to match: %s", path)
 	}
 }
-

@@ -236,4 +236,3 @@ func buildTeamSummary(ctx context.Context, ts thinkt.TeamStore, team thinkt.Team
 
 	return s
 }
-

@@ -28,4 +28,3 @@ func TestIsSessionPath_KnownContextFileNames(t *testing.T) {
 		t.Fatalf("expected context_sub_*.jsonl to be recognized")
 	}
 }
-

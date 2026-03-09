@@ -15,10 +15,10 @@ import (
 type MetadataCache struct {
 	mu        sync.RWMutex
 	Version   int                      `json:"version"`
-	Source    Source                    `json:"source"`
+	Source    Source                   `json:"source"`
 	UpdatedAt time.Time                `json:"updated_at"`
 	Sessions  map[string]CachedSession `json:"sessions"`
-	dir       string // cache directory path (not serialized)
+	dir       string                   // cache directory path (not serialized)
 }
 
 // CachedSession holds the expensive-to-compute metadata for a single session file.
@@ -38,7 +38,7 @@ type CachedSession struct {
 // metadataCacheJSON is the on-disk representation without the mutex.
 type metadataCacheJSON struct {
 	Version   int                      `json:"version"`
-	Source    Source                    `json:"source"`
+	Source    Source                   `json:"source"`
 	UpdatedAt time.Time                `json:"updated_at"`
 	Sessions  map[string]CachedSession `json:"sessions"`
 }

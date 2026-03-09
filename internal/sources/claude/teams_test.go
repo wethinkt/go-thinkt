@@ -95,11 +95,11 @@ func TestTeamStoreGetTeamTasks(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(tasksDir, "1.json"), data1, 0644)
 
 	task2 := taskFile{
-		ID:          "2",
-		Subject:     "Do more",
-		Status:      "pending",
-		BlockedBy:   []string{"1"},
-		Metadata:    json.RawMessage(`{"_internal": true}`),
+		ID:        "2",
+		Subject:   "Do more",
+		Status:    "pending",
+		BlockedBy: []string{"1"},
+		Metadata:  json.RawMessage(`{"_internal": true}`),
 	}
 	data2, _ := json.Marshal(task2)
 	_ = os.WriteFile(filepath.Join(tasksDir, "2.json"), data2, 0644)

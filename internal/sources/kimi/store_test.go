@@ -445,7 +445,7 @@ func TestFirstPromptExtraction(t *testing.T) {
 	})
 
 	count, firstPrompt := store.countEntriesAndFirstPrompt(filepath.Join(sessionDir, "context.jsonl"))
-	
+
 	if count != 4 { // includes checkpoint
 		t.Errorf("expected count 4, got %d", count)
 	}

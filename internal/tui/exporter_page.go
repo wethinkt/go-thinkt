@@ -23,7 +23,7 @@ type ExporterPageResult struct {
 type ExporterPageModel struct {
 	width, height int
 	stats         export.ExporterStats
-	viewport viewport.Model
+	viewport      viewport.Model
 	ready         bool
 }
 

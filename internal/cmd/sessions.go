@@ -273,11 +273,11 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 	}
 
 	formatter := cli.NewSessionsFormatter(os.Stdout)
-	
+
 	if sessionJSON {
 		return formatter.FormatJSON(sessions)
 	}
-	
+
 	return formatter.FormatList(sessions)
 }
 

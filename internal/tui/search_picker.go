@@ -291,7 +291,7 @@ type SearchPickerModel struct {
 	width      int
 	height     int
 	ready      bool
-	standalone bool // true when run via PickSearchResult(), false when embedded in Shell
+	standalone bool   // true when run via PickSearchResult(), false when embedded in Shell
 	query      string // the search query (for display)
 }
 

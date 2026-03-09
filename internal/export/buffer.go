@@ -16,8 +16,8 @@ import (
 // collector is unreachable. Payloads are stored as individual JSON files
 // in the buffer directory and drained in chronological order.
 type DiskBuffer struct {
-	dir       string
-	maxBytes  int64
+	dir      string
+	maxBytes int64
 }
 
 // NewDiskBuffer creates a new DiskBuffer at the given directory with a size limit.

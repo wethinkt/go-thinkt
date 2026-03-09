@@ -53,4 +53,3 @@ func TestSyncProgress_ShouldShowProgress(t *testing.T) {
 		})
 	}
 }
-

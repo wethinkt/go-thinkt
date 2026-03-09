@@ -11,15 +11,15 @@ import (
 
 // Session represents a Claude Code conversation session.
 type Session struct {
-	ID        string     // Session UUID
-	Path      string     // Path to the JSONL trace file
-	Branch    string     // Git branch (if available)
-	Model     string     // Model used (e.g., "claude-opus-4-5-20251101")
-	Version   string     // Claude Code version
-	CWD       string     // Working directory
-	StartTime time.Time  // First entry timestamp
-	EndTime   time.Time  // Last entry timestamp
-	Entries   []Entry    // All entries in the session
+	ID        string    // Session UUID
+	Path      string    // Path to the JSONL trace file
+	Branch    string    // Git branch (if available)
+	Model     string    // Model used (e.g., "claude-opus-4-5-20251101")
+	Version   string    // Claude Code version
+	CWD       string    // Working directory
+	StartTime time.Time // First entry timestamp
+	EndTime   time.Time // Last entry timestamp
+	Entries   []Entry   // All entries in the session
 }
 
 // Duration returns the session duration.

@@ -15,7 +15,7 @@ import (
 // SourceOption represents a source in the picker.
 type SourceOption struct {
 	Source   thinkt.Source
-	Enabled bool // whether this source has data
+	Enabled  bool // whether this source has data
 	Selected bool // current selection state
 }
 

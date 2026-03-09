@@ -39,7 +39,7 @@ func TestNormalizeEntry_PreservesExplicitFlags(t *testing.T) {
 		Role:        "assistant",
 		HasThinking: true,
 		HasToolUse:  true,
-		ThinkingLen: 0, // Even with zero thinking_len, explicit flag is preserved
+		ThinkingLen: 0,  // Even with zero thinking_len, explicit flag is preserved
 		ToolName:    "", // Even with empty tool_name, explicit flag is preserved
 	}
 	if err := normalizeEntry(&e); err != nil {

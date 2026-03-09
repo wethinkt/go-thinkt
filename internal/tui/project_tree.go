@@ -17,8 +17,8 @@ const (
 
 // treeNode is the internal tree representation before flattening.
 type treeNode struct {
-	label    string              // display segment: compacted path for dirs, project name for leaves
-	fullPath string              // full path to this point
+	label    string // display segment: compacted path for dirs, project name for leaves
+	fullPath string // full path to this point
 	kind     treeNodeKind
 	expanded bool
 	children []*treeNode

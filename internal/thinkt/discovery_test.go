@@ -142,8 +142,10 @@ type detailedMockStore struct {
 	sessions map[string][]SessionMeta // projectID -> sessions
 }
 
-func (m *detailedMockStore) Source() Source                { return m.source }
-func (m *detailedMockStore) Workspace() Workspace         { return Workspace{ID: "test-ws", Source: m.source, BasePath: "/test"} }
+func (m *detailedMockStore) Source() Source { return m.source }
+func (m *detailedMockStore) Workspace() Workspace {
+	return Workspace{ID: "test-ws", Source: m.source, BasePath: "/test"}
+}
 func (m *detailedMockStore) ListProjects(ctx context.Context) ([]Project, error) {
 	return m.projects, nil
 }

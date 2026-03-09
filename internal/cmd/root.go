@@ -28,8 +28,8 @@ var (
 
 // rootCmd is the root command for the CLI.
 var rootCmd = &cobra.Command{
-	Use:          "thinkt",
-	Short:        "Tools for AI assistant session exploration and extraction",
+	Use:           "thinkt",
+	Short:         "Tools for AI assistant session exploration and extraction",
 	SilenceErrors: true,
 	Long: `thinkt provides tools for exploring and extracting data from AI coding assistant sessions.
 

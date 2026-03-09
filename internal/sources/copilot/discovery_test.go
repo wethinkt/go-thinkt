@@ -25,4 +25,3 @@ func TestIsSessionPath_EventsFileName(t *testing.T) {
 		t.Fatalf("expected events.jsonl to be recognized")
 	}
 }
-

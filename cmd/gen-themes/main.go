@@ -18,7 +18,7 @@ import (
 
 // scheme defines an iTerm2 color scheme to import.
 type scheme struct {
-	itermName string // filename in the iTerm2-Color-Schemes repo (without .itermcolors)
+	itermName  string // filename in the iTerm2-Color-Schemes repo (without .itermcolors)
 	thinktName string // kebab-case name for the thinkt theme
 }
 

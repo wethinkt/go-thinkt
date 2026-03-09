@@ -8,8 +8,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/hybridgroup/yzma/pkg/llama"
+	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 )
 

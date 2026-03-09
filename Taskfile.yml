@@ -121,6 +121,11 @@ tasks:
     cmds:
       - rm -rf {{.BIN_DIR}}
 
+  go-fmt-fix:
+    desc: Format all Go files
+    cmds:
+      - gofmt -l -w .
+
   lint:
     desc: Run golangci-lint with errcheck
     cmds:

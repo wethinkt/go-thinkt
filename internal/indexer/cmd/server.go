@@ -20,9 +20,9 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/indexer"
 	"github.com/wethinkt/go-thinkt/internal/indexer/db"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
-	"github.com/wethinkt/go-thinkt/internal/indexer/summarize"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
+	"github.com/wethinkt/go-thinkt/internal/indexer/summarize"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )

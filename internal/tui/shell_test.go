@@ -101,4 +101,3 @@ func TestShellPopPageRebroadcastsFullWindowSize(t *testing.T) {
 		t.Fatalf("expected revealed child size 120x39, got %dx%d", revealed.lastWidth, revealed.lastHeight)
 	}
 }
-

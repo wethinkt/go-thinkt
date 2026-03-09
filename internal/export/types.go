@@ -11,8 +11,8 @@ import (
 
 // WatchDir pairs a directory path with its source identity and watch configuration.
 type WatchDir struct {
-	Path   string            // Absolute path to the source's base directory
-	Source string            // Source name (e.g. "claude", "kimi")
+	Path   string             // Absolute path to the source's base directory
+	Source string             // Source name (e.g. "claude", "kimi")
 	Config thinkt.WatchConfig // Per-source watch configuration
 }
 
@@ -86,8 +86,8 @@ func NormalizeCollectorURL(u string) string {
 // TracePayload is the HTTP POST body for /v1/traces.
 type TracePayload struct {
 	InstanceID  string         `json:"instance_id"`
-	Source      string         `json:"source"`       // "claude", "kimi", etc.
-	ProjectPath string        `json:"project_path"`
+	Source      string         `json:"source"` // "claude", "kimi", etc.
+	ProjectPath string         `json:"project_path"`
 	SessionID   string         `json:"session_id"`
 	Entries     []TraceEntry   `json:"entries"`
 	MachineID   string         `json:"machine_id,omitempty"`

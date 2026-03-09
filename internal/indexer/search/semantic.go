@@ -10,7 +10,7 @@ import (
 type SemanticSearchOptions struct {
 	QueryEmbedding []float32
 	Model          string
-	Dim            int     // Embedding dimension (e.g. 768, 1024)
+	Dim            int // Embedding dimension (e.g. 768, 1024)
 	FilterProject  string
 	FilterSource   string
 	FilterTier     string // "conversation" (default), "reasoning", "all", or "" (defaults to "conversation")
@@ -21,22 +21,22 @@ type SemanticSearchOptions struct {
 
 // SemanticResult represents a single semantic search hit.
 type SemanticResult struct {
-	SessionID    string  `json:"session_id"`
-	EntryUUID    string  `json:"entry_uuid"`
-	ChunkIndex   int     `json:"chunk_index"`
-	TotalChunks  int     `json:"total_chunks"`
-	Distance     float64 `json:"distance"`
-	Tier         string  `json:"tier,omitempty"`
-	Role         string  `json:"role,omitempty"`
-	Timestamp    string  `json:"timestamp,omitempty"`
-	ToolName     string  `json:"tool_name,omitempty"`
-	WordCount    int     `json:"word_count,omitempty"`
-	ProjectName  string  `json:"project_name,omitempty"`
-	Source       string  `json:"source,omitempty"`
-	SessionPath  string  `json:"session_path,omitempty"`
-	FirstPrompt  string  `json:"first_prompt,omitempty"`
-	LineNumber   int     `json:"line_number,omitempty"`
-	Score        float64 `json:"score,omitempty"` // Combined relevance + diversity score
+	SessionID   string  `json:"session_id"`
+	EntryUUID   string  `json:"entry_uuid"`
+	ChunkIndex  int     `json:"chunk_index"`
+	TotalChunks int     `json:"total_chunks"`
+	Distance    float64 `json:"distance"`
+	Tier        string  `json:"tier,omitempty"`
+	Role        string  `json:"role,omitempty"`
+	Timestamp   string  `json:"timestamp,omitempty"`
+	ToolName    string  `json:"tool_name,omitempty"`
+	WordCount   int     `json:"word_count,omitempty"`
+	ProjectName string  `json:"project_name,omitempty"`
+	Source      string  `json:"source,omitempty"`
+	SessionPath string  `json:"session_path,omitempty"`
+	FirstPrompt string  `json:"first_prompt,omitempty"`
+	LineNumber  int     `json:"line_number,omitempty"`
+	Score       float64 `json:"score,omitempty"` // Combined relevance + diversity score
 }
 
 // SemanticSearch queries the embeddings table for vectors similar to the query.
@@ -191,10 +191,10 @@ func (s *Service) fetchResults(opts SemanticSearchOptions, limit int) ([]Semanti
 
 	// Lookup entry metadata
 	type entryMeta struct {
-		role      string
-		timestamp string
-		toolName  string
-		wordCount int
+		role       string
+		timestamp  string
+		toolName   string
+		wordCount  int
 		lineNumber int
 	}
 	entryMetaMap := make(map[entryKey]entryMeta)

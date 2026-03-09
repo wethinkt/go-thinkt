@@ -37,8 +37,8 @@ func TestListSessions_MergesFromCache(t *testing.T) {
 
 	// Pre-populate the metadata cache file with enriched data.
 	mc := &thinkt.MetadataCache{
-		Version:  1,
-		Source:   thinkt.SourceClaude,
+		Version: 1,
+		Source:  thinkt.SourceClaude,
 		Sessions: map[string]thinkt.CachedSession{
 			sessPath: {
 				FirstPrompt: "Cached prompt text",

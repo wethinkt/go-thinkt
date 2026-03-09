@@ -24,4 +24,3 @@ func TestIsSessionPath_BoundarySafe(t *testing.T) {
 		t.Fatalf("expected non-json path to not match: %s", wrongExt)
 	}
 }
-

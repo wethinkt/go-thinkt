@@ -9,11 +9,11 @@ import (
 
 // AppConfig defines a launchable application for the open-in feature.
 type AppConfig struct {
-	ID      string   `json:"id"`                  // Short identifier (e.g., "finder", "vscode")
-	Name    string   `json:"name"`                // Display name (e.g., "Finder", "VS Code")
-	Exec    []string `json:"exec,omitempty"`      // Command and args; {} is replaced with path
-	ExecRun []string `json:"exec_run,omitempty"`  // Command to run a shell command in this app; {} is replaced inline
-	Enabled bool     `json:"enabled"`             // Whether this app is enabled
+	ID      string   `json:"id"`                 // Short identifier (e.g., "finder", "vscode")
+	Name    string   `json:"name"`               // Display name (e.g., "Finder", "VS Code")
+	Exec    []string `json:"exec,omitempty"`     // Command and args; {} is replaced with path
+	ExecRun []string `json:"exec_run,omitempty"` // Command to run a shell command in this app; {} is replaced inline
+	Enabled bool     `json:"enabled"`            // Whether this app is enabled
 }
 
 // AppInfo is the public API representation of an app (excludes Exec).
@@ -152,7 +152,6 @@ func filterAvailable(apps []AppConfig) []AppConfig {
 	return available
 }
 
-
 // validateApps validates loaded apps against the hardcoded trusted list.
 // Only apps with IDs matching defaults are kept. The Exec field is always
 // taken from the trusted list (never from disk) to prevent command injection
@@ -249,7 +248,7 @@ func DetectTerminalFrom(apps []AppConfig, termProgram, term string) string {
 	// Known TERM_PROGRAM values that don't match app ID/Name directly
 	termProgramMap := map[string]string{
 		"Apple_Terminal": "terminal",
-		"iTerm.app":     "iterm",
+		"iTerm.app":      "iterm",
 	}
 
 	if termProgram != "" {

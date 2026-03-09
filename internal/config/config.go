@@ -11,15 +11,15 @@ import (
 )
 
 const (
-	envHome           = "THINKT_HOME"
-	defaultDirName    = ".thinkt"
-	defaultConfigFile = "config.json"
-	defaultTheme      = "dark"
+	envHome                   = "THINKT_HOME"
+	defaultDirName            = ".thinkt"
+	defaultConfigFile         = "config.json"
+	defaultTheme              = "dark"
 	defaultEmbedModel         = "nomic-embed-text-v1.5"
 	defaultSummarizationModel = "qwen2.5-3b-instruct"
-	defaultDebounce   = "2s"
-	defaultDirPerms   = 0755
-	defaultFilePerms  = 0600
+	defaultDebounce           = "2s"
+	defaultDirPerms           = 0755
+	defaultFilePerms          = 0600
 )
 
 // ErrNoConfig is returned by Load when no config file exists on disk.
@@ -33,15 +33,15 @@ type SourceConfig struct {
 
 // Config holds the thinkt configuration.
 type Config struct {
-	Sources      map[string]SourceConfig `json:"sources,omitempty"`       // Per-source enabled/disabled settings
-	DiscoveredAt *time.Time              `json:"discovered_at,omitempty"` // When discover wizard last ran
-	Theme        string                  `json:"theme"`                   // Name of the active theme
-	Language     string                  `json:"language,omitempty"`      // BCP 47 language tag (e.g., "en", "zh-Hans", "ja")
-	Terminal     string                  `json:"terminal,omitempty"`      // App ID for default terminal (e.g., "ghostty", "kitty")
-	AllowedApps  []AppConfig             `json:"allowed_apps,omitempty"`  // Apps allowed for open-in
-	Embedding     EmbeddingConfig      `json:"embedding"`      // Embedding settings
-	Summarization SummarizationConfig `json:"summarization"` // Summarization settings
-	Indexer       IndexerConfig       `json:"indexer"`       // Indexer settings
+	Sources       map[string]SourceConfig `json:"sources,omitempty"`       // Per-source enabled/disabled settings
+	DiscoveredAt  *time.Time              `json:"discovered_at,omitempty"` // When discover wizard last ran
+	Theme         string                  `json:"theme"`                   // Name of the active theme
+	Language      string                  `json:"language,omitempty"`      // BCP 47 language tag (e.g., "en", "zh-Hans", "ja")
+	Terminal      string                  `json:"terminal,omitempty"`      // App ID for default terminal (e.g., "ghostty", "kitty")
+	AllowedApps   []AppConfig             `json:"allowed_apps,omitempty"`  // Apps allowed for open-in
+	Embedding     EmbeddingConfig         `json:"embedding"`               // Embedding settings
+	Summarization SummarizationConfig     `json:"summarization"`           // Summarization settings
+	Indexer       IndexerConfig           `json:"indexer"`                 // Indexer settings
 }
 
 // EmbeddingConfig holds embedding-related settings.

@@ -188,9 +188,9 @@ func printCheatSheet() {
 }
 
 type cheatCommand struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Subcommands []cheatCommand  `json:"subcommands,omitempty"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Subcommands []cheatCommand `json:"subcommands,omitempty"`
 }
 
 func printCheatSheetJSON() error {

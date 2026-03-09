@@ -58,11 +58,11 @@ type sourceResult struct {
 
 // Result holds the final output of the setup wizard.
 type Result struct {
-	Language   string
-	HomeDir    string
-	Sources    map[string]bool
-	Apps       map[string]bool // app ID -> enabled
-	Terminal   string          // default terminal app ID
+	Language       string
+	HomeDir        string
+	Sources        map[string]bool
+	Apps           map[string]bool // app ID -> enabled
+	Terminal       string          // default terminal app ID
 	Indexer        bool
 	Embeddings     bool
 	EmbeddingModel string // embedding model ID

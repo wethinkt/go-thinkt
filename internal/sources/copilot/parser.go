@@ -82,7 +82,7 @@ func (p *Parser) convertEvent(e Event) *thinkt.Entry {
 		_ = json.Unmarshal(dataBytes, &msgData) // Ignore error, msgData will be zero-valued on failure
 
 		entry.Metadata["message_id"] = msgData.MessageID
-		
+
 		// Add text content
 		if msgData.Content != "" {
 			entry.ContentBlocks = append(entry.ContentBlocks, thinkt.ContentBlock{
@@ -120,10 +120,10 @@ func (p *Parser) convertEvent(e Event) *thinkt.Entry {
 		// Copilot CLI seems to use tool.execution_complete for results
 		// Let's check the data for success
 		entry.Role = thinkt.RoleTool
-		
+
 		// Manual extraction since structure varies
 		toolCallID, _ := e.Data["toolCallId"].(string)
-		
+
 		var resultStr string
 		if result, ok := e.Data["result"]; ok {
 			// Result can be complex object
@@ -151,7 +151,7 @@ func (p *Parser) convertEvent(e Event) *thinkt.Entry {
 		entry.Role = thinkt.RoleTool
 		toolCallID, _ := e.Data["toolCallId"].(string)
 		errorMsg, _ := e.Data["error"].(string)
-		
+
 		entry.ContentBlocks = append(entry.ContentBlocks, thinkt.ContentBlock{
 			Type:       "tool_result",
 			ToolUseID:  toolCallID,
@@ -160,7 +160,7 @@ func (p *Parser) convertEvent(e Event) *thinkt.Entry {
 		})
 
 	case EventTypeSessionStart:
-		// These are metadata, typically handled at Session level, 
+		// These are metadata, typically handled at Session level,
 		// but we return them as System events for the stream
 		entry.Role = thinkt.RoleSystem
 		entry.Text = "Session Started"

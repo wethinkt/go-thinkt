@@ -114,7 +114,7 @@ func NewAppPickerModel(apps []config.AppConfig, targetPath string) AppPickerMode
 	l.SetShowHelp(false)
 	l.SetShowTitle(false)
 	l.SetShowPagination(false)
-	
+
 	// Ensure the list doesn't have internal padding that eats space
 	l.Styles.NoItems = lipgloss.NewStyle().Margin(0, 2)
 

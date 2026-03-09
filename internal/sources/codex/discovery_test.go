@@ -26,4 +26,3 @@ func TestIsSessionPath_FallbackCodexSessionsPath(t *testing.T) {
 		t.Fatalf("expected fallback .codex/sessions path to match: %s", path)
 	}
 }
-

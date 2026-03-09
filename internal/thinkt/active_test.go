@@ -318,8 +318,8 @@ type mockActiveStore struct {
 	sessions map[string][]SessionMeta
 }
 
-func (m *mockActiveStore) Source() Source         { return m.source }
-func (m *mockActiveStore) Workspace() Workspace   { return Workspace{ID: "test", Source: m.source} }
+func (m *mockActiveStore) Source() Source       { return m.source }
+func (m *mockActiveStore) Workspace() Workspace { return Workspace{ID: "test", Source: m.source} }
 
 func (m *mockActiveStore) ListProjects(_ context.Context) ([]Project, error) {
 	return m.projects, nil

@@ -723,7 +723,6 @@ var embeddingsSyncCmd = &cobra.Command{
 	},
 }
 
-
 func formatBytes(b int64) string {
 	const (
 		kb = 1024

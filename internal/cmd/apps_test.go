@@ -13,12 +13,12 @@ import (
 
 // testEnv holds the dynamic IDs discovered from the platform's DefaultApps.
 type testEnv struct {
-	home           string
-	apps           []config.AppConfig
-	disabledID     string // an app we disabled for testing enable
-	enabledID      string // an app that is enabled (for testing disable)
-	terminalID     string // an enabled app with ExecRun
-	nonTerminalID  string // an enabled app without ExecRun
+	home          string
+	apps          []config.AppConfig
+	disabledID    string // an app we disabled for testing enable
+	enabledID     string // an app that is enabled (for testing disable)
+	terminalID    string // an enabled app with ExecRun
+	nonTerminalID string // an enabled app without ExecRun
 }
 
 // setupTestHome creates a temp dir, sets HOME, writes a config using platform

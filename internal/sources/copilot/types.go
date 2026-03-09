@@ -6,23 +6,23 @@ import (
 
 // Event types
 const (
-	EventTypeSessionStart    = "session.start"
-	EventTypeSessionInfo     = "session.info"
-	EventTypeUserMessage     = "user.message"
-	EventTypeAssistantMsg    = "assistant.message"
-	EventTypeToolExecStart   = "tool.execution_start"
-	EventTypeToolExecSuccess = "tool.execution_success"
+	EventTypeSessionStart     = "session.start"
+	EventTypeSessionInfo      = "session.info"
+	EventTypeUserMessage      = "user.message"
+	EventTypeAssistantMsg     = "assistant.message"
+	EventTypeToolExecStart    = "tool.execution_start"
+	EventTypeToolExecSuccess  = "tool.execution_success"
 	EventTypeToolExecComplete = "tool.execution_complete"
-	EventTypeToolExecError   = "tool.execution_error"
+	EventTypeToolExecError    = "tool.execution_error"
 )
 
 // Event represents a single line in events.jsonl
 type Event struct {
-	Type      string          `json:"type"`
-	Data      map[string]any  `json:"data"`
-	ID        string          `json:"id"`
-	Timestamp time.Time       `json:"timestamp"`
-	ParentID  *string         `json:"parentId"`
+	Type      string         `json:"type"`
+	Data      map[string]any `json:"data"`
+	ID        string         `json:"id"`
+	Timestamp time.Time      `json:"timestamp"`
+	ParentID  *string        `json:"parentId"`
 }
 
 type ToolRequest struct {

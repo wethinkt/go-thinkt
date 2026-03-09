@@ -919,7 +919,6 @@ func TestTruncateString(t *testing.T) {
 	}
 }
 
-
 func TestToolErrorResult_Structured(t *testing.T) {
 	result, outAny, err := toolErrorResult("invalid_regex", "invalid regular expression", errors.New("exit status 1: unterminated group"))
 	if err != nil {

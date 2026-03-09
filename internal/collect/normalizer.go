@@ -8,11 +8,11 @@ import (
 
 // validRoles is the set of accepted entry roles.
 var validRoles = map[string]bool{
-	"user":      true,
-	"assistant": true,
-	"tool_use":  true,
+	"user":        true,
+	"assistant":   true,
+	"tool_use":    true,
 	"tool_result": true,
-	"system":    true,
+	"system":      true,
 }
 
 // NormalizeRequest validates and cleans an ingest request in place.

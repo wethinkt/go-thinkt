@@ -33,11 +33,11 @@ type ModelPickerModel struct {
 	quitting bool
 
 	// styles
-	cursorStyle  lipgloss.Style
-	activeStyle  lipgloss.Style
-	normalStyle  lipgloss.Style
-	detailStyle  lipgloss.Style
-	helpStyle    lipgloss.Style
+	cursorStyle lipgloss.Style
+	activeStyle lipgloss.Style
+	normalStyle lipgloss.Style
+	detailStyle lipgloss.Style
+	helpStyle   lipgloss.Style
 }
 
 // NewModelPickerModel creates a model picker.

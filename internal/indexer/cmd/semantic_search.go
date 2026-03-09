@@ -150,7 +150,7 @@ func doSemanticSearch(queryText string) ([]search.SemanticResult, error) {
 			Project:     semFilterProject,
 			Source:      semFilterSource,
 			Limit:       semLimit,
-			MaxDistance:  semMaxDistance,
+			MaxDistance: semMaxDistance,
 			Tier:        semTier,
 		}
 		resp, err := rpc.Call(rpc.MethodSemanticSearch, params, nil)
@@ -205,12 +205,12 @@ func doSemanticSearch(queryText string) ([]search.SemanticResult, error) {
 		QueryEmbedding: result.Vectors[0],
 		Model:          embedder.EmbedModelID(),
 		Dim:            embedder.Dim(),
-		FilterProject: semFilterProject,
-		FilterSource:  semFilterSource,
-		FilterTier:    semTier,
-		Limit:         semLimit,
-		MaxDistance:   semMaxDistance,
-		Diversity:     semDiversity,
+		FilterProject:  semFilterProject,
+		FilterSource:   semFilterSource,
+		FilterTier:     semTier,
+		Limit:          semLimit,
+		MaxDistance:    semMaxDistance,
+		Diversity:      semDiversity,
 	})
 }
 

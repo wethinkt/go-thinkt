@@ -97,17 +97,17 @@ func listSessions(ctx context.Context, registry *thinkt.StoreRegistry, source th
 	if data, err := indexerListSessions(rpc.ListSessionsParams{
 		ProjectID: projectID,
 		Source:    string(source),
-		Limit:    limit,
-		Offset:   offset,
+		Limit:     limit,
+		Offset:    offset,
 	}); err == nil && data.Total > 0 {
 		sessions := make([]thinkt.SessionMeta, 0, len(data.Sessions))
 		for _, s := range data.Sessions {
 			sm := thinkt.SessionMeta{
-				ID:       s.ID,
-				FullPath: s.Path,
-				Model:    s.Model,
+				ID:         s.ID,
+				FullPath:   s.Path,
+				Model:      s.Model,
 				EntryCount: s.EntryCount,
-				Source:   source,
+				Source:     source,
 			}
 			if t, err := parseTimeRFC3339(s.CreatedAt); err == nil {
 				sm.CreatedAt = t

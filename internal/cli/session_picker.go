@@ -151,7 +151,7 @@ func PickSessionInteractive(registry *thinkt.StoreRegistry) (*SessionPickerItem,
 	// Run the picker
 	model := newSessionPickerModel(allSessions)
 	p := tea.NewProgram(model)
-	
+
 	finalModel, err := p.Run()
 	if err != nil {
 		return nil, err

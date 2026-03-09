@@ -12,9 +12,9 @@ var Version = ""
 
 // Info holds all version-related metadata.
 type Info struct {
-	Name      string `json:"name"`
-	Version   string `json:"version"`
-	Revision  string `json:"revision,omitempty"`
+	Name     string `json:"name"`
+	Version  string `json:"version"`
+	Revision string `json:"revision,omitempty"`
 }
 
 // GetInfo returns a structured Info object.

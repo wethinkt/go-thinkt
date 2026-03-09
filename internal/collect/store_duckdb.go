@@ -69,8 +69,8 @@ CREATE TABLE IF NOT EXISTS session_activity (
 
 // DuckDBStore implements TraceStore backed by DuckDB.
 type DuckDBStore struct {
-	db   *sql.DB
-	path string
+	db            *sql.DB
+	path          string
 	startedAt     time.Time
 	batchSize     int
 	flushInterval time.Duration
@@ -122,8 +122,8 @@ func NewDuckDBStore(dbPath string, batchSize int, flushInterval time.Duration) (
 	}
 
 	s := &DuckDBStore{
-		db:   db,
-		path: dbPath,
+		db:            db,
+		path:          dbPath,
 		startedAt:     time.Now(),
 		batchSize:     batchSize,
 		flushInterval: flushInterval,

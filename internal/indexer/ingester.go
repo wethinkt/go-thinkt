@@ -21,12 +21,12 @@ import (
 // and writing it to the DuckDB index.
 type Ingester struct {
 	db         *db.DB
-	embDB      *db.DB                   // separate embeddings database (nil if embedding unavailable)
-	sumDB      *db.DB                   // separate summaries database (nil if unavailable)
+	embDB      *db.DB // separate embeddings database (nil if embedding unavailable)
+	sumDB      *db.DB // separate summaries database (nil if unavailable)
 	registry   *thinkt.StoreRegistry
-	embedder   *embedding.Embedder      // nil if embedding unavailable
-	summarizer *summarize.Summarizer    // nil if unavailable
-	OnProgress  func(pIdx, pTotal, sIdx, sTotal int, message string)
+	embedder   *embedding.Embedder   // nil if embedding unavailable
+	summarizer *summarize.Summarizer // nil if unavailable
+	OnProgress func(pIdx, pTotal, sIdx, sTotal int, message string)
 
 	// OnEmbedProgress is called during EmbedAllSessions with progress updates.
 	// Called before embedding (elapsed=0, chunks=0, entries=entry count) and
@@ -72,7 +72,6 @@ func (i *Ingester) HasSummarizer() bool {
 // Close releases resources held by the ingester.
 // Note: the embedder lifecycle is owned by the caller, not the ingester.
 func (i *Ingester) Close() {}
-
 
 func (i *Ingester) reportProgress(pIdx, pTotal, sIdx, sTotal int, message string) {
 	if i.OnProgress != nil {

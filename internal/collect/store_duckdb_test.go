@@ -88,8 +88,8 @@ func TestExportParquetWithDateFilter(t *testing.T) {
 	}
 
 	outDir := filepath.Join(t.TempDir(), "filtered")
-	since := base.Add(3 * 24 * time.Hour)  // June 4
-	until := base.Add(7 * 24 * time.Hour)  // June 8
+	since := base.Add(3 * 24 * time.Hour) // June 4
+	until := base.Add(7 * 24 * time.Hour) // June 8
 
 	err := store.ExportParquet(ctx, outDir, ExportOptions{
 		Since: &since,

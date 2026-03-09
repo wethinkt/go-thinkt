@@ -17,13 +17,13 @@ const DefaultActiveWindow = 5 * time.Minute
 // ActiveSession represents a session detected as currently active.
 type ActiveSession struct {
 	Source      Source    `json:"source"`
-	ProjectPath string   `json:"project_path"`
-	SessionPath string   `json:"session_path"`
-	SessionID   string   `json:"session_id"`
+	ProjectPath string    `json:"project_path"`
+	SessionPath string    `json:"session_path"`
+	SessionID   string    `json:"session_id"`
 	DetectedAt  time.Time `json:"detected_at"`
-	Method      string   `json:"method"`       // "ide_lock", "process", "mtime"
-	IDE         string   `json:"ide,omitempty"` // e.g. "Visual Studio Code" (ide_lock only)
-	PID         int      `json:"pid,omitempty"` // process ID (ide_lock, process)
+	Method      string    `json:"method"`        // "ide_lock", "process", "mtime"
+	IDE         string    `json:"ide,omitempty"` // e.g. "Visual Studio Code" (ide_lock only)
+	PID         int       `json:"pid,omitempty"` // process ID (ide_lock, process)
 }
 
 // ActiveSessionDetector detects which sessions are currently active on the

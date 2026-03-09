@@ -510,13 +510,13 @@ func (e *Exporter) shipOrBuffer(ctx context.Context, payload TracePayload) {
 // Kimi uses "role", etc. This struct captures both so we can normalize.
 type rawEntry struct {
 	UUID      string          `json:"uuid"`
-	Type      string          `json:"type"`                // Claude: role is in "type"
-	Role      string          `json:"role"`                // Kimi/others: role is in "role"
+	Type      string          `json:"type"` // Claude: role is in "type"
+	Role      string          `json:"role"` // Kimi/others: role is in "role"
 	Timestamp time.Time       `json:"timestamp"`
 	Model     string          `json:"model,omitempty"`
 	Text      string          `json:"text,omitempty"`
 	AgentID   string          `json:"agentId,omitempty"`
-	IsError   bool            `json:"isError,omitempty"`   // Claude: tool_result error flag
+	IsError   bool            `json:"isError,omitempty"` // Claude: tool_result error flag
 	Message   json.RawMessage `json:"message,omitempty"`
 }
 
@@ -656,4 +656,3 @@ func extractFromMessage(msg json.RawMessage, fallbackText string) messageInfo {
 	}
 	return info
 }
-
