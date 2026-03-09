@@ -1,9 +1,9 @@
 # 🧠 thinkt
 
+[![User Guide](https://img.shields.io/badge/User%20Guide-6B2DAD)](https://wethinkt.github.io/go-thinkt/)
+[![Cheat Sheet](https://img.shields.io/badge/User%20Guide-2D2DAD)](./CHEATSHEET.md)
 [![CI](https://github.com/wethinkt/go-thinkt/actions/workflows/ci.yml/badge.svg)](https://github.com/wethinkt/go-thinkt/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/wethinkt/go-thinkt.svg)](https://pkg.go.dev/github.com/wethinkt/go-thinkt)
-[![User Guide](https://img.shields.io/badge/User%20Guide-6B2DAD)](https://wethinkt.github.io/go-thinkt/)
-
 
 `thinkt` is a platform for exploring, analyzing, and sharing conversation traces from AI coding assistants.   You can learn more about us at [wethinkt.com](https://wethinkt.com).
 
