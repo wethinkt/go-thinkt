@@ -6,9 +6,13 @@
   - New `internal/indexer/summarize` package — local 3B generative model (Qwen 2.5 3B Instruct) for thinking block summarization via yzma/llama.cpp
   - Separate per-model summaries DuckDB at `~/.thinkt/summaries/<model-id>.duckdb` with `(session_id, entry_uuid)` common key matching entries and embeddings tables
   - Per-entry thinking block classification: summary, category (idea/discovery/concern/decision/pattern/rejected), entities, and relevance score
+  - New tag suggestion flow for sharing/discovery: `SuggestTags()` API plus `thinkt-indexer summarize tags [text]` with normalized tag output and `--json`
   - Session-level summaries via `__session__` sentinel key
   - Greedy (temp=0) autoregressive generation with JSON-structured output and robust fallback parsing
+  - Summarization/tagging prompts moved into embedded assets under `internal/indexer/summarize/prompts/`
   - `thinkt-indexer summarize` CLI with `list`, `run`, `enable`, `disable`, `model`, `status`, `sync`, `purge` subcommands (mirrors embeddings pattern)
+  - Added command-level golden coverage for `thinkt-indexer summarize tags --json` and prompt/parser unit tests for the new tag extraction path
+  - Added JSON struct tags to summarize/tag result types for stable machine-readable output
   - `SummarizationConfig` in `~/.thinkt/config.json` (opt-in, disabled by default)
   - `Ingester.SummarizeAllSessions()` for batch summarization of indexed sessions
   - Exported `embedding.EnsureRuntime()` for shared llama.cpp runtime setup

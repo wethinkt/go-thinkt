@@ -178,6 +178,16 @@ func (s *Summarizer) Summarize(ctx context.Context, thinkingText string) (*Summa
 	return parseClassifyResponse(raw)
 }
 
+// SuggestTags produces shareable tags for a thinking block.
+func (s *Summarizer) SuggestTags(ctx context.Context, thinkingText string) (*TagSuggestionResult, error) {
+	prompt := buildTagsPrompt(thinkingText)
+	raw, err := s.Generate(ctx, prompt)
+	if err != nil {
+		return nil, err
+	}
+	return parseTagsResponse(raw)
+}
+
 // SummarizeSession produces a session-level summary from session context text.
 func (s *Summarizer) SummarizeSession(ctx context.Context, sessionContext string) (*SessionSummaryResult, error) {
 	prompt := buildSessionPrompt(sessionContext)

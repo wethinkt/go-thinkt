@@ -53,6 +53,7 @@ For beyond local deployments, we also have [`thinkt-exporter` and `thinkt-collec
 - **Tree View**: Browse projects in a collapsible tree grouped by directory, or switch to a flat list
 - **Agent Teams**: Inspect multi-agent teams (Claude Code), including members, tasks, and messages
 - **Analytics**: Token usage, tool frequency, word analysis, activity timelines via `thinkt-indexer`
+- **Local Summarization**: Generate per-session summaries, classify thinking blocks, and suggest shareable tags with local models via `thinkt-indexer summarize`
 - **Prompt Extraction**: Generate timestamped logs of user prompts in markdown, JSON, or plain text
 - **MCP Server**: Model Context Protocol integration for use with AI assistants
 - **REST API**: HTTP server for programmatic access
@@ -226,6 +227,11 @@ thinkt search --regex "func\s+Test\w+"
 # Show usage statistics
 thinkt indexer stats
 
+# Manage local summarization and tags
+thinkt-indexer summarize status
+thinkt-indexer summarize sync
+thinkt-indexer summarize tags "fix sync gate races and add sharing tags"
+
 # Manage embeddings
 thinkt embeddings list
 thinkt embeddings status
@@ -235,7 +241,16 @@ thinkt embeddings model
 thinkt-indexer sync
 thinkt-indexer search "authentication"
 thinkt-indexer stats
+thinkt-indexer summarize tags --json "duckdb sync gate sharing flow"
 ```
+
+`thinkt-indexer summarize` uses local generative models for three related tasks:
+
+- entry-level summary/classification of thinking blocks
+- session-level summaries
+- shareable tag suggestions for discovery and sharing workflows
+
+The summarization prompts are embedded from [internal/indexer/summarize/prompts/](./internal/indexer/summarize/prompts/) so they can be tuned without editing Go string literals.
 
 ### Semantic Search
 

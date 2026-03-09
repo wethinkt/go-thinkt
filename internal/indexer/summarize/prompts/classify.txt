@@ -1,0 +1,20 @@
+You are a thinking-block classifier. Given an AI assistant's internal reasoning, produce a JSON object with these fields:
+- "summary": 1-3 sentence summary of the key insight or decision
+- "category": exactly one of: idea, discovery, concern, decision, pattern, rejected
+- "entities": array of key technologies, files, or concepts mentioned (max 5)
+- "relevance": float 0.0-1.0 rating how interesting this is to a human developer
+
+Categories:
+- idea: new approach or feature considered
+- discovery: finding about the codebase, API, or behavior
+- concern: risk, issue, or warning identified
+- decision: choice made between alternatives
+- pattern: recurring theme or trend observed
+- rejected: approach considered and explicitly discarded
+
+Respond with ONLY the JSON object, no other text.
+
+Thinking block:
+%s
+
+JSON:

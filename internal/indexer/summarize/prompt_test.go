@@ -121,3 +121,65 @@ func TestBuildSessionPrompt(t *testing.T) {
 		t.Error("prompt should end with Summary: marker")
 	}
 }
+
+func TestBuildTagsPrompt(t *testing.T) {
+	prompt := buildTagsPrompt("Need to fix sync gate races in the indexer server")
+	if !strings.Contains(prompt, "Need to fix sync gate races in the indexer server") {
+		t.Error("prompt should contain the input text")
+	}
+	if !strings.HasSuffix(prompt, "JSON:") {
+		t.Error("prompt should end with JSON: marker")
+	}
+}
+
+func TestParseTagsResponse(t *testing.T) {
+	raw := `{"tags":["DuckDB","sync gate","internal/indexer/sync_gate.go","DuckDB"],"confidence":0.9}`
+	result, err := parseTagsResponse(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got, want := strings.Join(result.Tags, ","), "duckdb,internal/indexer/sync_gate.go,sync-gate"; got != want {
+		t.Fatalf("tags = %q, want %q", got, want)
+	}
+	if result.Confidence != 0.9 {
+		t.Fatalf("confidence = %f, want 0.9", result.Confidence)
+	}
+}
+
+func TestParseTagsResponseWithSurroundingText(t *testing.T) {
+	raw := `Suggested tags:
+{"tags":["Semantic Search","Embeddings"],"confidence":0.7}
+Thanks`
+	result, err := parseTagsResponse(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got, want := strings.Join(result.Tags, ","), "embeddings,semantic-search"; got != want {
+		t.Fatalf("tags = %q, want %q", got, want)
+	}
+}
+
+func TestParseTagsResponseInvalidJSON(t *testing.T) {
+	raw := "duckdb, semantic search, indexer"
+	result, err := parseTagsResponse(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got, want := strings.Join(result.Tags, ","), "duckdb,indexer,semantic-search"; got != want {
+		t.Fatalf("tags = %q, want %q", got, want)
+	}
+	if result.Confidence != 0.5 {
+		t.Fatalf("confidence = %f, want 0.5", result.Confidence)
+	}
+}
+
+func TestParseTagsResponseClampConfidence(t *testing.T) {
+	raw := `{"tags":["duckdb"],"confidence":5.0}`
+	result, err := parseTagsResponse(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Confidence != 1.0 {
+		t.Fatalf("confidence = %f, want 1.0", result.Confidence)
+	}
+}

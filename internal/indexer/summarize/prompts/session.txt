@@ -1,0 +1,6 @@
+Summarize this AI coding session in 2-3 sentences. Focus on what was accomplished, key decisions made, and any open issues. Be concrete and specific.
+
+Session context:
+%s
+
+Summary:
