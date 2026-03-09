@@ -46,7 +46,7 @@ Examples:
   thinkt indexer stop                        # Stop background indexer
   thinkt indexer sync                        # Sync all local sessions to the index
   thinkt indexer search "query"              # Search across all sessions
-  thinkt indexer server                      # Run indexer server (foreground)`,
+  thinkt indexer summarize tags "trace tag"  # Suggest shareable tags`,
 }
 
 var indexerLogsCmd = &cobra.Command{
@@ -297,6 +297,7 @@ func init() {
 	indexerCmd.AddCommand(makeForwardingCommand("stats", "Show usage statistics from the index"))
 	indexerCmd.AddCommand(makeForwardingCommand("sessions", "List sessions for a project from the index"))
 	indexerCmd.AddCommand(makeAutoStartingCommand("embeddings", "Manage embedding model, storage, and sync"))
+	indexerCmd.AddCommand(makeForwardingCommand("summarize", "Manage summarization model, storage, sync, and tags"))
 	indexerCmd.AddCommand(makeForwardingCommand("semantic", "Semantic search and index management"))
 	indexerCmd.AddCommand(makeForwardingCommand("version", "Print version information"))
 	indexerCmd.AddCommand(makeForwardingCommand("help", "Help about any command"))

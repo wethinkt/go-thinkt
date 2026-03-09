@@ -18,7 +18,7 @@ Examples:
   thinkt indexer stop                        # Stop background indexer
   thinkt indexer sync                        # Sync all local sessions to the index
   thinkt indexer search "query"              # Search across all sessions
-  thinkt indexer server                      # Run indexer server (foreground)
+  thinkt indexer summarize tags "trace tag"  # Suggest shareable tags
 
 ### Options
 
@@ -45,6 +45,7 @@ Examples:
 * [thinkt indexer stats](thinkt_indexer_stats/)	 - Show usage statistics from the index
 * [thinkt indexer status](thinkt_indexer_status/)	 - Show indexer status
 * [thinkt indexer stop](thinkt_indexer_stop/)	 - Stop background indexer
+* [thinkt indexer summarize](thinkt_indexer_summarize/)	 - Manage summarization model, storage, sync, and tags
 * [thinkt indexer sync](thinkt_indexer_sync/)	 - Synchronize all local sessions into the index
 * [thinkt indexer version](thinkt_indexer_version/)	 - Print version information
 
