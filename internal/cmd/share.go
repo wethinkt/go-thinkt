@@ -10,7 +10,10 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+	tea "charm.land/bubbletea/v2"
+	"golang.org/x/term"
 	"github.com/wethinkt/go-thinkt/internal/share"
+	shareTUI "github.com/wethinkt/go-thinkt/internal/tui"
 )
 
 var (
@@ -188,6 +191,10 @@ func runShareList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	if term.IsTerminal(int(os.Stdout.Fd())) {
+		return runShareBrowser(traces, shareTUI.ShareBrowserMine)
+	}
+
 	printTraceTable(traces)
 	return nil
 }
@@ -217,7 +224,27 @@ func runShareExplore(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	if term.IsTerminal(int(os.Stdout.Fd())) {
+		return runShareBrowser(resp.Traces, shareTUI.ShareBrowserExplore)
+	}
+
 	printTraceTable(resp.Traces)
+	return nil
+}
+
+func runShareBrowser(traces []share.Trace, mode shareTUI.ShareBrowserMode) error {
+	m := shareTUI.NewShareBrowser(traces, mode)
+	p := tea.NewProgram(m)
+	final, err := p.Run()
+	if err != nil {
+		return err
+	}
+
+	if result := final.(shareTUI.ShareBrowserModel).Result(); result != nil && result.Action == "open" {
+		u := share.DefaultEndpoint + "/t/" + result.Slug
+		fmt.Println(u)
+		return openShareBrowser(u)
+	}
 	return nil
 }
 
