@@ -209,7 +209,7 @@ func Save(name string, theme Theme) error {
 	}
 
 	// Ensure directory exists
-	if err := os.MkdirAll(themesDir, 0755); err != nil {
+	if err := os.MkdirAll(themesDir, config.DirPerms); err != nil {
 		return err
 	}
 
@@ -248,7 +248,7 @@ func EnsureUserThemesDir() error {
 		return err
 	}
 
-	return os.MkdirAll(themesDir, 0755)
+	return os.MkdirAll(themesDir, config.DirPerms)
 }
 
 // current holds the loaded theme (initialized on first access).

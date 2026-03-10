@@ -119,7 +119,7 @@ func OpenSummaries(path string) (*DB, error) {
 // openWithSchema opens a DuckDB database, runs the given schema SQL, and hardens security.
 func openWithSchema(path, schema string) (*DB, error) {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, config.DirPerms); err != nil {
 		return nil, fmt.Errorf("failed to create db directory: %w", err)
 	}
 

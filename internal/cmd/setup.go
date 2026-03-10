@@ -89,7 +89,7 @@ func startIndexerIfEnabled(result setup.Result) {
 	}
 
 	logFile := filepath.Join(confDir, "logs", "indexer.log")
-	if err := os.MkdirAll(filepath.Dir(logFile), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(logFile), config.DirPerms); err != nil {
 		return
 	}
 

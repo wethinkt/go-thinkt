@@ -111,7 +111,7 @@ func generateAndCacheFingerprint() (Info, error) {
 
 	// Ensure directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, config.DirPerms); err != nil {
 		return Info{}, fmt.Errorf("creating directory: %w", err)
 	}
 

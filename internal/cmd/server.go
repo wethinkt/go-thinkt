@@ -293,7 +293,7 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 	// Build arguments for thinkt server run
 	executable, _ := os.Executable()
 	logsDir := filepath.Join(confDir, "logs")
-	if err := os.MkdirAll(logsDir, 0755); err != nil {
+	if err := os.MkdirAll(logsDir, config.DirPerms); err != nil {
 		return fmt.Errorf("failed to create logs directory: %w", err)
 	}
 	runArgs := []string{"server", "run",
@@ -731,7 +731,7 @@ func startIndexerSidecar(appLogPath string) *exec.Cmd {
 		indexerLog = filepath.Join(confDir, "logs", "indexer.log")
 	}
 	if indexerLog != "" {
-		_ = os.MkdirAll(filepath.Dir(indexerLog), 0755)
+		_ = os.MkdirAll(filepath.Dir(indexerLog), config.DirPerms)
 		indexerArgs = append(indexerArgs, "--log", indexerLog)
 	}
 

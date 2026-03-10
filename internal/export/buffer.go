@@ -9,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -22,7 +23,7 @@ type DiskBuffer struct {
 
 // NewDiskBuffer creates a new DiskBuffer at the given directory with a size limit.
 func NewDiskBuffer(dir string, maxSizeMB int) (*DiskBuffer, error) {
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, config.DirPerms); err != nil {
 		return nil, fmt.Errorf("create buffer dir: %w", err)
 	}
 

@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
@@ -53,7 +54,7 @@ func (c *ProjectCopier) Copy(projectQuery, targetDir string) error {
 		return fmt.Errorf("no sessions found in %s", project.Path)
 	}
 
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
+	if err := os.MkdirAll(targetDir, config.DirPerms); err != nil {
 		return fmt.Errorf("create target directory: %w", err)
 	}
 

@@ -18,9 +18,11 @@ const (
 	defaultEmbedModel         = "nomic-embed-text-v1.5"
 	defaultSummarizationModel = "qwen2.5-3b-instruct"
 	defaultDebounce           = "2s"
-	defaultDirPerms           = 0755
 	defaultFilePerms          = 0600
 )
+
+// DirPerms is the permission mode for directories under ~/.thinkt/.
+const DirPerms = 0700
 
 // ErrNoConfig is returned by Load when no config file exists on disk.
 var ErrNoConfig = errors.New("config file does not exist")
@@ -175,7 +177,7 @@ func Save(config Config) error {
 
 	// Ensure directory exists
 	dir := filepath.Dir(configPath)
-	if err := os.MkdirAll(dir, defaultDirPerms); err != nil {
+	if err := os.MkdirAll(dir, DirPerms); err != nil {
 		return err
 	}
 

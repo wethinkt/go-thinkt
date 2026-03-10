@@ -130,7 +130,7 @@ func runIndexerStart(cmd *cobra.Command, args []string) error {
 	}
 
 	// Ensure log directory exists
-	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(logPath), config.DirPerms); err != nil {
 		return fmt.Errorf("failed to create log directory: %w", err)
 	}
 

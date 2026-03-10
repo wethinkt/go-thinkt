@@ -13,6 +13,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui"
@@ -386,14 +387,14 @@ func (c *SessionCopier) Copy(sessionPath, targetPath string) error {
 		targetFile = filepath.Join(targetPath, filepath.Base(session.FullPath))
 	} else if filepath.Ext(targetPath) == "" {
 		// Create target directory and use original filename
-		if err := os.MkdirAll(targetPath, 0755); err != nil {
+		if err := os.MkdirAll(targetPath, config.DirPerms); err != nil {
 			return fmt.Errorf("create target directory: %w", err)
 		}
 		targetFile = filepath.Join(targetPath, filepath.Base(session.FullPath))
 	}
 
 	// Ensure parent directory exists
-	if err := os.MkdirAll(filepath.Dir(targetFile), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(targetFile), config.DirPerms); err != nil {
 		return fmt.Errorf("create parent directory: %w", err)
 	}
 

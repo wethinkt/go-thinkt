@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -86,7 +87,7 @@ type DuckDBStore struct {
 // and starts the background batch writer.
 func NewDuckDBStore(dbPath string, batchSize int, flushInterval time.Duration) (*DuckDBStore, error) {
 	dir := filepath.Dir(dbPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, config.DirPerms); err != nil {
 		return nil, fmt.Errorf("create db directory: %w", err)
 	}
 
@@ -484,7 +485,7 @@ func (s *DuckDBStore) GetUsageStats(ctx context.Context) (*CollectorStats, error
 // ExportParquet exports collected entries to parquet files using DuckDB's
 // native COPY ... TO ... (FORMAT PARQUET) support.
 func (s *DuckDBStore) ExportParquet(ctx context.Context, outDir string, opts ExportOptions) error {
-	if err := os.MkdirAll(outDir, 0755); err != nil {
+	if err := os.MkdirAll(outDir, config.DirPerms); err != nil {
 		return fmt.Errorf("create output directory: %w", err)
 	}
 
