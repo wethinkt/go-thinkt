@@ -388,6 +388,7 @@ func init() {
 	shareCmd.AddCommand(shareStatusCmd)
 	sharePushCmd.Flags().BoolVar(&sharePushPublic, "public", false, "make trace publicly visible")
 	shareCmd.AddCommand(sharePushCmd)
+	shareListCmd.Flags().BoolVar(&shareListJSON, "json", false, "output as JSON")
 	shareCmd.AddCommand(shareListCmd)
 	shareExploreCmd.Flags().StringVar(&shareExploreTag, "tag", "", "filter by tag")
 	shareExploreCmd.Flags().StringVar(&shareExploreSort, "sort", "newest", "sort by: newest, likes")

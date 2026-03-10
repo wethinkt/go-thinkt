@@ -9,7 +9,15 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/config"
 )
 
-const DefaultEndpoint = "https://share.wethinkt.com"
+const defaultEndpoint = "https://share.wethinkt.com"
+
+// Endpoint returns the share API URL from THINKT_SHARE_URL, or the default.
+func Endpoint() string {
+	if v := os.Getenv("THINKT_SHARE_URL"); v != "" {
+		return v
+	}
+	return defaultEndpoint
+}
 
 type Credentials struct {
 	Token    string `json:"token"`

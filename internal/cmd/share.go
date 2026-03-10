@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -23,6 +24,7 @@ var (
 	shareDeleteForce bool
 	shareLoginGoogle bool
 	shareLoginGitHub bool
+	shareListJSON    bool
 )
 
 var shareCmd = &cobra.Command{
@@ -70,7 +72,7 @@ func runShareLogin(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	endpoint := share.DefaultEndpoint
+	endpoint := share.Endpoint()
 	client := share.NewDeviceFlowClient(endpoint)
 
 	var codeResp *share.DeviceCodeResponse
@@ -309,8 +311,18 @@ func runShareList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(traces) == 0 {
-		fmt.Println("No traces. Push one with: thinkt share push <path>")
+		if shareListJSON {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No traces. Push one with: thinkt share push <path>")
+		}
 		return nil
+	}
+
+	if shareListJSON {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(traces)
 	}
 
 	if term.IsTerminal(int(os.Stdout.Fd())) {
@@ -336,7 +348,7 @@ func runShareExplore(cmd *cobra.Command, args []string) error {
 		token = creds.Token
 	}
 
-	client := share.NewClient(share.DefaultEndpoint, token)
+	client := share.NewClient(share.Endpoint(), token)
 	resp, err := client.Explore(shareExploreSort, shareExploreTag, 1)
 	if err != nil {
 		return fmt.Errorf("explore: %w", err)
@@ -364,7 +376,7 @@ func runShareBrowser(traces []share.Trace, mode shareTUI.ShareBrowserMode) error
 	}
 
 	if result := final.(shareTUI.ShareBrowserModel).Result(); result != nil && result.Action == "open" {
-		u := share.DefaultEndpoint + "/t/" + result.Slug
+		u := share.Endpoint() + "/t/" + result.Slug
 		fmt.Println(u)
 		return openShareBrowser(u)
 	}
@@ -382,7 +394,7 @@ var shareOpenCmd = &cobra.Command{
 }
 
 func runShareOpen(cmd *cobra.Command, args []string) error {
-	u := share.DefaultEndpoint + "/t/" + args[0]
+	u := share.Endpoint() + "/t/" + args[0]
 	fmt.Println(u)
 	return openShareBrowser(u)
 }
