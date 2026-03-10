@@ -30,5 +30,6 @@ thinkt help [command] [flags]
 
 * [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
 * [thinkt help cheat](thinkt_help_cheat/)	 - Quick-reference command tree
+* [thinkt help env](thinkt_help_env/)	 - Show environment variables used by thinkt
 * [thinkt help llms](thinkt_help_llms/)	 - Usage guide for LLMs and AI assistants
 

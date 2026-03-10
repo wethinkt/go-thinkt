@@ -1,6 +1,6 @@
 # `go-thinkt` CHANGELOG
 
-## v0.8.0 (unreleased)
+## v0.8.0 (2026-03-10)
 
 * **Local Summarization**
   - New `internal/indexer/summarize` package — local 3B generative model (Qwen 2.5 3B Instruct) for thinking block summarization via yzma/llama.cpp

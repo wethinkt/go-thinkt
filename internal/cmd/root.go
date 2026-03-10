@@ -211,6 +211,8 @@ func init() {
 	helpCmd.AddCommand(helpLlmsCmd)
 	helpCheatCmd.Flags().BoolVar(&cheatJSON, "json", false, "output as JSON")
 	helpCmd.AddCommand(helpCheatCmd)
+	helpEnvCmd.Flags().BoolVar(&envJSON, "json", false, "output as JSON")
+	helpCmd.AddCommand(helpEnvCmd)
 	rootCmd.AddCommand(helpCmd)
 
 	rootCmd.AddCommand(tuiCmd)

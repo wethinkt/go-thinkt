@@ -44,6 +44,7 @@ type helpEntry struct {
 var helpTopics = []helpEntry{
 	{"llms", "cmd.help.topic.llms", "Usage guide for LLMs and AI assistants"},
 	{"cheat", "cmd.help.topic.cheat", "Quick-reference command tree"},
+	{"env", "cmd.help.topic.env", "Show environment variables used by thinkt"},
 }
 
 var helpCommands = []helpEntry{
