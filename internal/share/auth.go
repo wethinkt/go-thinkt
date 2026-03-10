@@ -1,13 +1,15 @@
-package cloud
+package share
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/wethinkt/go-thinkt/internal/config"
 )
 
-const DefaultEndpoint = "https://wethinkt.com"
+const DefaultEndpoint = "https://share.wethinkt.com"
 
 type Credentials struct {
 	Token    string `json:"token"`
@@ -21,7 +23,7 @@ func DefaultCredentialsPath() string {
 }
 
 func SaveCredentials(path string, creds *Credentials) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), config.DirPerms); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}
 	data, err := json.MarshalIndent(creds, "", "  ")

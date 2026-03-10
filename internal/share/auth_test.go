@@ -1,4 +1,4 @@
-package cloud
+package share
 
 import (
 	"os"
@@ -13,7 +13,7 @@ func TestSaveAndLoadCredentials(t *testing.T) {
 	creds := &Credentials{
 		Token:    "test-token-123",
 		Username: "testuser",
-		Endpoint: "https://wethinkt.com",
+		Endpoint: "https://share.wethinkt.com",
 	}
 
 	err := SaveCredentials(path, creds)
