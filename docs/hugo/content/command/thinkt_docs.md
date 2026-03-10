@@ -43,7 +43,7 @@ thinkt docs [flags]
 
 ### SEE ALSO
 
-* [thinkt](thinkt.md)	 - Tools for AI assistant session exploration and extraction
-* [thinkt docs man](thinkt_docs_man.md)	 - Generate man pages
-* [thinkt docs markdown](thinkt_docs_markdown.md)	 - Generate markdown documentation
+* [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
+* [thinkt docs man](thinkt_docs_man/)	 - Generate man pages
+* [thinkt docs markdown](thinkt_docs_markdown/)	 - Generate markdown documentation
 

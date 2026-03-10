@@ -33,5 +33,5 @@ thinkt docs man [flags]
 
 ### SEE ALSO
 
-* [thinkt docs](thinkt_docs.md)	 - Generate documentation for thinkt
+* [thinkt docs](thinkt_docs/)	 - Generate documentation for thinkt
 

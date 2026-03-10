@@ -8,11 +8,7 @@ Quick-reference command tree
 
 ### Synopsis
 
-Print a compact cheat sheet showing every command and subcommand
-in a visual tree layout.
-
-Use `--json` to get machine-readable output suitable for scripting
-or feeding to an LLM.
+Print a compact cheat sheet showing every command and subcommand.
 
 ```
 thinkt help cheat [flags]
@@ -33,5 +29,5 @@ thinkt help cheat [flags]
 
 ### SEE ALSO
 
-* [thinkt help](thinkt_help.md)	 - Help topics for thinkt
+* [thinkt help](thinkt_help/)	 - Help topics for thinkt
 

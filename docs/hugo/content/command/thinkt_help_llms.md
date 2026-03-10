@@ -10,15 +10,23 @@ Usage guide for LLMs and AI assistants
 
 Print a guide for LLMs on using thinkt via CLI, MCP, and REST API.
 
-This outputs the full `llms.txt` content — a structured reference
-designed for AI assistants to understand thinkt's data model,
-CLI commands, MCP tools, and REST endpoints.
+```
+thinkt help llms [flags]
+```
+
+### Options
 
 ```
-thinkt help llms
+  -h, --help   help for llms
+```
+
+### Options inherited from parent commands
+
+```
+  -v, --verbose   verbose output
 ```
 
 ### SEE ALSO
 
-* [thinkt help](thinkt_help.md)	 - Help topics for thinkt
+* [thinkt help](thinkt_help/)	 - Help topics for thinkt
 

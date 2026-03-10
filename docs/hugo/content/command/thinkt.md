@@ -44,8 +44,10 @@ thinkt [flags]
 * [thinkt apps](thinkt_apps/)	 - Manage open-in apps and default terminal
 * [thinkt collect](thinkt_collect/)	 - Start trace collector server
 * [thinkt completion](thinkt_completion/)	 - Generate the autocompletion script for the specified shell
+* [thinkt docs](thinkt_docs/)	 - Generate documentation for thinkt
 * [thinkt embeddings](thinkt_embeddings/)	 - Manage embedding model, storage, and sync
 * [thinkt export](thinkt_export/)	 - Export traces to a remote collector
+* [thinkt help](thinkt_help/)	 - Help topics for thinkt
 * [thinkt indexer](thinkt_indexer/)	 - Specialized indexing and search via DuckDB (requires thinkt-indexer)
 * [thinkt language](thinkt_language/)	 - Get or set the display language
 * [thinkt projects](thinkt_projects/)	 - Manage and view projects
