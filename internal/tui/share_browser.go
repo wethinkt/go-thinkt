@@ -14,8 +14,8 @@ import (
 type ShareBrowserMode int
 
 const (
-	ShareBrowserMine    ShareBrowserMode = iota
-	ShareBrowserExplore ShareBrowserMode = iota
+	ShareBrowserMine ShareBrowserMode = iota
+	ShareBrowserExplore
 )
 
 // ShareBrowserResult is what the TUI returns when a trace is selected.

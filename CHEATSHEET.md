@@ -50,8 +50,6 @@ $ thinkt help cheat
   │   ├── list  List available languages
   │   └── set   Set the display language
   │
-  ├── login  Log in to wethinkt.com
-  │
   ├── projects     Manage and view projects
   │   ├── copy     Copy project sessions to a target directory
   │   ├── list     List projects from all sources
@@ -64,8 +62,6 @@ $ thinkt help cheat
   │   ├── info       Show session information
   │   ├── list       List available trace files
   │   └── templates  List available templates and show template variables
-  │
-  ├── push  Push a Thinkt to wethinkt.com
   │
   ├── search  Search for text across indexed sessions
   │
@@ -93,6 +89,17 @@ $ thinkt help cheat
   │   └── view     View a session in the terminal (interactive picker)
   │
   ├── setup  Scan for AI session sources and configure thinkt
+  │
+  ├── share        Share traces on share.wethinkt.com
+  │   ├── delete   Delete a shared trace
+  │   ├── explore  Browse public traces
+  │   ├── list     List your shared traces
+  │   ├── login    Log in to share.wethinkt.com
+  │   ├── logout   Log out of share.wethinkt.com
+  │   ├── open     Open a trace in the web browser
+  │   ├── profile  Show your profile and stats
+  │   ├── push     Upload a trace to share.wethinkt.com
+  │   └── status   Show login and account status
   │
   ├── sources      Manage and view available session sources
   │   ├── disable  Disable a source

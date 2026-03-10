@@ -1,0 +1,1081 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "wethinkt Share API",
+    "version": "0.1.0",
+    "description": "API for uploading, sharing, and viewing Thinkt reasoning traces."
+  },
+  "servers": [
+    { "url": "https://share.wethinkt.com", "description": "Production" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Session token from GitHub OAuth device flow"
+      }
+    },
+    "schemas": {
+      "Ok": {
+        "type": "object",
+        "properties": { "ok": { "type": "boolean" } },
+        "required": ["ok"]
+      },
+      "AdminStats": {
+        "type": "object",
+        "properties": {
+          "total_users": { "type": "integer" },
+          "total_traces": { "type": "integer" },
+          "traces_by_visibility": {
+            "type": "object",
+            "additionalProperties": { "type": "integer" }
+          },
+          "pending_reports": { "type": "integer" },
+          "banned_users": { "type": "integer" }
+        },
+        "required": [
+          "total_users",
+          "total_traces",
+          "traces_by_visibility",
+          "pending_reports",
+          "banned_users"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": { "error": { "type": "string" } },
+        "required": ["error"]
+      },
+      "DeviceCodeResponse": {
+        "type": "object",
+        "properties": {
+          "device_code": { "type": "string" },
+          "user_code": { "type": "string" },
+          "verification_uri": { "type": "string" },
+          "expires_in": { "type": "integer" },
+          "interval": { "type": "integer" }
+        },
+        "required": [
+          "device_code",
+          "user_code",
+          "verification_uri",
+          "expires_in",
+          "interval"
+        ]
+      },
+      "DeviceTokenResponse": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string" },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "username": { "type": "string" }
+            },
+            "required": ["id", "username"]
+          }
+        },
+        "required": ["token", "user"]
+      },
+      "DeviceTokenRequest": {
+        "type": "object",
+        "properties": { "device_code": { "type": "string" } },
+        "required": ["device_code"]
+      },
+      "TagCloud": {
+        "type": "object",
+        "properties": {
+          "tags": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TagCount" }
+          }
+        },
+        "required": ["tags"]
+      },
+      "TagCount": {
+        "type": "object",
+        "properties": {
+          "tag": { "type": "string" },
+          "count": { "type": "integer" }
+        },
+        "required": ["tag", "count"]
+      },
+      "ExploreTraces": {
+        "type": "object",
+        "properties": {
+          "traces": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slug": { "type": "string" },
+                "title": { "type": "string" },
+                "visibility": {
+                  "type": "string",
+                  "enum": ["public", "private"]
+                },
+                "size_bytes": { "type": "integer" },
+                "likes_count": { "type": "integer" },
+                "created_at": { "type": "string" },
+                "tags": { "type": "array", "items": { "type": "string" } },
+                "owner_name": { "type": "string" },
+                "liked": { "type": "boolean" },
+                "favorited": { "type": "boolean" },
+                "moderation_status": {
+                  "type": "string",
+                  "enum": ["pending", "approved", "flagged", "removed"]
+                }
+              },
+              "required": [
+                "slug",
+                "title",
+                "visibility",
+                "size_bytes",
+                "likes_count",
+                "created_at",
+                "tags"
+              ]
+            }
+          },
+          "page": { "type": "integer" }
+        },
+        "required": ["traces", "page"]
+      },
+      "Profile": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "email": { "type": "string" },
+              "image": { "type": "string", "nullable": true },
+              "terms_accepted_at": { "type": "string", "nullable": true }
+            },
+            "required": ["name", "email", "image", "terms_accepted_at"]
+          },
+          "stats": {
+            "type": "object",
+            "properties": {
+              "total_traces": { "type": "integer" },
+              "public_traces": { "type": "integer" },
+              "private_traces": { "type": "integer" },
+              "total_bytes": { "type": "integer" }
+            },
+            "required": [
+              "total_traces",
+              "public_traces",
+              "private_traces",
+              "total_bytes"
+            ]
+          },
+          "likes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slug": { "type": "string" },
+                "title": { "type": "string" },
+                "owner_name": { "type": "string" },
+                "created_at": { "type": "string" }
+              },
+              "required": ["slug", "title", "owner_name", "created_at"]
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TagCount" }
+          }
+        },
+        "required": ["user", "stats", "likes", "tags"]
+      },
+      "Tags": {
+        "type": "object",
+        "properties": {
+          "tags": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["tags"]
+      },
+      "Trace": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "slug": { "type": "string" },
+          "title": { "type": "string" },
+          "visibility": { "type": "string", "enum": ["public", "private"] },
+          "size_bytes": { "type": "integer" },
+          "likes_count": { "type": "integer" },
+          "created_at": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "owner_name": { "type": "string" },
+          "liked": { "type": "boolean" },
+          "favorited": { "type": "boolean" },
+          "moderation_status": {
+            "type": "string",
+            "enum": ["pending", "approved", "flagged", "removed"]
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "visibility",
+          "size_bytes",
+          "likes_count",
+          "created_at",
+          "tags"
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "properties": { "status": { "type": "string" } },
+        "required": ["status"]
+      },
+      "TraceList": {
+        "type": "object",
+        "properties": {
+          "traces": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Trace" }
+          }
+        },
+        "required": ["traces"]
+      },
+      "ReportList": {
+        "type": "object",
+        "properties": {
+          "reports": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Report" }
+          }
+        },
+        "required": ["reports"]
+      },
+      "Report": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "reason": { "type": "string" },
+          "details": { "type": "string", "nullable": true },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "reviewed", "actioned", "dismissed"]
+          },
+          "created_at": { "type": "string" },
+          "reviewed_at": { "type": "string", "nullable": true },
+          "reviewer_notes": { "type": "string", "nullable": true },
+          "trace_slug": { "type": "string" },
+          "trace_title": { "type": "string", "nullable": true },
+          "trace_visibility": { "type": "string" },
+          "trace_owner_id": { "type": "string" },
+          "reporter_name": { "type": "string", "nullable": true },
+          "reporter_email": { "type": "string", "nullable": true },
+          "owner_name": { "type": "string", "nullable": true },
+          "owner_email": { "type": "string", "nullable": true }
+        },
+        "required": [
+          "id",
+          "reason",
+          "details",
+          "status",
+          "created_at",
+          "reviewed_at",
+          "reviewer_notes",
+          "trace_slug",
+          "trace_title",
+          "trace_visibility",
+          "trace_owner_id",
+          "reporter_name",
+          "reporter_email",
+          "owner_name",
+          "owner_email"
+        ]
+      },
+      "ReportId": {
+        "type": "object",
+        "properties": { "id": { "type": "string" } },
+        "required": ["id"]
+      },
+      "CreateReport": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "hate_speech",
+              "spam",
+              "sexual_content",
+              "illegal_content",
+              "private_data",
+              "other"
+            ]
+          },
+          "details": { "type": "string" }
+        },
+        "required": ["reason"]
+      },
+      "ResolveReportResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "action": { "type": "string" }
+        },
+        "required": ["ok", "action"]
+      },
+      "ResolveReport": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["dismiss", "remove_trace", "ban_user"]
+          },
+          "notes": { "type": "string" }
+        },
+        "required": ["action"]
+      },
+      "SetTags": {
+        "type": "object",
+        "properties": {
+          "tags": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["tags"]
+      },
+      "FavoriteResponse": {
+        "type": "object",
+        "properties": { "favorited": { "type": "boolean" } },
+        "required": ["favorited"]
+      },
+      "LikeResponse": {
+        "type": "object",
+        "properties": {
+          "liked": { "type": "boolean" },
+          "likes_count": { "type": "integer" }
+        },
+        "required": ["liked", "likes_count"]
+      },
+      "UpdateTrace": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "visibility": { "type": "string", "enum": ["public", "private"] }
+        }
+      },
+      "UploadTraceResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "slug": { "type": "string" },
+          "url": { "type": "string" },
+          "visibility": { "type": "string", "enum": ["public", "private"] }
+        },
+        "required": ["id", "slug", "url", "visibility"]
+      },
+      "UploadTrace": {
+        "type": "object",
+        "properties": {
+          "visibility": {
+            "type": "string",
+            "enum": ["public", "private"],
+            "default": "private"
+          },
+          "title": { "type": "string", "default": "" },
+          "trace": {
+            "nullable": true,
+            "description": "The Thinkt trace object (arbitrary JSON)"
+          }
+        }
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/api/profile/accept-terms": {
+      "post": {
+        "tags": ["Profile"],
+        "summary": "Accept Terms of Service",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Terms accepted",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/stats": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Platform statistics",
+        "description": "Get platform-wide statistics. Admin only.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Platform stats",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminStats" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/traces/{slug}": {
+      "delete": {
+        "tags": ["Traces"],
+        "summary": "Delete a trace",
+        "description": "Delete a trace and its R2 data. Must be the owner.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trace deleted",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Traces"],
+        "summary": "Get trace metadata",
+        "description": "Get metadata for a trace. Public traces are accessible to anyone. Private traces require owner authentication.",
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trace metadata",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Trace" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Traces"],
+        "summary": "Update trace metadata",
+        "description": "Update title and/or visibility. Must be the owner.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateTrace" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Trace updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/device/code": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Request device code",
+        "description": "Start GitHub device flow authentication for CLI login.",
+        "responses": {
+          "200": {
+            "description": "Device code response from GitHub",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DeviceCodeResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/device/token": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Poll for auth token",
+        "description": "Poll for completed GitHub device flow authentication. Returns 202 while pending.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/DeviceTokenRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DeviceTokenResponse" }
+              }
+            }
+          },
+          "202": {
+            "description": "Authorization pending",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "400": {
+            "description": "Error (expired, denied)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "GitHub account too new",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/explore/tags": {
+      "get": {
+        "tags": ["Explore"],
+        "summary": "Tag cloud",
+        "description": "Get top 50 tags with counts from public approved traces.",
+        "responses": {
+          "200": {
+            "description": "Tag cloud",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TagCloud" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/explore": {
+      "get": {
+        "tags": ["Explore"],
+        "summary": "Browse public traces",
+        "description": "List public approved traces with optional tag filter, sorting, and pagination.",
+        "parameters": [
+          {
+            "schema": { "type": "string", "description": "Filter by tag" },
+            "required": false,
+            "description": "Filter by tag",
+            "name": "tag",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["newest", "likes"],
+              "description": "Sort order"
+            },
+            "required": false,
+            "description": "Sort order",
+            "name": "sort",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Page number (default 1)"
+            },
+            "required": false,
+            "description": "Page number (default 1)",
+            "name": "page",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public traces",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ExploreTraces" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile": {
+      "get": {
+        "tags": ["Profile"],
+        "summary": "Get user profile",
+        "description": "Get aggregated profile data including stats, liked traces, and tags.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Profile data",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Profile" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/traces/{slug}/tags": {
+      "get": {
+        "tags": ["Tags"],
+        "summary": "Get trace tags",
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tags",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Tags" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Tags"],
+        "summary": "Set trace tags",
+        "description": "Replace all tags on a trace. Max 10 tags, each max 20 chars. Must be the owner.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SetTags" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tags set",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Tags" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/traces/{slug}/data": {
+      "get": {
+        "tags": ["Traces"],
+        "summary": "Get trace data",
+        "description": "Get the full Thinkt reasoning trace object from R2 storage.",
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Thinkt trace object (arbitrary JSON)" },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Health" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/traces/favorites": {
+      "get": {
+        "tags": ["Traces"],
+        "summary": "List favorited traces",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of favorited traces",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TraceList" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/reports": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "List reports",
+        "description": "List reports filtered by status. Admin only.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["pending", "reviewed", "actioned", "dismissed"],
+              "description": "Filter by status (default: pending)"
+            },
+            "required": false,
+            "description": "Filter by status (default: pending)",
+            "name": "status",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reports list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ReportList" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/traces": {
+      "get": {
+        "tags": ["Traces"],
+        "summary": "List my traces",
+        "description": "List all traces owned by the authenticated user.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of traces",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TraceList" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Traces"],
+        "summary": "Upload a trace",
+        "description": "Upload a Thinkt reasoning trace for private storage or public sharing. Subject to per-user rate limits (5/hour, 20/day) and account limits (50 traces, 1 GB storage).",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UploadTrace" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Trace uploaded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UploadTraceResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "413": {
+            "description": "Trace too large (10 MB max)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or account limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/traces/{slug}/report": {
+      "post": {
+        "tags": ["Reports"],
+        "summary": "Report a trace",
+        "description": "Report a public trace for policy violations. Rate limited to 5 per hour. Cannot report own traces or private traces.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateReport" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Report created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ReportId" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "409": {
+            "description": "Already reported",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/reports/{id}/resolve": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Resolve a report",
+        "description": "Take action on a report: dismiss, remove trace, or ban user. Admin only.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "abc-123" },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ResolveReport" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Report resolved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolveReportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid action",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Report not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/traces/{slug}/favorite": {
+      "post": {
+        "tags": ["Social"],
+        "summary": "Toggle favorite",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Favorite toggled",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/FavoriteResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/traces/{slug}/like": {
+      "post": {
+        "tags": ["Social"],
+        "summary": "Toggle like",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Like toggled",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LikeResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
