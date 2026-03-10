@@ -9,11 +9,11 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/spf13/cobra"
 	tea "charm.land/bubbletea/v2"
-	"golang.org/x/term"
+	"github.com/spf13/cobra"
 	"github.com/wethinkt/go-thinkt/internal/share"
 	shareTUI "github.com/wethinkt/go-thinkt/internal/tui"
+	"golang.org/x/term"
 )
 
 var (
@@ -21,39 +21,83 @@ var (
 	shareExploreTag  string
 	shareExploreSort string
 	shareDeleteForce bool
+	shareLoginGoogle bool
+	shareLoginGitHub bool
 )
 
 var shareCmd = &cobra.Command{
 	Use:   "share",
 	Short: "Share traces on share.wethinkt.com",
 	Long:  "Upload, browse, and manage reasoning traces on the wethinkt sharing platform.",
+	Args:  cobra.NoArgs,
 	RunE:  runShareList,
 }
 
 // --- login ---
 
 var shareLoginCmd = &cobra.Command{
-	Use:   "login",
-	Short: "Log in to share.wethinkt.com",
-	Long:  "Authenticate with share.wethinkt.com using GitHub to enable sharing traces.",
-	RunE:  runShareLogin,
+	Use:          "login",
+	Short:        "Log in to share.wethinkt.com",
+	Long:         "Authenticate with share.wethinkt.com using GitHub or Google to enable sharing traces.",
+	SilenceUsage: true,
+	RunE:         runShareLogin,
+}
+
+func resolveLoginProvider() (string, error) {
+	if shareLoginGoogle {
+		return "google", nil
+	}
+	if shareLoginGitHub {
+		return "github", nil
+	}
+
+	// Check previous login provider.
+	if creds, err := share.LoadCredentials(share.DefaultCredentialsPath()); err == nil && creds.Provider != "" {
+		return creds.Provider, nil
+	}
+
+	// No previous — show picker.
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return "", fmt.Errorf("no previous login — specify --github or --google")
+	}
+
+	return pickLoginProvider()
 }
 
 func runShareLogin(cmd *cobra.Command, args []string) error {
+	provider, err := resolveLoginProvider()
+	if err != nil {
+		return err
+	}
+
 	endpoint := share.DefaultEndpoint
 	client := share.NewDeviceFlowClient(endpoint)
 
-	fmt.Println("Requesting login code...")
-	codeResp, err := client.RequestCode()
+	var codeResp *share.DeviceCodeResponse
+
+	switch provider {
+	case "google":
+		fmt.Println("Requesting Google login code...")
+		codeResp, err = client.RequestGoogleCode()
+	default:
+		fmt.Println("Requesting GitHub login code...")
+		codeResp, err = client.RequestCode()
+	}
 	if err != nil {
 		return fmt.Errorf("failed to start login: %w", err)
 	}
 
-	fmt.Printf("\nGo to: %s\n", codeResp.VerificationURI)
+	fmt.Printf("\nGo to: %s\n", codeResp.VerificationLink())
 	fmt.Printf("Enter code: %s\n\n", codeResp.UserCode)
 	fmt.Println("Waiting for authorization...")
 
-	tokenResp, err := client.PollForToken(codeResp.DeviceCode, codeResp.Interval)
+	var tokenResp *share.TokenResponse
+	switch provider {
+	case "google":
+		tokenResp, err = client.PollForGoogleToken(codeResp.DeviceCode, codeResp.Interval)
+	default:
+		tokenResp, err = client.PollForToken(codeResp.DeviceCode, codeResp.Interval)
+	}
 	if err != nil {
 		return fmt.Errorf("login failed: %w", err)
 	}
@@ -62,6 +106,7 @@ func runShareLogin(cmd *cobra.Command, args []string) error {
 		Token:    tokenResp.Token,
 		Username: tokenResp.User.Username,
 		Endpoint: endpoint,
+		Provider: provider,
 	}
 
 	path := share.DefaultCredentialsPath()
@@ -73,12 +118,85 @@ func runShareLogin(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// pickLoginProvider shows a mini-TUI to choose GitHub or Google.
+func pickLoginProvider() (string, error) {
+	m := newProviderPicker()
+	p := tea.NewProgram(m)
+	final, err := p.Run()
+	if err != nil {
+		return "", err
+	}
+	result := final.(providerPickerModel)
+	if result.cancelled {
+		return "", fmt.Errorf("login cancelled")
+	}
+	return result.providers[result.cursor], nil
+}
+
+type providerPickerModel struct {
+	providers []string
+	cursor    int
+	cancelled bool
+}
+
+func newProviderPicker() providerPickerModel {
+	return providerPickerModel{
+		providers: []string{"github", "google"},
+	}
+}
+
+func (m providerPickerModel) Init() tea.Cmd { return nil }
+
+func (m providerPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q", "esc":
+			m.cancelled = true
+			return m, tea.Quit
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case "down", "j":
+			if m.cursor < len(m.providers)-1 {
+				m.cursor++
+			}
+		case "enter":
+			return m, tea.Quit
+		}
+	}
+	return m, nil
+}
+
+func (m providerPickerModel) View() tea.View {
+	s := "\nLog in with:\n\n"
+	for i, p := range m.providers {
+		cursor := "  "
+		label := p
+		switch p {
+		case "github":
+			label = "GitHub"
+		case "google":
+			label = "Google"
+		}
+		if i == m.cursor {
+			cursor = "> "
+			label = fmt.Sprintf("\033[1m%s\033[0m", label)
+		}
+		s += fmt.Sprintf("%s%s\n", cursor, label)
+	}
+	s += "\n↑/↓ to move, enter to select, esc to cancel\n"
+	return tea.NewView(s)
+}
+
 // --- logout ---
 
 var shareLogoutCmd = &cobra.Command{
-	Use:   "logout",
-	Short: "Log out of share.wethinkt.com",
-	RunE:  runShareLogout,
+	Use:          "logout",
+	Short:        "Log out of share.wethinkt.com",
+	SilenceUsage: true,
+	RunE:         runShareLogout,
 }
 
 func runShareLogout(cmd *cobra.Command, args []string) error {
@@ -97,9 +215,10 @@ func runShareLogout(cmd *cobra.Command, args []string) error {
 // --- status ---
 
 var shareStatusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Show login and account status",
-	RunE:  runShareStatus,
+	Use:          "status",
+	Short:        "Show login and account status",
+	SilenceUsage: true,
+	RunE:         runShareStatus,
 }
 
 func runShareStatus(cmd *cobra.Command, args []string) error {
@@ -115,6 +234,7 @@ func runShareStatus(cmd *cobra.Command, args []string) error {
 	client := share.NewClientFromCreds(creds)
 	profile, err := client.GetProfile()
 	if err != nil {
+		fmt.Printf("Session expired. Run: thinkt share login\n")
 		return nil
 	}
 
@@ -126,11 +246,12 @@ func runShareStatus(cmd *cobra.Command, args []string) error {
 // --- push ---
 
 var sharePushCmd = &cobra.Command{
-	Use:   "push <path>",
-	Short: "Upload a trace to share.wethinkt.com",
-	Long:  "Upload a Thinkt reasoning trace for private storage or public sharing.",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runSharePush,
+	Use:          "push <path>",
+	Short:        "Upload a trace to share.wethinkt.com",
+	Long:         "Upload a Thinkt reasoning trace for private storage or public sharing.",
+	SilenceUsage: true,
+	Args:         cobra.ExactArgs(1),
+	RunE:         runSharePush,
 }
 
 func runSharePush(cmd *cobra.Command, args []string) error {
@@ -168,10 +289,11 @@ func runSharePush(cmd *cobra.Command, args []string) error {
 // --- list ---
 
 var shareListCmd = &cobra.Command{
-	Use:     "list",
-	Short:   "List your shared traces",
-	Aliases: []string{"ls"},
-	RunE:    runShareList,
+	Use:          "list",
+	Short:        "List your shared traces",
+	Aliases:      []string{"ls"},
+	SilenceUsage: true,
+	RunE:         runShareList,
 }
 
 func runShareList(cmd *cobra.Command, args []string) error {
@@ -202,9 +324,10 @@ func runShareList(cmd *cobra.Command, args []string) error {
 // --- explore ---
 
 var shareExploreCmd = &cobra.Command{
-	Use:   "explore",
-	Short: "Browse public traces",
-	RunE:  runShareExplore,
+	Use:          "explore",
+	Short:        "Browse public traces",
+	SilenceUsage: true,
+	RunE:         runShareExplore,
 }
 
 func runShareExplore(cmd *cobra.Command, args []string) error {
@@ -251,10 +374,11 @@ func runShareBrowser(traces []share.Trace, mode shareTUI.ShareBrowserMode) error
 // --- open ---
 
 var shareOpenCmd = &cobra.Command{
-	Use:   "open <slug>",
-	Short: "Open a trace in the web browser",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runShareOpen,
+	Use:          "open <slug>",
+	Short:        "Open a trace in the web browser",
+	SilenceUsage: true,
+	Args:         cobra.ExactArgs(1),
+	RunE:         runShareOpen,
 }
 
 func runShareOpen(cmd *cobra.Command, args []string) error {
@@ -266,11 +390,12 @@ func runShareOpen(cmd *cobra.Command, args []string) error {
 // --- delete ---
 
 var shareDeleteCmd = &cobra.Command{
-	Use:     "delete <slug>",
-	Short:   "Delete a shared trace",
-	Aliases: []string{"rm"},
-	Args:    cobra.ExactArgs(1),
-	RunE:    runShareDelete,
+	Use:          "delete <slug>",
+	Short:        "Delete a shared trace",
+	Aliases:      []string{"rm"},
+	SilenceUsage: true,
+	Args:         cobra.ExactArgs(1),
+	RunE:         runShareDelete,
 }
 
 func runShareDelete(cmd *cobra.Command, args []string) error {
@@ -303,9 +428,10 @@ func runShareDelete(cmd *cobra.Command, args []string) error {
 // --- profile ---
 
 var shareProfileCmd = &cobra.Command{
-	Use:   "profile",
-	Short: "Show your profile and stats",
-	RunE:  runShareProfile,
+	Use:          "profile",
+	Short:        "Show your profile and stats",
+	SilenceUsage: true,
+	RunE:         runShareProfile,
 }
 
 func runShareProfile(cmd *cobra.Command, args []string) error {

@@ -14,6 +14,9 @@ type Trace struct {
 	Liked            bool     `json:"liked,omitempty"`
 	Favorited        bool     `json:"favorited,omitempty"`
 	ModerationStatus string   `json:"moderation_status,omitempty"`
+	GitCommit        string   `json:"git_commit,omitempty"`
+	GitRepoURL       string   `json:"git_repo_url,omitempty"`
+	WorkspaceID      string   `json:"workspace_id,omitempty"`
 }
 
 type TraceList struct {

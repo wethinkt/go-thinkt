@@ -13,7 +13,7 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "description": "Session token from GitHub OAuth device flow"
+        "description": "Session token from GitHub or Google OAuth device flow"
       }
     },
     "schemas": {
@@ -53,16 +53,11 @@
           "device_code": { "type": "string" },
           "user_code": { "type": "string" },
           "verification_uri": { "type": "string" },
+          "verification_url": { "type": "string" },
           "expires_in": { "type": "integer" },
           "interval": { "type": "integer" }
         },
-        "required": [
-          "device_code",
-          "user_code",
-          "verification_uri",
-          "expires_in",
-          "interval"
-        ]
+        "required": ["device_code", "user_code", "expires_in", "interval"]
       },
       "DeviceTokenResponse": {
         "type": "object",
@@ -126,7 +121,10 @@
                 "moderation_status": {
                   "type": "string",
                   "enum": ["pending", "approved", "flagged", "removed"]
-                }
+                },
+                "git_commit": { "type": "string" },
+                "git_repo_url": { "type": "string" },
+                "workspace_id": { "type": "string" }
               },
               "required": [
                 "slug",
@@ -215,7 +213,10 @@
           "moderation_status": {
             "type": "string",
             "enum": ["pending", "approved", "flagged", "removed"]
-          }
+          },
+          "git_commit": { "type": "string" },
+          "git_repo_url": { "type": "string" },
+          "workspace_id": { "type": "string" }
         },
         "required": [
           "id",
@@ -384,7 +385,10 @@
           "trace": {
             "nullable": true,
             "description": "The Thinkt trace object (arbitrary JSON)"
-          }
+          },
+          "git_commit": { "type": "string" },
+          "git_repo_url": { "type": "string" },
+          "workspace_id": { "type": "string" }
         }
       }
     },
@@ -773,6 +777,87 @@
           "200": { "description": "Thinkt trace object (arbitrary JSON)" },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/device/google/code": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Request Google device code",
+        "description": "Start Google device flow authentication for CLI login.",
+        "responses": {
+          "200": {
+            "description": "Device code response from Google",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DeviceCodeResponse" }
+              }
+            }
+          },
+          "501": {
+            "description": "Not configured",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/device/google/token": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Poll for Google auth token",
+        "description": "Poll for completed Google device flow authentication. Returns 202 while pending.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/DeviceTokenRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DeviceTokenResponse" }
+              }
+            }
+          },
+          "202": {
+            "description": "Authorization pending",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "400": {
+            "description": "Error (expired, denied)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "403": {
+            "description": "Account suspended",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "501": {
+            "description": "Not configured",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }

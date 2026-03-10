@@ -2,12 +2,16 @@ package share
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
 )
+
+// ErrUnauthorized is returned when the API returns 401.
+var ErrUnauthorized = errors.New("unauthorized — try: thinkt share login")
 
 // Client is an HTTP client for the wethinkt Share API.
 type Client struct {
@@ -42,6 +46,9 @@ func (c *Client) doJSON(method, path string, target any) error {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusUnauthorized {
+		return ErrUnauthorized
+	}
 	if resp.StatusCode >= 400 {
 		var errResp ErrorResponse
 		json.NewDecoder(resp.Body).Decode(&errResp)

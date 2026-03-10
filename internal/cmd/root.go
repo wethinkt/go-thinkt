@@ -380,6 +380,9 @@ func init() {
 	}
 
 	// Share command tree
+	shareLoginCmd.Flags().BoolVar(&shareLoginGoogle, "google", false, "log in with Google")
+	shareLoginCmd.Flags().BoolVar(&shareLoginGitHub, "github", false, "log in with GitHub")
+	shareLoginCmd.MarkFlagsMutuallyExclusive("google", "github")
 	shareCmd.AddCommand(shareLoginCmd)
 	shareCmd.AddCommand(shareLogoutCmd)
 	shareCmd.AddCommand(shareStatusCmd)

@@ -15,6 +15,7 @@ type Credentials struct {
 	Token    string `json:"token"`
 	Username string `json:"username"`
 	Endpoint string `json:"endpoint"`
+	Provider string `json:"provider,omitempty"` // "github" or "google"
 }
 
 func DefaultCredentialsPath() string {
