@@ -373,6 +373,13 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case tea.KeyboardEnhancementsMsg:
+		tuilog.Log.Info("Shell.Update: KeyboardEnhancementsMsg",
+			"flags", msg.Flags,
+			"supports_key_disambiguation", msg.SupportsKeyDisambiguation(),
+			"supports_event_types", msg.SupportsEventTypes(),
+		)
+
 	case sourcesLoadedMsg:
 		tuilog.Log.Info("Shell.Update: sourcesLoadedMsg received", "hasError", msg.err != nil)
 		s.loading = false

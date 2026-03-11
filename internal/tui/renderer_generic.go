@@ -36,7 +36,7 @@ func RenderThinktSession(session *thinkt.Session, width int) string {
 // RenderThinktEntry renders a single entry into a styled string.
 // If filters is non-nil, entries and blocks are filtered accordingly.
 func RenderThinktEntry(entry *thinkt.Entry, width int, filters *RoleFilterSet) string {
-	contentWidth := max(20, width-4)
+	contentWidth := max(20, width)
 	renderer := getRenderer(contentWidth)
 	return renderThinktEntry(entry, contentWidth, renderer, renderer != nil, filters)
 }
@@ -48,7 +48,7 @@ func RenderThinktEntries(entries []thinkt.Entry, width int) string {
 		return ""
 	}
 
-	contentWidth := max(20, width-4)
+	contentWidth := max(20, width)
 	renderer := getRenderer(contentWidth)
 
 	var b strings.Builder

@@ -3,6 +3,9 @@ package tui
 import (
 	"strings"
 	"testing"
+
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestRenderNoSessionContentIncludesErrorsAndHint(t *testing.T) {
@@ -138,5 +141,46 @@ func TestSelectedTextPlainCharacterPreciseMultiline(t *testing.T) {
 	got := m.selectedTextPlain()
 	if got != "cd\nwx" {
 		t.Fatalf("selectedTextPlain multiline = %q, want %q", got, "cd\\nwx")
+	}
+}
+
+func TestViewerPageKeyMatching(t *testing.T) {
+	keys := defaultViewerKeyMap()
+
+	plainSpace := tea.KeyPressMsg(tea.Key{Code: tea.KeySpace, Text: " "})
+	shiftSpace := tea.KeyPressMsg(tea.Key{Code: tea.KeySpace, Mod: tea.ModShift, Text: " "})
+	pageUpB := tea.KeyPressMsg(tea.Key{Code: 'b', Text: "b"})
+
+	if !key.Matches(plainSpace, keys.PgDown) {
+		t.Fatal("expected plain space to page down")
+	}
+	if key.Matches(plainSpace, keys.PgUp) {
+		t.Fatal("expected plain space not to page up")
+	}
+	if !key.Matches(shiftSpace, keys.PgUp) {
+		t.Fatal("expected shift+space to page up")
+	}
+	if key.Matches(shiftSpace, keys.PgDown) {
+		t.Fatal("expected shift+space not to page down")
+	}
+	if !key.Matches(pageUpB, keys.PgUp) {
+		t.Fatal("expected b to remain a page-up binding")
+	}
+}
+
+func TestDefaultViewerKeyMapUsesBubbleTeaV2SpaceBinding(t *testing.T) {
+	keys := defaultViewerKeyMap()
+
+	hasSpace := false
+	for _, k := range keys.PgDown.Keys() {
+		if k == "space" {
+			hasSpace = true
+		}
+		if k == " " {
+			t.Fatal("pgdown binding should use Bubble Tea v2's \"space\" key name")
+		}
+	}
+	if !hasSpace {
+		t.Fatal("expected pgdown binding to include \"space\"")
 	}
 }

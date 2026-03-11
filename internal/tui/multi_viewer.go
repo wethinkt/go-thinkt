@@ -70,6 +70,10 @@ type MultiViewerModel struct {
 	// protocol queries, cursor position reports, etc.) from being interpreted
 	// as user input during view transitions.
 	inputSettled bool
+
+	// Scroll restoration after reflow (e.g. terminal resize).
+	// -1 means no restoration pending.
+	restoreScrollPct float64
 }
 
 // multiSessionLoadedMsg is sent when a session has been loaded (initial open).
@@ -115,6 +119,7 @@ func NewMultiViewerModelWithRegistry(sessionPaths []string, registry *thinkt.Sto
 		filters:          NewRoleFilterSet(),
 		selectionStart:   selectionPos{line: -1, cell: 0},
 		selectionEnd:     selectionPos{line: -1, cell: 0},
+		restoreScrollPct: -1,
 	}
 }
 
@@ -224,7 +229,7 @@ func (m *MultiViewerModel) asyncRenderNextBatch() tea.Cmd {
 		}
 
 		// Capture values for the goroutine
-		width := m.width - 4
+		width := m.width - 3
 		filters := m.filters
 		startIdx := displayed
 		entriesToRender := make([]thinkt.Entry, batchSize)
@@ -272,7 +277,7 @@ func (m *MultiViewerModel) renderUntilLines(targetLines int) {
 			// Render this entry if not cached
 			if displayed >= len(m.entryCache[origIdx]) {
 				entry := entries[displayed]
-				rendered := RenderThinktEntry(&entry, m.width-4, &m.filters)
+				rendered := RenderThinktEntry(&entry, m.width-3, &m.filters) //
 				m.entryCache[origIdx] = append(m.entryCache[origIdx], rendered)
 			}
 
@@ -816,6 +821,16 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.rebuildRenderedOutput()
 		m.setViewportContent()
 
+		// Restore scroll position after reflow (e.g. terminal resize)
+		if m.restoreScrollPct >= 0 {
+			totalLines := m.viewport.TotalLineCount()
+			visibleLines := m.viewport.VisibleLineCount()
+			if maxOffset := totalLines - visibleLines; maxOffset > 0 {
+				m.viewport.SetYOffset(int(m.restoreScrollPct * float64(maxOffset)))
+			}
+			m.restoreScrollPct = -1
+		}
+
 		// Settle input after first render batch
 		if !m.inputSettled {
 			m.inputSettled = true
@@ -934,6 +949,7 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		tuilog.Log.Info("MultiViewer.Update: WindowSizeMsg", "width", msg.Width, "height", msg.Height, "wasReady", m.ready)
+		prevWidth := m.width
 		m.width = msg.Width
 		m.height = msg.Height
 
@@ -963,6 +979,14 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.viewport.SetWidth(vpWidth)
 			m.viewport.SetHeight(contentHeight)
+
+			// Re-render content when width changes so text reflows
+			if m.width != prevWidth && m.loadedCount > 0 {
+				m.restoreScrollPct = m.viewport.ScrollPercent()
+				if renderCmd := m.invalidateCache(); renderCmd != nil {
+					cmds = append(cmds, renderCmd)
+				}
+			}
 		}
 
 	case tea.KeyMsg:
@@ -1067,6 +1091,10 @@ func (m MultiViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return m, tea.Quit
+		case key.Matches(msg, m.keys.PgUp):
+			m.viewport.PageUp()
+		case key.Matches(msg, m.keys.PgDown):
+			m.viewport.PageDown()
 		case key.Matches(msg, m.keys.Home):
 			m.viewport.GotoTop()
 		case key.Matches(msg, m.keys.End):
@@ -1708,7 +1736,7 @@ func (m MultiViewerModel) viewContent() string {
 	// Content with scrollbar
 	contentHeight := m.height - 4
 	scrollbar := m.renderScrollbar(contentHeight)
-	borderWidth := m.width - 2 - scrollbarWidth
+	borderWidth := m.width - scrollbarWidth
 	content := viewerBorderStyle.
 		Width(borderWidth).
 		Height(contentHeight).
@@ -1767,10 +1795,16 @@ func (m MultiViewerModel) configureMouseView(v *tea.View) {
 	}
 }
 
+// configureKeyboardView enables richer keyboard reporting while the viewer is active.
+func (m MultiViewerModel) configureKeyboardView(v *tea.View) {
+	v.KeyboardEnhancements.ReportEventTypes = true
+}
+
 func (m MultiViewerModel) View() tea.View {
 	v := tea.NewView(m.viewContent())
 	v.AltScreen = true
 	m.configureMouseView(&v)
+	m.configureKeyboardView(&v)
 	return v
 }
 

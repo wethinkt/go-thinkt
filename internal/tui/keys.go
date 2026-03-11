@@ -46,12 +46,12 @@ func defaultViewerKeyMap() viewerKeyMap {
 			key.WithHelp("↓/j", thinktI18n.T("tui.help.scrollDown", "scroll down")),
 		),
 		PgUp: key.NewBinding(
-			key.WithKeys("pgup", "b"),
-			key.WithHelp("pgup", thinktI18n.T("tui.help.pageUp", "page up")),
+			key.WithKeys("pgup", "b", "shift+space"),
+			key.WithHelp("pgup/b/shift+space", thinktI18n.T("tui.help.pageUp", "page up")),
 		),
 		PgDown: key.NewBinding(
-			key.WithKeys("pgdown", " "),
-			key.WithHelp("pgdn", thinktI18n.T("tui.help.pageDown", "page down")),
+			key.WithKeys("pgdown", "space"),
+			key.WithHelp("pgdn/space", thinktI18n.T("tui.help.pageDown", "page down")),
 		),
 		Home: key.NewBinding(
 			key.WithKeys("home", "g"),
