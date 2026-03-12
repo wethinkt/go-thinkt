@@ -185,7 +185,7 @@ Without a token, the API runs unauthenticated.
   THINKT_CODEX_HOME       Override default Codex CLI home directory
   THINKT_QWEN_HOME        Override default Qwen Code home directory
   THINKT_LANG             Override UI language (BCP 47 tag)
-  THINKT_COLLECTOR_URL    Collector endpoint URL for exporter
+  THINKT_COLLECTOR_URL    Collector endpoint URL for relay
   THINKT_API_KEY          Bearer token for collector authentication
 
 ---

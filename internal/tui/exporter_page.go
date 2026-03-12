@@ -79,7 +79,7 @@ func (m ExporterPageModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m ExporterPageModel) View() tea.View {
 	if !m.ready {
-		v := tea.NewView("Loading exporter status...")
+		v := tea.NewView("Loading relay status...")
 		v.AltScreen = true
 		return v
 	}
@@ -89,7 +89,7 @@ func (m ExporterPageModel) View() tea.View {
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
 	padStyle := lipgloss.NewStyle().Padding(1, 2)
 
-	title := titleStyle.Render("Exporter Status")
+	title := titleStyle.Render("Relay Status")
 	help := helpStyle.Render("esc: back  q: quit  j/k: scroll")
 
 	content := title + "\n" + m.viewport.View() + "\n" + help
@@ -140,8 +140,8 @@ func (m ExporterPageModel) renderContent() string {
 	b.WriteString(labelStyle.Render("Buffer Size") + valueStyle.Render(formatFileSize(m.stats.BufferSizeBytes)) + "\n")
 	b.WriteString("\n")
 
-	// Export stats
-	b.WriteString(headerStyle.Render("Export Stats"))
+	// Relay stats
+	b.WriteString(headerStyle.Render("Relay Stats"))
 	b.WriteString("\n")
 	b.WriteString(labelStyle.Render("Traces Shipped") + valueStyle.Render(fmt.Sprintf("%d", m.stats.TracesShipped)) + "\n")
 	b.WriteString(labelStyle.Render("Traces Failed") + valueStyle.Render(fmt.Sprintf("%d", m.stats.TracesFailed)) + "\n")

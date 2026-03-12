@@ -3,7 +3,7 @@ title: "Trace Collector"
 weight: 12
 ---
 
-# Trace Collector & Exporter
+# Trace Collector & Relay
 
 thinkt includes a push-based trace collection system for aggregating AI coding assistant traces from multiple machines into a central store. This enables team-wide observability, cross-machine analytics, and centralized trace governance.
 
@@ -14,7 +14,7 @@ thinkt includes a push-based trace collection system for aggregating AI coding a
 │  Machine A         │     │  Machine B         │
 │  ┌──────────────┐  │     │  ┌──────────────┐  │
 │  │ thinkt       │  │     │  │ thinkt       │  │
-│  │ export       │──┼─┐   │  │ export       │──┼─┐
+│  │ relay        │──┼─┐   │  │ relay        │──┼─┐
 │  │ --forward    │  │ │   │  │ --forward    │  │ │
 │  └──────────────┘  │ │   │  └──────────────┘  │ │
 │  watches ~/.claude │ │   │  watches ~/.kimi   │ │
@@ -36,7 +36,7 @@ thinkt includes a push-based trace collection system for aggregating AI coding a
 
 The system has two components:
 
-- **Exporter** (`thinkt export`) — Watches local JSONL session files and ships trace entries to a collector via HTTP POST
+- **Relay** (`thinkt relay`) — Watches local JSONL session files and ships trace entries to a collector via HTTP POST
 - **Collector** (`thinkt collect`) — HTTP server that receives, normalizes, and stores traces in DuckDB
 
 ## Quick Start
@@ -54,27 +54,27 @@ thinkt collect --token mytoken
 thinkt collect --storage /path/to/traces.duckdb
 ```
 
-### Export Traces
+### Relay Traces
 
 ```bash
-# One-shot export of all local traces
-thinkt export
+# One-shot relay of all local traces
+thinkt relay
 
 # Continuous watch mode (ships traces as they are written)
-thinkt export --forward
+thinkt relay --forward
 
-# Export to a specific collector
-thinkt export --collector-url http://collect.example.com:8785/v1/traces
+# Relay to a specific collector
+thinkt relay --collector-url http://collect.example.com:8785/v1/traces
 
-# Export only Claude Code traces
-thinkt export --source claude
+# Relay only Claude Code traces
+thinkt relay --source claude
 ```
 
 ---
 
 ## Collector
 
-The collector is an HTTP server that receives trace payloads from exporters and stores them in DuckDB.
+The collector is an HTTP server that receives trace payloads from relays and stores them in DuckDB.
 
 ### CLI Usage
 
@@ -109,7 +109,7 @@ All endpoints are under the `/v1` prefix. When `--token` is set, all endpoints e
 POST /v1/traces
 ```
 
-Accepts a batch of trace entries from an exporter:
+Accepts a batch of trace entries from a relay:
 
 ```json
 {
@@ -218,7 +218,7 @@ The collector uses its own DuckDB database file (`~/.thinkt/collector.duckdb`), 
 |-------|---------|
 | `collected_sessions` | Session summaries with entry counts, source, model |
 | `collected_entries` | Individual trace entries with tokens, thinking length |
-| `collected_agents` | Registered exporter agents with heartbeat timestamps |
+| `collected_agents` | Registered relay agents with heartbeat timestamps |
 
 The collector uses a single-writer batch pattern: incoming HTTP requests are queued to a buffered channel, and a single goroutine drains and writes batches in transactions. This avoids DuckDB's single-writer limitation while handling concurrent HTTP ingestion.
 
@@ -238,7 +238,7 @@ Token comparison uses constant-time comparison to prevent timing attacks.
 
 ### Agent Registry
 
-The collector tracks registered exporter agents:
+The collector tracks registered relay agents:
 
 - Agents register via `POST /v1/agents/register`
 - Each ingest request updates the agent's heartbeat and trace count
@@ -247,14 +247,14 @@ The collector tracks registered exporter agents:
 
 ---
 
-## Exporter
+## Relay
 
-The exporter watches local JSONL session files and ships new trace entries to a collector endpoint.
+The relay watches local JSONL session files and ships new trace entries to a collector endpoint.
 
 ### CLI Usage
 
 ```bash
-thinkt export [flags]
+thinkt relay [flags]
 ```
 
 | Flag | Description | Default |
@@ -269,31 +269,31 @@ thinkt export [flags]
 
 ### Modes
 
-**One-shot export** (default): Scans all watch directories, ships all traces, and exits.
+**One-shot relay** (default): Scans all watch directories, ships all traces, and exits.
 
 ```bash
-thinkt export
+thinkt relay
 ```
 
 **Watch mode** (`--forward`): Continuously watches for new/modified session files and ships entries as they are written.
 
 ```bash
-thinkt export --forward
+thinkt relay --forward
 ```
 
 **Buffer flush** (`--flush`): Drains the local disk buffer (useful after collector was temporarily unavailable).
 
 ```bash
-thinkt export --flush
+thinkt relay --flush
 ```
 
 ### Standalone Binary
 
 ```bash
-thinkt-exporter --watch-dir ~/.claude/projects \
-                --watch-dir ~/.kimi/sessions \
-                --collector-url http://collect.example.com:8785/v1/traces \
-                --api-key mytoken
+thinkt-relay --watch-dir ~/.claude/projects \
+             --watch-dir ~/.kimi/sessions \
+             --collector-url http://collect.example.com:8785/v1/traces \
+             --api-key mytoken
 ```
 
 | Flag | Description | Default |
@@ -301,14 +301,14 @@ thinkt-exporter --watch-dir ~/.claude/projects \
 | `--watch-dir` | Directory to watch (repeatable) | (required) |
 | `--collector-url` | Collector endpoint URL | (auto-discover) |
 | `--api-key` | Bearer token | (none) |
-| `--buffer-dir` | Disk buffer directory | `~/.thinkt/export-buffer/` |
+| `--buffer-dir` | Disk buffer directory | `~/.thinkt/relay-buffer/` |
 | `--quiet` | Suppress output | `false` |
 | `--version` | Print version | — |
 | `--log` | Debug log file | (none) |
 
 ### Collector Discovery
 
-The exporter discovers the collector endpoint via a 4-step cascade:
+The relay discovers the collector endpoint via a 4-step cascade:
 
 1. **Environment variable**: `THINKT_COLLECTOR_URL`
 2. **Project config**: `.thinkt/collector.json` in the project directory
@@ -318,32 +318,32 @@ The exporter discovers the collector endpoint via a 4-step cascade:
 ```bash
 # Via environment variable
 export THINKT_COLLECTOR_URL=http://collect.example.com:8785/v1/traces
-thinkt export --forward
+thinkt relay --forward
 
 # Via flag (highest priority)
-thinkt export --collector-url http://localhost:8785/v1/traces
+thinkt relay --collector-url http://localhost:8785/v1/traces
 ```
 
 ### Disk Buffer
 
-When the collector is unreachable, payloads are buffered to disk in `~/.thinkt/export-buffer/`. On the next successful connection (or via `--flush`), buffered payloads are drained in chronological order.
+When the collector is unreachable, payloads are buffered to disk in `~/.thinkt/relay-buffer/`. On the next successful connection (or via `--flush`), buffered payloads are drained in chronological order.
 
 | Config | Default |
 |--------|---------|
-| Buffer directory | `~/.thinkt/export-buffer/` |
+| Buffer directory | `~/.thinkt/relay-buffer/` |
 | Max buffer size | 100 MB |
 | Batch size | 100 entries per POST |
 | Flush interval | 5 seconds |
 
 ### File Offset Tracking
 
-The exporter tracks read offsets for each session file, so re-processing only ships entries written since the last read. This makes `--forward` mode efficient even with large session files.
+The relay tracks read offsets for each session file, so re-processing only ships entries written since the last read. This makes `--forward` mode efficient even with large session files.
 
 ---
 
 ## TUI Integration
 
-Both the collector and exporter have status pages in the interactive TUI:
+Both the collector and relay have status pages in the interactive TUI:
 
 ### Collector Status Page
 
@@ -355,13 +355,13 @@ Accessible when a collector instance is running. Shows:
 
 Auto-refreshes every 5 seconds. Keys: `r` refresh, `esc` back, `q` quit, `j/k` scroll.
 
-### Exporter Status Page
+### Relay Status Page
 
-Shows exporter configuration and real-time statistics:
+Shows relay configuration and real-time statistics:
 - Collector URL and connection status
 - Watched directories
 - Buffer status (buffered traces, buffer size)
-- Export stats (shipped, failed, last ship time)
+- Relay stats (shipped, failed, last ship time)
 
 Keys: `esc` back, `q` quit, `j/k` scroll.
 
@@ -371,7 +371,7 @@ Keys: `esc` back, `q` quit, `j/k` scroll.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `THINKT_COLLECTOR_URL` | Collector endpoint URL for the exporter | (auto-discover) |
+| `THINKT_COLLECTOR_URL` | Collector endpoint URL for the relay | (auto-discover) |
 | `THINKT_API_KEY` | Bearer token for collector authentication | (none) |
 
 ---
@@ -390,14 +390,14 @@ Keys: `esc` back, `q` quit, `j/k` scroll.
 
 ### Local Development
 
-Run both the collector and exporter on the same machine:
+Run both the collector and relay on the same machine:
 
 ```bash
 # Terminal 1: Start collector
 thinkt collect --token dev-token
 
 # Terminal 2: Watch and forward traces
-thinkt export --forward --api-key dev-token --collector-url http://localhost:8785/v1/traces
+thinkt relay --forward --api-key dev-token --collector-url http://localhost:8785/v1/traces
 ```
 
 ### Team Server
@@ -411,7 +411,7 @@ thinkt-collector --host 0.0.0.0 --port 8785 --token team-secret --storage /data/
 # On each developer machine
 export THINKT_COLLECTOR_URL=http://collect.team.internal:8785/v1/traces
 export THINKT_API_KEY=team-secret
-thinkt export --forward
+thinkt relay --forward
 ```
 
 ### Docker

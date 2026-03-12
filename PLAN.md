@@ -45,13 +45,13 @@ The core CLI is functional with multi-source support, TUI with tree view navigat
 
 - [x] **Machine Fingerprint** - `thinkt server fingerprint` for workspace correlation
 
-- [x] **Trace Collector & Exporter** - Push-based trace aggregation
+- [x] **Trace Collector & Relay** - Push-based trace aggregation
   - `thinkt collect` — HTTP server on port 8785, DuckDB storage, agent registry
-  - `thinkt export` — File watcher, HTTP shipper, disk buffer, discovery cascade
-  - `thinkt-exporter` / `thinkt-collector` standalone binaries
-  - TUI views: collector status page, exporter status page
+  - `thinkt relay` — File watcher, HTTP shipper, disk buffer, discovery cascade
+  - `thinkt-relay` / `thinkt-collector` standalone binaries
+  - TUI views: collector status page, relay status page
   - Collector API: `/v1/traces`, `/v1/traces/search`, `/v1/traces/stats`, `/v1/agents`
-  - Prometheus metrics on `/metrics` (collector) and `--metrics-port` (exporter)
+  - Prometheus metrics on `/metrics` (collector) and `--metrics-port` (relay)
 
 - [x] **Documentation Updates** - AGENTS.md, README.md, and Hugo docs updated
 
@@ -414,7 +414,7 @@ project_id      text NOT NULL FK(project.id CASCADE)
 - [ ] **3b. Session diff files** — `storage/session_diff/ses_*.json`
   - Parse for file change metadata if useful for session summaries
 
-- [ ] **3c. WatchConfig for exporter**
+- [ ] **3c. WatchConfig for relay**
   - SQLite doesn't produce new files per session
   - Watch `opencode.db-wal` for modifications, or poll the DB
   - May need a different watcher strategy (periodic poll vs fsnotify)
@@ -440,7 +440,7 @@ project_id      text NOT NULL FK(project.id CASCADE)
    WAL mode allows concurrent readers, but we should still be conservative.
 
 3. **No `IsSessionPath()`**: Unlike file-based sources, there's no per-session file path.
-   The exporter/watcher will need a different strategy — likely watching the DB file
+   The relay/watcher will need a different strategy — likely watching the DB file
    for mtime changes and diffing session counts.
 
 4. **Entry grouping**: Each user message + its chain of assistant messages (linked by
@@ -473,7 +473,7 @@ project_id      text NOT NULL FK(project.id CASCADE)
 
 ### Medium Term
 
-- [x] **Prometheus metrics** - Collector and exporter expose `/metrics` for Prometheus scraping
+- [x] **Prometheus metrics** - Collector and relay expose `/metrics` for Prometheus scraping
 - [ ] **Hugo docs site deployment** - Publish to GitHub Pages
 
 ### Long Term
@@ -489,7 +489,7 @@ internal/
   sources/            Source implementations (claude, kimi, gemini, copilot, codex)
   tui/                BubbleTea terminal UI (shell, pickers, viewer, tree)
   server/             HTTP REST API, teams API, MCP server, lite webapp
-  export/             Trace exporter (watcher, shipper, buffer, discovery)
+  relay/              Trace relay (watcher, shipper, buffer, discovery)
   collect/            Trace collector (HTTP server, DuckDB store, agent registry)
   analytics/          Analytics
   prompt/             Prompt extraction

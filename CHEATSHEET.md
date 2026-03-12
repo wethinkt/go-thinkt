@@ -27,7 +27,7 @@ $ thinkt help cheat
   │
   ├── embeddings  Manage embedding model, storage, and sync
   │
-  ├── export  Export traces to a remote collector
+  ├── relay  Relay traces to a remote collector
   │
   ├── indexer         Specialized indexing and search via DuckDB (requires thinkt-indexer)
   │   ├── embeddings  Manage embedding model, storage, and sync

@@ -42,7 +42,7 @@ For developers, we have an [OpenAPI server](https://wethinkt.github.io/go-thinkt
 
 Integrated in `thinkt` is an [indexer](https://wethinkt.github.io/go-thinkt/command/thinkt_indexer/) to speed up searches and other operations, as well as support for [semantic search]() local inferencing support
 
-For beyond local deployments, we also have [`thinkt-exporter` and `thinkt-collector`](https://wethinkt.github.io/go-thinkt/collector/) tools.
+For beyond local deployments, we also have [`thinkt-relay` and `thinkt-collector`](https://wethinkt.github.io/go-thinkt/collector/) tools.
 
 ## [User Guide](https://wethinkt.github.io/go-thinkt/)
 
@@ -60,7 +60,7 @@ For beyond local deployments, we also have [`thinkt-exporter` and `thinkt-collec
 - **Web Interface**: Full webapp for visual trace exploration via `thinkt web`
 - **Lite Webapp**: Lightweight debug interface with i18n (EN/ES/中文), connection status, and "open-in" buttons
 - **Trace Collector**: Push-based trace aggregation from multiple machines via `thinkt collect`
-- **Trace Exporter**: Watch local sessions and ship to a remote collector via `thinkt export`
+- **Trace Relay**: Watch local sessions and ship to a remote collector via `thinkt relay`
 - **Themes**: Customizable color themes with interactive theme builder
 - **App Management**: Configure open-in apps and default terminal via `thinkt apps`
 
@@ -153,8 +153,8 @@ thinkt web
 # Start HTTP server without opening browser
 thinkt server --no-open
 
-# Export traces to a collector
-thinkt export --forward
+# Relay traces to a collector
+thinkt relay --forward
 
 # Start a trace collector
 thinkt collect --token mytoken
@@ -187,9 +187,9 @@ thinkt tui --log /tmp/thinkt-debug.log
 | `thinkt teams` | List agent teams (Claude Code) |
 | `thinkt teams list` | Same as above |
 | `thinkt prompts extract` | Extract prompts to markdown/JSON |
-| `thinkt export` | Export traces to a remote collector |
-| `thinkt export --forward` | Continuous watch mode |
-| `thinkt export --flush` | Flush the disk buffer |
+| `thinkt relay` | Relay traces to a remote collector |
+| `thinkt relay --forward` | Continuous watch mode |
+| `thinkt relay --flush` | Flush the disk buffer |
 | `thinkt agents` | List active agents (local and remote) |
 | `thinkt agents --local` | Local agents only |
 | `thinkt agents follow <id>` | Live-tail an agent's conversation |
@@ -349,7 +349,7 @@ thinkt server stop                 # Stop background server
 | `thinkt server mcp --port` | 8786 | MCP server over HTTP |
 | [VS Code extension](https://github.com/wethinkt/thinkt-vscode) | 8787 | Reserved for embedded server |
 | `thinkt collect` | 8785 | Trace collector (includes `/metrics`) |
-| `thinkt-exporter --metrics-port` | (disabled) | Exporter Prometheus metrics |
+| `thinkt-relay --metrics-port` | (disabled) | Relay Prometheus metrics |
 
 Use `-p` or `--port` to override the default port for any server.
 
@@ -436,7 +436,7 @@ The lightweight webapp (`thinkt web lite`) provides a quick debug interface:
 - **Open-In Buttons**: Quick buttons to open projects in VS Code, Cursor, etc.
 - **Language Selector**: Switch between EN/ES/中文 in the top-right corner
 
-## Trace Collector & Exporter
+## Trace Collector & Relay
 
 Aggregate traces from multiple machines with the push-based collector system.
 
@@ -453,30 +453,30 @@ thinkt-collector --port 8785 --token mytoken
 
 Collector data is stored in `~/.thinkt/collector.duckdb` (separate from the indexer).
 
-### Exporter
+### Relay
 
 ```bash
-# One-shot export of all traces
-thinkt export
+# One-shot relay of all traces
+thinkt relay
 
 # Continuous watch mode
-thinkt export --forward
+thinkt relay --forward
 
-# Export only Claude traces
-thinkt export --source claude
+# Relay only Claude traces
+thinkt relay --source claude
 
 # Flush the disk buffer
-thinkt export --flush
+thinkt relay --flush
 
 # Standalone binary
-thinkt-exporter --watch-dir ~/.claude/projects --collector-url http://collect.example.com/v1/traces
+thinkt-relay --watch-dir ~/.claude/projects --collector-url http://collect.example.com/v1/traces
 ```
 
-The exporter auto-discovers the collector via `THINKT_COLLECTOR_URL` env var, `.thinkt/collector.json`, or falls back to local buffering.
+The relay auto-discovers the collector via `THINKT_COLLECTOR_URL` env var, `.thinkt/collector.json`, or falls back to local buffering.
 
 ### Prometheus Metrics
 
-Both the collector and exporter expose Prometheus metrics for monitoring.
+Both the collector and relay expose Prometheus metrics for monitoring.
 
 **Collector** — metrics are always available at `/metrics` on the collector port (no auth required):
 
@@ -484,10 +484,10 @@ Both the collector and exporter expose Prometheus metrics for monitoring.
 curl -s http://localhost:8785/metrics | grep thinkt_
 ```
 
-**Exporter** — opt-in via `--metrics-port`:
+**Relay** — opt-in via `--metrics-port`:
 
 ```bash
-thinkt-exporter --collector-url http://localhost:8785/v1/traces --metrics-port 9090
+thinkt-relay --collector-url http://localhost:8785/v1/traces --metrics-port 9090
 curl -s http://localhost:9090/metrics | grep thinkt_
 ```
 
@@ -611,7 +611,7 @@ Contents of `THINKT_HOME`:
 | `THINKT_MCP_ALLOW_TOOLS` | Comma-separated list of allowed MCP tools | (all) |
 | `THINKT_MCP_DENY_TOOLS` | Comma-separated list of denied MCP tools | (none) |
 | `THINKT_CORS_ORIGIN` | CORS `Access-Control-Allow-Origin` header | `*` (unauthenticated) |
-| `THINKT_COLLECTOR_URL` | Collector endpoint URL for exporter | (auto-discover) |
+| `THINKT_COLLECTOR_URL` | Collector endpoint URL for relay | (auto-discover) |
 | `THINKT_API_KEY` | Bearer token for collector authentication | (none) |
 | `THINKT_PROFILE` | Write CPU profiling to this file path | (disabled) |
 

@@ -1,16 +1,16 @@
 ---
-title: "thinkt export"
+title: "thinkt relay"
 ---
 
-## thinkt export
+## thinkt relay
 
-Export traces to a remote collector
+Relay traces to a remote collector
 
 ### Synopsis
 
-Export local AI coding assistant traces to a remote collector endpoint.
+Relay local AI coding assistant traces to a remote collector endpoint.
 
-By default, performs a one-shot export of all traces found in source directories.
+By default, performs a one-shot relay of all traces found in source directories.
 Use --forward for continuous watch mode that ships traces as they are written.
 
 The collector endpoint is discovered automatically:
@@ -20,14 +20,14 @@ The collector endpoint is discovered automatically:
   4. Local buffer only (no remote)
 
 Examples:
-  thinkt export                          # One-shot export of all traces
-  thinkt export --forward                # Watch mode: continuously forward traces
-  thinkt export --flush                  # Flush the disk buffer
-  thinkt export --source claude          # Export only Claude traces
-  thinkt export --collector-url https://collect.example.com/v1/traces
+  thinkt relay                          # One-shot relay of all traces
+  thinkt relay --forward                # Watch mode: continuously forward traces
+  thinkt relay --flush                  # Flush the disk buffer
+  thinkt relay --source claude          # Relay only Claude traces
+  thinkt relay --collector-url https://collect.example.com/v1/traces
 
 ```
-thinkt export [flags]
+thinkt relay [flags]
 ```
 
 ### Options
@@ -37,7 +37,7 @@ thinkt export [flags]
       --collector-url string   collector URL (default: auto-discover)
       --flush                  flush the disk buffer
       --forward                continuous watch mode
-  -h, --help                   help for export
+  -h, --help                   help for relay
   -q, --quiet                  suppress non-error output
       --source string          filter by source (claude, kimi, etc.)
 ```

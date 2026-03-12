@@ -64,7 +64,7 @@
 ## v0.7.5 (2026-03-04)
 
   * **Consolidated Release & Homebrew Cask**
-    - Single `brew install --cask thinkt` now installs all 4 binaries: `thinkt`, `thinkt-indexer`, `thinkt-exporter`, and `thinkt-collector`
+    - Single `brew install --cask thinkt` now installs all 4 binaries: `thinkt`, `thinkt-indexer`, `thinkt-relay`, and `thinkt-collector`
     - Merged two goreleaser configs into one unified build via `goreleaser-cross` for darwin and linux
     - Added native Windows build job (`.goreleaser-windows.yml`) with CGO support for DuckDB
     - All platform archives now contain the full binary suite, shell completions, and man pages
@@ -124,8 +124,8 @@
   - Kimi and Qwen listing paths now avoid deep/full JSONL parsing during project/session enumeration
   - Improved TUI loading messages for project/session pickers and shell startup hints
 
-* **Exporter & Collector Fixes**
-  - Fixed exporter watcher FD/memory growth by cleaning debounced timers and adding stale-watch pruning
+* **Relay & Collector Fixes**
+  - Fixed relay watcher FD/memory growth by cleaning debounced timers and adding stale-watch pruning
   - Normalized collector URLs to consistently resolve to `/v1/traces`
   - Collector agent registry now sets `StartedAt` for implicitly created agents (heartbeat/trace activity path)
 
@@ -140,7 +140,7 @@
 
 * **Trace Collector Server**: Push-based trace aggregation via `thinkt collect`
   - HTTP server with chi router on port 8785 (configurable `--port`, `--host`)
-  - `POST /v1/traces` for batch trace ingestion from exporters
+  - `POST /v1/traces` for batch trace ingestion from relays
   - `GET /v1/traces/search` and `GET /v1/traces/stats` for querying
   - `POST /v1/agents/register` and `GET /v1/agents` for agent lifecycle
   - `POST /v1/sessions/activity` and `GET /v1/sessions/active` for session tracking
@@ -158,11 +158,11 @@
   - In-memory pub/sub fan-out to multiple subscribers
   - Ticket-based auth for browser clients (`POST /v1/ws/ticket`, 30-second single-use)
 
-* **Trace Exporter**: Watch and ship local traces via `thinkt export`
-  - One-shot export, continuous watch mode (`--forward`), and buffer flush (`--flush`)
+* **Trace Relay**: Watch and ship local traces via `thinkt relay`
+  - One-shot relay, continuous watch mode (`--forward`), and buffer flush (`--flush`)
   - Lazy directory watcher with on-demand recursive expansion and 2-second debounce
   - HTTP shipper with 3 retries and exponential backoff (1s/2s/4s)
-  - Disk buffer for offline resilience (`~/.thinkt/export-buffer/`, 100 MB default)
+  - Disk buffer for offline resilience (`~/.thinkt/relay-buffer/`, 100 MB default)
   - Collector discovery cascade: `THINKT_COLLECTOR_URL`, project config, well-known, local fallback
   - File offset tracking for incremental-only shipping
   - Session activity tracking: start/active/end lifecycle events (5-min inactivity timeout)
@@ -179,22 +179,22 @@
   - `thinkt agents follow [session-id]` for live conversation tailing (TUI, `--json`, `--raw`)
   - Local streaming via filesystem tail, remote streaming via WebSocket
 
-* **TUI Views**: Collector, exporter, and agents pages in the interactive TUI
+* **TUI Views**: Collector, relay, and agents pages in the interactive TUI
   - Collector page: live server status, agents, sessions, stats (auto-refreshes every 5s)
-  - Exporter page: connection, watched directories, buffer, export statistics
+  - Relay page: connection, watched directories, buffer, relay statistics
   - Agents page: merged local/remote agent list with filter modes (all/local/remote)
   - Agent tail: live conversation streaming with role filters, auto-scroll, flash indicator
   - New navigation result types integrated into Shell
 
-* **Prometheus Metrics**: Observability for collector and exporter
+* **Prometheus Metrics**: Observability for collector and relay
   - Collector: `thinkt_collector_ingest_entries_total`, `_requests_total`, `_duration_seconds`, `_tokens_total`, `_batch_flush_duration_seconds`, `_active_sessions`, `_active_agents`, `_db_size_bytes`, `_ws_connections_active`
-  - Exporter: `thinkt_exporter_watched_directories`, `_file_events_total`, `_export_entries_shipped`, `_export_entries_failed`, `_buffer_size_bytes`, `_ship_requests_total`, `_ship_duration_seconds`
-  - Available at `GET /metrics` (collector) and optional `--metrics-port` (exporter)
+  - Relay: `thinkt_exporter_watched_directories`, `_file_events_total`, `_export_entries_shipped`, `_export_entries_failed`, `_buffer_size_bytes`, `_ship_requests_total`, `_ship_duration_seconds`
+  - Available at `GET /metrics` (collector) and optional `--metrics-port` (relay)
 
-* **Standalone Binaries**: `thinkt-exporter` and `thinkt-collector`
+* **Standalone Binaries**: `thinkt-relay` and `thinkt-collector`
   - Lightweight flag-based CLIs (no cobra dependency)
   - Environment variable fallbacks for `THINKT_COLLECTOR_URL` and `THINKT_API_KEY`
-  - Exporter supports optional Prometheus metrics server via `--metrics-port`
+  - Relay supports optional Prometheus metrics server via `--metrics-port`
 
 * **Instance Registry**: Added `collector` instance type for port conflict prevention and service discovery
 

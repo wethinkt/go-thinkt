@@ -238,13 +238,13 @@ The fingerprint is also available via the REST API at `GET /api/v1/info`.
 
 ---
 
-## Trace Collector & Exporter
+## Trace Collector & Relay
 
 Aggregate traces from multiple machines with the push-based collector system. See the [Collector Guide](/collector) for the full architecture.
 
 ### Collector
 
-Start a collector server that receives traces from exporters:
+Start a collector server that receives traces from relays:
 
 ```bash
 thinkt collect                              # Start on port 8785
@@ -253,16 +253,16 @@ thinkt collect --token mytoken              # Require bearer token auth
 thinkt collect --storage ./traces.duckdb    # Custom storage path
 ```
 
-### Exporter
+### Relay
 
 Watch local sessions and ship traces to a collector:
 
 ```bash
-thinkt export                               # One-shot export of all traces
-thinkt export --forward                     # Continuous watch mode
-thinkt export --source claude               # Export only Claude traces
-thinkt export --flush                       # Flush the disk buffer
-thinkt export --collector-url http://host:8785/v1/traces  # Explicit endpoint
+thinkt relay                               # One-shot relay of all traces
+thinkt relay --forward                     # Continuous watch mode
+thinkt relay --source claude               # Relay only Claude traces
+thinkt relay --flush                       # Flush the disk buffer
+thinkt relay --collector-url http://host:8785/v1/traces  # Explicit endpoint
 ```
 
 ### Standalone Binaries
@@ -270,14 +270,14 @@ thinkt export --collector-url http://host:8785/v1/traces  # Explicit endpoint
 For deployment without the full CLI:
 
 ```bash
-# Exporter (repeatable --watch-dir flag)
-thinkt-exporter --watch-dir ~/.claude/projects --collector-url http://collect.example.com/v1/traces
+# Relay (repeatable --watch-dir flag)
+thinkt-relay --watch-dir ~/.claude/projects --collector-url http://collect.example.com/v1/traces
 
 # Collector
 thinkt-collector --port 8785 --token mytoken
 ```
 
-**Reference:** [Collector Guide](/collector), [thinkt export](/command/thinkt_export), [thinkt collect](/command/thinkt_collect)
+**Reference:** [Collector Guide](/collector), [thinkt relay](/command/thinkt_relay), [thinkt collect](/command/thinkt_collect)
 
 ---
 

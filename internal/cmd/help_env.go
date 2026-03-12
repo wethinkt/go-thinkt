@@ -43,8 +43,8 @@ var envGroups = []envGroup{
 		{"THINKT_MCP_ALLOW_TOOLS", "", "Comma-separated list of allowed MCP tools"},
 		{"THINKT_MCP_DENY_TOOLS", "", "Comma-separated list of denied MCP tools"},
 	}},
-	{"Collector / Exporter", []envVar{
-		{"THINKT_COLLECTOR_URL", "", "Collector endpoint URL for trace export"},
+	{"Collector / Relay", []envVar{
+		{"THINKT_COLLECTOR_URL", "", "Collector endpoint URL for trace relay"},
 		{"THINKT_API_KEY", "", "Bearer token for collector authentication"},
 	}},
 	{"Source Directories", []envVar{
