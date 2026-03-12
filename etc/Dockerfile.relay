@@ -1,5 +1,5 @@
-# thinkt-exporter Dockerfile
-# Lightweight image for the trace exporter daemon.
+# thinkt-relay Dockerfile
+# Lightweight image for the trace relay daemon.
 # Copyright (c) 2026 Neomantra Corp / BrainSTM
 
 ARG THINKT_BUILD_BASE="golang"
@@ -19,7 +19,7 @@ ARG TARGETARCH
 ADD . /src
 WORKDIR /src
 
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/thinkt-exporter ./cmd/thinkt-exporter
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/thinkt-relay ./cmd/thinkt-relay
 
 ###############################################################################
 # Runtime
@@ -39,13 +39,13 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -m -d /data -u 5454 thinkt
 
-COPY --from=build /src/bin/thinkt-exporter /usr/local/bin/thinkt-exporter
+COPY --from=build /src/bin/thinkt-relay /usr/local/bin/thinkt-relay
 
 USER thinkt
 WORKDIR /data
 
 # Labels
-LABEL org.opencontainers.image.title="thinkt-exporter"
+LABEL org.opencontainers.image.title="thinkt-relay"
 LABEL org.opencontainers.image.description="Exports LLM conversation traces to thinkt"
 LABEL THINKT_BUILD_BASE="${THINKT_BUILD_BASE}"
 LABEL THINKT_BUILD_TAG="${THINKT_BUILD_TAG}"
@@ -53,4 +53,4 @@ LABEL THINKT_RUNTIME_BASE="${THINKT_RUNTIME_BASE}"
 LABEL THINKT_RUNTIME_TAG="${THINKT_RUNTIME_TAG}"
 LABEL THINKT_TARGET_ARCH="${TARGETARCH}"
 
-ENTRYPOINT ["/usr/local/bin/thinkt-exporter"]
+ENTRYPOINT ["/usr/local/bin/thinkt-relay"]

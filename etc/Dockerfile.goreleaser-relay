@@ -1,4 +1,4 @@
-# thinkt-exporter Dockerfile for GoReleaser
+# thinkt-relay Dockerfile for GoReleaser
 # Uses pre-built binary from goreleaser
 
 FROM debian:trixie-slim
@@ -11,9 +11,9 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
     && useradd -m -d /data -u 5454 thinkt
 
 # Copy pre-built binary from goreleaser
-COPY thinkt-exporter /usr/local/bin/thinkt-exporter
+COPY thinkt-relay /usr/local/bin/thinkt-relay
 
 USER thinkt
 WORKDIR /data
 
-ENTRYPOINT ["/usr/local/bin/thinkt-exporter"]
+ENTRYPOINT ["/usr/local/bin/thinkt-relay"]
