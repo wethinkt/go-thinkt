@@ -48,7 +48,7 @@ func TestSaveCredentials_CreatesDir(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "nested", "deep", "auth.json")
 
-	creds := &Credentials{Token: "t", Username: "u", Endpoint: "e"}
+	creds := &Credentials{Token: "t", Username: "u", Endpoint: "https://share.wethinkt.com"}
 	err := SaveCredentials(path, creds)
 	if err != nil {
 		t.Fatalf("SaveCredentials: %v", err)
@@ -57,5 +57,39 @@ func TestSaveCredentials_CreatesDir(t *testing.T) {
 	// Verify file was created
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		t.Error("expected file to be created")
+	}
+}
+
+func TestEndpoint_UsesValidatedEnvOverride(t *testing.T) {
+	t.Setenv("THINKT_SHARE_URL", "http://localhost:8784/share")
+
+	got, err := Endpoint()
+	if err != nil {
+		t.Fatalf("Endpoint: %v", err)
+	}
+	if got != "http://localhost:8784/share" {
+		t.Fatalf("Endpoint = %q, want %q", got, "http://localhost:8784/share")
+	}
+}
+
+func TestEndpoint_RejectsInvalidEnvOverride(t *testing.T) {
+	t.Setenv("THINKT_SHARE_URL", "http://example.com")
+
+	if _, err := Endpoint(); err == nil {
+		t.Fatal("expected Endpoint to reject non-local http share URL")
+	}
+}
+
+func TestLoadCredentials_RejectsInvalidEndpoint(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "auth.json")
+
+	data := []byte(`{"token":"t","username":"u","endpoint":"http://example.com"}`)
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	if _, err := LoadCredentials(path); err == nil {
+		t.Fatal("expected LoadCredentials to reject invalid endpoint")
 	}
 }

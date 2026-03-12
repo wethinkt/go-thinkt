@@ -50,6 +50,13 @@ type Exporter struct {
 // New creates a new Exporter with the given configuration.
 func New(cfg ExporterConfig) (*Exporter, error) {
 	cfg.Defaults()
+	if cfg.CollectorURL != "" {
+		validated, err := ValidateCollectorURL(cfg.CollectorURL)
+		if err != nil {
+			return nil, err
+		}
+		cfg.CollectorURL = validated
+	}
 
 	bufDir := cfg.BufferDir
 	if len(bufDir) > 0 && bufDir[0] == '~' {

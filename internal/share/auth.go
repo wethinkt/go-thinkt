@@ -7,16 +7,22 @@ import (
 	"path/filepath"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
+	"github.com/wethinkt/go-thinkt/internal/urlutil"
 )
 
 const defaultEndpoint = "https://share.wethinkt.com"
 
-// Endpoint returns the share API URL from THINKT_SHARE_URL, or the default.
-func Endpoint() string {
+// Endpoint returns the validated share API URL from THINKT_SHARE_URL, or the default.
+func Endpoint() (string, error) {
+	raw := defaultEndpoint
 	if v := os.Getenv("THINKT_SHARE_URL"); v != "" {
-		return v
+		raw = v
 	}
-	return defaultEndpoint
+	u, err := urlutil.ValidateEndpointURL(raw)
+	if err != nil {
+		return "", fmt.Errorf("invalid share endpoint: %w", err)
+	}
+	return u, nil
 }
 
 type Credentials struct {
@@ -32,6 +38,9 @@ func DefaultCredentialsPath() string {
 }
 
 func SaveCredentials(path string, creds *Credentials) error {
+	if _, err := urlutil.ValidateEndpointURL(creds.Endpoint); err != nil {
+		return fmt.Errorf("invalid credentials endpoint: %w", err)
+	}
 	if err := os.MkdirAll(filepath.Dir(path), config.DirPerms); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}
@@ -50,6 +59,9 @@ func LoadCredentials(path string) (*Credentials, error) {
 	var creds Credentials
 	if err := json.Unmarshal(data, &creds); err != nil {
 		return nil, fmt.Errorf("parse credentials: %w", err)
+	}
+	if _, err := urlutil.ValidateEndpointURL(creds.Endpoint); err != nil {
+		return nil, fmt.Errorf("invalid credentials endpoint: %w", err)
 	}
 	return &creds, nil
 }

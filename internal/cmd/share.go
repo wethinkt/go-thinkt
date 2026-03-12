@@ -72,7 +72,10 @@ func runShareLogin(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	endpoint := share.Endpoint()
+	endpoint, err := share.Endpoint()
+	if err != nil {
+		return err
+	}
 	client := share.NewDeviceFlowClient(endpoint)
 
 	var codeResp *share.DeviceCodeResponse
@@ -348,7 +351,11 @@ func runShareExplore(cmd *cobra.Command, args []string) error {
 		token = creds.Token
 	}
 
-	client := share.NewClient(share.Endpoint(), token)
+	endpoint, err := share.Endpoint()
+	if err != nil {
+		return err
+	}
+	client := share.NewClient(endpoint, token)
 	resp, err := client.Explore(shareExploreSort, shareExploreTag, 1)
 	if err != nil {
 		return fmt.Errorf("explore: %w", err)
@@ -376,7 +383,11 @@ func runShareBrowser(traces []share.Trace, mode shareTUI.ShareBrowserMode) error
 	}
 
 	if result := final.(shareTUI.ShareBrowserModel).Result(); result != nil && result.Action == "open" {
-		u := share.Endpoint() + "/t/" + result.Slug
+		endpoint, err := share.Endpoint()
+		if err != nil {
+			return err
+		}
+		u := endpoint + "/t/" + result.Slug
 		fmt.Println(u)
 		return openShareBrowser(u)
 	}
@@ -394,7 +405,28 @@ var shareOpenCmd = &cobra.Command{
 }
 
 func runShareOpen(cmd *cobra.Command, args []string) error {
-	u := share.Endpoint() + "/t/" + args[0]
+	endpoint, err := share.Endpoint()
+	if err != nil {
+		return err
+	}
+	u := endpoint + "/t/" + args[0]
+	fmt.Println(u)
+	return openShareBrowser(u)
+}
+
+var shareWebCmd = &cobra.Command{
+	Use:          "web",
+	Short:        "Open the share website in the web browser",
+	SilenceUsage: true,
+	Args:         cobra.NoArgs,
+	RunE:         runShareWeb,
+}
+
+func runShareWeb(cmd *cobra.Command, args []string) error {
+	u, err := share.Endpoint()
+	if err != nil {
+		return err
+	}
 	fmt.Println(u)
 	return openShareBrowser(u)
 }

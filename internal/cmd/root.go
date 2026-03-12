@@ -395,6 +395,7 @@ func init() {
 	shareExploreCmd.Flags().StringVar(&shareExploreTag, "tag", "", "filter by tag")
 	shareExploreCmd.Flags().StringVar(&shareExploreSort, "sort", "newest", "sort by: newest, likes")
 	shareCmd.AddCommand(shareExploreCmd)
+	shareCmd.AddCommand(shareWebCmd)
 	shareCmd.AddCommand(shareOpenCmd)
 	shareDeleteCmd.Flags().BoolVarP(&shareDeleteForce, "force", "f", false, "skip confirmation")
 	shareCmd.AddCommand(shareDeleteCmd)

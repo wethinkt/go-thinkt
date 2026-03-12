@@ -24,8 +24,12 @@ type collectorJSON struct {
 func DiscoverCollector(projectPath string) (*CollectorEndpoint, error) {
 	// 1. Environment variable (highest priority)
 	if url := os.Getenv("THINKT_COLLECTOR_URL"); url != "" {
-		tuilog.Log.Info("Collector discovered via env", "url", url)
-		return &CollectorEndpoint{URL: url, Origin: "env"}, nil
+		validated, err := ValidateCollectorURL(url)
+		if err != nil {
+			return nil, err
+		}
+		tuilog.Log.Info("Collector discovered via env", "url", validated)
+		return &CollectorEndpoint{URL: validated, Origin: "env"}, nil
 	}
 
 	// 2. Project-level config file
@@ -64,7 +68,12 @@ func readCollectorConfig(path string) (*CollectorEndpoint, error) {
 		return nil, fmt.Errorf("collector_url is empty in %s", path)
 	}
 
-	return &CollectorEndpoint{URL: cfg.CollectorURL, Origin: "project"}, nil
+	validated, err := ValidateCollectorURL(cfg.CollectorURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid collector config %s: %w", path, err)
+	}
+
+	return &CollectorEndpoint{URL: validated, Origin: "project"}, nil
 }
 
 // discoverWellKnown attempts to fetch collector config from a well-known URL.
@@ -103,5 +112,10 @@ func FetchWellKnown(wellKnownURL string) (*CollectorEndpoint, error) {
 		return nil, fmt.Errorf("collector_url is empty in well-known response")
 	}
 
-	return &CollectorEndpoint{URL: cfg.CollectorURL, Origin: "well-known"}, nil
+	validated, err := ValidateCollectorURL(cfg.CollectorURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid well-known collector url: %w", err)
+	}
+
+	return &CollectorEndpoint{URL: validated, Origin: "well-known"}, nil
 }

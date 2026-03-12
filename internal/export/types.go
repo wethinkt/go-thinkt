@@ -3,10 +3,12 @@
 package export
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/urlutil"
 )
 
 // WatchDir pairs a directory path with its source identity and watch configuration.
@@ -63,6 +65,19 @@ func (c *ExporterConfig) Defaults() {
 		c.FlushInterval = 5 * time.Second
 	}
 	c.CollectorURL = NormalizeCollectorURL(c.CollectorURL)
+}
+
+// ValidateCollectorURL normalizes and validates a collector endpoint URL.
+func ValidateCollectorURL(u string) (string, error) {
+	if u == "" {
+		return "", nil
+	}
+	u = NormalizeCollectorURL(u)
+	validated, err := urlutil.ValidateEndpointURLAllowHTTP(u)
+	if err != nil {
+		return "", fmt.Errorf("invalid collector url: %w", err)
+	}
+	return validated, nil
 }
 
 // NormalizeCollectorURL ensures a collector URL ends with the /v1/traces path.
