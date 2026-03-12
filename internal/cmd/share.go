@@ -11,9 +11,11 @@ import (
 	"text/tabwriter"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 	"github.com/wethinkt/go-thinkt/internal/share"
 	shareTUI "github.com/wethinkt/go-thinkt/internal/tui"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 	"golang.org/x/term"
 )
 
@@ -33,6 +35,47 @@ var shareCmd = &cobra.Command{
 	Long:  "Upload, browse, and manage reasoning traces on the wethinkt sharing platform.",
 	Args:  cobra.NoArgs,
 	RunE:  runShareList,
+}
+
+type shareOutputStyles struct {
+	themed   bool
+	label    lipgloss.Style
+	value    lipgloss.Style
+	accent   lipgloss.Style
+	muted    lipgloss.Style
+	success  lipgloss.Style
+	warning  lipgloss.Style
+	url      lipgloss.Style
+	emphasis lipgloss.Style
+}
+
+func newShareOutputStyles() shareOutputStyles {
+	if !isTTY() {
+		return shareOutputStyles{}
+	}
+	t := theme.Current()
+	return shareOutputStyles{
+		themed:   true,
+		label:    lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg)),
+		value:    lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg)).Bold(true),
+		accent:   lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
+		muted:    lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)),
+		success:  lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
+		warning:  lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)),
+		url:      lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Underline(true),
+		emphasis: lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg)).Bold(true),
+	}
+}
+
+func (s shareOutputStyles) render(style lipgloss.Style, value string) string {
+	if !s.themed {
+		return value
+	}
+	return style.Render(value)
+}
+
+func (s shareOutputStyles) printKV(label, value string) {
+	fmt.Printf("%s %s\n", s.render(s.label, label), s.render(s.value, value))
 }
 
 // --- login ---
@@ -67,6 +110,7 @@ func resolveLoginProvider() (string, error) {
 }
 
 func runShareLogin(cmd *cobra.Command, args []string) error {
+	out := newShareOutputStyles()
 	provider, err := resolveLoginProvider()
 	if err != nil {
 		return err
@@ -82,19 +126,19 @@ func runShareLogin(cmd *cobra.Command, args []string) error {
 
 	switch provider {
 	case "google":
-		fmt.Println("Requesting Google login code...")
+		fmt.Println(out.render(out.muted, "Requesting Google login code..."))
 		codeResp, err = client.RequestGoogleCode()
 	default:
-		fmt.Println("Requesting GitHub login code...")
+		fmt.Println(out.render(out.muted, "Requesting GitHub login code..."))
 		codeResp, err = client.RequestCode()
 	}
 	if err != nil {
 		return fmt.Errorf("failed to start login: %w", err)
 	}
 
-	fmt.Printf("\nGo to: %s\n", codeResp.VerificationLink())
-	fmt.Printf("Enter code: %s\n\n", codeResp.UserCode)
-	fmt.Println("Waiting for authorization...")
+	fmt.Printf("\n%s %s\n", out.render(out.label, "Go to:"), out.render(out.url, codeResp.VerificationLink()))
+	fmt.Printf("%s %s\n\n", out.render(out.label, "Enter code:"), out.render(out.accent, codeResp.UserCode))
+	fmt.Println(out.render(out.muted, "Waiting for authorization..."))
 
 	var tokenResp *share.TokenResponse
 	switch provider {
@@ -119,7 +163,7 @@ func runShareLogin(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("save credentials: %w", err)
 	}
 
-	fmt.Printf("Logged in as %s\n", tokenResp.User.Username)
+	fmt.Printf("%s %s\n", out.render(out.success, "Logged in as"), out.render(out.value, tokenResp.User.Username))
 	return nil
 }
 
@@ -205,15 +249,16 @@ var shareLogoutCmd = &cobra.Command{
 }
 
 func runShareLogout(cmd *cobra.Command, args []string) error {
+	out := newShareOutputStyles()
 	path := share.DefaultCredentialsPath()
 	if err := os.Remove(path); err != nil {
 		if os.IsNotExist(err) {
-			fmt.Println("Not logged in.")
+			fmt.Println(out.render(out.muted, "Not logged in."))
 			return nil
 		}
 		return fmt.Errorf("remove credentials: %w", err)
 	}
-	fmt.Println("Logged out.")
+	fmt.Println(out.render(out.success, "Logged out."))
 	return nil
 }
 
@@ -227,24 +272,25 @@ var shareStatusCmd = &cobra.Command{
 }
 
 func runShareStatus(cmd *cobra.Command, args []string) error {
+	out := newShareOutputStyles()
 	creds, err := share.LoadCredentials(share.DefaultCredentialsPath())
 	if err != nil {
-		fmt.Println("Not logged in. Run: thinkt share login")
+		fmt.Printf("%s %s\n", out.render(out.warning, "Not logged in."), out.render(out.accent, "Run: thinkt share login"))
 		return nil
 	}
 
-	fmt.Printf("Logged in as %s\n", creds.Username)
-	fmt.Printf("Endpoint: %s\n", creds.Endpoint)
+	fmt.Printf("%s %s\n", out.render(out.success, "Logged in as"), out.render(out.value, creds.Username))
+	out.printKV("Endpoint:", creds.Endpoint)
 
 	client := share.NewClientFromCreds(creds)
 	profile, err := client.GetProfile()
 	if err != nil {
-		fmt.Printf("Session expired. Run: thinkt share login\n")
+		fmt.Printf("%s %s\n", out.render(out.warning, "Session expired."), out.render(out.accent, "Run: thinkt share login"))
 		return nil
 	}
 
-	fmt.Printf("Traces: %d (%d public, %d private)\n",
-		profile.Stats.TotalTraces, profile.Stats.PublicTraces, profile.Stats.PrivateTraces)
+	out.printKV("Traces:", fmt.Sprintf("%d total (%d public, %d private)",
+		profile.Stats.TotalTraces, profile.Stats.PublicTraces, profile.Stats.PrivateTraces))
 	return nil
 }
 
@@ -260,6 +306,7 @@ var sharePushCmd = &cobra.Command{
 }
 
 func runSharePush(cmd *cobra.Command, args []string) error {
+	out := newShareOutputStyles()
 	creds, err := requireShareAuth()
 	if err != nil {
 		return err
@@ -277,16 +324,19 @@ func runSharePush(cmd *cobra.Command, args []string) error {
 
 	title := filepath.Base(args[0])
 	client := share.NewUploadClient(creds)
-	fmt.Printf("Uploading to share.wethinkt.com (%s)...\n", visibility)
+	fmt.Printf("%s %s (%s)\n",
+		out.render(out.muted, "Uploading to share.wethinkt.com"),
+		out.render(out.label, "..."),
+		out.render(out.accent, visibility))
 
 	resp, err := client.Upload(data, visibility, title)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("\n%s\n", resp.URL)
+	fmt.Printf("\n%s\n", out.render(out.url, resp.URL))
 	if visibility == "private" {
-		fmt.Println("(private - only you can view)")
+		fmt.Println(out.render(out.muted, "(private - only you can view)"))
 	}
 	return nil
 }
@@ -302,6 +352,7 @@ var shareListCmd = &cobra.Command{
 }
 
 func runShareList(cmd *cobra.Command, args []string) error {
+	out := newShareOutputStyles()
 	creds, err := requireShareAuth()
 	if err != nil {
 		return err
@@ -317,7 +368,7 @@ func runShareList(cmd *cobra.Command, args []string) error {
 		if shareListJSON {
 			fmt.Println("[]")
 		} else {
-			fmt.Println("No traces. Push one with: thinkt share push <path>")
+			fmt.Printf("%s %s\n", out.render(out.muted, "No traces."), out.render(out.accent, "Push one with: thinkt share push <path>"))
 		}
 		return nil
 	}
@@ -346,6 +397,7 @@ var shareExploreCmd = &cobra.Command{
 }
 
 func runShareExplore(cmd *cobra.Command, args []string) error {
+	out := newShareOutputStyles()
 	token := ""
 	if creds, err := share.LoadCredentials(share.DefaultCredentialsPath()); err == nil {
 		token = creds.Token
@@ -362,7 +414,7 @@ func runShareExplore(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(resp.Traces) == 0 {
-		fmt.Println("No public traces found.")
+		fmt.Println(out.render(out.muted, "No public traces found."))
 		return nil
 	}
 
@@ -388,7 +440,7 @@ func runShareBrowser(traces []share.Trace, mode shareTUI.ShareBrowserMode) error
 			return err
 		}
 		u := endpoint + "/t/" + result.Slug
-		fmt.Println(u)
+		fmt.Println(newShareOutputStyles().render(newShareOutputStyles().url, u))
 		return openShareBrowser(u)
 	}
 	return nil
@@ -405,12 +457,13 @@ var shareOpenCmd = &cobra.Command{
 }
 
 func runShareOpen(cmd *cobra.Command, args []string) error {
+	out := newShareOutputStyles()
 	endpoint, err := share.Endpoint()
 	if err != nil {
 		return err
 	}
 	u := endpoint + "/t/" + args[0]
-	fmt.Println(u)
+	fmt.Println(out.render(out.url, u))
 	return openShareBrowser(u)
 }
 
@@ -423,11 +476,12 @@ var shareWebCmd = &cobra.Command{
 }
 
 func runShareWeb(cmd *cobra.Command, args []string) error {
+	out := newShareOutputStyles()
 	u, err := share.Endpoint()
 	if err != nil {
 		return err
 	}
-	fmt.Println(u)
+	fmt.Println(out.render(out.url, u))
 	return openShareBrowser(u)
 }
 
@@ -443,6 +497,7 @@ var shareDeleteCmd = &cobra.Command{
 }
 
 func runShareDelete(cmd *cobra.Command, args []string) error {
+	out := newShareOutputStyles()
 	creds, err := requireShareAuth()
 	if err != nil {
 		return err
@@ -451,11 +506,11 @@ func runShareDelete(cmd *cobra.Command, args []string) error {
 	slug := args[0]
 
 	if !shareDeleteForce {
-		fmt.Printf("Delete trace %q? [y/N] ", slug)
+		fmt.Printf("%s %s? %s ", out.render(out.warning, "Delete trace"), out.render(out.value, fmt.Sprintf("%q", slug)), out.render(out.label, "[y/N]"))
 		var answer string
 		fmt.Scanln(&answer)
 		if strings.ToLower(answer) != "y" {
-			fmt.Println("Cancelled.")
+			fmt.Println(out.render(out.muted, "Cancelled."))
 			return nil
 		}
 	}
@@ -465,7 +520,7 @@ func runShareDelete(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("delete: %w", err)
 	}
 
-	fmt.Printf("Deleted %s\n", slug)
+	fmt.Printf("%s %s\n", out.render(out.success, "Deleted"), out.render(out.value, slug))
 	return nil
 }
 
@@ -479,6 +534,7 @@ var shareProfileCmd = &cobra.Command{
 }
 
 func runShareProfile(cmd *cobra.Command, args []string) error {
+	out := newShareOutputStyles()
 	creds, err := requireShareAuth()
 	if err != nil {
 		return err
@@ -490,18 +546,18 @@ func runShareProfile(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("get profile: %w", err)
 	}
 
-	fmt.Printf("Name:    %s\n", profile.User.Name)
-	fmt.Printf("Email:   %s\n", profile.User.Email)
-	fmt.Printf("Traces:  %d total (%d public, %d private)\n",
-		profile.Stats.TotalTraces, profile.Stats.PublicTraces, profile.Stats.PrivateTraces)
-	fmt.Printf("Storage: %s\n", shareFormatBytes(profile.Stats.TotalBytes))
+	out.printKV("Name:", profile.User.Name)
+	out.printKV("Email:", profile.User.Email)
+	out.printKV("Traces:", fmt.Sprintf("%d total (%d public, %d private)",
+		profile.Stats.TotalTraces, profile.Stats.PublicTraces, profile.Stats.PrivateTraces))
+	out.printKV("Storage:", shareFormatBytes(profile.Stats.TotalBytes))
 
 	if len(profile.Tags) > 0 {
 		tags := make([]string, 0, len(profile.Tags))
 		for _, tc := range profile.Tags {
 			tags = append(tags, tc.Tag)
 		}
-		fmt.Printf("Tags:    %s\n", strings.Join(tags, ", "))
+		out.printKV("Tags:", strings.Join(tags, ", "))
 	}
 	return nil
 }
