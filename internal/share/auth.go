@@ -12,9 +12,13 @@ import (
 
 const defaultEndpoint = "https://share.wethinkt.com"
 
-// Endpoint returns the validated share API URL from THINKT_SHARE_URL, or the default.
+// Endpoint returns the validated share API URL.
+// Priority: THINKT_SHARE_URL env var > config.json share.url > default.
 func Endpoint() (string, error) {
 	raw := defaultEndpoint
+	if cfg, err := config.Load(); err == nil && cfg.Share.URL != "" {
+		raw = cfg.Share.URL
+	}
 	if v := os.Getenv("THINKT_SHARE_URL"); v != "" {
 		raw = v
 	}

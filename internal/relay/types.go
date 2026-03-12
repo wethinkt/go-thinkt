@@ -1,6 +1,6 @@
 // Package export provides a trace exporter that watches local AI session files
 // and ships them to a remote collector endpoint via HTTP POST.
-package export
+package relay
 
 import (
 	"fmt"

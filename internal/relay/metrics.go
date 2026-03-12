@@ -1,4 +1,4 @@
-package export
+package relay
 
 import (
 	"github.com/prometheus/client_golang/prometheus"

@@ -34,7 +34,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/wethinkt/go-thinkt/internal/export"
+	"github.com/wethinkt/go-thinkt/internal/relay"
 	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
@@ -114,7 +114,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg := export.ExporterConfig{
+	cfg := relay.ExporterConfig{
 		CollectorURL: collectorURL,
 		APIKey:       apiKey,
 		WatchDirs:    dirs,
@@ -123,7 +123,7 @@ func main() {
 		Version:      version,
 	}
 
-	exporter, err := export.New(cfg)
+	exporter, err := relay.New(cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: create exporter: %v\n", err)
 		os.Exit(1)
@@ -178,14 +178,14 @@ func main() {
 
 // discoverWatchDirs uses the source registry to find session directories.
 // If filter is non-empty, only sources in the filter are included.
-func discoverWatchDirs(filter map[thinkt.Source]bool, quiet bool) []export.WatchDir {
+func discoverWatchDirs(filter map[thinkt.Source]bool, quiet bool) []relay.WatchDir {
 	discovery := thinkt.NewDiscovery(sources.AllFactories()...)
 	registry, err := discovery.Discover(context.Background())
 	if err != nil {
 		return nil
 	}
 
-	var dirs []export.WatchDir
+	var dirs []relay.WatchDir
 	for _, store := range registry.All() {
 		src := store.Source()
 		if len(filter) > 0 && !filter[src] {
@@ -198,7 +198,7 @@ func discoverWatchDirs(filter map[thinkt.Source]bool, quiet bool) []export.Watch
 		if _, err := os.Stat(ws.BasePath); err != nil {
 			continue
 		}
-		dirs = append(dirs, export.WatchDir{
+		dirs = append(dirs, relay.WatchDir{
 			Path:   ws.BasePath,
 			Source: string(src),
 			Config: store.WatchConfig(),

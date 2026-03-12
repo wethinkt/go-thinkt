@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/wethinkt/go-thinkt/internal/export"
+	"github.com/wethinkt/go-thinkt/internal/relay"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -67,7 +67,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 	}
 
 	// Auto-discover watch directories from source registry
-	var watchDirs []export.WatchDir
+	var watchDirs []relay.WatchDir
 	registry := CreateSourceRegistry()
 	for _, store := range registry.All() {
 		// Filter by source if specified
@@ -76,7 +76,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 		}
 		ws := store.Workspace()
 		if ws.BasePath != "" {
-			watchDirs = append(watchDirs, export.WatchDir{
+			watchDirs = append(watchDirs, relay.WatchDir{
 				Path:   ws.BasePath,
 				Source: string(store.Source()),
 				Config: store.WatchConfig(),
@@ -96,14 +96,14 @@ func runExport(cmd *cobra.Command, args []string) error {
 		"source", exportSource,
 	)
 
-	cfg := export.ExporterConfig{
+	cfg := relay.ExporterConfig{
 		CollectorURL: collectorURL,
 		APIKey:       apiKey,
 		WatchDirs:    watchDirs,
 		Quiet:        exportQuiet,
 	}
 
-	exporter, err := export.New(cfg)
+	exporter, err := relay.New(cfg)
 	if err != nil {
 		return fmt.Errorf("create exporter: %w", err)
 	}

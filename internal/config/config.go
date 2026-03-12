@@ -44,6 +44,7 @@ type Config struct {
 	Embedding     EmbeddingConfig         `json:"embedding"`               // Embedding settings
 	Summarization SummarizationConfig     `json:"summarization"`           // Summarization settings
 	Indexer       IndexerConfig           `json:"indexer"`                 // Indexer settings
+	Share         ShareConfig             `json:"share"`                   // Sharing platform settings
 }
 
 // EmbeddingConfig holds embedding-related settings.
@@ -56,6 +57,12 @@ type EmbeddingConfig struct {
 type SummarizationConfig struct {
 	Enabled bool   `json:"enabled"` // Enable local summarization
 	Model   string `json:"model"`   // Summarization model ID
+}
+
+// ShareConfig holds sharing platform settings.
+type ShareConfig struct {
+	Enabled bool   `json:"enabled"` // Enable sharing features
+	URL     string `json:"url,omitempty"` // Share endpoint URL override
 }
 
 // IndexerConfig holds indexer-related settings.
@@ -164,6 +171,9 @@ func Default() Config {
 			Sources:  []string{},
 			Watch:    true,
 			Debounce: defaultDebounce,
+		},
+		Share: ShareConfig{
+			Enabled: true,
 		},
 	}
 }

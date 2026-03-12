@@ -9,7 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/wethinkt/go-thinkt/internal/export"
+	"github.com/wethinkt/go-thinkt/internal/relay"
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
@@ -22,13 +22,13 @@ type ExporterPageResult struct {
 // ExporterPageModel shows exporter status and configuration.
 type ExporterPageModel struct {
 	width, height int
-	stats         export.ExporterStats
+	stats         relay.ExporterStats
 	viewport      viewport.Model
 	ready         bool
 }
 
 // NewExporterPageModel creates an exporter status page with the given stats.
-func NewExporterPageModel(stats export.ExporterStats) ExporterPageModel {
+func NewExporterPageModel(stats relay.ExporterStats) ExporterPageModel {
 	return ExporterPageModel{
 		stats: stats,
 	}

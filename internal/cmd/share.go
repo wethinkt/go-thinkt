@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/share"
 	shareTUI "github.com/wethinkt/go-thinkt/internal/tui"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
@@ -34,7 +35,23 @@ var shareCmd = &cobra.Command{
 	Short: "Share traces on share.wethinkt.com",
 	Long:  "Upload, browse, and manage reasoning traces on the wethinkt sharing platform.",
 	Args:  cobra.NoArgs,
-	RunE:  runShareList,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Chain parent's PersistentPreRunE (root command setup).
+		if parent := cmd.Parent(); parent != nil && parent.PersistentPreRunE != nil {
+			if err := parent.PersistentPreRunE(cmd, args); err != nil {
+				return err
+			}
+		}
+		cfg, err := config.Load()
+		if err != nil {
+			return nil // no config is fine, sharing enabled by default
+		}
+		if !cfg.Share.Enabled {
+			return fmt.Errorf("sharing is disabled in %s", configPathOrFallback())
+		}
+		return nil
+	},
+	RunE: runShareList,
 }
 
 type shareOutputStyles struct {
@@ -563,6 +580,13 @@ func runShareProfile(cmd *cobra.Command, args []string) error {
 }
 
 // --- helpers ---
+
+func configPathOrFallback() string {
+	if p, err := config.Path(); err == nil {
+		return p
+	}
+	return "~/.thinkt/config.json"
+}
 
 func requireShareAuth() (*share.Credentials, error) {
 	creds, err := share.LoadCredentials(share.DefaultCredentialsPath())

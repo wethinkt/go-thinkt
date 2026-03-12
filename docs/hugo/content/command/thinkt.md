@@ -57,6 +57,7 @@ thinkt [flags]
 * [thinkt server](thinkt_server/)	 - Manage the local HTTP server for trace exploration
 * [thinkt sessions](thinkt_sessions/)	 - View and manage sessions across all sources
 * [thinkt setup](thinkt_setup/)	 - Scan for AI session sources and configure thinkt
+* [thinkt share](thinkt_share/)	 - Share traces on share.wethinkt.com
 * [thinkt sources](thinkt_sources/)	 - Manage and view available session sources
 * [thinkt teams](thinkt_teams/)	 - List and inspect agent teams
 * [thinkt theme](thinkt_theme/)	 - Browse and manage TUI themes

@@ -1,4 +1,4 @@
-package export
+package relay
 
 import (
 	"testing"
