@@ -8,7 +8,7 @@ Start trace collector server
 
 ### Synopsis
 
-Start a collector server that receives AI coding assistant traces from exporters.
+Start a collector server that receives AI coding assistant traces from relays.
 
 The collector provides:
   - POST /v1/traces endpoint for trace ingestion

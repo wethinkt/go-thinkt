@@ -46,12 +46,12 @@ thinkt [flags]
 * [thinkt completion](thinkt_completion/)	 - Generate the autocompletion script for the specified shell
 * [thinkt docs](thinkt_docs/)	 - Generate documentation for thinkt
 * [thinkt embeddings](thinkt_embeddings/)	 - Manage embedding model, storage, and sync
-* [thinkt relay](thinkt_relay/)	 - Relay traces to a remote collector
 * [thinkt help](thinkt_help/)	 - Help topics for thinkt
 * [thinkt indexer](thinkt_indexer/)	 - Specialized indexing and search via DuckDB (requires thinkt-indexer)
 * [thinkt language](thinkt_language/)	 - Get or set the display language
 * [thinkt projects](thinkt_projects/)	 - Manage and view projects
 * [thinkt prompts](thinkt_prompts/)	 - Extract and manage prompts from trace files
+* [thinkt relay](thinkt_relay/)	 - Relay traces to a remote collector
 * [thinkt search](thinkt_search/)	 - Search for text across indexed sessions
 * [thinkt semantic](thinkt_semantic/)	 - Search sessions by meaning using on-device embeddings
 * [thinkt server](thinkt_server/)	 - Manage the local HTTP server for trace exploration

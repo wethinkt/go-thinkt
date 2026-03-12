@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
@@ -26,6 +28,7 @@ var (
 	withSessions    bool     // --with-sessions flag for summary
 	shortFormat     bool     // --short flag for path-only output
 	jsonFormat      bool     // --json flag for JSON output
+	listSort        string   // --sort flag for list command
 )
 
 var projectsCmd = &cobra.Command{
@@ -121,6 +124,7 @@ func init() {
 	// List command flags
 	projectsListCmd.Flags().BoolVar(&shortFormat, "short", false, "show project paths only")
 	projectsListCmd.Flags().BoolVar(&jsonFormat, "json", false, "output in JSON format")
+	projectsListCmd.Flags().StringVar(&listSort, "sort", "name", "sort fields: name, date, size, source (prefix with - for descending, e.g. --sort=-size)")
 
 	// Summary command flags
 	projectsSummaryCmd.Flags().StringVar(&summaryTemplate, "template", "", "custom Go text/template for output")
@@ -178,10 +182,8 @@ func runProjectsList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Sort projects by path for consistent output
-	sort.Slice(projects, func(i, j int) bool {
-		return projects[i].Path < projects[j].Path
-	})
+	// Sort projects by --sort fields
+	sortProjectsList(projects, listSort)
 
 	formatter := cli.NewProjectsFormatter(os.Stdout)
 
@@ -271,4 +273,62 @@ func runProjectsCopy(cmd *cobra.Command, args []string) error {
 	registry := CreateSourceRegistry()
 	copier := cli.NewProjectCopier(registry, cli.CopyOptions{})
 	return copier.Copy(args[0], args[1])
+}
+
+// sortProjectsList sorts projects by a comma-separated list of fields.
+// Each field can be prefixed with - for descending or + (or no prefix) for ascending.
+// Valid fields: name, date, size, source.
+func sortProjectsList(projects []thinkt.Project, spec string) {
+	type sortKey struct {
+		field string
+		desc  bool
+	}
+
+	var keys []sortKey
+	for _, part := range strings.Split(spec, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		desc := false
+		if part[0] == '-' {
+			desc = true
+			part = part[1:]
+		} else if part[0] == '+' {
+			part = part[1:]
+		}
+		switch part {
+		case "name", "date", "size", "source":
+			keys = append(keys, sortKey{field: part, desc: desc})
+		}
+	}
+
+	if len(keys) == 0 {
+		keys = []sortKey{{field: "name", desc: false}}
+	}
+
+	sort.SliceStable(projects, func(i, j int) bool {
+		a, b := projects[i], projects[j]
+		for _, k := range keys {
+			var c int
+			switch k.field {
+			case "name":
+				c = cmp.Compare(strings.ToLower(a.Path), strings.ToLower(b.Path))
+			case "date":
+				c = a.LastModified.Compare(b.LastModified)
+			case "size":
+				c = cmp.Compare(a.DirSize, b.DirSize)
+			case "source":
+				c = cmp.Compare(string(a.Source), string(b.Source))
+			}
+			if c == 0 {
+				continue
+			}
+			if k.desc {
+				return c > 0
+			}
+			return c < 0
+		}
+		return false
+	})
 }

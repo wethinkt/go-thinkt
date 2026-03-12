@@ -111,6 +111,17 @@ func (f *ProjectsFormatter) FormatVerbose(projects []thinkt.Project) error {
 	secondaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg))
 	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
 
+	// Determine a uniform size unit based on the largest project.
+	var maxSize int64
+	for _, p := range projects {
+		if p.DirSize > maxSize {
+			maxSize = p.DirSize
+		}
+	}
+	sizeUnit, sizeDivisor := chooseSizeUnit(maxSize)
+	// Width of the numeric part (e.g. "96.6" is 4 chars) for right-justification.
+	sizeNumWidth := len(fmt.Sprintf("%.1f", float64(maxSize)/sizeDivisor))
+
 	const gap = 2
 	colPath := 4   // minimum
 	colSource := 6 // "[claude]"
@@ -133,7 +144,7 @@ func (f *ProjectsFormatter) FormatVerbose(projects []thinkt.Project) error {
 		if len(sessions) > colSess {
 			colSess = len(sessions)
 		}
-		size := thinkt.FormatBytes(p.DirSize)
+		size := formatBytesInUnit(p.DirSize, sizeUnit, sizeNumWidth, sizeDivisor)
 		if len(size) > colSize {
 			colSize = len(size)
 		}
@@ -153,7 +164,7 @@ func (f *ProjectsFormatter) FormatVerbose(projects []thinkt.Project) error {
 
 		source := fmt.Sprintf("[%s]", p.Source)
 		sessions := fmt.Sprintf("%d sessions", p.SessionCount)
-		size := thinkt.FormatBytes(p.DirSize)
+		size := formatBytesInUnit(p.DirSize, sizeUnit, sizeNumWidth, sizeDivisor)
 
 		var modified string
 		if !p.LastModified.IsZero() {
@@ -375,6 +386,29 @@ func sourceDisplayName(s thinkt.Source) string {
 	default:
 		return string(s)
 	}
+}
+
+// chooseSizeUnit picks a consistent unit based on the largest value.
+func chooseSizeUnit(maxBytes int64) (unit string, divisor float64) {
+	const (
+		kb = 1024
+		mb = kb * 1024
+		gb = mb * 1024
+	)
+	switch {
+	case maxBytes >= gb:
+		return "GB", float64(gb)
+	case maxBytes >= mb:
+		return "MB", float64(mb)
+	default:
+		return "KB", float64(kb)
+	}
+}
+
+// formatBytesInUnit formats bytes using the given unit for uniform columns.
+// The width parameter right-justifies the numeric portion so units align.
+func formatBytesInUnit(b int64, unit string, width int, divisor float64) string {
+	return fmt.Sprintf("%*.1f %s", width, float64(b)/divisor, unit)
 }
 
 // sourceBasePath extracts the base path from the first project in a source group.

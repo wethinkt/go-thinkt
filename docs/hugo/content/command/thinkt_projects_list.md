@@ -28,9 +28,10 @@ thinkt projects list [flags]
 ### Options
 
 ```
-  -h, --help    help for list
-      --json    output in JSON format
-      --short   show project paths only
+  -h, --help          help for list
+      --json          output in JSON format
+      --short         show project paths only
+      --sort string   sort fields: name, date, size, source (prefix with - for descending, e.g. --sort=-size) (default "name")
 ```
 
 ### Options inherited from parent commands
