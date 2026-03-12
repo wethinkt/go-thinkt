@@ -15,7 +15,7 @@ func TestClient_ListTraces(t *testing.T) {
 		if r.Header.Get("Authorization") != "Bearer test-token" {
 			t.Error("missing or wrong auth header")
 		}
-		json.NewEncoder(w).Encode(TraceList{
+		_ = json.NewEncoder(w).Encode(TraceList{
 			Traces: []Trace{{Slug: "abc-123", Title: "Test"}},
 		})
 	}))
@@ -42,7 +42,7 @@ func TestClient_Explore(t *testing.T) {
 		if r.URL.Query().Get("tag") != "go" {
 			t.Errorf("tag = %q, want go", r.URL.Query().Get("tag"))
 		}
-		json.NewEncoder(w).Encode(ExploreResponse{
+		_ = json.NewEncoder(w).Encode(ExploreResponse{
 			Traces: []Trace{{Slug: "pub-1", Title: "Public Trace"}},
 			Page:   1,
 		})
@@ -64,7 +64,7 @@ func TestClient_GetProfile(t *testing.T) {
 		if r.URL.Path != "/api/profile" {
 			t.Errorf("path = %q, want /api/profile", r.URL.Path)
 		}
-		json.NewEncoder(w).Encode(Profile{
+		_ = json.NewEncoder(w).Encode(Profile{
 			User:  ProfileUser{Name: "testuser", Email: "test@test.com"},
 			Stats: ProfileStats{TotalTraces: 5},
 		})
@@ -89,7 +89,7 @@ func TestClient_DeleteTrace(t *testing.T) {
 		if r.URL.Path != "/api/traces/abc-123" {
 			t.Errorf("path = %q, want /api/traces/abc-123", r.URL.Path)
 		}
-		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+		_ = json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 	}))
 	defer server.Close()
 
@@ -105,7 +105,7 @@ func TestClient_ExploreTags(t *testing.T) {
 		if r.URL.Path != "/api/explore/tags" {
 			t.Errorf("path = %q", r.URL.Path)
 		}
-		json.NewEncoder(w).Encode(TagCloud{
+		_ = json.NewEncoder(w).Encode(TagCloud{
 			Tags: []TagCount{{Tag: "go", Count: 10}},
 		})
 	}))
@@ -126,7 +126,7 @@ func TestClient_GetTrace(t *testing.T) {
 		if r.URL.Path != "/api/traces/slug-1" {
 			t.Errorf("path = %q", r.URL.Path)
 		}
-		json.NewEncoder(w).Encode(Trace{Slug: "slug-1", Title: "My Trace"})
+		_ = json.NewEncoder(w).Encode(Trace{Slug: "slug-1", Title: "My Trace"})
 	}))
 	defer server.Close()
 

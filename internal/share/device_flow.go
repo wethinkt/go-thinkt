@@ -63,7 +63,7 @@ func (c *DeviceFlowClient) requestCode(path string) (*DeviceCodeResponse, error)
 
 	if resp.StatusCode >= 400 {
 		var errResp ErrorResponse
-		json.NewDecoder(resp.Body).Decode(&errResp)
+		_ = json.NewDecoder(resp.Body).Decode(&errResp)
 		if errResp.Error != "" {
 			return nil, fmt.Errorf("request device code: %s", errResp.Error)
 		}
@@ -101,7 +101,7 @@ func (c *DeviceFlowClient) pollForToken(path, deviceCode string, interval int) (
 		}
 
 		var result TokenResponse
-		json.NewDecoder(resp.Body).Decode(&result)
+		_ = json.NewDecoder(resp.Body).Decode(&result)
 		resp.Body.Close()
 
 		if resp.StatusCode == 202 {

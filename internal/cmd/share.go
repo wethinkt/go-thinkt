@@ -508,7 +508,7 @@ func runShareDelete(cmd *cobra.Command, args []string) error {
 	if !shareDeleteForce {
 		fmt.Printf("%s %s? %s ", out.render(out.warning, "Delete trace"), out.render(out.value, fmt.Sprintf("%q", slug)), out.render(out.label, "[y/N]"))
 		var answer string
-		fmt.Scanln(&answer)
+		_, _ = fmt.Scanln(&answer)
 		if strings.ToLower(answer) != "y" {
 			fmt.Println(out.render(out.muted, "Cancelled."))
 			return nil

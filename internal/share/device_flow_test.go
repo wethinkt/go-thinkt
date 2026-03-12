@@ -16,7 +16,7 @@ func TestDeviceFlowRequestCode(t *testing.T) {
 		if r.Method != http.MethodPost {
 			t.Errorf("unexpected method: %s", r.Method)
 		}
-		json.NewEncoder(w).Encode(DeviceCodeResponse{
+		_ = json.NewEncoder(w).Encode(DeviceCodeResponse{
 			DeviceCode:      "device-123",
 			UserCode:        "ABCD-1234",
 			VerificationURI: "https://github.com/login/device",
@@ -46,11 +46,11 @@ func TestDeviceFlowPollForToken(t *testing.T) {
 		if count <= 1 {
 			// First call: still pending
 			w.WriteHeader(202)
-			json.NewEncoder(w).Encode(TokenResponse{Error: "authorization_pending"})
+			_ = json.NewEncoder(w).Encode(TokenResponse{Error: "authorization_pending"})
 			return
 		}
 		// Second call: success
-		json.NewEncoder(w).Encode(TokenResponse{
+		_ = json.NewEncoder(w).Encode(TokenResponse{
 			Token: "session-token-xyz",
 			User: struct {
 				ID       string `json:"id"`

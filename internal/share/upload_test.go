@@ -22,7 +22,7 @@ func TestUploadTrace(t *testing.T) {
 
 		body, _ := io.ReadAll(r.Body)
 		var req UploadRequest
-		json.Unmarshal(body, &req)
+		_ = json.Unmarshal(body, &req)
 
 		if req.Visibility != "public" {
 			t.Errorf("visibility = %v, want public", req.Visibility)
@@ -32,7 +32,7 @@ func TestUploadTrace(t *testing.T) {
 		}
 
 		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(UploadResponse{
+		_ = json.NewEncoder(w).Encode(UploadResponse{
 			ID:         "trace-123",
 			Slug:       "abcd1234",
 			URL:        "https://share.wethinkt.com/t/abcd1234",
@@ -62,7 +62,7 @@ func TestUploadTrace(t *testing.T) {
 func TestUploadTrace_ServerError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(429)
-		json.NewEncoder(w).Encode(UploadResponse{Error: "Trace limit reached (50)"})
+		_ = json.NewEncoder(w).Encode(UploadResponse{Error: "Trace limit reached (50)"})
 	}))
 	defer server.Close()
 

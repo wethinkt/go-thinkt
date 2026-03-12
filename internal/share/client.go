@@ -51,7 +51,7 @@ func (c *Client) doJSON(method, path string, target any) error {
 	}
 	if resp.StatusCode >= 400 {
 		var errResp ErrorResponse
-		json.NewDecoder(resp.Body).Decode(&errResp)
+		_ = json.NewDecoder(resp.Body).Decode(&errResp)
 		if errResp.Error != "" {
 			return fmt.Errorf("%s %s: %s (%d)", method, path, errResp.Error, resp.StatusCode)
 		}

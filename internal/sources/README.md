@@ -4,12 +4,12 @@ Package `sources` aggregates all supported AI coding tool source factories.
 
 ## Supported Sources
 
-- [`claude`](claude/) — Claude Code session source
-- [`codex`](codex/) — Codex CLI session source
-- [`copilot`](copilot/) — Copilot CLI session source
-- [`gemini`](gemini/) — Gemini CLI session source
-- [`kimi`](kimi/) — Kimi Code session source
-- [`qwen`](qwen/) — Qwen Code session source
+- [`claude`](claude/README.md) — Claude Code session source
+- [`codex`](codex/README.md) — Codex CLI session source
+- [`copilot`](copilot/README.md) — Copilot CLI session source
+- [`gemini`](gemini/README.md) — Gemini CLI session source
+- [`kimi`](kimi/README.md) — Kimi Code session source
+- [`qwen`](qwen/README.md) — Qwen Code session source
 
 ## Directory Structure
 
