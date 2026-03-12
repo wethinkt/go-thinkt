@@ -20,10 +20,10 @@ import (
 // Default timeout for considering a session inactive.
 const sessionInactiveTimeout = 5 * time.Minute
 
-// Exporter watches local session files and ships trace entries to a remote collector.
+// Relay watches local session files and ships trace entries to a remote collector.
 // It handles batching, buffering, and retry logic.
-type Exporter struct {
-	cfg     ExporterConfig
+type Relay struct {
+	cfg     RelayConfig
 	shipper *Shipper
 	buffer  *DiskBuffer
 	watcher *FileWatcher
@@ -43,12 +43,12 @@ type Exporter struct {
 	sessionActivityMu sync.Mutex
 
 	machineID  string // fingerprint of this machine
-	instanceID string // unique ID for this exporter instance
+	instanceID string // unique ID for this relay instance
 	startedAt  time.Time
 }
 
-// New creates a new Exporter with the given configuration.
-func New(cfg ExporterConfig) (*Exporter, error) {
+// New creates a new Relay with the given configuration.
+func New(cfg RelayConfig) (*Relay, error) {
 	cfg.Defaults()
 	if cfg.CollectorURL != "" {
 		validated, err := ValidateCollectorURL(cfg.CollectorURL)
@@ -75,7 +75,7 @@ func New(cfg ExporterConfig) (*Exporter, error) {
 	machineID, _ := fingerprint.GetFingerprint()
 	instanceID := fmt.Sprintf("%s-%d", machineID, os.Getpid())
 
-	return &Exporter{
+	return &Relay{
 		cfg:             cfg,
 		buffer:          buf,
 		offsets:         make(map[string]int64),
@@ -86,8 +86,8 @@ func New(cfg ExporterConfig) (*Exporter, error) {
 	}, nil
 }
 
-// Start runs the exporter loop until the context is canceled. This method blocks.
-func (e *Exporter) Start(ctx context.Context) error {
+// Start runs the relay loop until the context is canceled. This method blocks.
+func (e *Relay) Start(ctx context.Context) error {
 	// Discover collector
 	endpoint, err := e.resolveCollector()
 	if err != nil {
@@ -97,11 +97,11 @@ func (e *Exporter) Start(ctx context.Context) error {
 	if endpoint.URL != "" {
 		e.shipper = NewShipper(endpoint.URL, e.cfg.APIKey)
 		if !e.cfg.Quiet {
-			tuilog.Log.Info("Exporter started", "collector", endpoint.URL, "origin", endpoint.Origin)
+			tuilog.Log.Info("Relay started", "collector", endpoint.URL, "origin", endpoint.Origin)
 		}
 		e.registerAgent(ctx)
 	} else {
-		tuilog.Log.Info("Exporter started in buffer-only mode (no collector)")
+		tuilog.Log.Info("Relay started in buffer-only mode (no collector)")
 	}
 
 	// Start file watcher
@@ -149,14 +149,14 @@ func (e *Exporter) Start(ctx context.Context) error {
 			e.registerAgent(ctx)
 
 		case <-ctx.Done():
-			tuilog.Log.Info("Exporter shutting down")
+			tuilog.Log.Info("Relay shutting down")
 			return nil
 		}
 	}
 }
 
 // ExportOnce performs a one-shot export of all session files in the watch directories.
-func (e *Exporter) ExportOnce(ctx context.Context) error {
+func (e *Relay) ExportOnce(ctx context.Context) error {
 	endpoint, err := e.resolveCollector()
 	if err != nil {
 		return fmt.Errorf("discover collector: %w", err)
@@ -187,7 +187,7 @@ func (e *Exporter) ExportOnce(ctx context.Context) error {
 }
 
 // FlushBuffer attempts to drain the disk buffer by shipping buffered payloads.
-func (e *Exporter) FlushBuffer(ctx context.Context) error {
+func (e *Relay) FlushBuffer(ctx context.Context) error {
 	if e.shipper == nil {
 		return nil
 	}
@@ -210,8 +210,8 @@ func (e *Exporter) FlushBuffer(ctx context.Context) error {
 	return err
 }
 
-// Stats returns current exporter statistics.
-func (e *Exporter) Stats() ExporterStats {
+// Stats returns current relay statistics.
+func (e *Relay) Stats() RelayStats {
 	bufSize, _ := e.buffer.Size()
 	bufCount, _ := e.buffer.Count()
 	bufferSizeBytes.Set(float64(bufSize))
@@ -227,7 +227,7 @@ func (e *Exporter) Stats() ExporterStats {
 		lastShipTime = time.Unix(0, lastShip)
 	}
 
-	return ExporterStats{
+	return RelayStats{
 		TracesShipped:   e.tracesShipped.Load(),
 		TracesFailed:    e.tracesFailed.Load(),
 		TracesBuffered:  int64(bufCount),
@@ -238,7 +238,7 @@ func (e *Exporter) Stats() ExporterStats {
 	}
 }
 
-func (e *Exporter) resolveCollector() (*CollectorEndpoint, error) {
+func (e *Relay) resolveCollector() (*CollectorEndpoint, error) {
 	if e.cfg.CollectorURL != "" {
 		return &CollectorEndpoint{URL: e.cfg.CollectorURL, Origin: "config"}, nil
 	}
@@ -251,7 +251,7 @@ func (e *Exporter) resolveCollector() (*CollectorEndpoint, error) {
 }
 
 // registerAgent sends an agent registration to the collector.
-func (e *Exporter) registerAgent(ctx context.Context) {
+func (e *Relay) registerAgent(ctx context.Context) {
 	hostname, _ := os.Hostname()
 	reg := AgentRegistration{
 		InstanceID: e.instanceID,
@@ -268,7 +268,7 @@ func (e *Exporter) registerAgent(ctx context.Context) {
 	}
 }
 
-func (e *Exporter) handleFileEvent(ctx context.Context, event FileEvent) {
+func (e *Relay) handleFileEvent(ctx context.Context, event FileEvent) {
 	src := event.Source
 	if src == "" {
 		src = "unknown"
@@ -283,7 +283,7 @@ func (e *Exporter) handleFileEvent(ctx context.Context, event FileEvent) {
 }
 
 // recordSessionWrite updates session activity tracking and emits lifecycle events.
-func (e *Exporter) recordSessionWrite(ctx context.Context, path, source string) {
+func (e *Relay) recordSessionWrite(ctx context.Context, path, source string) {
 	now := time.Now()
 
 	e.sessionActivityMu.Lock()
@@ -315,7 +315,7 @@ func (e *Exporter) recordSessionWrite(ctx context.Context, path, source string) 
 
 // sweepInactiveSessions periodically checks for sessions that haven't been
 // written to recently and emits session_end events.
-func (e *Exporter) sweepInactiveSessions(ctx context.Context) {
+func (e *Relay) sweepInactiveSessions(ctx context.Context) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
@@ -329,7 +329,7 @@ func (e *Exporter) sweepInactiveSessions(ctx context.Context) {
 	}
 }
 
-func (e *Exporter) doSweep(ctx context.Context) {
+func (e *Relay) doSweep(ctx context.Context) {
 	now := time.Now()
 	cutoff := now.Add(-sessionInactiveTimeout)
 
@@ -359,7 +359,7 @@ func (e *Exporter) doSweep(ctx context.Context) {
 }
 
 // emitSessionEvent sends a session activity event to the collector.
-func (e *Exporter) emitSessionEvent(ctx context.Context, event SessionActivityEvent) {
+func (e *Relay) emitSessionEvent(ctx context.Context, event SessionActivityEvent) {
 	if e.shipper == nil {
 		return
 	}
@@ -379,7 +379,7 @@ func sessionIDFromPath(path string) string {
 }
 
 // processFile reads new entries from a JSONL file and ships them in batches.
-func (e *Exporter) processFile(ctx context.Context, path, source string) {
+func (e *Relay) processFile(ctx context.Context, path, source string) {
 	e.offsetsMu.Lock()
 	offset := e.offsets[path]
 	e.offsetsMu.Unlock()
@@ -465,7 +465,7 @@ func extractProjectPath(filePath string) string {
 }
 
 // shipOrBuffer tries to ship a payload; on failure, buffers it to disk.
-func (e *Exporter) shipOrBuffer(ctx context.Context, payload TracePayload) {
+func (e *Relay) shipOrBuffer(ctx context.Context, payload TracePayload) {
 	src := payload.Source
 	if src == "" {
 		src = "unknown"

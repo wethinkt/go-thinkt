@@ -17,7 +17,7 @@ func metricsSource(s string) string {
 	return s
 }
 
-// handleIngest processes POST /v1/traces requests from exporters.
+// handleIngest processes POST /v1/traces requests from relays.
 func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
@@ -162,7 +162,7 @@ func (s *Server) handleGetUsageStats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, stats)
 }
 
-// handleSessionActivity processes POST /v1/sessions/activity requests from exporters.
+// handleSessionActivity processes POST /v1/sessions/activity requests from relays.
 func (s *Server) handleSessionActivity(w http.ResponseWriter, r *http.Request) {
 	var event SessionActivityEvent
 	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {

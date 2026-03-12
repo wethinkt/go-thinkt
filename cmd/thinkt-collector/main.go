@@ -1,5 +1,5 @@
 // thinkt-collector is a standalone binary that runs the trace collector server.
-// It receives AI coding assistant traces from exporters via HTTP POST and stores
+// It receives AI coding assistant traces from relays via HTTP POST and stores
 // them in a local DuckDB database.
 //
 // Usage:

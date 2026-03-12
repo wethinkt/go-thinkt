@@ -1,5 +1,5 @@
 // Package collect implements the trace collector server that receives,
-// normalizes, and stores AI reasoning traces from exporters.
+// normalizes, and stores AI reasoning traces from relays.
 package collect
 
 import (
@@ -36,7 +36,7 @@ func DefaultCollectorConfig() CollectorConfig {
 	}
 }
 
-// IngestRequest is the POST /v1/traces request body sent by exporters.
+// IngestRequest is the POST /v1/traces request body sent by relays.
 type IngestRequest struct {
 	InstanceID  string         `json:"instance_id"`
 	Source      string         `json:"source"`
@@ -81,7 +81,7 @@ type AgentRegistration struct {
 	Metadata   map[string]any `json:"metadata,omitempty"`
 }
 
-// AgentInfo represents a registered exporter agent and its status.
+// AgentInfo represents a registered relay agent and its status.
 type AgentInfo struct {
 	InstanceID    string         `json:"instance_id"`
 	Platform      string         `json:"platform"`
@@ -160,7 +160,7 @@ type SessionSummary struct {
 	LastActivity time.Time `json:"last_activity,omitempty"` // Most recent activity event time
 }
 
-// SessionActivityEvent is sent by exporters to report session lifecycle changes.
+// SessionActivityEvent is sent by relays to report session lifecycle changes.
 type SessionActivityEvent struct {
 	InstanceID  string    `json:"instance_id"`
 	Source      string    `json:"source"`

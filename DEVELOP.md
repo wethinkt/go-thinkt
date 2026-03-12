@@ -205,7 +205,7 @@ The main `thinkt` binary is pure Go for maximum portability. The indexer require
 | `thinkt server mcp --port` | 8786 |
 | thinkt-vscode (reserved) | 8787 |
 | `thinkt collect` | 8785 (includes `/metrics`) |
-| `thinkt-exporter --metrics-port` | disabled (opt-in) |
+| `thinkt-relay --metrics-port` | disabled (opt-in) |
 
 ## Release
 

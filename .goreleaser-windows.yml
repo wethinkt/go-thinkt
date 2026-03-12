@@ -20,10 +20,10 @@ builds:
     ldflags:
       - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
 
-  # ── thinkt-exporter ────────────────────────────────────────────────────
-  - id: exporter-windows-amd64
-    main: ./cmd/thinkt-exporter
-    binary: thinkt-exporter
+  # ── thinkt-relay ────────────────────────────────────────────────────
+  - id: relay-windows-amd64
+    main: ./cmd/thinkt-relay
+    binary: thinkt-relay
     goos: [windows]
     goarch: [amd64]
     env:
@@ -57,7 +57,7 @@ archives:
   - id: default
     ids:
       - thinkt-windows-amd64
-      - exporter-windows-amd64
+      - relay-windows-amd64
       - indexer-windows-amd64
       - collector-windows-amd64
     formats:

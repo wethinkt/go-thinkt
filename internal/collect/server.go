@@ -21,7 +21,7 @@ import (
 // InstanceCollector is the instance type for the collector process.
 const InstanceCollector config.InstanceType = "collector"
 
-// Server is the collector HTTP server that receives traces from exporters.
+// Server is the collector HTTP server that receives traces from relays.
 type Server struct {
 	config    CollectorConfig
 	store     TraceStore

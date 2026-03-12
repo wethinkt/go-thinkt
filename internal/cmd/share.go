@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/share"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	shareTUI "github.com/wethinkt/go-thinkt/internal/tui"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 	"golang.org/x/term"
@@ -567,7 +568,7 @@ func runShareProfile(cmd *cobra.Command, args []string) error {
 	out.printKV("Email:", profile.User.Email)
 	out.printKV("Traces:", fmt.Sprintf("%d total (%d public, %d private)",
 		profile.Stats.TotalTraces, profile.Stats.PublicTraces, profile.Stats.PrivateTraces))
-	out.printKV("Storage:", shareFormatBytes(profile.Stats.TotalBytes))
+	out.printKV("Storage:", thinkt.FormatBytes(int64(profile.Stats.TotalBytes)))
 
 	if len(profile.Tags) > 0 {
 		tags := make([]string, 0, len(profile.Tags))
@@ -606,7 +607,7 @@ func printTraceTable(traces []share.Trace) {
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%s\n",
 			t.Slug, shareTruncate(t.Title, 40), t.Visibility,
-			shareFormatBytes(t.SizeBytes), t.LikesCount, created)
+			thinkt.FormatBytes(int64(t.SizeBytes)), t.LikesCount, created)
 	}
 	w.Flush()
 }
@@ -616,17 +617,6 @@ func shareTruncate(s string, max int) string {
 		return s
 	}
 	return s[:max-1] + "..."
-}
-
-func shareFormatBytes(b int) string {
-	switch {
-	case b >= 1<<20:
-		return fmt.Sprintf("%.1f MB", float64(b)/float64(1<<20))
-	case b >= 1<<10:
-		return fmt.Sprintf("%.1f KB", float64(b)/float64(1<<10))
-	default:
-		return fmt.Sprintf("%d B", b)
-	}
 }
 
 func openShareBrowser(rawURL string) error {

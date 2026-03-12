@@ -96,16 +96,16 @@ func runRelay(cmd *cobra.Command, args []string) error {
 		"source", relaySource,
 	)
 
-	cfg := relay.ExporterConfig{
+	cfg := relay.RelayConfig{
 		CollectorURL: collectorURL,
 		APIKey:       apiKey,
 		WatchDirs:    watchDirs,
 		Quiet:        relayQuiet,
 	}
 
-	exporter, err := relay.New(cfg)
+	relay, err := relay.New(cfg)
 	if err != nil {
-		return fmt.Errorf("create exporter: %w", err)
+		return fmt.Errorf("create relay: %w", err)
 	}
 
 	// Create context that cancels on interrupt
@@ -128,7 +128,7 @@ func runRelay(cmd *cobra.Command, args []string) error {
 		if !relayQuiet {
 			fmt.Fprintln(os.Stderr, "Flushing relay buffer...")
 		}
-		return exporter.FlushBuffer(ctx)
+		return relay.FlushBuffer(ctx)
 	}
 
 	if relayForward {
@@ -143,12 +143,12 @@ func runRelay(cmd *cobra.Command, args []string) error {
 				fmt.Fprintln(os.Stderr, "Collector: auto-discover")
 			}
 		}
-		return exporter.Start(ctx)
+		return relay.Start(ctx)
 	}
 
 	// Default: one-shot relay
 	if !relayQuiet {
 		fmt.Fprintf(os.Stderr, "Relaying traces from %d directories...\n", len(watchDirs))
 	}
-	return exporter.ExportOnce(ctx)
+	return relay.ExportOnce(ctx)
 }

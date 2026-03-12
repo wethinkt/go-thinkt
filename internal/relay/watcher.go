@@ -118,7 +118,7 @@ func (w *FileWatcher) addShallow(wd WatchDir) {
 // warmActive walks the directory tree looking for .jsonl files modified within
 // the warm window. For each found file, it ensures the parent directory chain
 // is watched up to the root. This seeds the watcher for sessions that were
-// already active before the exporter started.
+// already active before the relay started.
 func (w *FileWatcher) warmActive(wd WatchDir) {
 	root := wd.Path
 	cfg := wd.Config

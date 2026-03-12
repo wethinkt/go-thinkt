@@ -278,8 +278,8 @@ func TestNormalizeCollectorURL(t *testing.T) {
 	}
 }
 
-func TestExporterConfig_DefaultsNormalizesURL(t *testing.T) {
-	cfg := ExporterConfig{CollectorURL: "http://localhost:4318"}
+func TestRelayConfig_DefaultsNormalizesURL(t *testing.T) {
+	cfg := RelayConfig{CollectorURL: "http://localhost:4318"}
 	cfg.Defaults()
 	want := "http://localhost:4318/v1/traces"
 	if cfg.CollectorURL != want {

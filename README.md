@@ -499,11 +499,11 @@ curl -s http://localhost:9090/metrics | grep thinkt_
 | `thinkt_collector_active_agents` | gauge | Currently active agents |
 | `thinkt_collector_db_size_bytes` | gauge | DuckDB file size |
 | `thinkt_collector_ws_connections_active` | gauge | Active WebSocket connections |
-| `thinkt_exporter_entries_shipped_total` | counter | Entries shipped, by source |
-| `thinkt_exporter_entries_failed_total` | counter | Entries that failed to ship |
-| `thinkt_exporter_ship_duration_seconds` | histogram | Ship request latency |
-| `thinkt_exporter_buffer_size_bytes` | gauge | Disk buffer size |
-| `thinkt_exporter_file_events_total` | counter | File events processed |
+| `thinkt_relay_entries_shipped_total` | counter | Entries shipped, by source |
+| `thinkt_relay_entries_failed_total` | counter | Entries that failed to ship |
+| `thinkt_relay_ship_duration_seconds` | histogram | Ship request latency |
+| `thinkt_relay_buffer_size_bytes` | gauge | Disk buffer size |
+| `thinkt_relay_file_events_total` | counter | File events processed |
 
 ## REST API
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/wethinkt/go-thinkt/internal/config"
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 )
 
@@ -202,12 +203,12 @@ func (m Model) viewSourceApproval() string {
 			status = "  " + mutedStyle.Render("awaiting decision")
 		} else if src.Approved {
 			status = fmt.Sprintf("  enabled · %d sessions · %s",
-				src.Info.SessionCount, formatBytes(src.Info.TotalSize))
+				src.Info.SessionCount, thinkt.FormatBytes(src.Info.TotalSize))
 		} else if !m.pendingApproval || i < m.approvalIdx {
 			status = "  " + mutedStyle.Render("disabled")
 		} else {
 			status = fmt.Sprintf("  found · %d sessions · %s",
-				src.Info.SessionCount, formatBytes(src.Info.TotalSize))
+				src.Info.SessionCount, thinkt.FormatBytes(src.Info.TotalSize))
 		}
 
 		mark := "  "
@@ -241,7 +242,7 @@ func (m Model) viewSourceApproval() string {
 			info.SessionCount))
 		b.WriteString(fmt.Sprintf("    %s %s\n",
 			padRight(mutedStyle.Render(thinktI18n.T("tui.setup.approval.size", "Size:")), detailCol),
-			bodyStyle.Render(formatBytes(info.TotalSize))))
+			bodyStyle.Render(thinkt.FormatBytes(info.TotalSize))))
 
 		b.WriteString(fmt.Sprintf("\n    %s\n\n%s\n",
 			bodyStyle.Render(thinktI18n.T("tui.setup.approval.prompt", "Enable this source now?")),
@@ -275,7 +276,7 @@ func (m Model) viewSourceApproval() string {
 				b.WriteString(fmt.Sprintf("\n  %s %d sessions, %s\n",
 					titleStyle.Render(thinktI18n.T("tui.setup.summary.total", "Total:")),
 					totalSessions,
-					formatBytes(totalSize)))
+					thinkt.FormatBytes(totalSize)))
 			}
 		}
 		b.WriteString(fmt.Sprintf("\n  %s\n",

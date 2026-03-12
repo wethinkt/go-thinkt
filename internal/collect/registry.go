@@ -8,7 +8,7 @@ import (
 // StaleAgentThreshold is how long without a heartbeat before an agent is stale.
 const StaleAgentThreshold = 5 * time.Minute
 
-// AgentRegistry tracks registered exporter agents and their heartbeats.
+// AgentRegistry tracks registered relay agents and their heartbeats.
 type AgentRegistry struct {
 	mu     sync.RWMutex
 	agents map[string]*AgentInfo
@@ -66,7 +66,7 @@ func (r *AgentRegistry) Register(reg AgentRegistration) *AgentInfo {
 
 // Heartbeat updates the last heartbeat time for an agent.
 // If the agent isn't registered, creates a minimal entry so actively
-// shipping exporters stay visible even without explicit registration.
+// shipping relays stay visible even without explicit registration.
 func (r *AgentRegistry) Heartbeat(instanceID string) bool {
 	if instanceID == "" {
 		return false

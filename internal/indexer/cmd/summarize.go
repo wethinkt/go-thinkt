@@ -21,6 +21,7 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/indexer/db"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/indexer/summarize"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 	"golang.org/x/term"
@@ -280,14 +281,14 @@ func printSummarizeModelList(activeModel string) {
 
 		modelSize := col(mutedStyle, colSize).Render(thinktI18n.T("indexer.summarize.notDownloaded", "not downloaded"))
 		if size := summarizeModelFileSize(id); size >= 0 {
-			modelSize = col(secondaryStyle, colSize).Render(formatBytes(size))
+			modelSize = col(secondaryStyle, colSize).Render(thinkt.FormatBytes(size))
 		}
 
 		sessionCol := col(mutedStyle, colSess).Render("-")
 		dbSizeCol := mutedStyle.Render("-")
 		if st, ok := sumStats[id]; ok && st.Count > 0 {
 			sessionCol = col(secondaryStyle, colSess).Render(fmt.Sprintf("%d", st.Sessions))
-			dbSizeCol = secondaryStyle.Render(formatBytes(st.Size))
+			dbSizeCol = secondaryStyle.Render(thinkt.FormatBytes(st.Size))
 		}
 
 		marker := " "
@@ -466,7 +467,7 @@ var summarizeStatusCmd = &cobra.Command{
 		} else {
 			stored := thinktI18n.Tf("indexer.summarize.status.storedCount", "%d summaries across %d sessions", activeStats.Count, activeStats.Sessions)
 			if activeStats.Size > 0 {
-				stored += fmt.Sprintf(" (%s)", formatBytes(activeStats.Size))
+				stored += fmt.Sprintf(" (%s)", thinkt.FormatBytes(activeStats.Size))
 			}
 			fmt.Fprintf(os.Stdout, "%s%s\n", col(labelStyle, colLabel).Render(thinktI18n.T("indexer.summarize.status.storedLabel", "Stored:")), valueStyle.Render(stored))
 			if categoryBreakdown != nil {
@@ -518,7 +519,7 @@ var summarizeSyncCmd = &cobra.Command{
 					if err := json.Unmarshal(p.Data, &data); err == nil {
 						if data.ModelDownload {
 							pct := data.Percent / 100
-							detail := fmt.Sprintf("%s / %s  %.0f%%", formatBytes(data.Downloaded), formatBytes(data.Total), data.Percent)
+							detail := fmt.Sprintf("%s / %s  %.0f%%", thinkt.FormatBytes(data.Downloaded), thinkt.FormatBytes(data.Total), data.Percent)
 							if sp.IsTTY() {
 								sp.RenderLine(thinktI18n.T("indexer.progress.download", "Download"), cfg.Summarization.Model, detail, pct)
 							} else {
@@ -571,7 +572,7 @@ var summarizeSyncCmd = &cobra.Command{
 		if err := summarize.EnsureModel(modelID, func(downloaded, total int64) {
 			if total > 0 && dlSp.ShouldShowProgress(quiet, verbose) {
 				pct := float64(downloaded) / float64(total)
-				detail := fmt.Sprintf("%s / %s  %.0f%%", formatBytes(downloaded), formatBytes(total), pct*100)
+				detail := fmt.Sprintf("%s / %s  %.0f%%", thinkt.FormatBytes(downloaded), thinkt.FormatBytes(total), pct*100)
 				if dlSp.IsTTY() {
 					dlSp.RenderLine(thinktI18n.T("indexer.progress.download", "Download"), modelID, detail, pct)
 				} else {

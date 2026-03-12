@@ -115,6 +115,7 @@ func (f *ProjectsFormatter) FormatVerbose(projects []thinkt.Project) error {
 	colPath := 4   // minimum
 	colSource := 6 // "[claude]"
 	colSess := 10  // "N sessions"
+	colSize := 4   // "size"
 
 	for _, p := range projects {
 		path := p.Path
@@ -132,10 +133,15 @@ func (f *ProjectsFormatter) FormatVerbose(projects []thinkt.Project) error {
 		if len(sessions) > colSess {
 			colSess = len(sessions)
 		}
+		size := thinkt.FormatBytes(p.DirSize)
+		if len(size) > colSize {
+			colSize = len(size)
+		}
 	}
 	colPath += gap
 	colSource += gap
 	colSess += gap
+	colSize += gap
 
 	col := func(s lipgloss.Style, w int) lipgloss.Style { return s.Width(w) }
 
@@ -147,6 +153,7 @@ func (f *ProjectsFormatter) FormatVerbose(projects []thinkt.Project) error {
 
 		source := fmt.Sprintf("[%s]", p.Source)
 		sessions := fmt.Sprintf("%d sessions", p.SessionCount)
+		size := thinkt.FormatBytes(p.DirSize)
 
 		var modified string
 		if !p.LastModified.IsZero() {
@@ -155,10 +162,11 @@ func (f *ProjectsFormatter) FormatVerbose(projects []thinkt.Project) error {
 			modified = "-"
 		}
 
-		fmt.Fprintf(f.w, "%s%s%s%s\n",
+		fmt.Fprintf(f.w, "%s%s%s%s%s\n",
 			col(primaryStyle, colPath).Render(path),
 			col(secondaryStyle, colSource).Render(source),
 			col(secondaryStyle, colSess).Render(sessions),
+			col(mutedStyle, colSize).Render(size),
 			mutedStyle.Render(modified))
 	}
 

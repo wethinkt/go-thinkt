@@ -1,4 +1,4 @@
-// Package export provides a trace exporter that watches local AI session files
+// Package relay provides a trace exporter that watches local AI session files
 // and ships them to a remote collector endpoint via HTTP POST.
 package relay
 
@@ -18,8 +18,8 @@ type WatchDir struct {
 	Config thinkt.WatchConfig // Per-source watch configuration
 }
 
-// ExporterConfig holds configuration for the trace exporter.
-type ExporterConfig struct {
+// RelayConfig holds configuration for the trace relay.
+type RelayConfig struct {
 	// CollectorURL is the endpoint to POST traces to (e.g. "https://collect.wethinkt.com/v1/traces").
 	// If empty, discovery will be used.
 	CollectorURL string
@@ -27,8 +27,8 @@ type ExporterConfig struct {
 	// APIKey is the Bearer token for collector authentication.
 	APIKey string
 
-	// BufferDir is the local disk buffer directory for when the collector is unreachable.
-	// Defaults to ~/.thinkt/export-buffer/.
+	// BufferDir is the local disk buffer directory for relay when the collector is unreachable.
+	// Defaults to ~/.thinkt/relay-buffer/.
 	BufferDir string
 
 	// WatchDirs are directories to watch for new/modified JSONL session files.
@@ -46,14 +46,14 @@ type ExporterConfig struct {
 	// Quiet suppresses non-error output when true.
 	Quiet bool
 
-	// Version is the exporter version string (set via ldflags).
+	// Version is the relay version string (set via ldflags).
 	Version string
 }
 
 // Defaults applies default values to unset config fields.
-func (c *ExporterConfig) Defaults() {
+func (c *RelayConfig) Defaults() {
 	if c.BufferDir == "" {
-		c.BufferDir = "~/.thinkt/export-buffer/"
+		c.BufferDir = "~/.thinkt/relay-buffer/"
 	}
 	if c.MaxBufferMB == 0 {
 		c.MaxBufferMB = 100
@@ -135,8 +135,8 @@ type ShipResult struct {
 	Duration   time.Duration
 }
 
-// ExporterStats reports current exporter state.
-type ExporterStats struct {
+// RelayStats reports current relay state.
+type RelayStats struct {
 	TracesShipped   int64
 	TracesFailed    int64
 	TracesBuffered  int64

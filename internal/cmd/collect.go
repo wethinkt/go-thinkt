@@ -24,7 +24,7 @@ var (
 var collectCmd = &cobra.Command{
 	Use:   "collect",
 	Short: "Start trace collector server",
-	Long: `Start a collector server that receives AI coding assistant traces from exporters.
+	Long: `Start a collector server that receives AI coding assistant traces from relays.
 
 The collector provides:
   - POST /v1/traces endpoint for trace ingestion

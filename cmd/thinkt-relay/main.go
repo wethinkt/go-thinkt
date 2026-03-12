@@ -43,7 +43,7 @@ import (
 // version is set via ldflags at build time.
 var version = "dev"
 
-// sourceFlags is a repeatable flag for specifying sources to export.
+// sourceFlags is a repeatable flag for specifying sources to relay.
 type sourceFlags []string
 
 func (s *sourceFlags) String() string { return strings.Join(*s, ",") }
@@ -67,8 +67,8 @@ func main() {
 	allNames := sourceNames()
 	flag.StringVar(&collectorURL, "collector-url", "", "collector endpoint URL (env: THINKT_COLLECTOR_URL)")
 	flag.StringVar(&apiKey, "api-key", "", "bearer token for collector auth (env: THINKT_API_KEY)")
-	flag.Var(&srcs, "source", "source to export (repeatable: "+strings.Join(allNames, ", ")+"); all if omitted")
-	flag.StringVar(&bufferDir, "buffer-dir", "", "disk buffer directory (default ~/.thinkt/export-buffer/)")
+	flag.Var(&srcs, "source", "source to relay (repeatable: "+strings.Join(allNames, ", ")+"); all if omitted")
+	flag.StringVar(&bufferDir, "buffer-dir", "", "disk buffer directory (default ~/.thinkt/relay-buffer/)")
 	flag.BoolVar(&quiet, "quiet", false, "suppress non-error output")
 	flag.BoolVar(&showVersion, "version", false, "print version and exit")
 	flag.StringVar(&logFile, "log", "", "write debug log to file")
@@ -114,7 +114,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg := relay.ExporterConfig{
+	cfg := relay.RelayConfig{
 		CollectorURL: collectorURL,
 		APIKey:       apiKey,
 		WatchDirs:    dirs,
@@ -123,9 +123,9 @@ func main() {
 		Version:      version,
 	}
 
-	exporter, err := relay.New(cfg)
+	relay, err := relay.New(cfg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: create exporter: %v\n", err)
+		fmt.Fprintf(os.Stderr, "error: create relay: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -170,7 +170,7 @@ func main() {
 		}
 	}
 
-	if err := exporter.Start(ctx); err != nil {
+	if err := relay.Start(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}

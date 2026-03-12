@@ -35,7 +35,7 @@ tasks:
     deps:
       - build:thinkt
       - build:collector
-      - build:exporter
+      - build:relay
       - build:indexer
 
   build:thinkt:
@@ -67,18 +67,18 @@ tasks:
     cmds:
       - go build -o {{.BIN_DIR}}/thinkt-collector ./cmd/thinkt-collector
 
-  build:exporter:
-    desc: Build the thinkt-exporter daemon
+  build:relay:
+    desc: Build the thinkt-relay daemon
     deps: [go-tidy]
     sources:
-      - ./cmd/thinkt-exporter/**/*.go
+      - ./cmd/thinkt-relay/**/*.go
       - ./internal/**/*.go
       - go.mod
       - go.sum
     generates:
-      - "{{.BIN_DIR}}/thinkt-exporter"
+      - "{{.BIN_DIR}}/thinkt-relay"
     cmds:
-      - go build -o {{.BIN_DIR}}/thinkt-exporter ./cmd/thinkt-exporter
+      - go build -o {{.BIN_DIR}}/thinkt-relay ./cmd/thinkt-relay
 
   build:indexer:
     desc: Build the thinkt-indexer CLI
@@ -194,13 +194,13 @@ tasks:
 
   docker:build-all:
     deps:
-      - docker:build-exporter
+      - docker:build-relay
       - docker:build-indexer
       - docker:build-thinkt
 
-  docker:build-exporter:
+  docker:build-relay:
     cmds:
-      - docker build -f etc/Dockerfile.exporter .
+      - docker build -f etc/Dockerfile.relay .
 
   docker:build-indexer:
     cmds:

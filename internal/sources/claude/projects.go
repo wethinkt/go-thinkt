@@ -20,6 +20,7 @@ type Project struct {
 	DirPath      string    // Absolute path to the project directory
 	SessionCount int       // Number of JSONL session files
 	LastModified time.Time // Most recent session modification time
+	DirSize      int64     // Total size of session files in bytes
 }
 
 // SessionMeta holds lightweight session metadata without loading the full JSONL.
@@ -162,15 +163,17 @@ func ListProjects(baseDir string) ([]Project, error) {
 			continue
 		}
 
-		// Count JSONL files and track latest modification time
+		// Count JSONL files, track latest modification time, and sum sizes
 		sessionCount := 0
 		var lastModified time.Time
+		var dirSize int64
 		dirEntries, err := os.ReadDir(dirPath)
 		if err == nil {
 			for _, de := range dirEntries {
 				if !de.IsDir() && strings.HasSuffix(de.Name(), ".jsonl") {
 					sessionCount++
 					if info, err := de.Info(); err == nil {
+						dirSize += info.Size()
 						if info.ModTime().After(lastModified) {
 							lastModified = info.ModTime()
 						}
@@ -190,6 +193,7 @@ func ListProjects(baseDir string) ([]Project, error) {
 			DirPath:      dirPath,
 			SessionCount: sessionCount,
 			LastModified: lastModified,
+			DirSize:      dirSize,
 		})
 	}
 

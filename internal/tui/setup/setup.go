@@ -515,25 +515,6 @@ func (m Model) selectedLanguageSummary() string {
 	return tag
 }
 
-// formatBytes formats a byte count into a human-readable string.
-func formatBytes(b int64) string {
-	const (
-		kb = 1024
-		mb = kb * 1024
-		gb = mb * 1024
-	)
-	switch {
-	case b >= gb:
-		return fmt.Sprintf("%.1f GB", float64(b)/float64(gb))
-	case b >= mb:
-		return fmt.Sprintf("%.1f MB", float64(b)/float64(mb))
-	case b >= kb:
-		return fmt.Sprintf("%.1f KB", float64(b)/float64(kb))
-	default:
-		return fmt.Sprintf("%d B", b)
-	}
-}
-
 // renderVerticalConfirm renders a vertical Yes/No selector with Y/N hotkey hints.
 // An optional noLabel overrides the default "No" text.
 func (m Model) renderVerticalConfirm(noLabel ...string) string {

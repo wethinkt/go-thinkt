@@ -180,7 +180,7 @@ Returns aggregate collector statistics:
 POST /v1/agents/register
 ```
 
-Registers an exporter agent with the collector for tracking:
+Registers a relay agent with the collector for tracking:
 
 ```json
 {

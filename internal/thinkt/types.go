@@ -242,9 +242,10 @@ type Project struct {
 	WorkspaceID    string    `json:"workspace_id"`               // Which machine/host
 	SourceBasePath string    `json:"source_base_path,omitempty"` // Root storage path for this source
 	PathExists     bool      `json:"path_exists"`                // Whether the project directory still exists on disk
+	DirSize        int64     `json:"dir_size"`                   // Total size of session files in bytes
 }
 
-// WatchConfig controls which subdirectories the exporter watches for session
+// WatchConfig controls which subdirectories the relay watches for session
 // files under a source's base path.
 type WatchConfig struct {
 	// IncludeDirs are first-level subdirectory names under BasePath to enter.
@@ -294,7 +295,7 @@ type Store interface {
 	// Preferred for large sessions or when only partial access is needed.
 	OpenSession(ctx context.Context, sessionID string) (SessionReader, error)
 
-	// WatchConfig returns the directory watch configuration for the exporter.
+	// WatchConfig returns the directory watch configuration for the relay.
 	WatchConfig() WatchConfig
 }
 

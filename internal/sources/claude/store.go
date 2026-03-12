@@ -119,6 +119,7 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 				Source:         thinkt.SourceClaude,
 				WorkspaceID:    ws.ID,
 				SourceBasePath: ws.BasePath,
+				DirSize:        p.DirSize,
 			}
 		}
 		return result, nil

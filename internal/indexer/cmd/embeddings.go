@@ -22,6 +22,7 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/indexer/db"
 	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
@@ -296,14 +297,14 @@ func printModelList(activeModel string) {
 
 		modelSize := col(mutedStyle, colSize).Render(thinktI18n.T("indexer.embeddings.notDownloaded", "not downloaded"))
 		if size := modelFileSize(id); size >= 0 {
-			modelSize = col(secondaryStyle, colSize).Render(formatBytes(size))
+			modelSize = col(secondaryStyle, colSize).Render(thinkt.FormatBytes(size))
 		}
 
 		sessionCol := col(mutedStyle, colSess).Render("-")
 		dbSizeCol := mutedStyle.Render("-")
 		if st, ok := embStats[id]; ok && st.Count > 0 {
 			sessionCol = col(secondaryStyle, colSess).Render(fmt.Sprintf("%d", st.Sessions))
-			dbSizeCol = secondaryStyle.Render(formatBytes(st.Size))
+			dbSizeCol = secondaryStyle.Render(thinkt.FormatBytes(st.Size))
 		}
 
 		marker := " "
@@ -511,7 +512,7 @@ var embeddingsStatusCmd = &cobra.Command{
 		} else {
 			stored := thinktI18n.Tf("indexer.embeddings.status.storedCount", "%d embeddings across %d sessions", activeStats.Count, activeStats.Sessions)
 			if activeStats.Size > 0 {
-				stored += fmt.Sprintf(" (%s)", formatBytes(activeStats.Size))
+				stored += fmt.Sprintf(" (%s)", thinkt.FormatBytes(activeStats.Size))
 			}
 			fmt.Fprintf(os.Stdout, "%s%s\n", col(labelStyle, colLabel).Render(thinktI18n.T("indexer.embeddings.status.storedLabel", "Stored:")), valueStyle.Render(stored))
 			fmt.Fprintf(os.Stdout, " %s%s\n", col(secondaryVal, colLabel-1).Render("conversation:"), secondaryVal.Render(fmt.Sprintf("%d", activeStats.Conversation)))
@@ -721,24 +722,6 @@ var embeddingsSyncCmd = &cobra.Command{
 		}
 		return nil
 	},
-}
-
-func formatBytes(b int64) string {
-	const (
-		kb = 1024
-		mb = 1024 * kb
-		gb = 1024 * mb
-	)
-	switch {
-	case b >= gb:
-		return fmt.Sprintf("%.1f GB", float64(b)/float64(gb))
-	case b >= mb:
-		return fmt.Sprintf("%.1f MB", float64(b)/float64(mb))
-	case b >= kb:
-		return fmt.Sprintf("%.1f KB", float64(b)/float64(kb))
-	default:
-		return fmt.Sprintf("%d B", b)
-	}
 }
 
 func init() {
