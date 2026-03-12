@@ -123,10 +123,10 @@ builds:
     ldflags:
       - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
 
-  # ── thinkt-exporter ────────────────────────────────────────────────────
-  - id: exporter-linux-amd64
-    main: ./cmd/thinkt-exporter
-    binary: thinkt-exporter
+  # ── thinkt-relay ──────────────────────────────────────────────────────────
+  - id: relay-linux-amd64
+    main: ./cmd/thinkt-relay
+    binary: thinkt-relay
     goos: [linux]
     goarch: [amd64]
     env:
@@ -136,9 +136,9 @@ builds:
     ldflags:
       - -s -w -X main.version={{.Version}}
 
-  - id: exporter-linux-arm64
-    main: ./cmd/thinkt-exporter
-    binary: thinkt-exporter
+  - id: relay-linux-arm64
+    main: ./cmd/thinkt-relay
+    binary: thinkt-relay
     goos: [linux]
     goarch: [arm64]
     env:
@@ -148,9 +148,9 @@ builds:
     ldflags:
       - -s -w -X main.version={{.Version}}
 
-  - id: exporter-darwin-amd64
-    main: ./cmd/thinkt-exporter
-    binary: thinkt-exporter
+  - id: relay-darwin-amd64
+    main: ./cmd/thinkt-relay
+    binary: thinkt-relay
     goos: [darwin]
     goarch: [amd64]
     env:
@@ -161,9 +161,9 @@ builds:
     ldflags:
       - -s -w -X main.version={{.Version}}
 
-  - id: exporter-darwin-arm64
-    main: ./cmd/thinkt-exporter
-    binary: thinkt-exporter
+  - id: relay-darwin-arm64
+    main: ./cmd/thinkt-relay
+    binary: thinkt-relay
     goos: [darwin]
     goarch: [arm64]
     env:
@@ -232,10 +232,10 @@ archives:
       - thinkt-linux-arm64
       - thinkt-darwin-amd64
       - thinkt-darwin-arm64
-      - exporter-linux-amd64
-      - exporter-linux-arm64
-      - exporter-darwin-amd64
-      - exporter-darwin-arm64
+      - relay-linux-amd64
+      - relay-linux-arm64
+      - relay-darwin-amd64
+      - relay-darwin-arm64
       - indexer-linux-amd64
       - indexer-linux-arm64
       - indexer-darwin-amd64
@@ -273,8 +273,8 @@ notarize:
       ids:
         - thinkt-darwin-amd64
         - thinkt-darwin-arm64
-        - exporter-darwin-amd64
-        - exporter-darwin-arm64
+        - relay-darwin-amd64
+        - relay-darwin-arm64
         - indexer-darwin-amd64
         - indexer-darwin-arm64
         - collector-darwin-amd64
@@ -306,7 +306,7 @@ homebrew_casks:
     binaries:
       - thinkt
       - thinkt-indexer
-      - thinkt-exporter
+      - thinkt-relay
       - thinkt-collector
     completions:
       bash: completions/thinkt.bash
@@ -329,7 +329,7 @@ homebrew_casks:
       - man/man1/thinkt-completion-zsh.1
       - man/man1/thinkt-completion.1
       - man/man1/thinkt-embeddings.1
-      - man/man1/thinkt-export.1
+      - man/man1/thinkt-relay.1
       - man/man1/thinkt-indexer-embeddings.1
       - man/man1/thinkt-indexer-help.1
       - man/man1/thinkt-indexer-logs.1
@@ -439,36 +439,36 @@ dockers:
     use: buildx
     goarch: arm64
 
-  - id: exporter-linux-amd64
+  - id: relay-linux-amd64
     ids:
-      - exporter-linux-amd64
-    dockerfile: etc/Dockerfile.goreleaser-exporter
+      - relay-linux-amd64
+    dockerfile: etc/Dockerfile.goreleaser-relay
     image_templates:
-      - "ghcr.io/wethinkt/thinkt-exporter:{{ .Version }}-amd64"
-      - "ghcr.io/wethinkt/thinkt-exporter:latest-amd64"
+      - "ghcr.io/wethinkt/thinkt-relay:{{ .Version }}-amd64"
+      - "ghcr.io/wethinkt/thinkt-relay:latest-amd64"
     build_flag_templates:
       - "--pull"
       - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.title=thinkt-exporter"
-      - "--label=org.opencontainers.image.description=Exports LLM conversation traces to thinkt"
+      - "--label=org.opencontainers.image.title=thinkt-relay"
+      - "--label=org.opencontainers.image.description=Relays LLM conversation traces"
       - "--label=org.opencontainers.image.version={{ .Version }}"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
       - "--label=org.opencontainers.image.source={{ .GitURL }}"
     use: buildx
 
-  - id: exporter-linux-arm64
+  - id: relay-linux-arm64
     ids:
-      - exporter-linux-arm64
-    dockerfile: etc/Dockerfile.goreleaser-exporter
+      - relay-linux-arm64
+    dockerfile: etc/Dockerfile.goreleaser-relay
     image_templates:
-      - "ghcr.io/wethinkt/thinkt-exporter:{{ .Version }}-arm64"
-      - "ghcr.io/wethinkt/thinkt-exporter:latest-arm64"
+      - "ghcr.io/wethinkt/thinkt-relay:{{ .Version }}-arm64"
+      - "ghcr.io/wethinkt/thinkt-relay:latest-arm64"
     build_flag_templates:
       - "--pull"
       - "--platform=linux/arm64"
-      - "--label=org.opencontainers.image.title=thinkt-exporter"
-      - "--label=org.opencontainers.image.description=Exports LLM conversation traces to thinkt"
+      - "--label=org.opencontainers.image.title=thinkt-relay"
+      - "--label=org.opencontainers.image.description=Relays LLM conversation traces"
       - "--label=org.opencontainers.image.version={{ .Version }}"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
@@ -524,15 +524,15 @@ docker_manifests:
       - "ghcr.io/wethinkt/thinkt:latest-amd64"
       - "ghcr.io/wethinkt/thinkt:latest-arm64"
 
-  - name_template: "ghcr.io/wethinkt/thinkt-exporter:{{ .Version }}"
+  - name_template: "ghcr.io/wethinkt/thinkt-relay:{{ .Version }}"
     image_templates:
-      - "ghcr.io/wethinkt/thinkt-exporter:{{ .Version }}-amd64"
-      - "ghcr.io/wethinkt/thinkt-exporter:{{ .Version }}-arm64"
+      - "ghcr.io/wethinkt/thinkt-relay:{{ .Version }}-amd64"
+      - "ghcr.io/wethinkt/thinkt-relay:{{ .Version }}-arm64"
 
-  - name_template: "ghcr.io/wethinkt/thinkt-exporter:latest"
+  - name_template: "ghcr.io/wethinkt/thinkt-relay:latest"
     image_templates:
-      - "ghcr.io/wethinkt/thinkt-exporter:latest-amd64"
-      - "ghcr.io/wethinkt/thinkt-exporter:latest-arm64"
+      - "ghcr.io/wethinkt/thinkt-relay:latest-amd64"
+      - "ghcr.io/wethinkt/thinkt-relay:latest-arm64"
 
   - name_template: "ghcr.io/wethinkt/thinkt-indexer:{{ .Version }}"
     image_templates:
