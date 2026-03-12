@@ -11,7 +11,7 @@ Tools for AI assistant session exploration and extraction.
 
 ## Supported Sources
 
-We created a common `thinkt` interface to enable uniform access to various `Sources`.  We maintain a library of implementations and currently support:
+We created a common `thinkt` interface to enable uniform access to various `Sources`.  We maintain a [library of source implementations](https://github.com/wethinkt/go-thinkt/tree/main/internal/sources) and currently support:
 
   - `claude` [**Claude Code**](https://claude.com/product/claude-code) from Anthropic
   - `kimi` [**Kimi Code**](https://www.kimi.com/code) from Moonshot

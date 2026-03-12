@@ -29,12 +29,13 @@ Sources are auto-discovered. Use `--source claude|kimi|gemini|copilot|codex|qwen
 | `cmd/thinkt` | CLI entry point (Cobra commands) |
 | `cmd/thinkt-indexer` | DuckDB-powered indexer CLI |
 | `internal/thinkt` | Core types, Store/TeamStore interfaces, registry, cache |
-| `internal/sources/claude` | Claude Code storage + teams implementation |
-| `internal/sources/kimi` | Kimi Code storage implementation |
-| `internal/sources/gemini` | Gemini CLI storage implementation |
-| `internal/sources/copilot` | Copilot storage implementation |
-| `internal/sources/codex` | Codex CLI storage implementation |
-| `internal/sources/qwen` | Qwen Code storage implementation |
+| [`internal/sources`](./internal/sources/) | [Source factory registry](./internal/sources/README.md) |
+| [`internal/sources/claude`](./internal/sources/claude/) | Claude Code storage + teams implementation |
+| [`internal/sources/kimi`](./internal/sources/kimi/) | Kimi Code storage implementation |
+| [`internal/sources/gemini`](./internal/sources/gemini/) | Gemini CLI storage implementation |
+| [`internal/sources/copilot`](./internal/sources/copilot/) | Copilot storage implementation |
+| [`internal/sources/codex`](./internal/sources/codex/) | Codex CLI storage implementation |
+| [`internal/sources/qwen`](./internal/sources/qwen/) | Qwen Code storage implementation |
 | `internal/tui` | BubbleTea terminal UI (shell, pickers, viewer, theme builder) |
 | `internal/server` | HTTP REST API, teams API, indexer API, and MCP server |
 | `internal/server/web` | Full webapp submodule ([thinkt-web](https://github.com/wethinkt/thinkt-web), `dist` branch) |

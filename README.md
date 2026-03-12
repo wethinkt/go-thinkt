@@ -23,13 +23,13 @@ All of these LLM assistant `Source`s have similar structures and use common mach
         * multiple `Thinking` blocks
       * one `LLM Output`
 
-We have a common `thinkt` interface to enable uniform access to various `Sources`.  We maintain a library of implementations and currently support:
-  - [*Claude Code*](https://claude.com/product/claude-code) from Anthropic
-  - [*Kimi Code*](https://www.kimi.com/code) from Moonshot
-  - [*Gemini CLI*](https://geminicli.com) from Google
-  - [*Copilot CLI*](https://github.com/features/copilot/cli) from GitHub
-  - [*Codex CLI*](https://github.com/openai/codex) from OpenAI
-  - [*Qwen Code*](https://www.qwen.ai) from Alibaba
+We have a common `thinkt` interface to enable uniform access to various `Sources`.  We maintain a [library of source implementations](./internal/sources/) and currently support:
+  - [*Claude Code*](https://claude.com/product/claude-code) from Anthropic — [source docs](./internal/sources/claude/)
+  - [*Kimi Code*](https://www.kimi.com/code) from Moonshot — [source docs](./internal/sources/kimi/)
+  - [*Gemini CLI*](https://geminicli.com) from Google — [source docs](./internal/sources/gemini/)
+  - [*Copilot CLI*](https://github.com/features/copilot/cli) from GitHub — [source docs](./internal/sources/copilot/)
+  - [*Codex CLI*](https://github.com/openai/codex) from OpenAI — [source docs](./internal/sources/codex/)
+  - [*Qwen Code*](https://www.qwen.ai) from Alibaba — [source docs](./internal/sources/qwen/)
 
 All of this structured data is exposed to you to easily navigate:
 

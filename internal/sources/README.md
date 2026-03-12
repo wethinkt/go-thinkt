@@ -1,0 +1,38 @@
+# sources
+
+Package `sources` aggregates all supported AI coding tool source factories.
+
+## Supported Sources
+
+- [`claude`](claude/) — Claude Code session source
+- [`codex`](codex/) — Codex CLI session source
+- [`copilot`](copilot/) — Copilot CLI session source
+- [`gemini`](gemini/) — Gemini CLI session source
+- [`kimi`](kimi/) — Kimi Code session source
+- [`qwen`](qwen/) — Qwen Code session source
+
+## Directory Structure
+
+```
+sources/
+├── sources.go          # AllFactories() - registry of all source factories
+├── claude/             # Claude Code session source
+├── codex/              # Codex CLI session source
+├── copilot/            # Copilot CLI session source
+├── gemini/             # Gemini CLI session source
+├── kimi/               # Kimi Code session source
+└── qwen/               # Qwen Code session source
+```
+
+## Key Function
+
+- [`AllFactories()`](sources.go) — returns a `[]thinkt.StoreFactory` for all supported sources. Add new sources here when adding support for a new AI coding tool.
+
+## Adding a New Source
+
+Each source subdirectory follows a common pattern:
+
+1. **`discovery.go`** — implements [`thinkt.StoreFactory`](../thinkt/) (`Source()`, `Create()`, `IsAvailable()`) plus `Factory()` and `IsSessionPath()` helpers
+2. **`store.go`** — implements [`thinkt.Store`](../thinkt/) (`ListProjects`, `ListSessions`, `LoadSession`, `OpenSession`, `WatchConfig`, etc.)
+3. **`parser.go`** (optional) — reads source-specific JSONL/JSON formats and converts to [`thinkt.Entry`](../thinkt/)
+4. Register the new factory in [`sources.go`](sources.go)
