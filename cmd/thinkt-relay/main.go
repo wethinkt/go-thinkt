@@ -1,4 +1,4 @@
-// thinkt-exporter is a standalone binary that watches local AI session files
+// thinkt-relay is a standalone binary that watches local AI session files
 // and exports trace entries to a remote collector endpoint.
 //
 // By default it auto-discovers all installed AI sources (Claude, Kimi, Gemini,
@@ -8,9 +8,9 @@
 //
 // Usage:
 //
-//	thinkt-exporter --collector-url https://collect.example.com/v1/traces
-//	thinkt-exporter --source claude --source kimi
-//	THINKT_CLAUDE_HOME=/custom/path thinkt-exporter --source claude
+//	thinkt-relay --collector-url https://collect.example.com/v1/traces
+//	thinkt-relay --source claude --source kimi
+//	THINKT_CLAUDE_HOME=/custom/path thinkt-relay --source claude
 //
 // Environment variables:
 //
@@ -76,7 +76,7 @@ func main() {
 	flag.Parse()
 
 	if showVersion {
-		fmt.Printf("thinkt-exporter %s\n", version)
+		fmt.Printf("thinkt-relay %s\n", version)
 		os.Exit(0)
 	}
 
@@ -158,7 +158,7 @@ func main() {
 	}
 
 	if !quiet {
-		fmt.Fprintf(os.Stderr, "thinkt-exporter %s\n", version)
+		fmt.Fprintf(os.Stderr, "thinkt-relay %s\n", version)
 		fmt.Fprintf(os.Stderr, "Watching %d directories\n", len(dirs))
 		for _, d := range dirs {
 			fmt.Fprintf(os.Stderr, "  [%s] %s\n", d.Source, d.Path)

@@ -248,14 +248,14 @@ func init() {
 	exportParquetCmd.Flags().StringVar(&parquetSince, "since", "", "only entries after this time (RFC3339 or YYYY-MM-DD)")
 	exportParquetCmd.Flags().StringVar(&parquetUntil, "until", "", "only entries before this time (RFC3339 or YYYY-MM-DD)")
 
-	// Export command flags
-	rootCmd.AddCommand(exportCmd)
-	exportCmd.Flags().StringVar(&exportCollectorURL, "collector-url", "", "collector URL (default: auto-discover)")
-	exportCmd.Flags().StringVar(&exportAPIKey, "api-key", "", "API key for collector authentication")
-	exportCmd.Flags().StringVar(&exportSource, "source", "", "filter by source (claude, kimi, etc.)")
-	exportCmd.Flags().BoolVar(&exportForward, "forward", false, "continuous watch mode")
-	exportCmd.Flags().BoolVar(&exportFlush, "flush", false, "flush the disk buffer")
-	exportCmd.Flags().BoolVarP(&exportQuiet, "quiet", "q", false, "suppress non-error output")
+	// Relay command flags
+	rootCmd.AddCommand(relayCmd)
+	relayCmd.Flags().StringVar(&relayCollectorURL, "collector-url", "", "collector URL (default: auto-discover)")
+	relayCmd.Flags().StringVar(&relayAPIKey, "api-key", "", "API key for collector authentication")
+	relayCmd.Flags().StringVar(&relaySource, "source", "", "filter by source (claude, kimi, etc.)")
+	relayCmd.Flags().BoolVar(&relayForward, "forward", false, "continuous watch mode")
+	relayCmd.Flags().BoolVar(&relayFlush, "flush", false, "flush the disk buffer")
+	relayCmd.Flags().BoolVarP(&relayQuiet, "quiet", "q", false, "suppress non-error output")
 	// Agents command
 	rootCmd.AddCommand(agentsCmd)
 	agentsCmd.Flags().BoolVar(&agentsLocal, "local", false, "show only local agents")

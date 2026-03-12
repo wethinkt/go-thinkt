@@ -12,22 +12,22 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
-// Export command flags
+// Relay command flags
 var (
-	exportCollectorURL string
-	exportAPIKey       string
-	exportSource       string
-	exportForward      bool
-	exportFlush        bool
-	exportQuiet        bool
+	relayCollectorURL string
+	relayAPIKey       string
+	relaySource       string
+	relayForward      bool
+	relayFlush        bool
+	relayQuiet        bool
 )
 
-var exportCmd = &cobra.Command{
-	Use:   "export",
-	Short: "Export traces to a remote collector",
-	Long: `Export local AI coding assistant traces to a remote collector endpoint.
+var relayCmd = &cobra.Command{
+	Use:   "relay",
+	Short: "Relay traces to a remote collector",
+	Long: `Relay local AI coding assistant traces to a remote collector endpoint.
 
-By default, performs a one-shot export of all traces found in source directories.
+By default, performs a one-shot relay of all traces found in source directories.
 Use --forward for continuous watch mode that ships traces as they are written.
 
 The collector endpoint is discovered automatically:
@@ -37,15 +37,15 @@ The collector endpoint is discovered automatically:
   4. Local buffer only (no remote)
 
 Examples:
-  thinkt export                          # One-shot export of all traces
-  thinkt export --forward                # Watch mode: continuously forward traces
-  thinkt export --flush                  # Flush the disk buffer
-  thinkt export --source claude          # Export only Claude traces
-  thinkt export --collector-url https://collect.example.com/v1/traces`,
-	RunE: runExport,
+  thinkt relay                          # One-shot relay of all traces
+  thinkt relay --forward                # Watch mode: continuously forward traces
+  thinkt relay --flush                  # Flush the disk buffer
+  thinkt relay --source claude          # Relay only Claude traces
+  thinkt relay --collector-url https://collect.example.com/v1/traces`,
+	RunE: runRelay,
 }
 
-func runExport(cmd *cobra.Command, args []string) error {
+func runRelay(cmd *cobra.Command, args []string) error {
 	// Initialize logger if requested
 	if logPath != "" {
 		if err := tuilog.Init(logPath); err != nil {
@@ -55,13 +55,13 @@ func runExport(cmd *cobra.Command, args []string) error {
 	}
 
 	// Resolve collector URL from flag or env
-	collectorURL := exportCollectorURL
+	collectorURL := relayCollectorURL
 	if collectorURL == "" {
 		collectorURL = os.Getenv("THINKT_COLLECTOR_URL")
 	}
 
 	// Resolve API key from flag or env
-	apiKey := exportAPIKey
+	apiKey := relayAPIKey
 	if apiKey == "" {
 		apiKey = os.Getenv("THINKT_API_KEY")
 	}
@@ -71,7 +71,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 	registry := CreateSourceRegistry()
 	for _, store := range registry.All() {
 		// Filter by source if specified
-		if exportSource != "" && string(store.Source()) != exportSource {
+		if relaySource != "" && string(store.Source()) != relaySource {
 			continue
 		}
 		ws := store.Workspace()
@@ -84,23 +84,23 @@ func runExport(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if len(watchDirs) == 0 && !exportFlush {
+	if len(watchDirs) == 0 && !relayFlush {
 		return fmt.Errorf("no source directories found (available sources: claude, kimi, gemini, copilot, codex)")
 	}
 
-	tuilog.Log.Info("Export configuration",
+	tuilog.Log.Info("Relay configuration",
 		"collector_url", collectorURL,
 		"watch_dirs", watchDirs,
-		"forward", exportForward,
-		"flush", exportFlush,
-		"source", exportSource,
+		"forward", relayForward,
+		"flush", relayFlush,
+		"source", relaySource,
 	)
 
 	cfg := relay.ExporterConfig{
 		CollectorURL: collectorURL,
 		APIKey:       apiKey,
 		WatchDirs:    watchDirs,
-		Quiet:        exportQuiet,
+		Quiet:        relayQuiet,
 	}
 
 	exporter, err := relay.New(cfg)
@@ -118,22 +118,22 @@ func runExport(cmd *cobra.Command, args []string) error {
 	go func() {
 		<-sigCh
 		tuilog.Log.Info("Received interrupt signal, shutting down")
-		if !exportQuiet {
+		if !relayQuiet {
 			fmt.Fprintln(os.Stderr, "\nShutting down...")
 		}
 		cancel()
 	}()
 
-	if exportFlush {
-		if !exportQuiet {
-			fmt.Fprintln(os.Stderr, "Flushing export buffer...")
+	if relayFlush {
+		if !relayQuiet {
+			fmt.Fprintln(os.Stderr, "Flushing relay buffer...")
 		}
 		return exporter.FlushBuffer(ctx)
 	}
 
-	if exportForward {
-		if !exportQuiet {
-			fmt.Fprintf(os.Stderr, "Exporter watching %d directories (forward mode)\n", len(watchDirs))
+	if relayForward {
+		if !relayQuiet {
+			fmt.Fprintf(os.Stderr, "Relay watching %d directories (forward mode)\n", len(watchDirs))
 			for _, wd := range watchDirs {
 				fmt.Fprintf(os.Stderr, "  [%s] %s\n", wd.Source, wd.Path)
 			}
@@ -146,9 +146,9 @@ func runExport(cmd *cobra.Command, args []string) error {
 		return exporter.Start(ctx)
 	}
 
-	// Default: one-shot export
-	if !exportQuiet {
-		fmt.Fprintf(os.Stderr, "Exporting traces from %d directories...\n", len(watchDirs))
+	// Default: one-shot relay
+	if !relayQuiet {
+		fmt.Fprintf(os.Stderr, "Relaying traces from %d directories...\n", len(watchDirs))
 	}
 	return exporter.ExportOnce(ctx)
 }
