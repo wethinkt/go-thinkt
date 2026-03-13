@@ -249,6 +249,68 @@ func TestSemanticSearch_MaxDistance(t *testing.T) {
 	}
 }
 
+func TestSemanticSearch_FilterSources(t *testing.T) {
+	indexDB, embDB := openBothDBs(t)
+
+	// Seed two projects in index DB with different sources
+	for _, src := range []string{"claude", "kimi"} {
+		_, err := indexDB.Exec(
+			`INSERT INTO projects (id, name, path, source) VALUES (?, ?, ?, ?)`,
+			src+"-proj", "project-"+src, "/path/"+src, src,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = indexDB.Exec(
+			`INSERT INTO sessions (id, project_id, path) VALUES (?, ?, ?)`,
+			src+"-sess", src+"-proj", "/path/"+src+"/session.jsonl",
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Insert embeddings for both sessions
+	vec := make([]float32, 1024)
+	vec[0] = 1.0
+	for _, tc := range []struct{ id, sessID string }{
+		{"e1_0", "claude-sess"},
+		{"e2_0", "kimi-sess"},
+	} {
+		_, err := embDB.Exec(`
+			INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, model, dim, embedding, text_hash)
+			VALUES (?, ?, ?, 0, 'test-model', 1024, ?::FLOAT[1024], 'hash')`,
+			tc.id, tc.sessID, tc.id[:2], vec)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	svc := search.NewService(indexDB, embDB)
+	query := make([]float32, 1024)
+	query[0] = 1.0
+
+	// FilterSources = ["claude"] — should only return claude results
+	results, err := svc.SemanticSearch(search.SemanticSearchOptions{
+		QueryEmbedding: query,
+		Model:          "test-model",
+		Dim:            1024,
+		Limit:          10,
+		FilterSources:  []string{"claude"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) == 0 {
+		t.Fatal("expected at least 1 result")
+	}
+	for _, r := range results {
+		if r.SessionID != "claude-sess" {
+			t.Fatalf("expected only claude-sess results, got %s", r.SessionID)
+		}
+	}
+}
+
 func TestSemanticSearch_WithProjectFilter(t *testing.T) {
 	indexDB, embDB := openBothDBs(t)
 

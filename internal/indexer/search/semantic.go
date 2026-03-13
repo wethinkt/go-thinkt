@@ -13,7 +13,8 @@ type SemanticSearchOptions struct {
 	Dim            int // Embedding dimension (e.g. 768, 1024)
 	FilterProject  string
 	FilterSource   string
-	FilterTier     string // "conversation" (default), "reasoning", "all", or "" (defaults to "conversation")
+	FilterSources  []string // Restrict to these sources (nil/empty = no restriction)
+	FilterTier     string   // "conversation" (default), "reasoning", "all", or "" (defaults to "conversation")
 	Limit          int
 	MaxDistance    float64 // 0 means no threshold
 	Diversity      bool    // Enable diversity scoring to avoid similar results from same session
@@ -87,7 +88,7 @@ func (s *Service) fetchResults(opts SemanticSearchOptions, limit int) ([]Semanti
 
 	// Phase 1: Pre-filter session IDs from index DB if filters are specified.
 	var sessionFilter []string
-	if opts.FilterProject != "" || opts.FilterSource != "" {
+	if opts.FilterProject != "" || opts.FilterSource != "" || len(opts.FilterSources) > 0 {
 		q := `SELECT s.id FROM sessions s JOIN projects p ON s.project_id = p.id WHERE 1=1`
 		var args []any
 		if opts.FilterProject != "" {
@@ -97,6 +98,14 @@ func (s *Service) fetchResults(opts SemanticSearchOptions, limit int) ([]Semanti
 		if opts.FilterSource != "" {
 			q += " AND p.source = ?"
 			args = append(args, opts.FilterSource)
+		}
+		if len(opts.FilterSources) > 0 {
+			placeholders := make([]string, len(opts.FilterSources))
+			for i, src := range opts.FilterSources {
+				placeholders[i] = "?"
+				args = append(args, src)
+			}
+			q += " AND p.source IN (" + strings.Join(placeholders, ",") + ")"
 		}
 		rows, err := s.db.Query(q, args...)
 		if err != nil {

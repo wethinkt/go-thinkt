@@ -93,6 +93,7 @@ type SearchOptions struct {
 	Query           string
 	FilterProject   string
 	FilterSource    string
+	FilterSources   []string // Restrict to these sources (nil/empty = no restriction)
 	Limit           int
 	LimitPerSession int
 	CaseSensitive   bool
@@ -135,6 +136,14 @@ func (s *Service) FindCandidates(opts SearchOptions) ([]Candidate, error) {
 	if opts.FilterSource != "" {
 		sql += " AND p.source = ?"
 		sqlArgs = append(sqlArgs, opts.FilterSource)
+	}
+	if len(opts.FilterSources) > 0 {
+		placeholders := make([]string, len(opts.FilterSources))
+		for i, src := range opts.FilterSources {
+			placeholders[i] = "?"
+			sqlArgs = append(sqlArgs, src)
+		}
+		sql += " AND p.source IN (" + strings.Join(placeholders, ",") + ")"
 	}
 
 	rows, err := s.db.Query(sql, sqlArgs...)
