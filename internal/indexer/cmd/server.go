@@ -448,6 +448,11 @@ func (s *indexerServer) HandleSemanticSearch(ctx context.Context, params rpc.Sem
 		return nil, fmt.Errorf("embedding produced no vectors")
 	}
 
+	// Reject disabled source
+	if params.Source != "" && !s.sourceAllowed(strings.TrimSpace(strings.ToLower(params.Source))) {
+		return rpc.OKResponse(rpc.SemanticSearchData{Results: []search.SemanticResult{}})
+	}
+
 	svc := search.NewService(s.db, s.embDB)
 
 	limit := params.Limit
@@ -466,6 +471,7 @@ func (s *indexerServer) HandleSemanticSearch(ctx context.Context, params rpc.Sem
 		Limit:          limit,
 		MaxDistance:    maxDist,
 		Diversity:      params.Diversity,
+		FilterSources:  s.getEnabledSources(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("semantic search: %w", err)
