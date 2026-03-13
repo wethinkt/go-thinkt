@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -74,12 +75,67 @@ type indexerServer struct {
 	// Config reload coordination
 	reloadMu sync.Mutex
 
+	// enabledSources restricts query results to these sources.
+	// Stores []string via atomic.Value for safe concurrent access.
+	// nil (not stored, or stored nil) means "all sources" (no config constraint).
+	// Note: this is derived from config.Sources (the global enable/disable map),
+	// NOT from config.Indexer.Sources (which controls what gets indexed/watched).
+	enabledSources atomic.Value // stores []string
+
 	// Status tracking
 	stateMu   sync.RWMutex
 	syncing   bool
 	embedding bool
 	syncProg  *rpc.ProgressInfo
 	embedProg *rpc.ProgressInfo
+}
+
+// getEnabledSources returns the current enabled sources list.
+// nil means "all sources" (no config constraint).
+func (s *indexerServer) getEnabledSources() []string {
+	v := s.enabledSources.Load()
+	if v == nil {
+		return nil
+	}
+	return v.([]string)
+}
+
+// sourceAllowed returns true if the given source is in the enabled set.
+// If enabledSources is nil, all sources are allowed.
+// If enabledSources is empty (all disabled), no source is allowed.
+func (s *indexerServer) sourceAllowed(source string) bool {
+	enabled := s.getEnabledSources()
+	if enabled == nil {
+		return true
+	}
+	for _, es := range enabled {
+		if es == source {
+			return true
+		}
+	}
+	return false
+}
+
+// sourceInClause appends an AND p.source IN (?, ?, ...) clause to the query
+// if enabledSources is set. Returns the updated query and args.
+// If enabledSources is nil, no clause is added (all sources allowed).
+// If enabledSources is empty (all disabled), appends AND 1=0 to return no results.
+func (s *indexerServer) sourceInClause(query string, args []any) (string, []any) {
+	enabled := s.getEnabledSources()
+	if enabled == nil {
+		return query, args
+	}
+	if len(enabled) == 0 {
+		query += " AND 1=0"
+		return query, args
+	}
+	placeholders := make([]string, len(enabled))
+	for i, src := range enabled {
+		placeholders[i] = "?"
+		args = append(args, src)
+	}
+	query += " AND p.source IN (" + strings.Join(placeholders, ",") + ")"
+	return query, args
 }
 
 func (s *indexerServer) HandleIndexSync(ctx context.Context, params rpc.SyncParams, send func(rpc.Progress)) (*rpc.Response, error) {
@@ -503,6 +559,14 @@ func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, 
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
+	// Update enabled sources atomically (safe for concurrent handler reads).
+	if es := cfg.EnabledSources(); es != nil {
+		s.enabledSources.Store(es)
+	} else {
+		s.enabledSources.Store([]string(nil))
+	}
+	tuilog.Log.Info("indexer: config reload updated enabled sources", "sources", cfg.EnabledSources())
+
 	wasEnabled := s.embedder != nil
 	wantEnabled := cfg.Embedding.Enabled
 
@@ -767,6 +831,9 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 		startedAt:      time.Now(),
 		shutdownCtx:    shutdownCtx,
 		shutdownCancel: shutdownCancel,
+	}
+	if es := cfg.EnabledSources(); es != nil {
+		srv.enabledSources.Store(es)
 	}
 
 	// 6. Start RPC server
