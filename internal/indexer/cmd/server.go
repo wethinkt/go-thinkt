@@ -483,16 +483,60 @@ func (s *indexerServer) HandleSemanticSearch(ctx context.Context, params rpc.Sem
 func (s *indexerServer) HandleStats(ctx context.Context) (*rpc.Response, error) {
 	var stats rpc.StatsData
 
-	if err := s.db.QueryRowContext(ctx, "SELECT count(*) FROM projects").Scan(&stats.TotalProjects); err != nil {
+	// Build source filter clause. Uses getEnabledSources() for thread-safe access.
+	enabled := s.getEnabledSources()
+	sourceClause := ""
+	var sourceArgs []any
+	if enabled != nil {
+		if len(enabled) == 0 {
+			// All sources disabled — return zeroed stats
+			return rpc.OKResponse(stats)
+		}
+		placeholders := make([]string, len(enabled))
+		for i, src := range enabled {
+			placeholders[i] = "?"
+			sourceArgs = append(sourceArgs, src)
+		}
+		sourceClause = " WHERE p.source IN (" + strings.Join(placeholders, ",") + ")"
+	}
+
+	if err := s.db.QueryRowContext(ctx,
+		"SELECT count(*) FROM projects p"+sourceClause,
+		sourceArgs...).Scan(&stats.TotalProjects); err != nil {
 		return nil, fmt.Errorf("count projects: %w", err)
 	}
-	if err := s.db.QueryRowContext(ctx, "SELECT count(*) FROM sessions").Scan(&stats.TotalSessions); err != nil {
+
+	sessClause := ""
+	var sessArgs []any
+	if enabled != nil {
+		sessClause = " JOIN projects p ON s.project_id = p.id" + sourceClause
+		sessArgs = sourceArgs
+	}
+	if err := s.db.QueryRowContext(ctx,
+		"SELECT count(*) FROM sessions s"+sessClause,
+		sessArgs...).Scan(&stats.TotalSessions); err != nil {
 		return nil, fmt.Errorf("count sessions: %w", err)
 	}
-	if err := s.db.QueryRowContext(ctx, "SELECT count(*) FROM entries").Scan(&stats.TotalEntries); err != nil {
+
+	entryClause := ""
+	var entryArgs []any
+	if enabled != nil {
+		entryClause = " JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id" + sourceClause
+		entryArgs = sourceArgs
+	}
+	if err := s.db.QueryRowContext(ctx,
+		"SELECT count(*) FROM entries e"+entryClause,
+		entryArgs...).Scan(&stats.TotalEntries); err != nil {
 		return nil, fmt.Errorf("count entries: %w", err)
 	}
-	_ = s.db.QueryRowContext(ctx, "SELECT COALESCE(sum(input_tokens + output_tokens), 0) FROM entries").Scan(&stats.TotalTokens)
+	_ = s.db.QueryRowContext(ctx,
+		"SELECT COALESCE(sum(input_tokens + output_tokens), 0) FROM entries e"+entryClause,
+		entryArgs...).Scan(&stats.TotalTokens)
+
+	// Embeddings DB is separate and can't easily join with index DB.
+	// Since indexing is already filtered by enabled sources, the embedding
+	// count is approximately correct. Previously-indexed embeddings from a
+	// now-disabled source may still be counted — accepted limitation.
 	if s.embDB != nil {
 		_ = s.embDB.QueryRowContext(ctx, "SELECT count(*) FROM embeddings").Scan(&stats.TotalEmbeddings)
 	}
@@ -501,7 +545,19 @@ func (s *indexerServer) HandleStats(ctx context.Context) (*rpc.Response, error) 
 		stats.EmbedModel = s.embedder.EmbedModelID()
 	}
 
-	rows, err := s.db.QueryContext(ctx, "SELECT tool_name, count(*) AS cnt FROM entries WHERE tool_name != '' GROUP BY tool_name ORDER BY cnt DESC LIMIT 25")
+	// Tool query: WHERE vs AND depends on whether sourceClause added a WHERE
+	toolQuery := "SELECT e.tool_name, count(*) AS cnt FROM entries e"
+	var toolArgs []any
+	if enabled != nil {
+		toolQuery += " JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id" + sourceClause
+		toolQuery += " AND e.tool_name != ''"
+		toolArgs = sourceArgs
+	} else {
+		toolQuery += " WHERE e.tool_name != ''"
+	}
+	toolQuery += " GROUP BY e.tool_name ORDER BY cnt DESC LIMIT 25"
+
+	rows, err := s.db.QueryContext(ctx, toolQuery, toolArgs...)
 	if err == nil {
 		for rows.Next() {
 			var tc rpc.ToolCount
