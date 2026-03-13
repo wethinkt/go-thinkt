@@ -417,6 +417,12 @@ func (s *indexerServer) HandleSearch(ctx context.Context, params rpc.SearchParam
 		opts.LimitPerSession = 2
 	}
 
+	// Reject disabled source
+	if opts.FilterSource != "" && !s.sourceAllowed(opts.FilterSource) {
+		return rpc.OKResponse(rpc.SearchData{Results: []search.SessionResult{}, TotalMatches: 0})
+	}
+	opts.FilterSources = s.getEnabledSources()
+
 	results, totalMatches, err := svc.Search(opts)
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
