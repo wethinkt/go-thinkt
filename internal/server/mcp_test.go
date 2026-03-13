@@ -919,6 +919,75 @@ func TestTruncateString(t *testing.T) {
 	}
 }
 
+func TestSearchSessions_RejectsDisabledSource(t *testing.T) {
+	registry := thinkt.NewRegistry()
+	store := &testStore{
+		source:   thinkt.SourceClaude,
+		projects: []thinkt.Project{{ID: "p1", Name: "test", Source: thinkt.SourceClaude}},
+	}
+	registry.Register(store)
+
+	ms := NewMCPServer(registry)
+
+	result, _, err := ms.handleSearchSessions(context.Background(), nil, searchSessionsInput{
+		Query:  "test",
+		Source: "kimi",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result for disabled source")
+	}
+	text := result.Content[0].(*mcp.TextContent).Text
+	if !strings.Contains(text, "unknown_source") {
+		t.Fatalf("expected unknown_source error, got: %s", text)
+	}
+}
+
+func TestSemanticSearch_RejectsDisabledSource(t *testing.T) {
+	registry := thinkt.NewRegistry()
+	store := &testStore{
+		source:   thinkt.SourceClaude,
+		projects: []thinkt.Project{{ID: "p1", Name: "test", Source: thinkt.SourceClaude}},
+	}
+	registry.Register(store)
+
+	ms := NewMCPServer(registry)
+
+	result, _, err := ms.handleSemanticSearch(context.Background(), nil, semanticSearchInput{
+		Query:  "test",
+		Source: "kimi",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result for disabled source")
+	}
+}
+
+func TestListProjects_RejectsDisabledSource(t *testing.T) {
+	registry := thinkt.NewRegistry()
+	store := &testStore{
+		source:   thinkt.SourceClaude,
+		projects: []thinkt.Project{{ID: "p1", Name: "test", Source: thinkt.SourceClaude}},
+	}
+	registry.Register(store)
+
+	ms := NewMCPServer(registry)
+
+	result, _, err := ms.handleListProjects(context.Background(), nil, listProjectsInput{
+		Source: "kimi",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error result for disabled source")
+	}
+}
+
 func TestToolErrorResult_Structured(t *testing.T) {
 	result, outAny, err := toolErrorResult("invalid_regex", "invalid regular expression", errors.New("exit status 1: unterminated group"))
 	if err != nil {
