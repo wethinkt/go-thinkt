@@ -401,4 +401,16 @@ func init() {
 	shareCmd.AddCommand(shareDeleteCmd)
 	shareCmd.AddCommand(shareProfileCmd)
 	rootCmd.AddCommand(shareCmd)
+
+	// Export command
+	exportCmd.Flags().StringVar(&exportFormat, "format", "md", "output format: md, html")
+	exportCmd.Flags().BoolVar(&exportView, "view", false, "preview markdown in terminal via glow")
+	exportCmd.Flags().StringVarP(&exportOutput, "output", "o", "", "output file (default: stdout)")
+	exportCmd.Flags().BoolVar(&exportNoThink, "no-thinking", false, "exclude thinking blocks")
+	exportCmd.Flags().BoolVar(&exportNoTools, "no-tools", false, "exclude tool use and results")
+	exportCmd.Flags().BoolVar(&exportNoMedia, "no-media", false, "exclude images and documents")
+	exportCmd.Flags().BoolVar(&exportSystem, "system", false, "include system entries")
+	exportCmd.Flags().Bool("html", false, "shorthand for --format html")
+	exportCmd.Flags().Bool("md", false, "shorthand for --format md (default)")
+	rootCmd.AddCommand(exportCmd)
 }
