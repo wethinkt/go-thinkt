@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -34,12 +35,14 @@ var exportCmd = &cobra.Command{
 Without arguments, exports the most recent session for the current project.
 With a session argument, exports that specific session (ID, path, or suffix).
 
-The --view flag pipes Markdown output through glow for terminal preview.
+The --view flag previews the export: pipes Markdown through glow, or opens
+HTML in the default browser.
 
 Examples:
   thinkt export                          # Latest session as Markdown to stdout
   thinkt export --html -o session.html   # Export as HTML to file
-  thinkt export --view                   # Preview in terminal via glow
+  thinkt export --view                   # Preview Markdown in terminal via glow
+  thinkt export --html --view            # Export HTML and open in browser
   thinkt export abc123                   # Export specific session
   thinkt export /path/to/session.jsonl   # Export by path`,
 	Args: cobra.MaximumNArgs(1),
@@ -83,11 +86,10 @@ func runExport(cmd *cobra.Command, args []string) error {
 
 	isHTML := exportFormat == "html"
 
-	if exportView && isHTML {
-		return fmt.Errorf("--view only works with Markdown format (remove --html)")
-	}
-
 	if exportView {
+		if isHTML {
+			return exportViewHTML(entries, opts)
+		}
 		return exportWithGlow(entries, opts)
 	}
 
@@ -176,6 +178,30 @@ func buildExportTitle(meta thinkt.SessionMeta) string {
 		return filepath.Base(meta.ProjectPath) + " session"
 	}
 	return "Session Export"
+}
+
+func exportViewHTML(entries []thinkt.Entry, opts export.Options) error {
+	f, err := os.CreateTemp("", "thinkt-export-*.html")
+	if err != nil {
+		return fmt.Errorf("create temp file: %w", err)
+	}
+
+	if err := export.ExportHTML(f, entries, opts); err != nil {
+		f.Close()
+		return err
+	}
+	f.Close()
+
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", f.Name())
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", "", f.Name())
+	default:
+		cmd = exec.Command("xdg-open", f.Name())
+	}
+	return cmd.Start()
 }
 
 func exportWithGlow(entries []thinkt.Entry, opts export.Options) error {
