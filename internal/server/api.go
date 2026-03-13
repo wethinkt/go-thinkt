@@ -248,6 +248,19 @@ func (s *HTTPServer) handleGetActiveSessions(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// Filter to only enabled sources
+	enabledSet := make(map[thinkt.Source]bool)
+	for _, src := range s.registry.Sources() {
+		enabledSet[src] = true
+	}
+	var filtered []thinkt.ActiveSession
+	for _, as := range sessions {
+		if enabledSet[as.Source] {
+			filtered = append(filtered, as)
+		}
+	}
+	sessions = filtered
+
 	if sessions == nil {
 		sessions = []thinkt.ActiveSession{}
 	}

@@ -653,6 +653,19 @@ func (ms *MCPServer) handleListActiveSessions(ctx context.Context, req *mcp.Call
 		return nil, listActiveSessionsOutput{}, err
 	}
 
+	// Filter to only enabled sources
+	enabledSet := make(map[thinkt.Source]bool)
+	for _, src := range ms.registry.Sources() {
+		enabledSet[src] = true
+	}
+	var filtered []thinkt.ActiveSession
+	for _, s := range sessions {
+		if enabledSet[s.Source] {
+			filtered = append(filtered, s)
+		}
+	}
+	sessions = filtered
+
 	infos := make([]activeSessionInfo, len(sessions))
 	for i, s := range sessions {
 		infos[i] = activeSessionInfo{
