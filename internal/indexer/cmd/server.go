@@ -688,13 +688,18 @@ func (s *indexerServer) HandleListProjects(ctx context.Context, params rpc.ListP
 		offset = 0
 	}
 
+	if params.Source != "" && !s.sourceAllowed(params.Source) {
+		return rpc.OKResponse(rpc.ListProjectsData{Projects: []rpc.ProjectData{}, Total: 0, Returned: 0})
+	}
+
 	// Count total matching projects.
-	countQuery := "SELECT count(*) FROM projects"
+	countQuery := "SELECT count(*) FROM projects p WHERE 1=1"
 	var countArgs []any
 	if params.Source != "" {
-		countQuery += " WHERE source = ?"
+		countQuery += " AND p.source = ?"
 		countArgs = append(countArgs, params.Source)
 	}
+	countQuery, countArgs = s.sourceInClause(countQuery, countArgs)
 	var total int
 	if err := s.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&total); err != nil {
 		return nil, fmt.Errorf("count projects: %w", err)
@@ -703,12 +708,14 @@ func (s *indexerServer) HandleListProjects(ctx context.Context, params rpc.ListP
 	// Fetch projects with session counts.
 	query := `SELECT p.id, p.name, p.path, p.source, count(s.id) AS session_count
 		FROM projects p
-		LEFT JOIN sessions s ON s.project_id = p.id`
+		LEFT JOIN sessions s ON s.project_id = p.id
+		WHERE 1=1`
 	var args []any
 	if params.Source != "" {
-		query += " WHERE p.source = ?"
+		query += " AND p.source = ?"
 		args = append(args, params.Source)
 	}
+	query, args = s.sourceInClause(query, args)
 	query += " GROUP BY p.id, p.name, p.path, p.source ORDER BY session_count DESC LIMIT ? OFFSET ?"
 	args = append(args, limit, offset)
 
