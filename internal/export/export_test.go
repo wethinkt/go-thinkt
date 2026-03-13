@@ -72,6 +72,40 @@ func TestExportMarkdown(t *testing.T) {
 	}
 }
 
+func TestExportHTML(t *testing.T) {
+	var buf bytes.Buffer
+	opts := Options{
+		Title:              "Test Session",
+		IncludeThinking:    true,
+		IncludeToolUse:     true,
+		IncludeToolResults: true,
+		IncludeMedia:       true,
+	}
+	if err := ExportHTML(&buf, testEntries(), opts); err != nil {
+		t.Fatal(err)
+	}
+	html := buf.String()
+
+	checks := []struct{ name, substr string }{
+		{"doctype", "<!DOCTYPE html>"},
+		{"title tag", "<title>Test Session</title>"},
+		{"style tag", "<style>"},
+		{"css content", ".entry"},
+		{"role class", "role-user"},
+		{"user text", "Fix the bug in main.go"},
+		{"thinking block", "thinking-header"},
+		{"tool name", "Read"},
+		{"footer", "Exported from thinkt"},
+	}
+	for _, c := range checks {
+		t.Run(c.name, func(t *testing.T) {
+			if !strings.Contains(html, c.substr) {
+				t.Errorf("HTML missing %q", c.substr)
+			}
+		})
+	}
+}
+
 func TestExportMarkdownEmpty(t *testing.T) {
 	var buf bytes.Buffer
 	if err := ExportMarkdown(&buf, nil, Options{Title: "Empty"}); err != nil {
