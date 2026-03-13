@@ -50,6 +50,7 @@
           "owner_id": { "type": "string" },
           "name": { "type": "string" },
           "slug": { "type": "string" },
+          "type": { "type": "string", "enum": ["project"] },
           "description": { "type": "string" },
           "repo_url": { "type": "string" },
           "visibility": { "type": "string", "enum": ["public", "private"] },
@@ -62,6 +63,7 @@
           "owner_id",
           "name",
           "slug",
+          "type",
           "visibility",
           "created_at",
           "updated_at"
