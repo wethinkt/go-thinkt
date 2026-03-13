@@ -753,6 +753,10 @@ func (s *indexerServer) HandleListSessions(ctx context.Context, params rpc.ListS
 		offset = 0
 	}
 
+	if params.Source != "" && !s.sourceAllowed(params.Source) {
+		return rpc.OKResponse(rpc.ListSessionsData{Sessions: []rpc.SessionData{}, Total: 0, Returned: 0})
+	}
+
 	// Build WHERE clause.
 	var where []string
 	var args []any
@@ -763,6 +767,20 @@ func (s *indexerServer) HandleListSessions(ctx context.Context, params rpc.ListS
 	if params.Source != "" {
 		where = append(where, "p.source = ?")
 		args = append(args, params.Source)
+	}
+
+	// Filter by enabled sources
+	enabled := s.getEnabledSources()
+	if enabled != nil {
+		if len(enabled) == 0 {
+			return rpc.OKResponse(rpc.ListSessionsData{Sessions: []rpc.SessionData{}, Total: 0, Returned: 0})
+		}
+		placeholders := make([]string, len(enabled))
+		for i, src := range enabled {
+			placeholders[i] = "?"
+			args = append(args, src)
+		}
+		where = append(where, "p.source IN ("+strings.Join(placeholders, ",")+")")
 	}
 
 	whereClause := ""
