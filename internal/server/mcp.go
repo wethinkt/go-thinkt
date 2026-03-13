@@ -668,6 +668,12 @@ func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallTool
 	if strings.TrimSpace(input.Query) == "" {
 		return toolErrorResult("missing_query", "query is required", nil)
 	}
+	if strings.TrimSpace(input.Source) != "" {
+		source := thinkt.Source(strings.ToLower(strings.TrimSpace(input.Source)))
+		if _, ok := ms.registry.Get(source); !ok {
+			return toolErrorResult("unknown_source", fmt.Sprintf("unknown or disabled source: %s", source), nil)
+		}
+	}
 	params := rpc.SearchParams{
 		Query:           input.Query,
 		Project:         input.Project,
@@ -688,6 +694,12 @@ func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallTool
 func (ms *MCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallToolRequest, input semanticSearchInput) (*mcp.CallToolResult, any, error) {
 	if strings.TrimSpace(input.Query) == "" {
 		return toolErrorResult("missing_query", "query is required", nil)
+	}
+	if strings.TrimSpace(input.Source) != "" {
+		source := thinkt.Source(strings.ToLower(strings.TrimSpace(input.Source)))
+		if _, ok := ms.registry.Get(source); !ok {
+			return toolErrorResult("unknown_source", fmt.Sprintf("unknown or disabled source: %s", source), nil)
+		}
 	}
 	params := rpc.SemanticSearchParams{
 		Query:       input.Query,
