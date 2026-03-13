@@ -373,6 +373,15 @@ func (ms *MCPServer) handleListSources(ctx context.Context, req *mcp.CallToolReq
 }
 
 func (ms *MCPServer) handleListProjects(ctx context.Context, req *mcp.CallToolRequest, input listProjectsInput) (*mcp.CallToolResult, listProjectsOutput, error) {
+	if strings.TrimSpace(input.Source) != "" {
+		source := thinkt.Source(strings.ToLower(strings.TrimSpace(input.Source)))
+		if _, ok := ms.registry.Get(source); !ok {
+			return &mcp.CallToolResult{
+				IsError: true,
+				Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(toolErrorOutput{Error: makeToolErrorDetail("unknown_source", fmt.Sprintf("unknown or disabled source: %s", source), nil)})}},
+			}, listProjectsOutput{}, nil
+		}
+	}
 	result, err := listProjects(ctx, ms.registry, input.Source, input.IncludeDeleted, input.Limit, input.Offset)
 	if err != nil {
 		return nil, listProjectsOutput{}, err
