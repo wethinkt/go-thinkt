@@ -4,7 +4,7 @@ title: "thinkt share open"
 
 ## thinkt share open
 
-Open a trace in the web browser
+Open a session in the web browser
 
 ```
 thinkt share open <slug> [flags]
@@ -24,5 +24,5 @@ thinkt share open <slug> [flags]
 
 ### SEE ALSO
 
-* [thinkt share](thinkt_share/)	 - Share traces on share.wethinkt.com
+* [thinkt share](thinkt_share/)	 - Share sessions on share.wethinkt.com
 

@@ -4,11 +4,11 @@ title: "thinkt share"
 
 ## thinkt share
 
-Share traces on share.wethinkt.com
+Share sessions on share.wethinkt.com
 
 ### Synopsis
 
-Upload, browse, and manage reasoning traces on the wethinkt sharing platform.
+Upload, browse, and manage reasoning sessions on the wethinkt sharing platform.
 
 ```
 thinkt share [flags]
@@ -29,13 +29,14 @@ thinkt share [flags]
 ### SEE ALSO
 
 * [thinkt](thinkt/)	 - Tools for AI assistant session exploration and extraction
-* [thinkt share delete](thinkt_share_delete/)	 - Delete a shared trace
-* [thinkt share explore](thinkt_share_explore/)	 - Browse public traces
-* [thinkt share list](thinkt_share_list/)	 - List your shared traces
+* [thinkt share delete](thinkt_share_delete/)	 - Delete a shared session
+* [thinkt share explore](thinkt_share_explore/)	 - Browse public sessions
+* [thinkt share list](thinkt_share_list/)	 - List your shared sessions
 * [thinkt share login](thinkt_share_login/)	 - Log in to share.wethinkt.com
 * [thinkt share logout](thinkt_share_logout/)	 - Log out of share.wethinkt.com
+* [thinkt share open](thinkt_share_open/)	 - Open a session in the web browser
 * [thinkt share profile](thinkt_share_profile/)	 - Show your profile and stats
-* [thinkt share push](thinkt_share_push/)	 - Upload a trace to share.wethinkt.com
+* [thinkt share push](thinkt_share_push/)	 - Upload a session to share.wethinkt.com
 * [thinkt share status](thinkt_share_status/)	 - Show login and account status
 * [thinkt share web](thinkt_share_web/)	 - Open the share website in the web browser
 

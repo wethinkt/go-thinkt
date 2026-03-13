@@ -4,7 +4,7 @@ title: "thinkt share delete"
 
 ## thinkt share delete
 
-Delete a shared trace
+Delete a shared session
 
 ```
 thinkt share delete <slug> [flags]
@@ -25,5 +25,5 @@ thinkt share delete <slug> [flags]
 
 ### SEE ALSO
 
-* [thinkt share](thinkt_share/)	 - Share traces on share.wethinkt.com
+* [thinkt share](thinkt_share/)	 - Share sessions on share.wethinkt.com
 

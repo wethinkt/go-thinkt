@@ -24,5 +24,5 @@ thinkt share web [flags]
 
 ### SEE ALSO
 
-* [thinkt share](thinkt_share/)	 - Share traces on share.wethinkt.com
+* [thinkt share](thinkt_share/)	 - Share sessions on share.wethinkt.com
 

@@ -8,7 +8,7 @@ Log in to share.wethinkt.com
 
 ### Synopsis
 
-Authenticate with share.wethinkt.com using GitHub or Google to enable sharing traces.
+Authenticate with share.wethinkt.com using GitHub or Google to enable sharing sessions.
 
 ```
 thinkt share login [flags]
@@ -30,5 +30,5 @@ thinkt share login [flags]
 
 ### SEE ALSO
 
-* [thinkt share](thinkt_share/)	 - Share traces on share.wethinkt.com
+* [thinkt share](thinkt_share/)	 - Share sessions on share.wethinkt.com
 

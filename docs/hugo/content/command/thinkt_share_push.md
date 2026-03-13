@@ -4,11 +4,11 @@ title: "thinkt share push"
 
 ## thinkt share push
 
-Upload a trace to share.wethinkt.com
+Upload a session to share.wethinkt.com
 
 ### Synopsis
 
-Upload a Thinkt reasoning trace for private storage or public sharing.
+Upload a Thinkt reasoning session for private storage or public sharing.
 
 ```
 thinkt share push <path> [flags]
@@ -18,7 +18,7 @@ thinkt share push <path> [flags]
 
 ```
   -h, --help     help for push
-      --public   make trace publicly visible
+      --public   make session publicly visible
 ```
 
 ### Options inherited from parent commands
@@ -29,5 +29,5 @@ thinkt share push <path> [flags]
 
 ### SEE ALSO
 
-* [thinkt share](thinkt_share/)	 - Share traces on share.wethinkt.com
+* [thinkt share](thinkt_share/)	 - Share sessions on share.wethinkt.com
 

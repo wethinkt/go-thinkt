@@ -4,7 +4,7 @@ title: "thinkt share explore"
 
 ## thinkt share explore
 
-Browse public traces
+Browse public sessions
 
 ```
 thinkt share explore [flags]
@@ -26,5 +26,5 @@ thinkt share explore [flags]
 
 ### SEE ALSO
 
-* [thinkt share](thinkt_share/)	 - Share traces on share.wethinkt.com
+* [thinkt share](thinkt_share/)	 - Share sessions on share.wethinkt.com
 

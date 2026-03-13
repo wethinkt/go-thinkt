@@ -4,7 +4,7 @@ title: "thinkt share list"
 
 ## thinkt share list
 
-List your shared traces
+List your shared sessions
 
 ```
 thinkt share list [flags]
@@ -25,5 +25,5 @@ thinkt share list [flags]
 
 ### SEE ALSO
 
-* [thinkt share](thinkt_share/)	 - Share traces on share.wethinkt.com
+* [thinkt share](thinkt_share/)	 - Share sessions on share.wethinkt.com
 
