@@ -2144,6 +2144,10 @@ const docTemplate = `{
         "thinkt.Project": {
             "type": "object",
             "properties": {
+                "dir_size": {
+                    "description": "Total size of session files in bytes",
+                    "type": "integer"
+                },
                 "display_path": {
                     "description": "Human-readable path",
                     "type": "string"

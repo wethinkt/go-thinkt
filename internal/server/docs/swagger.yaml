@@ -603,6 +603,9 @@ definitions:
     type: object
   thinkt.Project:
     properties:
+      dir_size:
+        description: Total size of session files in bytes
+        type: integer
       display_path:
         description: Human-readable path
         type: string

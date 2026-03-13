@@ -23,6 +23,11 @@
         "properties": { "ok": { "type": "boolean" } },
         "required": ["ok"]
       },
+      "Error": {
+        "type": "object",
+        "properties": { "error": { "type": "string" } },
+        "required": ["error"]
+      },
       "AdminStats": {
         "type": "object",
         "properties": {
@@ -43,51 +48,29 @@
           "banned_users"
         ]
       },
-      "Project": {
+      "Collection": {
         "type": "object",
         "properties": {
           "id": { "type": "string" },
-          "owner_id": { "type": "string" },
           "name": { "type": "string" },
           "slug": { "type": "string" },
-          "type": { "type": "string", "enum": ["project"] },
+          "type": { "type": "string", "enum": ["manual", "project", "system"] },
+          "visibility": { "type": "string", "enum": ["public", "private"] },
           "description": { "type": "string" },
           "repo_url": { "type": "string" },
-          "visibility": { "type": "string", "enum": ["public", "private"] },
-          "created_at": { "type": "string" },
-          "updated_at": { "type": "string" },
-          "session_count": { "type": "number" }
+          "position": { "type": "integer" },
+          "item_count": { "type": "integer" },
+          "created_at": { "type": "string" }
         },
         "required": [
           "id",
-          "owner_id",
           "name",
           "slug",
           "type",
           "visibility",
-          "created_at",
-          "updated_at"
+          "position",
+          "created_at"
         ]
-      },
-      "Error": {
-        "type": "object",
-        "properties": { "error": { "type": "string" } },
-        "required": ["error"]
-      },
-      "CreateProject": {
-        "type": "object",
-        "properties": {
-          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
-          "description": { "type": "string", "maxLength": 500 },
-          "repo_url": { "type": "string", "format": "uri" },
-          "visibility": {
-            "type": "string",
-            "enum": ["public", "private"],
-            "default": "private"
-          },
-          "directories": { "type": "array", "items": { "type": "string" } }
-        },
-        "required": ["name"]
       },
       "DeviceCodeResponse": {
         "type": "object",
@@ -186,6 +169,42 @@
         },
         "required": ["tag", "count"]
       },
+      "Session": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "slug": { "type": "string" },
+          "title": { "type": "string" },
+          "visibility": { "type": "string", "enum": ["public", "private"] },
+          "size_bytes": { "type": "integer" },
+          "likes_count": { "type": "integer" },
+          "created_at": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "owner_name": { "type": "string" },
+          "liked": { "type": "boolean" },
+          "favorited": { "type": "boolean" },
+          "moderation_status": {
+            "type": "string",
+            "enum": ["pending", "approved", "flagged", "removed"]
+          },
+          "git_commit": { "type": "string" },
+          "git_repo_url": { "type": "string" },
+          "workspace_id": { "type": "string" },
+          "git_branch": { "type": "string" },
+          "git_tag": { "type": "string" },
+          "platform": { "type": "string" }
+        },
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "visibility",
+          "size_bytes",
+          "likes_count",
+          "created_at",
+          "tags"
+        ]
+      },
       "Profile": {
         "type": "object",
         "properties": {
@@ -233,42 +252,6 @@
           }
         },
         "required": ["user", "stats", "likes", "tags"]
-      },
-      "Session": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string" },
-          "slug": { "type": "string" },
-          "title": { "type": "string" },
-          "visibility": { "type": "string", "enum": ["public", "private"] },
-          "size_bytes": { "type": "integer" },
-          "likes_count": { "type": "integer" },
-          "created_at": { "type": "string" },
-          "tags": { "type": "array", "items": { "type": "string" } },
-          "owner_name": { "type": "string" },
-          "liked": { "type": "boolean" },
-          "favorited": { "type": "boolean" },
-          "moderation_status": {
-            "type": "string",
-            "enum": ["pending", "approved", "flagged", "removed"]
-          },
-          "git_commit": { "type": "string" },
-          "git_repo_url": { "type": "string" },
-          "workspace_id": { "type": "string" },
-          "git_branch": { "type": "string" },
-          "git_tag": { "type": "string" },
-          "platform": { "type": "string" }
-        },
-        "required": [
-          "id",
-          "slug",
-          "title",
-          "visibility",
-          "size_bytes",
-          "likes_count",
-          "created_at",
-          "tags"
-        ]
       },
       "Tags": {
         "type": "object",
@@ -404,15 +387,6 @@
         },
         "required": ["liked", "likes_count"]
       },
-      "UpdateProject": {
-        "type": "object",
-        "properties": {
-          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
-          "description": { "type": "string", "maxLength": 500 },
-          "repo_url": { "type": "string", "format": "uri" },
-          "visibility": { "type": "string", "enum": ["public", "private"] }
-        }
-      },
       "UpdateSession": {
         "type": "object",
         "properties": {
@@ -472,6 +446,143 @@
         }
       }
     },
+    "/api/collections/{slug}/directories": {
+      "post": {
+        "tags": ["Collections"],
+        "summary": "Add directory to collection",
+        "description": "Associate a local directory path with a collection for auto-association of uploaded sessions.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "directory_path": { "type": "string" } },
+                "required": ["directory_path"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Directory added",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Collection not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{slug}/items": {
+      "post": {
+        "tags": ["Collections"],
+        "summary": "Add session to collection",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "session_id": { "type": "string" } },
+                "required": ["session_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session added",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "404": {
+            "description": "Collection or session not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Collections"],
+        "summary": "List sessions in a collection",
+        "description": "List all sessions in a collection. Owner sees all sessions, others see only public sessions.",
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sessions in collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessions": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Session" }
+                    }
+                  },
+                  "required": ["sessions"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/stats": {
       "get": {
         "tags": ["Admin"],
@@ -490,24 +601,52 @@
         }
       }
     },
-    "/api/projects": {
+    "/api/collections": {
       "post": {
-        "tags": ["Projects"],
-        "summary": "Create a project",
+        "tags": ["Collections"],
+        "summary": "Create a collection",
+        "description": "Create a collection for grouping sessions. Use type 'project' for project-type collections with directory mappings.",
         "security": [{ "bearerAuth": [] }],
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateProject" }
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": ["manual", "project"],
+                    "default": "manual"
+                  },
+                  "description": { "type": "string", "maxLength": 500 },
+                  "repo_url": { "type": "string" },
+                  "visibility": {
+                    "type": "string",
+                    "enum": ["public", "private"],
+                    "default": "private"
+                  },
+                  "directories": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Directory paths for auto-association (project-type)"
+                  }
+                },
+                "required": ["name"]
+              }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Project created",
+            "description": "Collection created",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Project" }
+                "schema": { "$ref": "#/components/schemas/Collection" }
               }
             }
           },
@@ -522,23 +661,37 @@
         }
       },
       "get": {
-        "tags": ["Projects"],
-        "summary": "List my projects",
+        "tags": ["Collections"],
+        "summary": "List my collections",
+        "description": "List all collections owned by the authenticated user, with item counts. Optionally filter by type (manual, project, system).",
         "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["manual", "project", "system"],
+              "description": "Filter by collection type"
+            },
+            "required": false,
+            "description": "Filter by collection type",
+            "name": "type",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
-            "description": "List of projects",
+            "description": "List of collections",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "projects": {
+                    "collections": {
                       "type": "array",
-                      "items": { "$ref": "#/components/schemas/Project" }
+                      "items": { "$ref": "#/components/schemas/Collection" }
                     }
                   },
-                  "required": ["projects"]
+                  "required": ["collections"]
                 }
               }
             }
@@ -546,10 +699,11 @@
         }
       }
     },
-    "/api/projects/{slug}": {
+    "/api/collections/{slug}": {
       "delete": {
-        "tags": ["Projects"],
-        "summary": "Delete a project",
+        "tags": ["Collections"],
+        "summary": "Delete a collection",
+        "description": "Delete a collection. Cannot delete system collections. Sessions are not deleted.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           {
@@ -561,10 +715,18 @@
         ],
         "responses": {
           "200": {
-            "description": "Project deleted",
+            "description": "Collection deleted",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "403": {
+            "description": "Cannot delete system collection",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           },
@@ -579,9 +741,9 @@
         }
       },
       "get": {
-        "tags": ["Projects"],
-        "summary": "Get project with sessions",
-        "security": [{ "bearerAuth": [] }],
+        "tags": ["Collections"],
+        "summary": "Get collection with sessions",
+        "description": "Get a collection and its sessions. Public collections are accessible to anyone. Private collections require owner authentication.",
         "parameters": [
           {
             "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
@@ -592,19 +754,19 @@
         ],
         "responses": {
           "200": {
-            "description": "Project with sessions",
+            "description": "Collection with sessions",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "project": { "$ref": "#/components/schemas/Project" },
+                    "collection": { "$ref": "#/components/schemas/Collection" },
                     "sessions": {
                       "type": "array",
                       "items": { "$ref": "#/components/schemas/Session" }
                     }
                   },
-                  "required": ["project", "sessions"]
+                  "required": ["collection", "sessions"]
                 }
               }
             }
@@ -620,8 +782,9 @@
         }
       },
       "patch": {
-        "tags": ["Projects"],
-        "summary": "Update a project",
+        "tags": ["Collections"],
+        "summary": "Update a collection",
+        "description": "Update name, description, repo_url, visibility, or position. Cannot modify system collections.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           {
@@ -634,16 +797,40 @@
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateProject" }
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "maxLength": 100 },
+                  "description": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 500
+                  },
+                  "repo_url": { "type": "string", "nullable": true },
+                  "visibility": {
+                    "type": "string",
+                    "enum": ["public", "private"]
+                  },
+                  "position": { "type": "integer" }
+                }
+              }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Project updated",
+            "description": "Collection updated",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "403": {
+            "description": "Cannot modify system collection",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
               }
             }
           },
@@ -1226,6 +1413,84 @@
         }
       }
     },
+    "/api/collections/{slug}/directories/{id}": {
+      "delete": {
+        "tags": ["Collections"],
+        "summary": "Remove directory from collection",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          },
+          {
+            "schema": { "type": "string", "example": "dir-abc-123" },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Directory removed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{slug}/items/{id}": {
+      "delete": {
+        "tags": ["Collections"],
+        "summary": "Remove item from collection",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          },
+          {
+            "schema": { "type": "string", "example": "item-abc-123" },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Item removed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sessions/{slug}/report": {
       "post": {
         "tags": ["Reports"],
@@ -1266,6 +1531,58 @@
           },
           "409": {
             "description": "Already reported",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/resolve": {
+      "get": {
+        "tags": ["Collections"],
+        "summary": "Resolve directory to collection",
+        "description": "Find the collection associated with a given directory path.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Directory path to resolve"
+            },
+            "required": true,
+            "description": "Directory path to resolve",
+            "name": "directory",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Collection found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "collection": { "$ref": "#/components/schemas/Collection" }
+                  },
+                  "required": ["collection"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing directory param",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }
