@@ -157,15 +157,7 @@ func init() {
 	// Also add to root since it can run TUI directly
 	rootCmd.Flags().StringVar(&logPath, "log", "", "write debug log to file")
 
-	// Prompts subcommand flags
-	promptsCmd.PersistentFlags().StringVarP(&traceType, "type", "t", traceTypeClaude, "trace type (claude)")
-
-	// Extract flags
-	extractCmd.Flags().StringVarP(&inputFile, "input", "i", "", "input trace file (use - for stdin)")
-	extractCmd.Flags().StringVarP(&outputFile, "output", "o", "-", "output file (default stdout)")
-	extractCmd.Flags().BoolVarP(&appendMode, "append", "a", false, "append to existing file")
-	extractCmd.Flags().StringVarP(&formatType, "format", "f", "markdown", "output format (markdown|json|plain)")
-	extractCmd.Flags().StringVar(&templateFile, "template", "", "custom template file (for markdown format)")
+	// (prompts command removed — use 'thinkt export template' instead)
 
 	// Projects command flags are now handled in projects.go init()
 
@@ -203,10 +195,7 @@ func init() {
 	sessionsCmd.AddCommand(sessionsResolveCmd)
 	sessionsListCmd.Flags().BoolVar(&sessionJSON, "json", false, "output sessions as JSON")
 	sessionsResolveCmd.Flags().BoolVar(&sessionResolveJSON, "json", false, "output resolved session metadata as JSON")
-	promptsCmd.AddCommand(extractCmd)
-	promptsCmd.AddCommand(listCmd)
-	promptsCmd.AddCommand(infoCmd)
-	promptsCmd.AddCommand(templatesCmd)
+	// (prompts subcommands removed — use 'thinkt export template' instead)
 
 	helpCmd.AddCommand(helpLlmsCmd)
 	helpCheatCmd.Flags().BoolVar(&cheatJSON, "json", false, "output as JSON")
@@ -217,7 +206,6 @@ func init() {
 
 	rootCmd.AddCommand(tuiCmd)
 	rootCmd.AddCommand(serverCmd)
-	rootCmd.AddCommand(promptsCmd)
 	rootCmd.AddCommand(projectsCmd)
 	rootCmd.AddCommand(sessionsCmd)
 	rootCmd.AddCommand(sourcesCmd)
@@ -403,14 +391,21 @@ func init() {
 	rootCmd.AddCommand(shareCmd)
 
 	// Export command
-	exportCmd.Flags().StringVar(&exportFormat, "format", "md", "output format: md, html")
-	exportCmd.Flags().BoolVar(&exportView, "view", false, "preview markdown in terminal via glow")
+	exportCmd.Flags().StringVar(&exportFormat, "format", "md", "output format: md, html, json")
+	exportCmd.Flags().BoolVar(&exportView, "view", false, "preview export (glow for md, browser for html)")
 	exportCmd.Flags().StringVarP(&exportOutput, "output", "o", "", "output file (default: stdout)")
 	exportCmd.Flags().BoolVar(&exportNoThink, "no-thinking", false, "exclude thinking blocks")
 	exportCmd.Flags().BoolVar(&exportNoTools, "no-tools", false, "exclude tool use and results")
 	exportCmd.Flags().BoolVar(&exportNoMedia, "no-media", false, "exclude images and documents")
 	exportCmd.Flags().BoolVar(&exportSystem, "system", false, "include system entries")
 	exportCmd.Flags().Bool("html", false, "shorthand for --format html")
+	exportCmd.Flags().Bool("json", false, "shorthand for --format json")
 	exportCmd.Flags().Bool("md", false, "shorthand for --format md (default)")
+	// Template subcommand
+	exportTemplateCmd.Flags().StringVarP(&exportTmplFormat, "format", "f", "markdown", "output format (markdown|json|plain)")
+	exportTemplateCmd.Flags().StringVar(&exportTmplFile, "template", "", "custom Go template file")
+	exportTemplateCmd.Flags().StringVarP(&exportTmplOutput, "output", "o", "", "output file (default: stdout)")
+	exportTemplateCmd.Flags().Bool("json", false, "shorthand for --format json")
+	exportCmd.AddCommand(exportTemplateCmd)
 	rootCmd.AddCommand(exportCmd)
 }

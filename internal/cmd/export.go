@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/wethinkt/go-thinkt/internal/export"
+	"github.com/wethinkt/go-thinkt/internal/prompt"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 )
@@ -25,12 +26,16 @@ var (
 	exportNoTools bool
 	exportNoMedia bool
 	exportSystem  bool
+
+	exportTmplFile   string
+	exportTmplFormat string
+	exportTmplOutput string
 )
 
 var exportCmd = &cobra.Command{
 	Use:   "export [session]",
-	Short: "Export a session as Markdown or HTML",
-	Long: `Export a session as Markdown (default) or self-contained HTML.
+	Short: "Export a session as Markdown, HTML, or JSON",
+	Long: `Export a session as Markdown (default), self-contained HTML, or JSON.
 
 Without arguments, exports the most recent session for the current project.
 With a session argument, exports that specific session (ID, path, or suffix).
@@ -41,18 +46,21 @@ HTML in the default browser.
 Examples:
   thinkt export                          # Latest session as Markdown to stdout
   thinkt export --html -o session.html   # Export as HTML to file
+  thinkt export --json                   # Export as JSON
   thinkt export --view                   # Preview Markdown in terminal via glow
   thinkt export --html --view            # Export HTML and open in browser
-  thinkt export abc123                   # Export specific session
-  thinkt export /path/to/session.jsonl   # Export by path`,
+  thinkt export abc123                   # Export specific session`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runExport,
 }
 
 func runExport(cmd *cobra.Command, args []string) error {
-	// Handle --html shorthand
+	// Handle format shorthands
 	if html, _ := cmd.Flags().GetBool("html"); html {
 		exportFormat = "html"
+	}
+	if j, _ := cmd.Flags().GetBool("json"); j {
+		exportFormat = "json"
 	}
 
 	registry := CreateSourceRegistry()
@@ -84,13 +92,15 @@ func runExport(cmd *cobra.Command, args []string) error {
 		IncludeSystem:      exportSystem,
 	}
 
-	isHTML := exportFormat == "html"
-
 	if exportView {
-		if isHTML {
+		switch exportFormat {
+		case "html":
 			return exportViewHTML(entries, opts)
+		case "json":
+			return fmt.Errorf("--view is not supported with JSON format")
+		default:
+			return exportWithGlow(entries, opts)
 		}
-		return exportWithGlow(entries, opts)
 	}
 
 	w := os.Stdout
@@ -103,10 +113,14 @@ func runExport(cmd *cobra.Command, args []string) error {
 		w = f
 	}
 
-	if isHTML {
+	switch exportFormat {
+	case "html":
 		return export.ExportHTML(w, entries, opts)
+	case "json":
+		return export.ExportJSON(w, entries, opts)
+	default:
+		return export.ExportMarkdown(w, entries, opts)
 	}
-	return export.ExportMarkdown(w, entries, opts)
 }
 
 func resolveExportSession(registry *thinkt.StoreRegistry, args []string) (string, error) {
@@ -202,6 +216,103 @@ func exportViewHTML(entries []thinkt.Entry, opts export.Options) error {
 		cmd = exec.Command("xdg-open", f.Name())
 	}
 	return cmd.Start()
+}
+
+var exportTemplateCmd = &cobra.Command{
+	Use:   "template [session]",
+	Short: "Export user prompts using a Go template",
+	Long: `Extract user prompts from a session and render them using a Go template.
+
+Outputs Markdown by default using the built-in template, or use --template
+to provide a custom Go template file. Use --json for structured JSON output,
+or --format plain for raw text.
+
+Examples:
+  thinkt export template                        # Prompts as Markdown
+  thinkt export template --json                 # Prompts as JSON
+  thinkt export template --format plain         # Raw prompt text
+  thinkt export template --template my.tmpl     # Custom template`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runExportTemplate,
+}
+
+func runExportTemplate(cmd *cobra.Command, args []string) error {
+	// Handle --json shorthand
+	if j, _ := cmd.Flags().GetBool("json"); j {
+		exportTmplFormat = "json"
+	}
+
+	format, err := prompt.ParseFormat(exportTmplFormat)
+	if err != nil {
+		return err
+	}
+
+	registry := CreateSourceRegistry()
+
+	sessionPath, err := resolveExportSession(registry, args)
+	if err != nil {
+		return err
+	}
+
+	ls, err := tui.OpenLazySessionWithRegistry(sessionPath, registry)
+	if err != nil {
+		return fmt.Errorf("open session: %w", err)
+	}
+	defer ls.Close()
+
+	if err := ls.LoadAll(); err != nil {
+		return fmt.Errorf("load session: %w", err)
+	}
+
+	// Extract user prompts from entries
+	entries := ls.Entries()
+	var prompts []prompt.Prompt
+	for _, entry := range entries {
+		if entry.Role != thinkt.RoleUser {
+			continue
+		}
+		text := entry.Text
+		if text == "" {
+			for _, block := range entry.ContentBlocks {
+				if block.Type == "text" && block.Text != "" {
+					text = block.Text
+					break
+				}
+			}
+		}
+		if text == "" {
+			continue
+		}
+		prompts = append(prompts, prompt.Prompt{
+			Text:      text,
+			Timestamp: entry.Timestamp.Format("2006-01-02T15:04:05Z"),
+			UUID:      entry.UUID,
+		})
+	}
+
+	// Open output
+	w := os.Stdout
+	if exportTmplOutput != "" && exportTmplOutput != "-" {
+		f, err := os.Create(exportTmplOutput)
+		if err != nil {
+			return fmt.Errorf("create output: %w", err)
+		}
+		defer f.Close()
+		w = f
+	}
+
+	// Build formatter options
+	var opts []prompt.FormatterOption
+	if exportTmplFile != "" && format == prompt.FormatMarkdown {
+		tmpl, err := prompt.LoadTemplateFile(exportTmplFile)
+		if err != nil {
+			return fmt.Errorf("load template: %w", err)
+		}
+		opts = append(opts, prompt.WithTemplate(tmpl))
+	}
+
+	formatter := prompt.NewFormatter(w, format, opts...)
+	return formatter.Write(prompts)
 }
 
 func exportWithGlow(entries []thinkt.Entry, opts export.Options) error {
