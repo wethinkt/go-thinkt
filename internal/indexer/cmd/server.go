@@ -90,6 +90,20 @@ type indexerServer struct {
 	embedProg *rpc.ProgressInfo
 }
 
+// enabledSourcesFromConfig derives the enabled sources list from config.
+// Returns nil if Sources map is not set (unconfigured = all sources allowed).
+// Returns []string{} if Sources map is set but all sources are disabled.
+func enabledSourcesFromConfig(cfg config.Config) []string {
+	if cfg.Sources == nil {
+		return nil
+	}
+	es := cfg.EnabledSources()
+	if es == nil {
+		return []string{}
+	}
+	return es
+}
+
 // getEnabledSources returns the current enabled sources list.
 // nil means "all sources" (no config constraint).
 func (s *indexerServer) getEnabledSources() []string {
@@ -439,6 +453,11 @@ func (s *indexerServer) HandleSemanticSearch(ctx context.Context, params rpc.Sem
 		return &rpc.Response{OK: false, Error: "embedding model not available"}, nil
 	}
 
+	// Reject disabled source before expensive embedding call
+	if params.Source != "" && !s.sourceAllowed(strings.TrimSpace(strings.ToLower(params.Source))) {
+		return rpc.OKResponse(rpc.SemanticSearchData{Results: []search.SemanticResult{}})
+	}
+
 	// Embed the query text
 	result, err := s.embedder.Embed(ctx, []string{params.Query})
 	if err != nil {
@@ -446,11 +465,6 @@ func (s *indexerServer) HandleSemanticSearch(ctx context.Context, params rpc.Sem
 	}
 	if len(result.Vectors) == 0 {
 		return nil, fmt.Errorf("embedding produced no vectors")
-	}
-
-	// Reject disabled source
-	if params.Source != "" && !s.sourceAllowed(strings.TrimSpace(strings.ToLower(params.Source))) {
-		return rpc.OKResponse(rpc.SemanticSearchData{Results: []search.SemanticResult{}})
 	}
 
 	svc := search.NewService(s.db, s.embDB)
@@ -628,11 +642,7 @@ func (s *indexerServer) HandleConfigReload(ctx context.Context) (*rpc.Response, 
 	}
 
 	// Update enabled sources atomically (safe for concurrent handler reads).
-	if es := cfg.EnabledSources(); es != nil {
-		s.enabledSources.Store(es)
-	} else {
-		s.enabledSources.Store([]string(nil))
-	}
+	s.enabledSources.Store(enabledSourcesFromConfig(cfg))
 	tuilog.Log.Info("indexer: config reload updated enabled sources", "sources", cfg.EnabledSources())
 
 	wasEnabled := s.embedder != nil
@@ -925,9 +935,7 @@ func runServer(cmdObj *cobra.Command, args []string) error {
 		shutdownCtx:    shutdownCtx,
 		shutdownCancel: shutdownCancel,
 	}
-	if es := cfg.EnabledSources(); es != nil {
-		srv.enabledSources.Store(es)
-	}
+	srv.enabledSources.Store(enabledSourcesFromConfig(cfg))
 
 	// 6. Start RPC server
 	socketPath := rpc.DefaultSocketPath()
