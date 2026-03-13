@@ -1,7 +1,7 @@
 package share
 
-// Trace represents a shared trace (maps to OpenAPI Trace schema).
-type Trace struct {
+// Session represents a shared session (maps to OpenAPI Session schema).
+type Session struct {
 	ID               string   `json:"id"`
 	Slug             string   `json:"slug"`
 	Title            string   `json:"title"`
@@ -17,21 +17,24 @@ type Trace struct {
 	GitCommit        string   `json:"git_commit,omitempty"`
 	GitRepoURL       string   `json:"git_repo_url,omitempty"`
 	WorkspaceID      string   `json:"workspace_id,omitempty"`
+	GitBranch        string   `json:"git_branch,omitempty"`
+	GitTag           string   `json:"git_tag,omitempty"`
+	Platform         string   `json:"platform,omitempty"`
 }
 
-type TraceList struct {
-	Traces []Trace `json:"traces"`
+type SessionList struct {
+	Sessions []Session `json:"traces"`
 }
 
 type ExploreResponse struct {
-	Traces []Trace `json:"traces"`
-	Page   int     `json:"page"`
+	Sessions []Session `json:"traces"`
+	Page     int       `json:"page"`
 }
 
 type Profile struct {
 	User  ProfileUser  `json:"user"`
 	Stats ProfileStats `json:"stats"`
-	Likes []TraceLike  `json:"likes"`
+	Likes []SessionLike `json:"likes"`
 	Tags  []TagCount   `json:"tags"`
 }
 
@@ -43,13 +46,13 @@ type ProfileUser struct {
 }
 
 type ProfileStats struct {
-	TotalTraces   int `json:"total_traces"`
-	PublicTraces  int `json:"public_traces"`
-	PrivateTraces int `json:"private_traces"`
-	TotalBytes    int `json:"total_bytes"`
+	TotalSessions   int `json:"total_sessions"`
+	PublicSessions  int `json:"public_sessions"`
+	PrivateSessions int `json:"private_sessions"`
+	TotalBytes      int `json:"total_bytes"`
 }
 
-type TraceLike struct {
+type SessionLike struct {
 	Slug      string `json:"slug"`
 	Title     string `json:"title"`
 	OwnerName string `json:"owner_name"`

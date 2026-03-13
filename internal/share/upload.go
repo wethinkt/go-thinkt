@@ -9,9 +9,15 @@ import (
 )
 
 type UploadRequest struct {
-	Visibility string          `json:"visibility"`
-	Title      string          `json:"title"`
-	Trace      json.RawMessage `json:"trace"`
+	Visibility  string          `json:"visibility"`
+	Title       string          `json:"title"`
+	Trace       json.RawMessage `json:"trace"`
+	GitCommit   string          `json:"git_commit,omitempty"`
+	GitRepoURL  string          `json:"git_repo_url,omitempty"`
+	WorkspaceID string          `json:"workspace_id,omitempty"`
+	GitBranch   string          `json:"git_branch,omitempty"`
+	GitTag      string          `json:"git_tag,omitempty"`
+	Platform    string          `json:"platform,omitempty"`
 }
 
 type UploadResponse struct {
@@ -48,7 +54,7 @@ func (c *UploadClient) Upload(traceData []byte, visibility, title string) (*Uplo
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, c.Endpoint+"/api/traces", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, c.Endpoint+"/api/sessions", bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -57,7 +63,7 @@ func (c *UploadClient) Upload(traceData []byte, visibility, title string) (*Uplo
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("upload trace: %w", err)
+		return nil, fmt.Errorf("upload session: %w", err)
 	}
 	defer resp.Body.Close()
 

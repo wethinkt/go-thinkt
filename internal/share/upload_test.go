@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-func TestUploadTrace(t *testing.T) {
+func TestUploadSession(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/traces" {
+		if r.URL.Path != "/api/sessions" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		if r.Header.Get("Authorization") != "Bearer test-token" {
@@ -59,10 +59,10 @@ func TestUploadTrace(t *testing.T) {
 	}
 }
 
-func TestUploadTrace_ServerError(t *testing.T) {
+func TestUploadSession_ServerError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(429)
-		_ = json.NewEncoder(w).Encode(UploadResponse{Error: "Trace limit reached (50)"})
+		_ = json.NewEncoder(w).Encode(UploadResponse{Error: "Session limit reached (50)"})
 	}))
 	defer server.Close()
 

@@ -64,24 +64,24 @@ func (c *Client) doJSON(method, path string, target any) error {
 	return nil
 }
 
-func (c *Client) ListTraces() ([]Trace, error) {
-	var resp TraceList
-	if err := c.doJSON(http.MethodGet, "/api/traces", &resp); err != nil {
+func (c *Client) ListSessions() ([]Session, error) {
+	var resp SessionList
+	if err := c.doJSON(http.MethodGet, "/api/sessions", &resp); err != nil {
 		return nil, err
 	}
-	return resp.Traces, nil
+	return resp.Sessions, nil
 }
 
-func (c *Client) GetTrace(slug string) (*Trace, error) {
-	var t Trace
-	if err := c.doJSON(http.MethodGet, "/api/traces/"+url.PathEscape(slug), &t); err != nil {
+func (c *Client) GetSession(slug string) (*Session, error) {
+	var s Session
+	if err := c.doJSON(http.MethodGet, "/api/sessions/"+url.PathEscape(slug), &s); err != nil {
 		return nil, err
 	}
-	return &t, nil
+	return &s, nil
 }
 
-func (c *Client) DeleteTrace(slug string) error {
-	return c.doJSON(http.MethodDelete, "/api/traces/"+url.PathEscape(slug), nil)
+func (c *Client) DeleteSession(slug string) error {
+	return c.doJSON(http.MethodDelete, "/api/sessions/"+url.PathEscape(slug), nil)
 }
 
 func (c *Client) Explore(sort, tag string, page int) (*ExploreResponse, error) {

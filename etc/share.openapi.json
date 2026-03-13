@@ -6,7 +6,8 @@
     "description": "API for uploading, sharing, and viewing Thinkt reasoning traces."
   },
   "servers": [
-    { "url": "https://share.wethinkt.com", "description": "Production" }
+    { "url": "https://share.wethinkt.com", "description": "Production" },
+    { "url": "https://share-dev.wethinkt.com", "description": "Staging" }
   ],
   "components": {
     "securitySchemes": {
@@ -26,8 +27,8 @@
         "type": "object",
         "properties": {
           "total_users": { "type": "integer" },
-          "total_traces": { "type": "integer" },
-          "traces_by_visibility": {
+          "total_sessions": { "type": "integer" },
+          "sessions_by_visibility": {
             "type": "object",
             "additionalProperties": { "type": "integer" }
           },
@@ -36,16 +37,55 @@
         },
         "required": [
           "total_users",
-          "total_traces",
-          "traces_by_visibility",
+          "total_sessions",
+          "sessions_by_visibility",
           "pending_reports",
           "banned_users"
+        ]
+      },
+      "Project": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "owner_id": { "type": "string" },
+          "name": { "type": "string" },
+          "slug": { "type": "string" },
+          "description": { "type": "string" },
+          "repo_url": { "type": "string" },
+          "visibility": { "type": "string", "enum": ["public", "private"] },
+          "created_at": { "type": "string" },
+          "updated_at": { "type": "string" },
+          "session_count": { "type": "number" }
+        },
+        "required": [
+          "id",
+          "owner_id",
+          "name",
+          "slug",
+          "visibility",
+          "created_at",
+          "updated_at"
         ]
       },
       "Error": {
         "type": "object",
         "properties": { "error": { "type": "string" } },
         "required": ["error"]
+      },
+      "CreateProject": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "description": { "type": "string", "maxLength": 500 },
+          "repo_url": { "type": "string", "format": "uri" },
+          "visibility": {
+            "type": "string",
+            "enum": ["public", "private"],
+            "default": "private"
+          },
+          "directories": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["name"]
       },
       "DeviceCodeResponse": {
         "type": "object",
@@ -79,25 +119,7 @@
         "properties": { "device_code": { "type": "string" } },
         "required": ["device_code"]
       },
-      "TagCloud": {
-        "type": "object",
-        "properties": {
-          "tags": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/TagCount" }
-          }
-        },
-        "required": ["tags"]
-      },
-      "TagCount": {
-        "type": "object",
-        "properties": {
-          "tag": { "type": "string" },
-          "count": { "type": "integer" }
-        },
-        "required": ["tag", "count"]
-      },
-      "ExploreTraces": {
+      "ExploreSessions": {
         "type": "object",
         "properties": {
           "traces": {
@@ -124,7 +146,10 @@
                 },
                 "git_commit": { "type": "string" },
                 "git_repo_url": { "type": "string" },
-                "workspace_id": { "type": "string" }
+                "workspace_id": { "type": "string" },
+                "git_branch": { "type": "string" },
+                "git_tag": { "type": "string" },
+                "platform": { "type": "string" }
               },
               "required": [
                 "slug",
@@ -140,6 +165,24 @@
           "page": { "type": "integer" }
         },
         "required": ["traces", "page"]
+      },
+      "TagCloud": {
+        "type": "object",
+        "properties": {
+          "tags": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TagCount" }
+          }
+        },
+        "required": ["tags"]
+      },
+      "TagCount": {
+        "type": "object",
+        "properties": {
+          "tag": { "type": "string" },
+          "count": { "type": "integer" }
+        },
+        "required": ["tag", "count"]
       },
       "Profile": {
         "type": "object",
@@ -157,15 +200,15 @@
           "stats": {
             "type": "object",
             "properties": {
-              "total_traces": { "type": "integer" },
-              "public_traces": { "type": "integer" },
-              "private_traces": { "type": "integer" },
+              "total_sessions": { "type": "integer" },
+              "public_sessions": { "type": "integer" },
+              "private_sessions": { "type": "integer" },
               "total_bytes": { "type": "integer" }
             },
             "required": [
-              "total_traces",
-              "public_traces",
-              "private_traces",
+              "total_sessions",
+              "public_sessions",
+              "private_sessions",
               "total_bytes"
             ]
           },
@@ -189,14 +232,7 @@
         },
         "required": ["user", "stats", "likes", "tags"]
       },
-      "Tags": {
-        "type": "object",
-        "properties": {
-          "tags": { "type": "array", "items": { "type": "string" } }
-        },
-        "required": ["tags"]
-      },
-      "Trace": {
+      "Session": {
         "type": "object",
         "properties": {
           "id": { "type": "string" },
@@ -216,7 +252,10 @@
           },
           "git_commit": { "type": "string" },
           "git_repo_url": { "type": "string" },
-          "workspace_id": { "type": "string" }
+          "workspace_id": { "type": "string" },
+          "git_branch": { "type": "string" },
+          "git_tag": { "type": "string" },
+          "platform": { "type": "string" }
         },
         "required": [
           "id",
@@ -229,17 +268,24 @@
           "tags"
         ]
       },
+      "Tags": {
+        "type": "object",
+        "properties": {
+          "tags": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["tags"]
+      },
       "Health": {
         "type": "object",
         "properties": { "status": { "type": "string" } },
         "required": ["status"]
       },
-      "TraceList": {
+      "SessionList": {
         "type": "object",
         "properties": {
           "traces": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/Trace" }
+            "items": { "$ref": "#/components/schemas/Session" }
           }
         },
         "required": ["traces"]
@@ -267,10 +313,10 @@
           "created_at": { "type": "string" },
           "reviewed_at": { "type": "string", "nullable": true },
           "reviewer_notes": { "type": "string", "nullable": true },
-          "trace_slug": { "type": "string" },
-          "trace_title": { "type": "string", "nullable": true },
-          "trace_visibility": { "type": "string" },
-          "trace_owner_id": { "type": "string" },
+          "session_slug": { "type": "string" },
+          "session_title": { "type": "string", "nullable": true },
+          "session_visibility": { "type": "string" },
+          "session_owner_id": { "type": "string" },
           "reporter_name": { "type": "string", "nullable": true },
           "reporter_email": { "type": "string", "nullable": true },
           "owner_name": { "type": "string", "nullable": true },
@@ -284,10 +330,10 @@
           "created_at",
           "reviewed_at",
           "reviewer_notes",
-          "trace_slug",
-          "trace_title",
-          "trace_visibility",
-          "trace_owner_id",
+          "session_slug",
+          "session_title",
+          "session_visibility",
+          "session_owner_id",
           "reporter_name",
           "reporter_email",
           "owner_name",
@@ -330,7 +376,7 @@
         "properties": {
           "action": {
             "type": "string",
-            "enum": ["dismiss", "remove_trace", "ban_user"]
+            "enum": ["dismiss", "remove_session", "ban_user"]
           },
           "notes": { "type": "string" }
         },
@@ -356,14 +402,23 @@
         },
         "required": ["liked", "likes_count"]
       },
-      "UpdateTrace": {
+      "UpdateProject": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "description": { "type": "string", "maxLength": 500 },
+          "repo_url": { "type": "string", "format": "uri" },
+          "visibility": { "type": "string", "enum": ["public", "private"] }
+        }
+      },
+      "UpdateSession": {
         "type": "object",
         "properties": {
           "title": { "type": "string" },
           "visibility": { "type": "string", "enum": ["public", "private"] }
         }
       },
-      "UploadTraceResponse": {
+      "UploadSessionResponse": {
         "type": "object",
         "properties": {
           "id": { "type": "string" },
@@ -373,7 +428,7 @@
         },
         "required": ["id", "slug", "url", "visibility"]
       },
-      "UploadTrace": {
+      "UploadSession": {
         "type": "object",
         "properties": {
           "visibility": {
@@ -388,7 +443,10 @@
           },
           "git_commit": { "type": "string" },
           "git_repo_url": { "type": "string" },
-          "workspace_id": { "type": "string" }
+          "workspace_id": { "type": "string" },
+          "git_branch": { "type": "string" },
+          "git_tag": { "type": "string" },
+          "platform": { "type": "string" }
         }
       }
     },
@@ -430,11 +488,66 @@
         }
       }
     },
-    "/api/traces/{slug}": {
+    "/api/projects": {
+      "post": {
+        "tags": ["Projects"],
+        "summary": "Create a project",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateProject" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Project created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Project" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Projects"],
+        "summary": "List my projects",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "projects": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Project" }
+                    }
+                  },
+                  "required": ["projects"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}": {
       "delete": {
-        "tags": ["Traces"],
-        "summary": "Delete a trace",
-        "description": "Delete a trace and its R2 data. Must be the owner.",
+        "tags": ["Projects"],
+        "summary": "Delete a project",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           {
@@ -446,7 +559,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Trace deleted",
+            "description": "Project deleted",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Ok" }
@@ -464,9 +577,9 @@
         }
       },
       "get": {
-        "tags": ["Traces"],
-        "summary": "Get trace metadata",
-        "description": "Get metadata for a trace. Public traces are accessible to anyone. Private traces require owner authentication.",
+        "tags": ["Projects"],
+        "summary": "Get project with sessions",
+        "security": [{ "bearerAuth": [] }],
         "parameters": [
           {
             "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
@@ -477,10 +590,20 @@
         ],
         "responses": {
           "200": {
-            "description": "Trace metadata",
+            "description": "Project with sessions",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Trace" }
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "project": { "$ref": "#/components/schemas/Project" },
+                    "sessions": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Session" }
+                    }
+                  },
+                  "required": ["project", "sessions"]
+                }
               }
             }
           },
@@ -495,8 +618,111 @@
         }
       },
       "patch": {
-        "tags": ["Traces"],
-        "summary": "Update trace metadata",
+        "tags": ["Projects"],
+        "summary": "Update a project",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateProject" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Project updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{slug}": {
+      "delete": {
+        "tags": ["Sessions"],
+        "summary": "Delete a session",
+        "description": "Delete a session and its R2 data. Must be the owner.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session deleted",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Sessions"],
+        "summary": "Get session metadata",
+        "description": "Get metadata for a session. Public sessions are accessible to anyone. Private sessions require owner authentication.",
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session metadata",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Session" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Sessions"],
+        "summary": "Update session metadata",
         "description": "Update title and/or visibility. Must be the owner.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
@@ -510,13 +736,13 @@
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateTrace" }
+              "schema": { "$ref": "#/components/schemas/UpdateSession" }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Trace updated",
+            "description": "Session updated",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Ok" }
@@ -607,28 +833,11 @@
         }
       }
     },
-    "/api/explore/tags": {
-      "get": {
-        "tags": ["Explore"],
-        "summary": "Tag cloud",
-        "description": "Get top 50 tags with counts from public approved traces.",
-        "responses": {
-          "200": {
-            "description": "Tag cloud",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/TagCloud" }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/explore": {
       "get": {
         "tags": ["Explore"],
-        "summary": "Browse public traces",
-        "description": "List public approved traces with optional tag filter, sorting, and pagination.",
+        "summary": "Browse public sessions",
+        "description": "List public approved sessions with optional tag filter, sorting, and pagination.",
         "parameters": [
           {
             "schema": { "type": "string", "description": "Filter by tag" },
@@ -661,10 +870,27 @@
         ],
         "responses": {
           "200": {
-            "description": "Public traces",
+            "description": "Public sessions",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ExploreTraces" }
+                "schema": { "$ref": "#/components/schemas/ExploreSessions" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/explore/tags": {
+      "get": {
+        "tags": ["Explore"],
+        "summary": "Tag cloud",
+        "description": "Get top 50 tags with counts from public approved sessions.",
+        "responses": {
+          "200": {
+            "description": "Tag cloud",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TagCloud" }
               }
             }
           }
@@ -675,7 +901,7 @@
       "get": {
         "tags": ["Profile"],
         "summary": "Get user profile",
-        "description": "Get aggregated profile data including stats, liked traces, and tags.",
+        "description": "Get aggregated profile data including stats, liked sessions, and tags.",
         "security": [{ "bearerAuth": [] }],
         "responses": {
           "200": {
@@ -689,10 +915,36 @@
         }
       }
     },
-    "/api/traces/{slug}/tags": {
+    "/api/sessions/{slug}/data": {
+      "get": {
+        "tags": ["Sessions"],
+        "summary": "Get session data",
+        "description": "Get the full Thinkt reasoning session object from R2 storage.",
+        "parameters": [
+          {
+            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Thinkt session object (arbitrary JSON)" },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{slug}/tags": {
       "get": {
         "tags": ["Tags"],
-        "summary": "Get trace tags",
+        "summary": "Get session tags",
         "parameters": [
           {
             "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
@@ -722,8 +974,8 @@
       },
       "put": {
         "tags": ["Tags"],
-        "summary": "Set trace tags",
-        "description": "Replace all tags on a trace. Max 10 tags, each max 20 chars. Must be the owner.",
+        "summary": "Set session tags",
+        "description": "Replace all tags on a session. Max 10 tags, each max 20 chars. Must be the owner.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           {
@@ -749,32 +1001,6 @@
               }
             }
           },
-          "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/Error" }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/traces/{slug}/data": {
-      "get": {
-        "tags": ["Traces"],
-        "summary": "Get trace data",
-        "description": "Get the full Thinkt reasoning trace object from R2 storage.",
-        "parameters": [
-          {
-            "schema": { "type": "string", "example": "fuzzy-pine-3k2" },
-            "required": true,
-            "name": "slug",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "200": { "description": "Thinkt trace object (arbitrary JSON)" },
           "404": {
             "description": "Not found",
             "content": {
@@ -883,17 +1109,17 @@
         }
       }
     },
-    "/api/traces/favorites": {
+    "/api/sessions/favorites": {
       "get": {
-        "tags": ["Traces"],
-        "summary": "List favorited traces",
+        "tags": ["Sessions"],
+        "summary": "List favorited sessions",
         "security": [{ "bearerAuth": [] }],
         "responses": {
           "200": {
-            "description": "List of favorited traces",
+            "description": "List of favorited sessions",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TraceList" }
+                "schema": { "$ref": "#/components/schemas/SessionList" }
               }
             }
           }
@@ -931,41 +1157,43 @@
         }
       }
     },
-    "/api/traces": {
+    "/api/sessions": {
       "get": {
-        "tags": ["Traces"],
-        "summary": "List my traces",
-        "description": "List all traces owned by the authenticated user.",
+        "tags": ["Sessions"],
+        "summary": "List my sessions",
+        "description": "List all sessions owned by the authenticated user.",
         "security": [{ "bearerAuth": [] }],
         "responses": {
           "200": {
-            "description": "List of traces",
+            "description": "List of sessions",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TraceList" }
+                "schema": { "$ref": "#/components/schemas/SessionList" }
               }
             }
           }
         }
       },
       "post": {
-        "tags": ["Traces"],
-        "summary": "Upload a trace",
-        "description": "Upload a Thinkt reasoning trace for private storage or public sharing. Subject to per-user rate limits (5/hour, 20/day) and account limits (50 traces, 1 GB storage).",
+        "tags": ["Sessions"],
+        "summary": "Upload a session",
+        "description": "Upload a Thinkt reasoning session for private storage or public sharing. Subject to per-user rate limits (5/hour, 20/day) and account limits (50 sessions, 1 GB storage).",
         "security": [{ "bearerAuth": [] }],
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UploadTrace" }
+              "schema": { "$ref": "#/components/schemas/UploadSession" }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Trace uploaded",
+            "description": "Session uploaded",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/UploadTraceResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/UploadSessionResponse"
+                }
               }
             }
           },
@@ -978,7 +1206,7 @@
             }
           },
           "413": {
-            "description": "Trace too large (10 MB max)",
+            "description": "Session too large (10 MB max)",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/Error" }
@@ -996,11 +1224,11 @@
         }
       }
     },
-    "/api/traces/{slug}/report": {
+    "/api/sessions/{slug}/report": {
       "post": {
         "tags": ["Reports"],
-        "summary": "Report a trace",
-        "description": "Report a public trace for policy violations. Rate limited to 5 per hour. Cannot report own traces or private traces.",
+        "summary": "Report a session",
+        "description": "Report a public session for policy violations. Rate limited to 5 per hour. Cannot report own sessions or private sessions.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           {
@@ -1049,7 +1277,7 @@
       "post": {
         "tags": ["Admin"],
         "summary": "Resolve a report",
-        "description": "Take action on a report: dismiss, remove trace, or ban user. Admin only.",
+        "description": "Take action on a report: dismiss, remove session, or ban user. Admin only.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           {
@@ -1096,7 +1324,7 @@
         }
       }
     },
-    "/api/traces/{slug}/favorite": {
+    "/api/sessions/{slug}/favorite": {
       "post": {
         "tags": ["Social"],
         "summary": "Toggle favorite",
@@ -1129,7 +1357,7 @@
         }
       }
     },
-    "/api/traces/{slug}/like": {
+    "/api/sessions/{slug}/like": {
       "post": {
         "tags": ["Social"],
         "summary": "Toggle like",

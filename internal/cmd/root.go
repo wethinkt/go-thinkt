@@ -388,7 +388,7 @@ func init() {
 	shareCmd.AddCommand(shareLoginCmd)
 	shareCmd.AddCommand(shareLogoutCmd)
 	shareCmd.AddCommand(shareStatusCmd)
-	sharePushCmd.Flags().BoolVar(&sharePushPublic, "public", false, "make trace publicly visible")
+	sharePushCmd.Flags().BoolVar(&sharePushPublic, "public", false, "make session publicly visible")
 	shareCmd.AddCommand(sharePushCmd)
 	shareListCmd.Flags().BoolVar(&shareListJSON, "json", false, "output as JSON")
 	shareCmd.AddCommand(shareListCmd)

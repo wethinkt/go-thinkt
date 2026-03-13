@@ -33,8 +33,8 @@ var (
 
 var shareCmd = &cobra.Command{
 	Use:   "share",
-	Short: "Share traces on share.wethinkt.com",
-	Long:  "Upload, browse, and manage reasoning traces on the wethinkt sharing platform.",
+	Short: "Share sessions on share.wethinkt.com",
+	Long:  "Upload, browse, and manage reasoning sessions on the wethinkt sharing platform.",
 	Args:  cobra.NoArgs,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Chain parent's PersistentPreRunE (root command setup).
@@ -101,7 +101,7 @@ func (s shareOutputStyles) printKV(label, value string) {
 var shareLoginCmd = &cobra.Command{
 	Use:          "login",
 	Short:        "Log in to share.wethinkt.com",
-	Long:         "Authenticate with share.wethinkt.com using GitHub or Google to enable sharing traces.",
+	Long:         "Authenticate with share.wethinkt.com using GitHub or Google to enable sharing sessions.",
 	SilenceUsage: true,
 	RunE:         runShareLogin,
 }
@@ -307,8 +307,8 @@ func runShareStatus(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	out.printKV("Traces:", fmt.Sprintf("%d total (%d public, %d private)",
-		profile.Stats.TotalTraces, profile.Stats.PublicTraces, profile.Stats.PrivateTraces))
+	out.printKV("Sessions:", fmt.Sprintf("%d total (%d public, %d private)",
+		profile.Stats.TotalSessions, profile.Stats.PublicSessions, profile.Stats.PrivateSessions))
 	return nil
 }
 
@@ -316,8 +316,8 @@ func runShareStatus(cmd *cobra.Command, args []string) error {
 
 var sharePushCmd = &cobra.Command{
 	Use:          "push <path>",
-	Short:        "Upload a trace to share.wethinkt.com",
-	Long:         "Upload a Thinkt reasoning trace for private storage or public sharing.",
+	Short:        "Upload a session to share.wethinkt.com",
+	Long:         "Upload a Thinkt reasoning session for private storage or public sharing.",
 	SilenceUsage: true,
 	Args:         cobra.ExactArgs(1),
 	RunE:         runSharePush,
@@ -332,7 +332,7 @@ func runSharePush(cmd *cobra.Command, args []string) error {
 
 	data, err := os.ReadFile(args[0])
 	if err != nil {
-		return fmt.Errorf("read trace: %w", err)
+		return fmt.Errorf("read session: %w", err)
 	}
 
 	visibility := "private"
@@ -363,7 +363,7 @@ func runSharePush(cmd *cobra.Command, args []string) error {
 
 var shareListCmd = &cobra.Command{
 	Use:          "list",
-	Short:        "List your shared traces",
+	Short:        "List your shared sessions",
 	Aliases:      []string{"ls"},
 	SilenceUsage: true,
 	RunE:         runShareList,
@@ -377,16 +377,16 @@ func runShareList(cmd *cobra.Command, args []string) error {
 	}
 
 	client := share.NewClientFromCreds(creds)
-	traces, err := client.ListTraces()
+	sessions, err := client.ListSessions()
 	if err != nil {
-		return fmt.Errorf("list traces: %w", err)
+		return fmt.Errorf("list sessions: %w", err)
 	}
 
-	if len(traces) == 0 {
+	if len(sessions) == 0 {
 		if shareListJSON {
 			fmt.Println("[]")
 		} else {
-			fmt.Printf("%s %s\n", out.render(out.muted, "No traces."), out.render(out.accent, "Push one with: thinkt share push <path>"))
+			fmt.Printf("%s %s\n", out.render(out.muted, "No sessions."), out.render(out.accent, "Push one with: thinkt share push <path>"))
 		}
 		return nil
 	}
@@ -394,14 +394,14 @@ func runShareList(cmd *cobra.Command, args []string) error {
 	if shareListJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		return enc.Encode(traces)
+		return enc.Encode(sessions)
 	}
 
 	if term.IsTerminal(int(os.Stdout.Fd())) {
-		return runShareBrowser(traces, shareTUI.ShareBrowserMine)
+		return runShareBrowser(sessions, shareTUI.ShareBrowserMine)
 	}
 
-	printTraceTable(traces)
+	printSessionTable(sessions)
 	return nil
 }
 
@@ -409,7 +409,7 @@ func runShareList(cmd *cobra.Command, args []string) error {
 
 var shareExploreCmd = &cobra.Command{
 	Use:          "explore",
-	Short:        "Browse public traces",
+	Short:        "Browse public sessions",
 	SilenceUsage: true,
 	RunE:         runShareExplore,
 }
@@ -431,21 +431,21 @@ func runShareExplore(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("explore: %w", err)
 	}
 
-	if len(resp.Traces) == 0 {
-		fmt.Println(out.render(out.muted, "No public traces found."))
+	if len(resp.Sessions) == 0 {
+		fmt.Println(out.render(out.muted, "No public sessions found."))
 		return nil
 	}
 
 	if term.IsTerminal(int(os.Stdout.Fd())) {
-		return runShareBrowser(resp.Traces, shareTUI.ShareBrowserExplore)
+		return runShareBrowser(resp.Sessions, shareTUI.ShareBrowserExplore)
 	}
 
-	printTraceTable(resp.Traces)
+	printSessionTable(resp.Sessions)
 	return nil
 }
 
-func runShareBrowser(traces []share.Trace, mode shareTUI.ShareBrowserMode) error {
-	m := shareTUI.NewShareBrowser(traces, mode)
+func runShareBrowser(sessions []share.Session, mode shareTUI.ShareBrowserMode) error {
+	m := shareTUI.NewShareBrowser(sessions, mode)
 	p := tea.NewProgram(m)
 	final, err := p.Run()
 	if err != nil {
@@ -468,7 +468,7 @@ func runShareBrowser(traces []share.Trace, mode shareTUI.ShareBrowserMode) error
 
 var shareOpenCmd = &cobra.Command{
 	Use:          "open <slug>",
-	Short:        "Open a trace in the web browser",
+	Short:        "Open a session in the web browser",
 	SilenceUsage: true,
 	Args:         cobra.ExactArgs(1),
 	RunE:         runShareOpen,
@@ -507,7 +507,7 @@ func runShareWeb(cmd *cobra.Command, args []string) error {
 
 var shareDeleteCmd = &cobra.Command{
 	Use:          "delete <slug>",
-	Short:        "Delete a shared trace",
+	Short:        "Delete a shared session",
 	Aliases:      []string{"rm"},
 	SilenceUsage: true,
 	Args:         cobra.ExactArgs(1),
@@ -524,7 +524,7 @@ func runShareDelete(cmd *cobra.Command, args []string) error {
 	slug := args[0]
 
 	if !shareDeleteForce {
-		fmt.Printf("%s %s? %s ", out.render(out.warning, "Delete trace"), out.render(out.value, fmt.Sprintf("%q", slug)), out.render(out.label, "[y/N]"))
+		fmt.Printf("%s %s? %s ", out.render(out.warning, "Delete session"), out.render(out.value, fmt.Sprintf("%q", slug)), out.render(out.label, "[y/N]"))
 		var answer string
 		_, _ = fmt.Scanln(&answer)
 		if strings.ToLower(answer) != "y" {
@@ -534,7 +534,7 @@ func runShareDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	client := share.NewClientFromCreds(creds)
-	if err := client.DeleteTrace(slug); err != nil {
+	if err := client.DeleteSession(slug); err != nil {
 		return fmt.Errorf("delete: %w", err)
 	}
 
@@ -566,8 +566,8 @@ func runShareProfile(cmd *cobra.Command, args []string) error {
 
 	out.printKV("Name:", profile.User.Name)
 	out.printKV("Email:", profile.User.Email)
-	out.printKV("Traces:", fmt.Sprintf("%d total (%d public, %d private)",
-		profile.Stats.TotalTraces, profile.Stats.PublicTraces, profile.Stats.PrivateTraces))
+	out.printKV("Sessions:", fmt.Sprintf("%d total (%d public, %d private)",
+		profile.Stats.TotalSessions, profile.Stats.PublicSessions, profile.Stats.PrivateSessions))
 	out.printKV("Storage:", thinkt.FormatBytes(int64(profile.Stats.TotalBytes)))
 
 	if len(profile.Tags) > 0 {
@@ -597,17 +597,17 @@ func requireShareAuth() (*share.Credentials, error) {
 	return creds, nil
 }
 
-func printTraceTable(traces []share.Trace) {
+func printSessionTable(sessions []share.Session) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "SLUG\tTITLE\tVISIBILITY\tSIZE\tLIKES\tCREATED")
-	for _, t := range traces {
-		created := t.CreatedAt
+	for _, s := range sessions {
+		created := s.CreatedAt
 		if len(created) >= 10 {
 			created = created[:10]
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%s\n",
-			t.Slug, shareTruncate(t.Title, 40), t.Visibility,
-			thinkt.FormatBytes(int64(t.SizeBytes)), t.LikesCount, created)
+			s.Slug, shareTruncate(s.Title, 40), s.Visibility,
+			thinkt.FormatBytes(int64(s.SizeBytes)), s.LikesCount, created)
 	}
 	w.Flush()
 }

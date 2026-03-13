@@ -8,9 +8,10 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/wethinkt/go-thinkt/internal/share"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
-// ShareBrowserMode controls whether we show the user's traces or public explore.
+// ShareBrowserMode controls whether we show the user's sessions or public explore.
 type ShareBrowserMode int
 
 const (
@@ -18,48 +19,48 @@ const (
 	ShareBrowserExplore
 )
 
-// ShareBrowserResult is what the TUI returns when a trace is selected.
+// ShareBrowserResult is what the TUI returns when a session is selected.
 type ShareBrowserResult struct {
 	Slug   string
 	Action string // "open", "quit"
 }
 
 type shareItem struct {
-	trace share.Trace
+	session share.Session
 }
 
-func (i shareItem) Title() string { return i.trace.Title }
+func (i shareItem) Title() string { return i.session.Title }
 func (i shareItem) Description() string {
-	vis := i.trace.Visibility
-	size := formatShareSize(i.trace.SizeBytes)
+	vis := i.session.Visibility
+	size := thinkt.FormatBytes(int64(i.session.SizeBytes))
 	likes := ""
-	if i.trace.LikesCount > 0 {
-		likes = fmt.Sprintf(" | %d likes", i.trace.LikesCount)
+	if i.session.LikesCount > 0 {
+		likes = fmt.Sprintf(" | %d likes", i.session.LikesCount)
 	}
 	owner := ""
-	if i.trace.OwnerName != "" {
-		owner = fmt.Sprintf(" | @%s", i.trace.OwnerName)
+	if i.session.OwnerName != "" {
+		owner = fmt.Sprintf(" | @%s", i.session.OwnerName)
 	}
-	return fmt.Sprintf("%s | %s | %s%s%s", i.trace.Slug, vis, size, likes, owner)
+	return fmt.Sprintf("%s | %s | %s%s%s", i.session.Slug, vis, size, likes, owner)
 }
-func (i shareItem) FilterValue() string { return i.trace.Title + " " + i.trace.Slug }
+func (i shareItem) FilterValue() string { return i.session.Title + " " + i.session.Slug }
 
-// ShareBrowserModel is the bubbletea model for browsing shared traces.
+// ShareBrowserModel is the bubbletea model for browsing shared sessions.
 type ShareBrowserModel struct {
 	list   list.Model
 	result *ShareBrowserResult
 }
 
 // NewShareBrowser creates a new share browser TUI.
-func NewShareBrowser(traces []share.Trace, mode ShareBrowserMode) ShareBrowserModel {
-	items := make([]list.Item, len(traces))
-	for i, t := range traces {
-		items[i] = shareItem{trace: t}
+func NewShareBrowser(sessions []share.Session, mode ShareBrowserMode) ShareBrowserModel {
+	items := make([]list.Item, len(sessions))
+	for i, s := range sessions {
+		items[i] = shareItem{session: s}
 	}
 
-	title := "My Traces"
+	title := "My Sessions"
 	if mode == ShareBrowserExplore {
-		title = "Explore Public Traces"
+		title = "Explore Public Sessions"
 	}
 
 	delegate := list.NewDefaultDelegate()
@@ -86,7 +87,7 @@ func (m ShareBrowserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "enter":
 			if item, ok := m.list.SelectedItem().(shareItem); ok {
-				m.result = &ShareBrowserResult{Slug: item.trace.Slug, Action: "open"}
+				m.result = &ShareBrowserResult{Slug: item.session.Slug, Action: "open"}
 				return m, tea.Quit
 			}
 		case "q", "esc":
@@ -108,18 +109,7 @@ func (m ShareBrowserModel) View() tea.View {
 	return v
 }
 
-// Result returns the selected trace result, or nil if quit.
+// Result returns the selected session result, or nil if quit.
 func (m ShareBrowserModel) Result() *ShareBrowserResult {
 	return m.result
-}
-
-func formatShareSize(b int) string {
-	switch {
-	case b >= 1<<20:
-		return fmt.Sprintf("%.1f MB", float64(b)/float64(1<<20))
-	case b >= 1<<10:
-		return fmt.Sprintf("%.1f KB", float64(b)/float64(1<<10))
-	default:
-		return fmt.Sprintf("%d B", b)
-	}
 }
