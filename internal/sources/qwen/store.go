@@ -174,39 +174,70 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 	})
 }
 
-// extractProjectName tries to get a human-readable project name from debug logs
+// extractProjectName tries to extract a human-readable project name from session files.
+// It first attempts to decode the project hash to a path, then extracts the base directory
+// name from that path. If decoding fails, it falls back to reading CWD from session entries.
 func (s *Store) extractProjectName(projectHash string) string {
-	// Try to find logs in tmp directory that might contain project info
-	tmpDir := filepath.Join(s.baseDir, "tmp")
-	entries, err := os.ReadDir(tmpDir)
+	// First, try to decode the project hash to get the original path
+	decodedPath := s.decodeProjectPath(projectHash)
+	if decodedPath != "" {
+		// Extract the base directory name from the decoded path
+		baseName := filepath.Base(decodedPath)
+		if baseName != "." && baseName != string(filepath.Separator) {
+			return baseName
+		}
+	}
+
+	// Fallback: read CWD from session files to derive a project name
+	chatsDir := filepath.Join(s.baseDir, "projects", projectHash, "chats")
+	entries, err := os.ReadDir(chatsDir)
 	if err != nil {
 		return ""
 	}
 
+	// Read the first session file to extract CWD
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") {
 			continue
 		}
-		logsPath := filepath.Join(tmpDir, entry.Name(), "logs.json")
-		if data, err := os.ReadFile(logsPath); err == nil {
-			var logs []struct {
-				Message string `json:"message"`
-				Type    string `json:"type"`
+
+		sessionPath := filepath.Join(chatsDir, entry.Name())
+		f, err := os.Open(sessionPath)
+		if err != nil {
+			continue
+		}
+
+		scanner := thinkt.NewScannerWithMaxCapacity(f)
+		maxLines := 10 // Only read a few lines to find CWD
+
+		for i := 0; i < maxLines && scanner.Scan(); i++ {
+			line := scanner.Bytes()
+			if len(line) == 0 {
+				continue
 			}
-			if err := json.Unmarshal(data, &logs); err == nil {
-				// Find first user message to use as a name hint
-				for _, l := range logs {
-					if l.Type == "user" && l.Message != "" {
-						name := l.Message
-						if len(name) > 40 {
-							name = name[:37] + "..."
-						}
-						return name
-					}
+
+			var entry struct {
+				CWD string `json:"cwd"`
+			}
+			if err := json.Unmarshal(line, &entry); err != nil {
+				continue
+			}
+
+			if entry.CWD != "" {
+				f.Close()
+				baseName := filepath.Base(entry.CWD)
+				if baseName != "." && baseName != string(filepath.Separator) {
+					return baseName
 				}
+				return entry.CWD // Fall back to full path if base is invalid
 			}
 		}
+		f.Close()
+
+		// Only try the first session file
+		break
 	}
+
 	return ""
 }
 
@@ -574,18 +605,21 @@ func (r *qwenReader) Close() error {
 // parseQwenEntry parses a single line from the session JSONL file.
 func parseQwenEntry(data []byte, lineNum int, source thinkt.Source, wsID string) (*thinkt.Entry, error) {
 	var raw struct {
-		UUID          string          `json:"uuid"`
-		ParentUUID    string          `json:"parentUuid"`
-		Type          string          `json:"type"`
-		Role          string          `json:"role"`
-		Message       json.RawMessage `json:"message"`
-		Timestamp     string          `json:"timestamp"`
-		Model         string          `json:"model"`
-		CWD           string          `json:"cwd"`
-		GitBranch     string          `json:"gitBranch"`
-		Subtype       string          `json:"subtype"`
-		SystemPayload json.RawMessage `json:"systemPayload"`
-		Version       string          `json:"version"`
+		UUID           string          `json:"uuid"`
+		ParentUUID     string          `json:"parentUuid"`
+		SessionID      string          `json:"sessionId"`
+		Type           string          `json:"type"`
+		Role           string          `json:"role"`
+		Message        json.RawMessage `json:"message"`
+		Timestamp      string          `json:"timestamp"`
+		Model          string          `json:"model"`
+		CWD            string          `json:"cwd"`
+		GitBranch      string          `json:"gitBranch"`
+		Subtype        string          `json:"subtype"`
+		SystemPayload  json.RawMessage `json:"systemPayload"`
+		Version        string          `json:"version"`
+		ToolCallResult json.RawMessage `json:"toolCallResult"`
+		UsageMetadata  json.RawMessage `json:"usageMetadata"`
 	}
 
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -599,6 +633,11 @@ func parseQwenEntry(data []byte, lineNum int, source thinkt.Source, wsID string)
 		CWD:         raw.CWD,
 		GitBranch:   raw.GitBranch,
 		Metadata:    make(map[string]any),
+	}
+
+	// Store session ID
+	if raw.SessionID != "" {
+		entry.Metadata["sessionId"] = raw.SessionID
 	}
 
 	// Parse timestamp
@@ -616,6 +655,32 @@ func parseQwenEntry(data []byte, lineNum int, source thinkt.Source, wsID string)
 	// Store metadata
 	if raw.Version != "" {
 		entry.Metadata["version"] = raw.Version
+	}
+
+	// Parse toolCallResult for tool_result entries
+	if len(raw.ToolCallResult) > 0 {
+		var toolCallResult struct {
+			CallID      string `json:"callId"`
+			Status      string `json:"status"`
+			ResultDisplay string `json:"resultDisplay"`
+		}
+		if err := json.Unmarshal(raw.ToolCallResult, &toolCallResult); err == nil {
+			entry.Metadata["toolCallResult"] = toolCallResult
+		}
+	}
+
+	// Parse usageMetadata for assistant entries
+	if len(raw.UsageMetadata) > 0 {
+		var usageMetadata struct {
+			PromptTokenCount     int `json:"promptTokenCount"`
+			CandidatesTokenCount int `json:"candidatesTokenCount"`
+			ThoughtsTokenCount   int `json:"thoughtsTokenCount"`
+			TotalTokenCount      int `json:"totalTokenCount"`
+			CachedContentTokenCount int `json:"cachedContentTokenCount"`
+		}
+		if err := json.Unmarshal(raw.UsageMetadata, &usageMetadata); err == nil {
+			entry.Metadata["usageMetadata"] = usageMetadata
+		}
 	}
 
 	// Determine role and parse content based on type
