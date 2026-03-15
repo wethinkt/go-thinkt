@@ -117,20 +117,20 @@ func runTeamsList(cmd *cobra.Command, args []string) error {
 	colCreated := 12 // "Jan 02 15:04"
 
 	for _, s := range summaries {
-		if len(s.Name) > colTeam {
-			colTeam = len(s.Name)
+		if len(s.Team.Name) > colTeam {
+			colTeam = len(s.Team.Name)
 		}
-		if len(string(s.Source)) > colSource {
-			colSource = len(string(s.Source))
+		if len(string(s.Team.Source)) > colSource {
+			colSource = len(string(s.Team.Source))
 		}
-		status := string(s.Status)
+		status := string(s.Team.Status)
 		if status == "" {
 			status = "active"
 		}
 		if len(status) > colStatus {
 			colStatus = len(status)
 		}
-		members := fmt.Sprintf("%d", len(s.Members))
+		members := fmt.Sprintf("%d", len(s.Team.Members))
 		if len(members) > colMembers {
 			colMembers = len(members)
 		}
@@ -158,7 +158,7 @@ func runTeamsList(cmd *cobra.Command, args []string) error {
 		headerStyle.Render(thinktI18n.T("cmd.teams.header.lastActivity", "LAST ACTIVITY")))
 
 	for _, s := range summaries {
-		status := string(s.Status)
+		status := string(s.Team.Status)
 		if status == "" {
 			status = "active"
 		}
@@ -166,7 +166,7 @@ func runTeamsList(cmd *cobra.Command, args []string) error {
 		tasks := fmt.Sprintf("%d/%d/%d",
 			s.TasksCompleted, s.TasksActive, s.TasksPending)
 
-		created := s.CreatedAt.Format("Jan 02 15:04")
+		created := s.Team.CreatedAt.Format("Jan 02 15:04")
 
 		lastActivity := "-"
 		if s.LastActivity != "" {
@@ -179,10 +179,10 @@ func runTeamsList(cmd *cobra.Command, args []string) error {
 		}
 
 		fmt.Fprintf(os.Stdout, "%s%s%s%s%s%s%s\n",
-			col(primaryStyle, colTeam).Render(s.Name),
-			col(secondaryStyle, colSource).Render(string(s.Source)),
+			col(primaryStyle, colTeam).Render(s.Team.Name),
+			col(secondaryStyle, colSource).Render(string(s.Team.Source)),
 			col(statusStyle, colStatus).Render(status),
-			col(secondaryStyle, colMembers).Render(fmt.Sprintf("%d", len(s.Members))),
+			col(secondaryStyle, colMembers).Render(fmt.Sprintf("%d", len(s.Team.Members))),
 			col(primaryStyle, colTasks).Render(tasks),
 			col(mutedStyle, colCreated).Render(created),
 			mutedStyle.Render(lastActivity))
