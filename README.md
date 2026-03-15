@@ -54,7 +54,8 @@ For beyond local deployments, we also have [`thinkt-relay` and `thinkt-collector
 - **Agent Teams**: Inspect multi-agent teams (Claude Code), including members, tasks, and messages
 - **Analytics**: Token usage, tool frequency, word analysis, activity timelines via `thinkt-indexer`
 - **Local Summarization**: Generate per-session summaries, classify thinking blocks, and suggest shareable tags with local models via `thinkt-indexer summarize`
-- **Prompt Extraction**: Generate timestamped logs of user prompts in markdown, JSON, or plain text
+- **Session Export**: Export sessions as Markdown, self-contained HTML, or JSON with content filtering and preview mode
+- **Prompt Extraction**: Extract user prompts with Go template support via `thinkt export template`
 - **MCP Server**: Model Context Protocol integration for use with AI assistants
 - **REST API**: HTTP server for programmatic access
 - **Web Interface**: Full webapp for visual trace exploration via `thinkt web`
@@ -186,7 +187,9 @@ thinkt tui --log /tmp/thinkt-debug.log
 | `thinkt sessions delete` | Delete a known session (with confirmation) |
 | `thinkt teams` | List agent teams (Claude Code) |
 | `thinkt teams list` | Same as above |
-| `thinkt prompts extract` | Extract prompts to markdown/JSON |
+| `thinkt export` | Export session as Markdown, HTML, or JSON |
+| `thinkt export --html --view` | Export as HTML and open in browser |
+| `thinkt export template` | Extract user prompts with template support |
 | `thinkt relay` | Relay traces to a remote collector |
 | `thinkt relay --forward` | Continuous watch mode |
 | `thinkt relay --flush` | Flush the disk buffer |

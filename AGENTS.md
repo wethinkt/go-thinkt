@@ -22,6 +22,8 @@ The tool supports multiple AI coding assistants via a `Store` interface:
 
 Sources are auto-discovered. Use `--source claude|kimi|gemini|copilot|codex|qwen` flags to filter.
 
+**Source Enable/Disable:** Sources can be enabled/disabled via `thinkt sources enable/disable` (stored in `config.Sources` map). Disabled sources are invisible at the API boundary — the MCP/HTTP server validates against the `StoreRegistry` (which only registers enabled sources), and the indexer RPC server independently filters via `enabledSources` (derived from `config.EnabledSources()`, refreshed on `config_reload`). Both layers enforce filtering so neither can leak disabled source data.
+
 ### Key Packages
 
 | Package | Purpose |
@@ -46,6 +48,7 @@ Sources are auto-discovered. Use `--source claude|kimi|gemini|copilot|codex|qwen
 | `internal/agents` | Agent hub: unified local+remote detection, streaming, filter |
 | `internal/collect` | Trace collector: HTTP server, DuckDB store, agent registry, normalizer |
 | `internal/analytics` | Analytics |
+| `internal/export` | Session export (Markdown, HTML, JSON) with content filtering |
 | `internal/prompt` | Prompt extraction and formatting |
 | `internal/config` | Configuration management, instance registry |
 | `internal/fingerprint` | Machine fingerprint generation |
@@ -101,11 +104,8 @@ thinkt
 │   └── export-parquet  # Export collector data to Parquet
 ├── teams               # Agent team management
 │   └── list
-├── prompts             # Prompt extraction
-│   ├── extract
-│   ├── list
-│   ├── info
-│   └── templates
+├── export              # Session export
+│   └── template        # Extract user prompts with Go templates
 ├── indexer             # DuckDB-powered indexer management
 │   ├── start
 │   ├── stop

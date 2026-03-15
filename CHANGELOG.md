@@ -1,5 +1,19 @@
 # `go-thinkt` CHANGELOG
 
+## v0.8.1 (2026-03-13)
+
+* **Session Export**
+  - New `thinkt export` command for exporting sessions as Markdown (default), self-contained HTML, or JSON
+  - Content filtering flags: `--no-thinking`, `--no-tools`, `--no-media`, `--system`
+  - Preview mode: `--view` pipes Markdown through `glow` or opens HTML in the default browser
+  - Intelligent tool call summarization showing primary parameter (e.g., file path, command, pattern)
+  - Self-contained HTML export with embedded CSS and collapsible sections
+  - `thinkt export template` subcommand replaces the old `thinkt prompts` command for extracting user prompts with Go template support
+
+* **Disabled Source Filtering**
+  - Disabled sources are now fully invisible at the API boundary — no sessions, projects, search results, stats, or active session data from disabled sources is returned through any MCP, HTTP, or RPC entry point
+
+
 ## v0.8.0 (2026-03-10)
 
 * **Local Summarization**
