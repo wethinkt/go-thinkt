@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -133,6 +134,20 @@ func runExport(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Output destination picker
+	if !cmd.Flags().Changed("output") && target.IsTTY() {
+		ext := "." + exportFormat
+		suggested := sanitizeFilename(opts.Title) + ext
+		choice, err := tui.PickOutput(suggested)
+		if err != nil {
+			return err
+		}
+		if choice.Mode == "file" {
+			exportOutput = choice.Path
+		}
+		// stdout: exportOutput stays ""
+	}
+
 	w := os.Stdout
 	if exportOutput != "" && exportOutput != "-" {
 		f, err := os.Create(exportOutput)
@@ -165,6 +180,19 @@ func buildExportTitle(meta thinkt.SessionMeta) string {
 		return filepath.Base(meta.ProjectPath) + " session"
 	}
 	return "Session Export"
+}
+
+func sanitizeFilename(s string) string {
+	// Replace characters unsafe for filenames
+	replacer := strings.NewReplacer(
+		"/", "-", "\\", "-", ":", "-", "*", "", "?", "",
+		"\"", "", "<", "", ">", "", "|", "", "\n", " ",
+	)
+	name := replacer.Replace(s)
+	if len(name) > 60 {
+		name = name[:60]
+	}
+	return strings.TrimSpace(name)
 }
 
 func exportViewHTML(entries []thinkt.Entry, opts export.Options) error {

@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
 type filterItem struct {
@@ -16,9 +18,17 @@ type filterPickerModel struct {
 	items     []filterItem
 	cursor    int
 	cancelled bool
+
+	titleStyle  lipgloss.Style
+	cursorStyle lipgloss.Style
+	checkStyle  lipgloss.Style
+	labelStyle  lipgloss.Style
+	mutedStyle  lipgloss.Style
+	helpStyle   lipgloss.Style
 }
 
 func newFilterPicker(filter ContentFilter) filterPickerModel {
+	t := theme.Current()
 	return filterPickerModel{
 		items: []filterItem{
 			{label: "Thinking", enabled: filter.IncludeThinking},
@@ -27,6 +37,12 @@ func newFilterPicker(filter ContentFilter) filterPickerModel {
 			{label: "Media", enabled: filter.IncludeMedia},
 			{label: "System", enabled: filter.IncludeSystem},
 		},
+		titleStyle:  lipgloss.NewStyle().Bold(true).MarginBottom(1),
+		cursorStyle: lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
+		checkStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())),
+		labelStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg)),
+		mutedStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)),
+		helpStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg)).MarginTop(1),
 	}
 }
 
@@ -68,20 +84,37 @@ func (m filterPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m filterPickerModel) View() tea.View {
 	var b strings.Builder
-	b.WriteString("\nInclude in output:\n\n")
+
+	b.WriteString(m.titleStyle.Render("Include in output:"))
+	b.WriteString("\n\n")
+
 	for i, item := range m.items {
-		cursor := "  "
 		if i == m.cursor {
-			cursor = "> "
+			b.WriteString(m.cursorStyle.Render("> "))
+		} else {
+			b.WriteString("  ")
 		}
-		check := "[ ]"
+
 		if item.enabled {
-			check = "[x]"
+			b.WriteString(m.checkStyle.Render("[x]"))
+		} else {
+			b.WriteString(m.mutedStyle.Render("[ ]"))
 		}
-		fmt.Fprintf(&b, "%s%s %s\n", cursor, check, item.label)
+
+		label := item.label
+		if i == m.cursor {
+			b.WriteString(" " + m.labelStyle.Render(label))
+		} else {
+			b.WriteString(" " + m.mutedStyle.Render(label))
+		}
+		b.WriteString("\n")
 	}
-	b.WriteString("\n↑/↓ move, space toggle, enter confirm, esc cancel\n")
-	return tea.NewView(b.String())
+
+	b.WriteString(m.helpStyle.Render("↑/↓ move • space toggle • enter confirm • esc cancel"))
+	b.WriteString("\n")
+
+	inner := lipgloss.NewStyle().Padding(1, 2).Render(b.String())
+	return tea.NewView(inner)
 }
 
 // PickContentFilter shows an interactive checklist for selecting content types.

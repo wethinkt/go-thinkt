@@ -450,10 +450,21 @@ type titleInputModel struct {
 	value     string
 	cursor    int
 	cancelled bool
+
+	promptStyle lipgloss.Style
+	inputStyle  lipgloss.Style
+	helpStyle   lipgloss.Style
 }
 
 func newTitleInput(initial string) titleInputModel {
-	return titleInputModel{value: initial, cursor: len(initial)}
+	t := theme.Current()
+	return titleInputModel{
+		value:       initial,
+		cursor:      len(initial),
+		promptStyle: lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg)).Bold(true),
+		inputStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())),
+		helpStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg)).MarginTop(1),
+	}
 }
 
 func (m titleInputModel) Init() tea.Cmd { return nil }
@@ -491,13 +502,23 @@ func (m titleInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m titleInputModel) View() tea.View {
-	display := m.value
-	if m.cursor < len(display) {
-		display = display[:m.cursor] + "\033[7m" + string(display[m.cursor]) + "\033[0m" + display[m.cursor+1:]
+	display := m.inputStyle.Render(m.value[:m.cursor])
+	if m.cursor < len(m.value) {
+		display += lipgloss.NewStyle().Reverse(true).Render(string(m.value[m.cursor]))
+		display += m.inputStyle.Render(m.value[m.cursor+1:])
 	} else {
-		display = display + "\033[7m \033[0m"
+		display += lipgloss.NewStyle().Reverse(true).Render(" ")
 	}
-	return tea.NewView(fmt.Sprintf("\nTitle: %s\n\nenter to confirm, esc to cancel\n", display))
+
+	var b strings.Builder
+	b.WriteString(m.promptStyle.Render("Title: "))
+	b.WriteString(display)
+	b.WriteString("\n")
+	b.WriteString(m.helpStyle.Render("enter to confirm • esc to cancel"))
+	b.WriteString("\n")
+
+	inner := lipgloss.NewStyle().Padding(1, 2).Render(b.String())
+	return tea.NewView(inner)
 }
 
 func pickTitle(initial string) (string, error) {
@@ -520,6 +541,24 @@ type visPickerModel struct {
 	options   []string
 	cursor    int
 	cancelled bool
+
+	titleStyle    lipgloss.Style
+	cursorStyle   lipgloss.Style
+	selectedStyle lipgloss.Style
+	normalStyle   lipgloss.Style
+	helpStyle     lipgloss.Style
+}
+
+func newVisPicker() visPickerModel {
+	t := theme.Current()
+	return visPickerModel{
+		options:       []string{"private", "public"},
+		titleStyle:    lipgloss.NewStyle().Bold(true).MarginBottom(1),
+		cursorStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
+		selectedStyle: lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg)).Bold(true),
+		normalStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)),
+		helpStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg)).MarginTop(1),
+	}
 }
 
 func (m visPickerModel) Init() tea.Cmd { return nil }
@@ -548,22 +587,30 @@ func (m visPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m visPickerModel) View() tea.View {
 	var b strings.Builder
-	b.WriteString("\nVisibility:\n\n")
+
+	b.WriteString(m.titleStyle.Render("Visibility:"))
+	b.WriteString("\n\n")
+
 	for i, opt := range m.options {
-		cursor := "  "
-		label := opt
 		if i == m.cursor {
-			cursor = "> "
-			label = fmt.Sprintf("\033[1m%s\033[0m", label)
+			b.WriteString(m.cursorStyle.Render("> "))
+			b.WriteString(m.selectedStyle.Render(opt))
+		} else {
+			b.WriteString("  ")
+			b.WriteString(m.normalStyle.Render(opt))
 		}
-		fmt.Fprintf(&b, "%s%s\n", cursor, label)
+		b.WriteString("\n")
 	}
-	b.WriteString("\n↑/↓ to move, enter to select, esc to cancel\n")
-	return tea.NewView(b.String())
+
+	b.WriteString(m.helpStyle.Render("↑/↓ to move • enter to select • esc to cancel"))
+	b.WriteString("\n")
+
+	inner := lipgloss.NewStyle().Padding(1, 2).Render(b.String())
+	return tea.NewView(inner)
 }
 
 func pickVisibility() (string, error) {
-	m := visPickerModel{options: []string{"private", "public"}}
+	m := newVisPicker()
 	p := tea.NewProgram(m)
 	final, err := p.Run()
 	if err != nil {
@@ -582,6 +629,19 @@ type tagInputModel struct {
 	value     string
 	cursor    int
 	cancelled bool
+
+	promptStyle lipgloss.Style
+	inputStyle  lipgloss.Style
+	helpStyle   lipgloss.Style
+}
+
+func newTagInput() tagInputModel {
+	t := theme.Current()
+	return tagInputModel{
+		promptStyle: lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg)).Bold(true),
+		inputStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())),
+		helpStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg)).MarginTop(1),
+	}
 }
 
 func (m tagInputModel) Init() tea.Cmd { return nil }
@@ -619,17 +679,27 @@ func (m tagInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m tagInputModel) View() tea.View {
-	display := m.value
-	if m.cursor < len(display) {
-		display = display[:m.cursor] + "\033[7m" + string(display[m.cursor]) + "\033[0m" + display[m.cursor+1:]
+	display := m.inputStyle.Render(m.value[:m.cursor])
+	if m.cursor < len(m.value) {
+		display += lipgloss.NewStyle().Reverse(true).Render(string(m.value[m.cursor]))
+		display += m.inputStyle.Render(m.value[m.cursor+1:])
 	} else {
-		display = display + "\033[7m \033[0m"
+		display += lipgloss.NewStyle().Reverse(true).Render(" ")
 	}
-	return tea.NewView(fmt.Sprintf("\nTags (comma-separated): %s\n\nenter to confirm, esc to cancel\n", display))
+
+	var b strings.Builder
+	b.WriteString(m.promptStyle.Render("Tags (comma-separated): "))
+	b.WriteString(display)
+	b.WriteString("\n")
+	b.WriteString(m.helpStyle.Render("enter to confirm • esc to cancel"))
+	b.WriteString("\n")
+
+	inner := lipgloss.NewStyle().Padding(1, 2).Render(b.String())
+	return tea.NewView(inner)
 }
 
 func pickTags() ([]string, error) {
-	m := tagInputModel{}
+	m := newTagInput()
 	p := tea.NewProgram(m)
 	final, err := p.Run()
 	if err != nil {

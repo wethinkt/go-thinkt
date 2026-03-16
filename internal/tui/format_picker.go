@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
 type formatOption struct {
@@ -16,15 +18,27 @@ type formatPickerModel struct {
 	options   []formatOption
 	cursor    int
 	cancelled bool
+
+	titleStyle    lipgloss.Style
+	cursorStyle   lipgloss.Style
+	selectedStyle lipgloss.Style
+	normalStyle   lipgloss.Style
+	helpStyle     lipgloss.Style
 }
 
 func newFormatPicker() formatPickerModel {
+	t := theme.Current()
 	return formatPickerModel{
 		options: []formatOption{
 			{value: "md", label: "Markdown"},
 			{value: "html", label: "HTML"},
 			{value: "json", label: "JSON"},
 		},
+		titleStyle:    lipgloss.NewStyle().Bold(true).MarginBottom(1),
+		cursorStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
+		selectedStyle: lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg)).Bold(true),
+		normalStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)),
+		helpStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg)).MarginTop(1),
 	}
 }
 
@@ -54,18 +68,26 @@ func (m formatPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m formatPickerModel) View() tea.View {
 	var b strings.Builder
-	b.WriteString("\nExport format:\n\n")
+
+	b.WriteString(m.titleStyle.Render("Export format:"))
+	b.WriteString("\n\n")
+
 	for i, opt := range m.options {
-		cursor := "  "
-		label := opt.label
 		if i == m.cursor {
-			cursor = "> "
-			label = fmt.Sprintf("\033[1m%s\033[0m", label)
+			b.WriteString(m.cursorStyle.Render("> "))
+			b.WriteString(m.selectedStyle.Render(opt.label))
+		} else {
+			b.WriteString("  ")
+			b.WriteString(m.normalStyle.Render(opt.label))
 		}
-		fmt.Fprintf(&b, "%s%s\n", cursor, label)
+		b.WriteString("\n")
 	}
-	b.WriteString("\n↑/↓ to move, enter to select, esc to cancel\n")
-	return tea.NewView(b.String())
+
+	b.WriteString(m.helpStyle.Render("↑/↓ to move • enter to select • esc to cancel"))
+	b.WriteString("\n")
+
+	inner := lipgloss.NewStyle().Padding(1, 2).Render(b.String())
+	return tea.NewView(inner)
 }
 
 // PickFormat shows a picker for export format (md, html, json).
