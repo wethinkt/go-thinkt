@@ -1,19 +1,17 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sort"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/wethinkt/go-thinkt/internal/export"
 	"github.com/wethinkt/go-thinkt/internal/prompt"
+	"github.com/wethinkt/go-thinkt/internal/target"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 )
@@ -26,6 +24,10 @@ var (
 	exportNoTools bool
 	exportNoMedia bool
 	exportSystem  bool
+
+	exportProject string
+	exportSession string
+	exportSources []string
 
 	exportTmplFile   string
 	exportTmplFormat string
@@ -65,26 +67,59 @@ func runExport(cmd *cobra.Command, args []string) error {
 
 	registry := CreateSourceRegistry()
 
-	sessionPath, err := resolveExportSession(registry, args)
+	// Build target flags from CLI flags and positional args
+	flags := target.Flags{
+		Project: exportProject,
+		Sources: exportSources,
+	}
+	if len(args) > 0 {
+		flags.Session = args[0]
+	} else if exportSession != "" {
+		flags.Session = exportSession
+	}
+
+	result, err := target.ResolveSession(registry, flags)
 	if err != nil {
 		return err
 	}
 
-	ls, err := tui.OpenLazySessionWithRegistry(sessionPath, registry)
-	if err != nil {
-		return fmt.Errorf("open session: %w", err)
-	}
-	defer ls.Close()
+	// Content filtering
+	filter := target.DefaultFilter()
+	filterFlagsSet := cmd.Flags().Changed("no-thinking") ||
+		cmd.Flags().Changed("no-tools") ||
+		cmd.Flags().Changed("no-media") ||
+		cmd.Flags().Changed("system")
 
-	if err := ls.LoadAll(); err != nil {
-		return fmt.Errorf("load session: %w", err)
+	if filterFlagsSet {
+		filter.IncludeThinking = !exportNoThink
+		filter.IncludeToolUse = !exportNoTools
+		filter.IncludeToolResults = !exportNoTools
+		filter.IncludeMedia = !exportNoMedia
+		filter.IncludeSystem = exportSystem
+	} else if target.IsTTY() {
+		filter, err = target.PickContentFilter(filter)
+		if err != nil {
+			return err
+		}
 	}
 
-	meta := ls.Metadata()
-	entries := ls.Entries()
+	entries := target.FilterEntries(result.Entries, filter)
+
+	// Format picker
+	if !cmd.Flags().Changed("format") &&
+		!cmd.Flags().Changed("html") &&
+		!cmd.Flags().Changed("json") &&
+		!cmd.Flags().Changed("md") {
+		if target.IsTTY() {
+			exportFormat, err = tui.PickFormat()
+			if err != nil {
+				return err
+			}
+		}
+	}
 
 	opts := export.Options{
-		Title: buildExportTitle(meta),
+		Title: buildExportTitle(result.Meta),
 	}
 
 	if exportView {
@@ -116,63 +151,6 @@ func runExport(cmd *cobra.Command, args []string) error {
 	default:
 		return export.ExportMarkdown(w, entries, opts)
 	}
-}
-
-func resolveExportSession(registry *thinkt.StoreRegistry, args []string) (string, error) {
-	ctx := context.Background()
-
-	// Explicit absolute path
-	if len(args) > 0 && filepath.IsAbs(args[0]) {
-		return args[0], nil
-	}
-
-	// Auto-detect project from cwd
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("get working directory: %w", err)
-	}
-
-	project := registry.FindProjectForPath(ctx, cwd)
-	if project == nil {
-		if len(args) > 0 {
-			// Maybe it's a relative path to a session file
-			absPath, err := filepath.Abs(args[0])
-			if err == nil {
-				if _, statErr := os.Stat(absPath); statErr == nil {
-					return absPath, nil
-				}
-			}
-		}
-		return "", fmt.Errorf("no project found for current directory\n\nRun from inside a project directory, or specify a session path")
-	}
-
-	sessions, err := GetSessionsForProject(registry, project.ID, nil)
-	if err != nil {
-		return "", err
-	}
-	if len(sessions) == 0 {
-		return "", fmt.Errorf("no sessions found in project %s", project.Name)
-	}
-
-	// Sort by ModifiedAt descending
-	sort.Slice(sessions, func(i, j int) bool {
-		return sessions[i].ModifiedAt.After(sessions[j].ModifiedAt)
-	})
-
-	// If session ID/suffix specified, match it
-	if len(args) > 0 {
-		for _, s := range sessions {
-			if s.ID == args[0] ||
-				strings.HasSuffix(s.FullPath, args[0]) ||
-				strings.HasSuffix(s.FullPath, args[0]+".jsonl") {
-				return s.FullPath, nil
-			}
-		}
-		return "", fmt.Errorf("session not found: %s", args[0])
-	}
-
-	// Default: most recent session
-	return sessions[0].FullPath, nil
 }
 
 func buildExportTitle(meta thinkt.SessionMeta) string {
@@ -244,25 +222,25 @@ func runExportTemplate(cmd *cobra.Command, args []string) error {
 
 	registry := CreateSourceRegistry()
 
-	sessionPath, err := resolveExportSession(registry, args)
+	// Build target flags
+	flags := target.Flags{
+		Project: exportProject,
+		Sources: exportSources,
+	}
+	if len(args) > 0 {
+		flags.Session = args[0]
+	} else if exportSession != "" {
+		flags.Session = exportSession
+	}
+
+	result, err := target.ResolveSession(registry, flags)
 	if err != nil {
 		return err
 	}
 
-	ls, err := tui.OpenLazySessionWithRegistry(sessionPath, registry)
-	if err != nil {
-		return fmt.Errorf("open session: %w", err)
-	}
-	defer ls.Close()
-
-	if err := ls.LoadAll(); err != nil {
-		return fmt.Errorf("load session: %w", err)
-	}
-
 	// Extract user prompts from entries
-	entries := ls.Entries()
 	var prompts []prompt.Prompt
-	for _, entry := range entries {
+	for _, entry := range result.Entries {
 		if entry.Role != thinkt.RoleUser {
 			continue
 		}
@@ -297,16 +275,16 @@ func runExportTemplate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Build formatter options
-	var opts []prompt.FormatterOption
+	var fmtOpts []prompt.FormatterOption
 	if exportTmplFile != "" && format == prompt.FormatMarkdown {
 		tmpl, err := prompt.LoadTemplateFile(exportTmplFile)
 		if err != nil {
 			return fmt.Errorf("load template: %w", err)
 		}
-		opts = append(opts, prompt.WithTemplate(tmpl))
+		fmtOpts = append(fmtOpts, prompt.WithTemplate(tmpl))
 	}
 
-	formatter := prompt.NewFormatter(w, format, opts...)
+	formatter := prompt.NewFormatter(w, format, fmtOpts...)
 	return formatter.Write(prompts)
 }
 

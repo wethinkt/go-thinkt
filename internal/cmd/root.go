@@ -401,11 +401,17 @@ func init() {
 	exportCmd.Flags().Bool("html", false, "shorthand for --format html")
 	exportCmd.Flags().Bool("json", false, "shorthand for --format json")
 	exportCmd.Flags().Bool("md", false, "shorthand for --format md (default)")
+	exportCmd.Flags().StringVarP(&exportProject, "project", "p", "", "project path or ID")
+	exportCmd.Flags().StringVarP(&exportSession, "session", "s", "", "session ID or path")
+	exportCmd.Flags().StringSliceVar(&exportSources, "source", nil, "filter by source")
 	// Template subcommand
 	exportTemplateCmd.Flags().StringVarP(&exportTmplFormat, "format", "f", "markdown", "output format (markdown|json|plain)")
 	exportTemplateCmd.Flags().StringVar(&exportTmplFile, "template", "", "custom Go template file")
 	exportTemplateCmd.Flags().StringVarP(&exportTmplOutput, "output", "o", "", "output file (default: stdout)")
 	exportTemplateCmd.Flags().Bool("json", false, "shorthand for --format json")
+	exportTemplateCmd.Flags().StringVarP(&exportProject, "project", "p", "", "project path or ID")
+	exportTemplateCmd.Flags().StringVarP(&exportSession, "session", "s", "", "session ID or path")
+	exportTemplateCmd.Flags().StringSliceVar(&exportSources, "source", nil, "filter by source")
 	exportCmd.AddCommand(exportTemplateCmd)
 	rootCmd.AddCommand(exportCmd)
 }
