@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"text/tabwriter"
@@ -15,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/share"
+	"github.com/wethinkt/go-thinkt/internal/target"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	shareTUI "github.com/wethinkt/go-thinkt/internal/tui"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
@@ -23,6 +23,12 @@ import (
 
 var (
 	sharePushPublic  bool
+	sharePushTitle   string
+	sharePushTags    string
+	sharePushProject string
+	sharePushSession string
+	sharePushSources []string
+
 	shareExploreTag  string
 	shareExploreSort string
 	shareDeleteForce bool
@@ -237,7 +243,8 @@ func (m providerPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m providerPickerModel) View() tea.View {
-	s := "\nLog in with:\n\n"
+	var b strings.Builder
+	b.WriteString("\nLog in with:\n\n")
 	for i, p := range m.providers {
 		cursor := "  "
 		label := p
@@ -251,10 +258,10 @@ func (m providerPickerModel) View() tea.View {
 			cursor = "> "
 			label = fmt.Sprintf("\033[1m%s\033[0m", label)
 		}
-		s += fmt.Sprintf("%s%s\n", cursor, label)
+		fmt.Fprintf(&b, "%s%s\n", cursor, label)
 	}
-	s += "\n↑/↓ to move, enter to select, esc to cancel\n"
-	return tea.NewView(s)
+	b.WriteString("\n↑/↓ to move, enter to select, esc to cancel\n")
+	return tea.NewView(b.String())
 }
 
 // --- logout ---
@@ -315,11 +322,11 @@ func runShareStatus(cmd *cobra.Command, args []string) error {
 // --- push ---
 
 var sharePushCmd = &cobra.Command{
-	Use:          "push <path>",
+	Use:          "push [session]",
 	Short:        "Upload a session to share.wethinkt.com",
-	Long:         "Upload a Thinkt reasoning session for private storage or public sharing.",
+	Long:         "Upload a session for private storage or public sharing.\n\nWithout arguments, opens a project and session picker.",
 	SilenceUsage: true,
-	Args:         cobra.ExactArgs(1),
+	Args:         cobra.MaximumNArgs(1),
 	RunE:         runSharePush,
 }
 
@@ -330,24 +337,102 @@ func runSharePush(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	data, err := os.ReadFile(args[0])
-	if err != nil {
-		return fmt.Errorf("read session: %w", err)
+	registry := CreateSourceRegistry()
+
+	// Build target flags
+	flags := target.Flags{
+		Project: sharePushProject,
+		Sources: sharePushSources,
+	}
+	if len(args) > 0 {
+		flags.Session = args[0]
+	} else if sharePushSession != "" {
+		flags.Session = sharePushSession
 	}
 
+	result, err := target.ResolveSession(registry, flags)
+	if err != nil {
+		return err
+	}
+
+	// Content filtering
+	filter := target.DefaultFilter()
+	filterFlagsSet := cmd.Flags().Changed("no-thinking") ||
+		cmd.Flags().Changed("no-tools") ||
+		cmd.Flags().Changed("no-media") ||
+		cmd.Flags().Changed("system")
+
+	if filterFlagsSet {
+		noThink, _ := cmd.Flags().GetBool("no-thinking")
+		noTools, _ := cmd.Flags().GetBool("no-tools")
+		noMedia, _ := cmd.Flags().GetBool("no-media")
+		system, _ := cmd.Flags().GetBool("system")
+		filter.IncludeThinking = !noThink
+		filter.IncludeToolUse = !noTools
+		filter.IncludeToolResults = !noTools
+		filter.IncludeMedia = !noMedia
+		filter.IncludeSystem = system
+	} else if target.IsTTY() {
+		filter, err = target.PickContentFilter(filter)
+		if err != nil {
+			return err
+		}
+	}
+
+	entries := target.FilterEntries(result.Entries, filter)
+
+	// Title — flag or TUI input
+	title := sharePushTitle
+	if title == "" {
+		title = buildExportTitle(result.Meta)
+		if target.IsTTY() && !cmd.Flags().Changed("title") {
+			title, err = pickTitle(title)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// Visibility — flag or TUI picker
 	visibility := "private"
 	if sharePushPublic {
 		visibility = "public"
+	} else if !cmd.Flags().Changed("public") && target.IsTTY() {
+		visibility, err = pickVisibility()
+		if err != nil {
+			return err
+		}
 	}
 
-	title := filepath.Base(args[0])
+	// Tags — flag or TUI input
+	var tags []string
+	if cmd.Flags().Changed("tags") {
+		for _, t := range strings.Split(sharePushTags, ",") {
+			t = strings.TrimSpace(t)
+			if t != "" {
+				tags = append(tags, t)
+			}
+		}
+	} else if target.IsTTY() {
+		tags, err = pickTags()
+		if err != nil {
+			return err
+		}
+	}
+
+	// Serialize filtered entries
+	data, err := json.Marshal(entries)
+	if err != nil {
+		return fmt.Errorf("marshal entries: %w", err)
+	}
+
 	client := share.NewUploadClient(creds)
 	fmt.Printf("%s %s (%s)\n",
 		out.render(out.muted, "Uploading to share.wethinkt.com"),
 		out.render(out.label, "..."),
 		out.render(out.accent, visibility))
 
-	resp, err := client.Upload(data, visibility, title)
+	resp, err := client.Upload(data, visibility, title, tags)
 	if err != nil {
 		return err
 	}
@@ -357,6 +442,211 @@ func runSharePush(cmd *cobra.Command, args []string) error {
 		fmt.Println(out.render(out.muted, "(private - only you can view)"))
 	}
 	return nil
+}
+
+// --- share push TUI components ---
+
+type titleInputModel struct {
+	value     string
+	cursor    int
+	cancelled bool
+}
+
+func newTitleInput(initial string) titleInputModel {
+	return titleInputModel{value: initial, cursor: len(initial)}
+}
+
+func (m titleInputModel) Init() tea.Cmd { return nil }
+
+func (m titleInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "esc":
+			m.cancelled = true
+			return m, tea.Quit
+		case "enter":
+			return m, tea.Quit
+		case "backspace":
+			if m.cursor > 0 {
+				m.value = m.value[:m.cursor-1] + m.value[m.cursor:]
+				m.cursor--
+			}
+		case "left":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case "right":
+			if m.cursor < len(m.value) {
+				m.cursor++
+			}
+		default:
+			if len(msg.String()) == 1 {
+				m.value = m.value[:m.cursor] + msg.String() + m.value[m.cursor:]
+				m.cursor++
+			}
+		}
+	}
+	return m, nil
+}
+
+func (m titleInputModel) View() tea.View {
+	display := m.value
+	if m.cursor < len(display) {
+		display = display[:m.cursor] + "\033[7m" + string(display[m.cursor]) + "\033[0m" + display[m.cursor+1:]
+	} else {
+		display = display + "\033[7m \033[0m"
+	}
+	return tea.NewView(fmt.Sprintf("\nTitle: %s\n\nenter to confirm, esc to cancel\n", display))
+}
+
+func pickTitle(initial string) (string, error) {
+	m := newTitleInput(initial)
+	p := tea.NewProgram(m)
+	final, err := p.Run()
+	if err != nil {
+		return "", err
+	}
+	result := final.(titleInputModel)
+	if result.cancelled {
+		return "", fmt.Errorf("cancelled")
+	}
+	return result.value, nil
+}
+
+// --- visibility picker ---
+
+type visPickerModel struct {
+	options   []string
+	cursor    int
+	cancelled bool
+}
+
+func (m visPickerModel) Init() tea.Cmd { return nil }
+
+func (m visPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q", "esc":
+			m.cancelled = true
+			return m, tea.Quit
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case "down", "j":
+			if m.cursor < len(m.options)-1 {
+				m.cursor++
+			}
+		case "enter":
+			return m, tea.Quit
+		}
+	}
+	return m, nil
+}
+
+func (m visPickerModel) View() tea.View {
+	var b strings.Builder
+	b.WriteString("\nVisibility:\n\n")
+	for i, opt := range m.options {
+		cursor := "  "
+		label := opt
+		if i == m.cursor {
+			cursor = "> "
+			label = fmt.Sprintf("\033[1m%s\033[0m", label)
+		}
+		fmt.Fprintf(&b, "%s%s\n", cursor, label)
+	}
+	b.WriteString("\n↑/↓ to move, enter to select, esc to cancel\n")
+	return tea.NewView(b.String())
+}
+
+func pickVisibility() (string, error) {
+	m := visPickerModel{options: []string{"private", "public"}}
+	p := tea.NewProgram(m)
+	final, err := p.Run()
+	if err != nil {
+		return "", err
+	}
+	result := final.(visPickerModel)
+	if result.cancelled {
+		return "", fmt.Errorf("cancelled")
+	}
+	return result.options[result.cursor], nil
+}
+
+// --- tag input ---
+
+type tagInputModel struct {
+	value     string
+	cursor    int
+	cancelled bool
+}
+
+func (m tagInputModel) Init() tea.Cmd { return nil }
+
+func (m tagInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "esc":
+			m.cancelled = true
+			return m, tea.Quit
+		case "enter":
+			return m, tea.Quit
+		case "backspace":
+			if m.cursor > 0 {
+				m.value = m.value[:m.cursor-1] + m.value[m.cursor:]
+				m.cursor--
+			}
+		case "left":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case "right":
+			if m.cursor < len(m.value) {
+				m.cursor++
+			}
+		default:
+			if len(msg.String()) == 1 {
+				m.value = m.value[:m.cursor] + msg.String() + m.value[m.cursor:]
+				m.cursor++
+			}
+		}
+	}
+	return m, nil
+}
+
+func (m tagInputModel) View() tea.View {
+	display := m.value
+	if m.cursor < len(display) {
+		display = display[:m.cursor] + "\033[7m" + string(display[m.cursor]) + "\033[0m" + display[m.cursor+1:]
+	} else {
+		display = display + "\033[7m \033[0m"
+	}
+	return tea.NewView(fmt.Sprintf("\nTags (comma-separated): %s\n\nenter to confirm, esc to cancel\n", display))
+}
+
+func pickTags() ([]string, error) {
+	m := tagInputModel{}
+	p := tea.NewProgram(m)
+	final, err := p.Run()
+	if err != nil {
+		return nil, err
+	}
+	result := final.(tagInputModel)
+	if result.cancelled {
+		return nil, fmt.Errorf("cancelled")
+	}
+	var tags []string
+	for _, t := range strings.Split(result.value, ",") {
+		t = strings.TrimSpace(t)
+		if t != "" {
+			tags = append(tags, t)
+		}
+	}
+	return tags, nil
 }
 
 // --- list ---

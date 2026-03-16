@@ -11,6 +11,7 @@ import (
 type UploadRequest struct {
 	Visibility  string          `json:"visibility"`
 	Title       string          `json:"title"`
+	Tags        []string        `json:"tags,omitempty"`
 	Trace       json.RawMessage `json:"trace"`
 	GitCommit   string          `json:"git_commit,omitempty"`
 	GitRepoURL  string          `json:"git_repo_url,omitempty"`
@@ -42,10 +43,11 @@ func NewUploadClient(creds *Credentials) *UploadClient {
 	}
 }
 
-func (c *UploadClient) Upload(traceData []byte, visibility, title string) (*UploadResponse, error) {
+func (c *UploadClient) Upload(traceData []byte, visibility, title string, tags []string) (*UploadResponse, error) {
 	reqBody := UploadRequest{
 		Visibility: visibility,
 		Title:      title,
+		Tags:       tags,
 		Trace:      json.RawMessage(traceData),
 	}
 

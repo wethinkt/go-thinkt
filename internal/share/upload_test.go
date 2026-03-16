@@ -47,7 +47,7 @@ func TestUploadSession(t *testing.T) {
 		HTTPClient: http.DefaultClient,
 	}
 
-	resp, err := client.Upload([]byte(`{"entries":[]}`), "public", "Test Trace")
+	resp, err := client.Upload([]byte(`{"entries":[]}`), "public", "Test Trace", nil)
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestUploadSession_ServerError(t *testing.T) {
 		HTTPClient: http.DefaultClient,
 	}
 
-	_, err := client.Upload([]byte(`{}`), "private", "Test")
+	_, err := client.Upload([]byte(`{}`), "private", "Test", nil)
 	if err == nil {
 		t.Error("expected error for 429 response")
 	}
