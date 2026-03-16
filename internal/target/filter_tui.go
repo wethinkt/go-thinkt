@@ -2,6 +2,7 @@ package target
 
 import (
 	"fmt"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -66,7 +67,8 @@ func (m filterPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m filterPickerModel) View() tea.View {
-	s := "\nInclude in output:\n\n"
+	var b strings.Builder
+	b.WriteString("\nInclude in output:\n\n")
 	for i, item := range m.items {
 		cursor := "  "
 		if i == m.cursor {
@@ -76,10 +78,10 @@ func (m filterPickerModel) View() tea.View {
 		if item.enabled {
 			check = "[x]"
 		}
-		s += fmt.Sprintf("%s%s %s\n", cursor, check, item.label)
+		fmt.Fprintf(&b, "%s%s %s\n", cursor, check, item.label)
 	}
-	s += "\n↑/↓ move, space toggle, enter confirm, esc cancel\n"
-	return tea.NewView(s)
+	b.WriteString("\n↑/↓ move, space toggle, enter confirm, esc cancel\n")
+	return tea.NewView(b.String())
 }
 
 // PickContentFilter shows an interactive checklist for selecting content types.

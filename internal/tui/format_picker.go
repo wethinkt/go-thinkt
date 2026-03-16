@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -52,7 +53,8 @@ func (m formatPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m formatPickerModel) View() tea.View {
-	s := "\nExport format:\n\n"
+	var b strings.Builder
+	b.WriteString("\nExport format:\n\n")
 	for i, opt := range m.options {
 		cursor := "  "
 		label := opt.label
@@ -60,10 +62,10 @@ func (m formatPickerModel) View() tea.View {
 			cursor = "> "
 			label = fmt.Sprintf("\033[1m%s\033[0m", label)
 		}
-		s += fmt.Sprintf("%s%s\n", cursor, label)
+		fmt.Fprintf(&b, "%s%s\n", cursor, label)
 	}
-	s += "\n↑/↓ to move, enter to select, esc to cancel\n"
-	return tea.NewView(s)
+	b.WriteString("\n↑/↓ to move, enter to select, esc to cancel\n")
+	return tea.NewView(b.String())
 }
 
 // PickFormat shows a picker for export format (md, html, json).
