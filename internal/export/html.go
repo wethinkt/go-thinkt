@@ -28,10 +28,6 @@ func renderHTML(w io.Writer, entries []thinkt.Entry, opts Options) error {
 	inlined := make(map[string]bool)
 
 	for _, entry := range entries {
-		if !shouldIncludeEntry(entry.Role, opts) {
-			continue
-		}
-
 		roleClass := "role-" + strings.ToLower(string(entry.Role))
 		roleLabel := html.EscapeString(roleTitle(entry.Role))
 
@@ -49,7 +45,7 @@ func renderHTML(w io.Writer, entries []thinkt.Entry, opts Options) error {
 		fmt.Fprintf(w, "  </div>\n")
 		fmt.Fprintf(w, "  <div class=\"content\">\n")
 
-		renderEntryHTML(w, &entry, toolResults, inlined, opts)
+		renderEntryHTML(w, &entry, toolResults, inlined)
 
 		fmt.Fprintf(w, "  </div>\n")
 		fmt.Fprintf(w, "</div>\n")
@@ -73,7 +69,7 @@ document.addEventListener('click', function(e) {
 	return nil
 }
 
-func renderEntryHTML(w io.Writer, entry *thinkt.Entry, toolResults map[string]*thinkt.ContentBlock, inlined map[string]bool, opts Options) {
+func renderEntryHTML(w io.Writer, entry *thinkt.Entry, toolResults map[string]*thinkt.ContentBlock, inlined map[string]bool) {
 	if len(entry.ContentBlocks) > 0 {
 		for _, block := range entry.ContentBlocks {
 			switch block.Type {
@@ -82,55 +78,49 @@ func renderEntryHTML(w io.Writer, entry *thinkt.Entry, toolResults map[string]*t
 					fmt.Fprintf(w, "    <div class=\"text\">%s</div>\n", html.EscapeString(block.Text))
 				}
 			case "thinking":
-				if opts.IncludeThinking {
-					fmt.Fprintf(w, "    <div class=\"thinking\">\n")
-					fmt.Fprintf(w, "      <div class=\"thinking-header\">\n")
-					fmt.Fprintf(w, "        <span class=\"thinking-toggle\">&#9658;</span>\n")
-					fmt.Fprintf(w, "        <span class=\"thinking-label\">Thinking</span>\n")
-					fmt.Fprintf(w, "      </div>\n")
-					fmt.Fprintf(w, "      <div class=\"thinking-content\">%s</div>\n", html.EscapeString(block.Thinking))
-					fmt.Fprintf(w, "    </div>\n")
-				}
+				fmt.Fprintf(w, "    <div class=\"thinking\">\n")
+				fmt.Fprintf(w, "      <div class=\"thinking-header\">\n")
+				fmt.Fprintf(w, "        <span class=\"thinking-toggle\">&#9658;</span>\n")
+				fmt.Fprintf(w, "        <span class=\"thinking-label\">Thinking</span>\n")
+				fmt.Fprintf(w, "      </div>\n")
+				fmt.Fprintf(w, "      <div class=\"thinking-content\">%s</div>\n", html.EscapeString(block.Thinking))
+				fmt.Fprintf(w, "    </div>\n")
 			case "tool_use":
-				if opts.IncludeToolUse {
-					summary := toolSummary(block.ToolName, block.ToolInput)
-					inputJSON, _ := json.MarshalIndent(block.ToolInput, "        ", "  ")
+				summary := toolSummary(block.ToolName, block.ToolInput)
+				inputJSON, _ := json.MarshalIndent(block.ToolInput, "        ", "  ")
 
-					fmt.Fprintf(w, "    <div class=\"tool\">\n")
-					fmt.Fprintf(w, "      <div class=\"tool-header\">\n")
-					fmt.Fprintf(w, "        <span class=\"tool-toggle\">&#9658;</span>\n")
-					fmt.Fprintf(w, "        <span class=\"tool-bullet\">&#9642;</span>\n")
-					fmt.Fprintf(w, "        <span class=\"tool-name\">%s</span>\n", html.EscapeString(block.ToolName))
-					if summary != "" {
-						fmt.Fprintf(w, "        <span class=\"tool-summary\">%s</span>\n", html.EscapeString(summary))
-					}
-					fmt.Fprintf(w, "      </div>\n")
-					fmt.Fprintf(w, "      <div class=\"tool-content\">%s</div>\n", html.EscapeString(string(inputJSON)))
-
-					// Inline paired result
-					if result, ok := toolResults[block.ToolUseID]; ok {
-						inlined[block.ToolUseID] = true
-						if opts.IncludeToolResults {
-							errClass := ""
-							label := "Result"
-							if result.IsError {
-								errClass = " tool-result--error"
-								label = "Error"
-							}
-							fmt.Fprintf(w, "      <div class=\"tool-result-inline%s\">\n", errClass)
-							fmt.Fprintf(w, "        <div class=\"tool-header\">\n")
-							fmt.Fprintf(w, "          <span class=\"tool-toggle\">&#9658;</span>\n")
-							fmt.Fprintf(w, "          <span class=\"tool-label\">%s</span>\n", label)
-							fmt.Fprintf(w, "        </div>\n")
-							fmt.Fprintf(w, "        <div class=\"tool-content\">%s</div>\n", html.EscapeString(result.ToolResult))
-							fmt.Fprintf(w, "      </div>\n")
-						}
-					}
-
-					fmt.Fprintf(w, "    </div>\n")
+				fmt.Fprintf(w, "    <div class=\"tool\">\n")
+				fmt.Fprintf(w, "      <div class=\"tool-header\">\n")
+				fmt.Fprintf(w, "        <span class=\"tool-toggle\">&#9658;</span>\n")
+				fmt.Fprintf(w, "        <span class=\"tool-bullet\">&#9642;</span>\n")
+				fmt.Fprintf(w, "        <span class=\"tool-name\">%s</span>\n", html.EscapeString(block.ToolName))
+				if summary != "" {
+					fmt.Fprintf(w, "        <span class=\"tool-summary\">%s</span>\n", html.EscapeString(summary))
 				}
+				fmt.Fprintf(w, "      </div>\n")
+				fmt.Fprintf(w, "      <div class=\"tool-content\">%s</div>\n", html.EscapeString(string(inputJSON)))
+
+				// Inline paired result
+				if result, ok := toolResults[block.ToolUseID]; ok {
+					inlined[block.ToolUseID] = true
+					errClass := ""
+					label := "Result"
+					if result.IsError {
+						errClass = " tool-result--error"
+						label = "Error"
+					}
+					fmt.Fprintf(w, "      <div class=\"tool-result-inline%s\">\n", errClass)
+					fmt.Fprintf(w, "        <div class=\"tool-header\">\n")
+					fmt.Fprintf(w, "          <span class=\"tool-toggle\">&#9658;</span>\n")
+					fmt.Fprintf(w, "          <span class=\"tool-label\">%s</span>\n", label)
+					fmt.Fprintf(w, "        </div>\n")
+					fmt.Fprintf(w, "        <div class=\"tool-content\">%s</div>\n", html.EscapeString(result.ToolResult))
+					fmt.Fprintf(w, "      </div>\n")
+				}
+
+				fmt.Fprintf(w, "    </div>\n")
 			case "tool_result":
-				if opts.IncludeToolResults && !inlined[block.ToolUseID] {
+				if !inlined[block.ToolUseID] {
 					errClass := ""
 					label := "Result"
 					if block.IsError {
@@ -146,23 +136,19 @@ func renderEntryHTML(w io.Writer, entry *thinkt.Entry, toolResults map[string]*t
 					fmt.Fprintf(w, "    </div>\n")
 				}
 			case "image":
-				if opts.IncludeMedia {
-					fmt.Fprintf(w, "    <div class=\"media media-image\">\n")
-					fmt.Fprintf(w, "      <div class=\"media-header\">\n")
-					fmt.Fprintf(w, "        <span class=\"media-label\">Image</span>\n")
-					fmt.Fprintf(w, "        <span class=\"media-type\">%s</span>\n", html.EscapeString(block.MediaType))
-					fmt.Fprintf(w, "      </div>\n")
-					fmt.Fprintf(w, "    </div>\n")
-				}
+				fmt.Fprintf(w, "    <div class=\"media media-image\">\n")
+				fmt.Fprintf(w, "      <div class=\"media-header\">\n")
+				fmt.Fprintf(w, "        <span class=\"media-label\">Image</span>\n")
+				fmt.Fprintf(w, "        <span class=\"media-type\">%s</span>\n", html.EscapeString(block.MediaType))
+				fmt.Fprintf(w, "      </div>\n")
+				fmt.Fprintf(w, "    </div>\n")
 			case "document":
-				if opts.IncludeMedia {
-					fmt.Fprintf(w, "    <div class=\"media media-document\">\n")
-					fmt.Fprintf(w, "      <div class=\"media-header\">\n")
-					fmt.Fprintf(w, "        <span class=\"media-label\">Document</span>\n")
-					fmt.Fprintf(w, "        <span class=\"media-type\">%s</span>\n", html.EscapeString(block.MediaType))
-					fmt.Fprintf(w, "      </div>\n")
-					fmt.Fprintf(w, "    </div>\n")
-				}
+				fmt.Fprintf(w, "    <div class=\"media media-document\">\n")
+				fmt.Fprintf(w, "      <div class=\"media-header\">\n")
+				fmt.Fprintf(w, "        <span class=\"media-label\">Document</span>\n")
+				fmt.Fprintf(w, "        <span class=\"media-type\">%s</span>\n", html.EscapeString(block.MediaType))
+				fmt.Fprintf(w, "      </div>\n")
+				fmt.Fprintf(w, "    </div>\n")
 			}
 		}
 		return

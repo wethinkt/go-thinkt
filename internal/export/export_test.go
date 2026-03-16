@@ -36,11 +36,7 @@ func testEntries() []thinkt.Entry {
 func TestExportMarkdown(t *testing.T) {
 	var buf bytes.Buffer
 	opts := Options{
-		Title:              "Test Session",
-		IncludeThinking:    true,
-		IncludeToolUse:     true,
-		IncludeToolResults: true,
-		IncludeMedia:       true,
+		Title: "Test Session",
 	}
 	if err := ExportMarkdown(&buf, testEntries(), opts); err != nil {
 		t.Fatal(err)
@@ -75,11 +71,7 @@ func TestExportMarkdown(t *testing.T) {
 func TestExportHTML(t *testing.T) {
 	var buf bytes.Buffer
 	opts := Options{
-		Title:              "Test Session",
-		IncludeThinking:    true,
-		IncludeToolUse:     true,
-		IncludeToolResults: true,
-		IncludeMedia:       true,
+		Title: "Test Session",
 	}
 	if err := ExportHTML(&buf, testEntries(), opts); err != nil {
 		t.Fatal(err)

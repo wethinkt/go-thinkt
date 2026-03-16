@@ -84,12 +84,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 	entries := ls.Entries()
 
 	opts := export.Options{
-		Title:              buildExportTitle(meta),
-		IncludeThinking:    !exportNoThink,
-		IncludeToolUse:     !exportNoTools,
-		IncludeToolResults: !exportNoTools,
-		IncludeMedia:       !exportNoMedia,
-		IncludeSystem:      exportSystem,
+		Title: buildExportTitle(meta),
 	}
 
 	if exportView {

@@ -17,11 +17,7 @@ func renderMarkdown(w io.Writer, entries []thinkt.Entry, opts Options) error {
 	inlined := make(map[string]bool)
 
 	for _, entry := range entries {
-		if !shouldIncludeEntry(entry.Role, opts) {
-			continue
-		}
-
-		content := renderEntryMarkdown(&entry, toolResults, inlined, opts)
+		content := renderEntryMarkdown(&entry, toolResults, inlined)
 		if content == "" {
 			continue
 		}
@@ -38,7 +34,7 @@ func renderMarkdown(w io.Writer, entries []thinkt.Entry, opts Options) error {
 	return nil
 }
 
-func renderEntryMarkdown(entry *thinkt.Entry, toolResults map[string]*thinkt.ContentBlock, inlined map[string]bool, opts Options) string {
+func renderEntryMarkdown(entry *thinkt.Entry, toolResults map[string]*thinkt.ContentBlock, inlined map[string]bool) string {
 	var b strings.Builder
 
 	if len(entry.ContentBlocks) > 0 {
@@ -50,37 +46,31 @@ func renderEntryMarkdown(entry *thinkt.Entry, toolResults map[string]*thinkt.Con
 					b.WriteString("\n\n")
 				}
 			case "thinking":
-				if opts.IncludeThinking {
-					b.WriteString("<details>\n<summary>Thinking</summary>\n\n```\n")
-					b.WriteString(block.Thinking)
-					b.WriteString("\n```\n\n</details>\n\n")
-				}
+				b.WriteString("<details>\n<summary>Thinking</summary>\n\n```\n")
+				b.WriteString(block.Thinking)
+				b.WriteString("\n```\n\n</details>\n\n")
 			case "tool_use":
-				if opts.IncludeToolUse {
-					summary := toolSummary(block.ToolName, block.ToolInput)
-					summaryText := ""
-					if summary != "" {
-						summaryText = " (" + summary + ")"
-					}
-					input, _ := json.MarshalIndent(block.ToolInput, "", "  ")
-					fmt.Fprintf(&b, "<details>\n<summary>Tool: %s%s</summary>\n\n```json\n%s\n```\n\n</details>\n\n",
-						block.ToolName, summaryText, input)
+				summary := toolSummary(block.ToolName, block.ToolInput)
+				summaryText := ""
+				if summary != "" {
+					summaryText = " (" + summary + ")"
+				}
+				input, _ := json.MarshalIndent(block.ToolInput, "", "  ")
+				fmt.Fprintf(&b, "<details>\n<summary>Tool: %s%s</summary>\n\n```json\n%s\n```\n\n</details>\n\n",
+					block.ToolName, summaryText, input)
 
-					// Inline paired result
-					if result, ok := toolResults[block.ToolUseID]; ok {
-						inlined[block.ToolUseID] = true
-						if opts.IncludeToolResults {
-							label := "Result"
-							if result.IsError {
-								label = "Error"
-							}
-							fmt.Fprintf(&b, "<details>\n<summary>%s</summary>\n\n```\n%s\n```\n\n</details>\n\n",
-								label, result.ToolResult)
-						}
+				// Inline paired result
+				if result, ok := toolResults[block.ToolUseID]; ok {
+					inlined[block.ToolUseID] = true
+					label := "Result"
+					if result.IsError {
+						label = "Error"
 					}
+					fmt.Fprintf(&b, "<details>\n<summary>%s</summary>\n\n```\n%s\n```\n\n</details>\n\n",
+						label, result.ToolResult)
 				}
 			case "tool_result":
-				if opts.IncludeToolResults && !inlined[block.ToolUseID] {
+				if !inlined[block.ToolUseID] {
 					label := "Result"
 					if block.IsError {
 						label = "Error"
@@ -89,13 +79,9 @@ func renderEntryMarkdown(entry *thinkt.Entry, toolResults map[string]*thinkt.Con
 						label, block.ToolResult)
 				}
 			case "image":
-				if opts.IncludeMedia {
-					fmt.Fprintf(&b, "> Image: %s\n\n", block.MediaType)
-				}
+				fmt.Fprintf(&b, "> Image: %s\n\n", block.MediaType)
 			case "document":
-				if opts.IncludeMedia {
-					fmt.Fprintf(&b, "> Document: %s\n\n", block.MediaType)
-				}
+				fmt.Fprintf(&b, "> Document: %s\n\n", block.MediaType)
 			}
 		}
 	}
@@ -120,19 +106,6 @@ func buildToolResultIndex(entries []thinkt.Entry) map[string]*thinkt.ContentBloc
 		}
 	}
 	return idx
-}
-
-func shouldIncludeEntry(role thinkt.Role, opts Options) bool {
-	switch role {
-	case thinkt.RoleUser:
-		return true
-	case thinkt.RoleAssistant:
-		return true
-	case thinkt.RoleSystem:
-		return opts.IncludeSystem
-	default:
-		return false
-	}
 }
 
 func roleTitle(role thinkt.Role) string {

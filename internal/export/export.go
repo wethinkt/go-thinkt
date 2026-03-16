@@ -7,14 +7,9 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
-// Options controls what gets included in the export.
+// Options controls export rendering.
 type Options struct {
-	Title              string
-	IncludeThinking    bool
-	IncludeToolUse     bool
-	IncludeToolResults bool
-	IncludeMedia       bool
-	IncludeSystem      bool
+	Title string
 }
 
 // ExportMarkdown writes entries as Markdown to w.
@@ -29,20 +24,7 @@ func ExportHTML(w io.Writer, entries []thinkt.Entry, opts Options) error {
 
 // ExportJSON writes entries as a JSON array to w.
 func ExportJSON(w io.Writer, entries []thinkt.Entry, opts Options) error {
-	filtered := filterEntries(entries, opts)
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
-	return enc.Encode(filtered)
-}
-
-// filterEntries applies Options filters to entries.
-func filterEntries(entries []thinkt.Entry, opts Options) []thinkt.Entry {
-	var out []thinkt.Entry
-	for _, entry := range entries {
-		if !shouldIncludeEntry(entry.Role, opts) {
-			continue
-		}
-		out = append(out, entry)
-	}
-	return out
+	return enc.Encode(entries)
 }
