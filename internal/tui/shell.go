@@ -650,6 +650,14 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if info.Dir != "" {
 					c.Dir = info.Dir
 				}
+				// Use the original stdin/stdout/stderr instead of Bubble Tea's
+				// separately-opened /dev/tty file. On macOS, kqueue doesn't
+				// work properly with /dev/tty, which can prevent child
+				// processes (like Claude Code's Node.js runtime) from
+				// receiving keyboard input.
+				c.Stdin = os.Stdin
+				c.Stdout = os.Stdout
+				c.Stderr = os.Stderr
 				return s, tea.ExecProcess(c, func(err error) tea.Msg {
 					if err != nil {
 						tuilog.Log.Error("Shell.Update: resume process exited with error", "error", err)
