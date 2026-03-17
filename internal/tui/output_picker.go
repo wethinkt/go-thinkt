@@ -21,10 +21,17 @@ type OutputChoice struct {
 
 // --- output destination picker ---
 
-type outputPickerModel struct {
-	options   []string
-	cursor    int
-	cancelled bool
+// OutputPickerResult is emitted by OutputPickerModel in embedded mode.
+type OutputPickerResult struct {
+	Cursor    int
+	Cancelled bool
+}
+
+type OutputPickerModel struct {
+	options    []string
+	cursor     int
+	cancelled  bool
+	standalone bool
 
 	titleStyle    lipgloss.Style
 	cursorStyle   lipgloss.Style
@@ -33,9 +40,9 @@ type outputPickerModel struct {
 	helpStyle     lipgloss.Style
 }
 
-func newOutputPicker() outputPickerModel {
+func NewOutputPicker() OutputPickerModel {
 	t := theme.Current()
-	return outputPickerModel{
+	return OutputPickerModel{
 		options: []string{"Enter filename", "Browse...", "stdout"},
 		titleStyle:    lipgloss.NewStyle().Bold(true).MarginBottom(1),
 		cursorStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
@@ -45,15 +52,18 @@ func newOutputPicker() outputPickerModel {
 	}
 }
 
-func (m outputPickerModel) Init() tea.Cmd { return nil }
+func (m OutputPickerModel) Init() tea.Cmd { return nil }
 
-func (m outputPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m OutputPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q", "esc":
 			m.cancelled = true
-			return m, tea.Quit
+			if m.standalone {
+				return m, tea.Quit
+			}
+			return m, func() tea.Msg { return OutputPickerResult{Cancelled: true} }
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
@@ -63,13 +73,17 @@ func (m outputPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 		case "enter":
-			return m, tea.Quit
+			if m.standalone {
+				return m, tea.Quit
+			}
+			cursor := m.cursor
+			return m, func() tea.Msg { return OutputPickerResult{Cursor: cursor} }
 		}
 	}
 	return m, nil
 }
 
-func (m outputPickerModel) View() tea.View {
+func (m OutputPickerModel) ViewContent() string {
 	var b strings.Builder
 
 	b.WriteString(m.titleStyle.Render("Output destination:"))
@@ -89,25 +103,35 @@ func (m outputPickerModel) View() tea.View {
 	b.WriteString(m.helpStyle.Render("↑/↓ to move • enter to select • esc to cancel"))
 	b.WriteString("\n")
 
-	inner := lipgloss.NewStyle().Padding(1, 2).Render(b.String())
-	return tea.NewView(inner)
+	return lipgloss.NewStyle().Padding(1, 2).Render(b.String())
+}
+
+func (m OutputPickerModel) View() tea.View {
+	return tea.NewView(m.ViewContent())
 }
 
 // --- filename input ---
 
-type filenameInputModel struct {
-	value     string
-	cursor    int
-	cancelled bool
+// FilenameInputResult is emitted by FilenameInputModel in embedded mode.
+type FilenameInputResult struct {
+	Value     string
+	Cancelled bool
+}
+
+type FilenameInputModel struct {
+	value      string
+	cursor     int
+	cancelled  bool
+	standalone bool
 
 	promptStyle lipgloss.Style
 	inputStyle  lipgloss.Style
 	helpStyle   lipgloss.Style
 }
 
-func newFilenameInput(suggestion string) filenameInputModel {
+func NewFilenameInput(suggestion string) FilenameInputModel {
 	t := theme.Current()
-	return filenameInputModel{
+	return FilenameInputModel{
 		value:       suggestion,
 		cursor:      len(suggestion),
 		promptStyle: lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg)).Bold(true),
@@ -116,17 +140,24 @@ func newFilenameInput(suggestion string) filenameInputModel {
 	}
 }
 
-func (m filenameInputModel) Init() tea.Cmd { return nil }
+func (m FilenameInputModel) Init() tea.Cmd { return nil }
 
-func (m filenameInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m FilenameInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			m.cancelled = true
-			return m, tea.Quit
+			if m.standalone {
+				return m, tea.Quit
+			}
+			return m, func() tea.Msg { return FilenameInputResult{Cancelled: true} }
 		case "enter":
-			return m, tea.Quit
+			if m.standalone {
+				return m, tea.Quit
+			}
+			value := m.value
+			return m, func() tea.Msg { return FilenameInputResult{Value: value} }
 		case "backspace":
 			if m.cursor > 0 {
 				m.value = m.value[:m.cursor-1] + m.value[m.cursor:]
@@ -150,7 +181,7 @@ func (m filenameInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m filenameInputModel) View() tea.View {
+func (m FilenameInputModel) ViewContent() string {
 	display := m.inputStyle.Render(m.value[:m.cursor])
 	if m.cursor < len(m.value) {
 		display += lipgloss.NewStyle().Reverse(true).Render(string(m.value[m.cursor]))
@@ -166,44 +197,54 @@ func (m filenameInputModel) View() tea.View {
 	b.WriteString(m.helpStyle.Render("enter to confirm • esc to cancel"))
 	b.WriteString("\n")
 
-	inner := lipgloss.NewStyle().Padding(1, 2).Render(b.String())
-	return tea.NewView(inner)
+	return lipgloss.NewStyle().Padding(1, 2).Render(b.String())
+}
+
+func (m FilenameInputModel) View() tea.View {
+	return tea.NewView(m.ViewContent())
 }
 
 // --- file browser ---
 
-type fileBrowserModel struct {
-	dir       string
-	entries   []os.DirEntry
-	cursor    int
-	cancelled bool
-	selected  string
-
-	titleStyle    lipgloss.Style
-	cursorStyle   lipgloss.Style
-	dirStyle      lipgloss.Style
-	fileStyle     lipgloss.Style
-	mutedStyle    lipgloss.Style
-	helpStyle     lipgloss.Style
+// FileBrowserResult is emitted by FileBrowserModel in embedded mode.
+type FileBrowserResult struct {
+	Dir       string
+	Cancelled bool
 }
 
-func newFileBrowser() fileBrowserModel {
+type FileBrowserModel struct {
+	dir        string
+	entries    []os.DirEntry
+	cursor     int
+	cancelled  bool
+	selected   string
+	standalone bool
+
+	titleStyle  lipgloss.Style
+	cursorStyle lipgloss.Style
+	dirStyle    lipgloss.Style
+	fileStyle   lipgloss.Style
+	mutedStyle  lipgloss.Style
+	helpStyle   lipgloss.Style
+}
+
+func NewFileBrowser() FileBrowserModel {
 	t := theme.Current()
 	dir, _ := os.Getwd()
-	m := fileBrowserModel{
-		dir:           dir,
-		titleStyle:    lipgloss.NewStyle().Bold(true).MarginBottom(1),
-		cursorStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
-		dirStyle:      lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
-		fileStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)),
-		mutedStyle:    lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg)),
-		helpStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg)).MarginTop(1),
+	m := FileBrowserModel{
+		dir:         dir,
+		titleStyle:  lipgloss.NewStyle().Bold(true).MarginBottom(1),
+		cursorStyle: lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
+		dirStyle:    lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
+		fileStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)),
+		mutedStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg)),
+		helpStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg)).MarginTop(1),
 	}
 	m.loadDir()
 	return m
 }
 
-func (m *fileBrowserModel) loadDir() {
+func (m *FileBrowserModel) loadDir() {
 	entries, _ := os.ReadDir(m.dir)
 	// Filter to only directories and writable locations
 	m.entries = nil
@@ -215,15 +256,18 @@ func (m *fileBrowserModel) loadDir() {
 	m.cursor = 0
 }
 
-func (m fileBrowserModel) Init() tea.Cmd { return nil }
+func (m FileBrowserModel) Init() tea.Cmd { return nil }
 
-func (m fileBrowserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m FileBrowserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q", "esc":
 			m.cancelled = true
-			return m, tea.Quit
+			if m.standalone {
+				return m, tea.Quit
+			}
+			return m, func() tea.Msg { return FileBrowserResult{Cancelled: true} }
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
@@ -248,13 +292,17 @@ func (m fileBrowserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "s":
 			// Select current directory
 			m.selected = m.dir
-			return m, tea.Quit
+			if m.standalone {
+				return m, tea.Quit
+			}
+			dir := m.dir
+			return m, func() tea.Msg { return FileBrowserResult{Dir: dir} }
 		}
 	}
 	return m, nil
 }
 
-func (m fileBrowserModel) View() tea.View {
+func (m FileBrowserModel) ViewContent() string {
 	var b strings.Builder
 
 	b.WriteString(m.titleStyle.Render("Select directory:"))
@@ -286,8 +334,11 @@ func (m fileBrowserModel) View() tea.View {
 	b.WriteString(m.helpStyle.Render("↑/↓ move • enter open dir • s select here • esc cancel"))
 	b.WriteString("\n")
 
-	inner := lipgloss.NewStyle().Padding(1, 2).Render(b.String())
-	return tea.NewView(inner)
+	return lipgloss.NewStyle().Padding(1, 2).Render(b.String())
+}
+
+func (m FileBrowserModel) View() tea.View {
+	return tea.NewView(m.ViewContent())
 }
 
 // PickOutput shows a three-option picker for output destination, then handles
@@ -295,39 +346,42 @@ func (m fileBrowserModel) View() tea.View {
 // The formatExt should include the dot, e.g. ".md", ".html", ".json".
 func PickOutput(suggestedName string) (*OutputChoice, error) {
 	// Step 1: Pick destination type
-	m := newOutputPicker()
+	m := NewOutputPicker()
+	m.standalone = true
 	p := tea.NewProgram(m)
 	final, err := p.Run()
 	if err != nil {
 		return nil, err
 	}
-	result := final.(outputPickerModel)
+	result := final.(OutputPickerModel)
 	if result.cancelled {
 		return nil, fmt.Errorf("cancelled")
 	}
 
 	switch result.cursor {
 	case 0: // Enter filename
-		fm := newFilenameInput(suggestedName)
+		fm := NewFilenameInput(suggestedName)
+		fm.standalone = true
 		fp := tea.NewProgram(fm)
 		fFinal, err := fp.Run()
 		if err != nil {
 			return nil, err
 		}
-		fResult := fFinal.(filenameInputModel)
+		fResult := fFinal.(FilenameInputModel)
 		if fResult.cancelled {
 			return nil, fmt.Errorf("cancelled")
 		}
 		return &OutputChoice{Mode: "file", Path: fResult.value}, nil
 
 	case 1: // Browse...
-		bm := newFileBrowser()
+		bm := NewFileBrowser()
+		bm.standalone = true
 		bp := tea.NewProgram(bm)
 		bFinal, err := bp.Run()
 		if err != nil {
 			return nil, err
 		}
-		bResult := bFinal.(fileBrowserModel)
+		bResult := bFinal.(FileBrowserModel)
 		if bResult.cancelled {
 			return nil, fmt.Errorf("cancelled")
 		}
@@ -336,13 +390,14 @@ func PickOutput(suggestedName string) (*OutputChoice, error) {
 		}
 		// After selecting a directory, prompt for filename
 		suggestion := filepath.Join(bResult.selected, suggestedName)
-		fm := newFilenameInput(suggestion)
+		fm := NewFilenameInput(suggestion)
+		fm.standalone = true
 		fp := tea.NewProgram(fm)
 		fFinal, err := fp.Run()
 		if err != nil {
 			return nil, err
 		}
-		fResult := fFinal.(filenameInputModel)
+		fResult := fFinal.(FilenameInputModel)
 		if fResult.cancelled {
 			return nil, fmt.Errorf("cancelled")
 		}

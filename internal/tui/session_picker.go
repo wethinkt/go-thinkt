@@ -118,6 +118,7 @@ type sessionDelegate struct {
 	cursorStyle    lipgloss.Style
 	sepStyle       lipgloss.Style
 	activeSessions map[string]bool // sessionPath -> true
+	hideResume     bool
 }
 
 func newSessionDelegate() sessionDelegate {
@@ -138,11 +139,16 @@ func (d sessionDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 
 // ShortHelp returns key bindings for the help bar.
 func (d sessionDelegate) ShortHelp() []key.Binding {
-	return []key.Binding{
-		key.NewBinding(key.WithKeys("r"), key.WithHelp("r", thinktI18n.T("tui.help.resume", "resume"))),
+	bindings := []key.Binding{
 		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", thinktI18n.T("tui.help.sources", "sources"))),
 		key.NewBinding(key.WithKeys("/"), key.WithHelp("/", thinktI18n.T("tui.help.search", "search"))),
 	}
+	if !d.hideResume {
+		bindings = append([]key.Binding{
+			key.NewBinding(key.WithKeys("r"), key.WithHelp("r", thinktI18n.T("tui.help.resume", "resume"))),
+		}, bindings...)
+	}
+	return bindings
 }
 
 // FullHelp returns key bindings for the full help view.
@@ -262,6 +268,8 @@ type SessionPickerModel struct {
 	sourcePicker     SourcePickerModel
 	resumableSources map[thinkt.Source]bool // sources that support session resume
 	activeSessions   map[string]bool        // sessionPath -> true for active sessions
+	headerContext    string                 // e.g. "export" — shown in header bar
+	disableResume    bool                   // true to hide the resume (r) key
 }
 
 type pickerKeyMap struct {
@@ -353,9 +361,35 @@ func (m *SessionPickerModel) SetActiveSessions(paths []string) {
 	m.list.SetDelegate(d)
 }
 
+func (m SessionPickerModel) listHeight(termHeight int) int {
+	h := termHeight - 2
+	if m.headerContext != "" {
+		h -= HeaderBarHeight + 1 // header + newline
+	}
+	return h
+}
+
 // SetTitle overrides the list title.
 func (m *SessionPickerModel) SetTitle(title string) {
 	m.list.Title = title
+}
+
+// SetHeaderContext sets the command context shown in the header bar (e.g. "export").
+// When set, the list title is hidden since the session count moves to the header.
+func (m *SessionPickerModel) SetHeaderContext(ctx string) {
+	m.headerContext = ctx
+	if ctx != "" {
+		m.list.SetShowTitle(false)
+	}
+}
+
+// SetDisableResume hides the resume (r) key action.
+func (m *SessionPickerModel) SetDisableResume(v bool) {
+	m.disableResume = v
+	d := newSessionDelegate()
+	d.activeSessions = m.activeSessions
+	d.hideResume = v
+	m.list.SetDelegate(d)
 }
 
 func sessionPickerTitle(count int, sourceFilter []thinkt.Source) string {
@@ -443,7 +477,7 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.WindowSizeMsg:
 			m.width = msg.Width
 			m.height = msg.Height
-			m.list.SetSize(msg.Width, msg.Height-2)
+			m.list.SetSize(msg.Width, m.listHeight(msg.Height))
 			updated, cmd := m.sourcePicker.Update(msg)
 			m.sourcePicker = updated.(SourcePickerModel)
 			return m, cmd
@@ -458,7 +492,7 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		tuilog.Log.Info("SessionPicker.Update: WindowSizeMsg", "width", msg.Width, "height", msg.Height)
 		m.width = msg.Width
 		m.height = msg.Height
-		m.list.SetSize(msg.Width, msg.Height-2)
+		m.list.SetSize(msg.Width, m.listHeight(msg.Height))
 		m.ready = true
 		return m, nil
 
@@ -545,7 +579,7 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Signal the shell to open search
 			return m, func() tea.Msg { return OpenSearchMsg{} }
 
-		case key.Matches(msg, keys.Resume):
+		case key.Matches(msg, keys.Resume) && !m.disableResume:
 			tuilog.Log.Info("SessionPicker.Update: Resume key pressed")
 			if item := m.list.SelectedItem(); item != nil {
 				if si, ok := item.(pickerSessionItem); ok {
@@ -593,7 +627,7 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 var pickerStyle = lipgloss.NewStyle().Padding(1, 2)
 
-func (m SessionPickerModel) viewContent() string {
+func (m SessionPickerModel) ViewContent() string {
 	if !m.ready {
 		return thinktI18n.T("tui.sessionPicker.loading", "Loading sessions...")
 	}
@@ -603,11 +637,16 @@ func (m SessionPickerModel) viewContent() string {
 	if m.showSources {
 		return m.sourcePicker.viewContent()
 	}
-	return pickerStyle.Render(m.list.View())
+	content := pickerStyle.Render(m.list.View())
+	if m.headerContext != "" && m.width > 0 {
+		detail := fmt.Sprintf("(%d sessions)", len(m.sessions))
+		return RenderHeaderBar(m.headerContext, detail, m.width) + "\n" + content
+	}
+	return content
 }
 
 func (m SessionPickerModel) View() tea.View {
-	v := tea.NewView(m.viewContent())
+	v := tea.NewView(m.ViewContent())
 	v.AltScreen = true
 	return v
 }
@@ -617,23 +656,44 @@ func (m SessionPickerModel) Result() SessionPickerResult {
 	return m.result
 }
 
-// PickSession runs the session picker and returns the selected session.
-func PickSession(sessions []thinkt.SessionMeta) (*thinkt.SessionMeta, error) {
-	return PickSessionWithTitle(sessions, "")
+// SessionPickerOpts configures the standalone session picker.
+type SessionPickerOpts struct {
+	Title         string // overrides the list title
+	HeaderContext string // e.g. "export" — shown in branded header bar
+	DisableResume bool   // hide the resume (r) key
 }
 
-// PickSessionWithTitle runs the session picker with a custom title and returns the selected session.
-func PickSessionWithTitle(sessions []thinkt.SessionMeta, title string) (*thinkt.SessionMeta, error) {
+// PickSession runs the session picker and returns the selected session.
+func PickSession(sessions []thinkt.SessionMeta) (*thinkt.SessionMeta, error) {
+	return PickSessionWith(sessions, SessionPickerOpts{})
+}
+
+// PickSessionWithTitle runs the session picker with a custom title.
+func PickSessionWithTitle(sessions []thinkt.SessionMeta, title, headerContext string) (*thinkt.SessionMeta, error) {
+	return PickSessionWith(sessions, SessionPickerOpts{
+		Title:         title,
+		HeaderContext: headerContext,
+	})
+}
+
+// PickSessionWith runs the session picker with the given options.
+func PickSessionWith(sessions []thinkt.SessionMeta, opts SessionPickerOpts) (*thinkt.SessionMeta, error) {
 	if len(sessions) == 0 {
 		return nil, fmt.Errorf("no sessions available")
 	}
 
 	model := NewSessionPickerModel(sessions, nil)
-	model.standalone = true // Mark as standalone so it returns tea.Quit
-	if title != "" {
-		model.SetTitle(title)
+	model.standalone = true
+	if opts.Title != "" {
+		model.SetTitle(opts.Title)
 	}
-	p := tea.NewProgram(model, termSizeOpts()...)
+	if opts.HeaderContext != "" {
+		model.SetHeaderContext(opts.HeaderContext)
+	}
+	if opts.DisableResume {
+		model.SetDisableResume(true)
+	}
+	p := tea.NewProgram(model, TermSizeOpts()...)
 	finalModel, err := p.Run()
 	if err != nil {
 		return nil, err

@@ -351,8 +351,9 @@ type ProjectPickerModel struct {
 	sourceFilter []thinkt.Source // empty = all sources
 	showSources  bool            // true when source picker overlay is active
 	sourcePicker SourcePickerModel
-	showApps     bool // true when app picker overlay is active
-	appPicker    AppPickerModel
+	showApps      bool // true when app picker overlay is active
+	appPicker     AppPickerModel
+	headerContext string // e.g. "export" — shown in header bar
 }
 
 type projectPickerKeyMap struct {
@@ -444,6 +445,19 @@ func pickerTitle(field sortField, dir sortDir, count int, sourceFilter []thinkt.
 		title += " · " + strings.Join(names, ",")
 	}
 	return title
+}
+
+// SetHeaderContext sets the command context shown in the header bar (e.g. "export").
+func (m *ProjectPickerModel) SetHeaderContext(ctx string) {
+	m.headerContext = ctx
+}
+
+func (m ProjectPickerModel) listHeight(termHeight int) int {
+	h := termHeight - 2
+	if m.headerContext != "" {
+		h -= HeaderBarHeight + 1
+	}
+	return h
 }
 
 // NewProjectPickerModel creates a new project picker with a tree view.
@@ -626,7 +640,7 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.WindowSizeMsg:
 			m.width = msg.Width
 			m.height = msg.Height
-			m.list.SetSize(msg.Width, msg.Height-2)
+			m.list.SetSize(msg.Width, m.listHeight(msg.Height))
 			updated, cmd := m.sourcePicker.Update(msg)
 			m.sourcePicker = updated.(SourcePickerModel)
 			return m, cmd
@@ -670,7 +684,7 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.WindowSizeMsg:
 			m.width = msg.Width
 			m.height = msg.Height
-			m.list.SetSize(msg.Width, msg.Height-2)
+			m.list.SetSize(msg.Width, m.listHeight(msg.Height))
 			updated, cmd := m.appPicker.Update(msg)
 			m.appPicker = updated.(AppPickerModel)
 			return m, cmd
@@ -684,7 +698,7 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.list.SetSize(msg.Width, msg.Height-2)
+		m.list.SetSize(msg.Width, m.listHeight(msg.Height))
 		m.ready = true
 		return m, nil
 
@@ -899,7 +913,7 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 var projectPickerStyle = lipgloss.NewStyle().Padding(1, 2)
 
-func (m ProjectPickerModel) viewContent() string {
+func (m ProjectPickerModel) ViewContent() string {
 	if !m.ready {
 		return thinktI18n.T("tui.projectPicker.loading", "Loading projects...")
 	}
@@ -912,11 +926,15 @@ func (m ProjectPickerModel) viewContent() string {
 	if m.showApps {
 		return m.appPicker.viewContent()
 	}
-	return projectPickerStyle.Render(m.list.View())
+	content := projectPickerStyle.Render(m.list.View())
+	if m.headerContext != "" && m.width > 0 {
+		return RenderHeaderBar(m.headerContext, "", m.width) + "\n" + content
+	}
+	return content
 }
 
 func (m ProjectPickerModel) View() tea.View {
-	v := tea.NewView(m.viewContent())
+	v := tea.NewView(m.ViewContent())
 	v.AltScreen = true
 	return v
 }
@@ -927,14 +945,18 @@ func (m ProjectPickerModel) Result() ProjectPickerResult {
 }
 
 // PickProject runs the project picker and returns the selected project.
-func PickProject(projects []thinkt.Project) (*thinkt.Project, error) {
+// headerContext (e.g. "export") is shown in a branded header bar if non-empty.
+func PickProject(projects []thinkt.Project, headerContext string) (*thinkt.Project, error) {
 	if len(projects) == 0 {
 		return nil, fmt.Errorf("no projects available")
 	}
 
 	model := NewProjectPickerModel(projects)
 	model.standalone = true
-	p := tea.NewProgram(model, termSizeOpts()...)
+	if headerContext != "" {
+		model.SetHeaderContext(headerContext)
+	}
+	p := tea.NewProgram(model, TermSizeOpts()...)
 	finalModel, err := p.Run()
 	if err != nil {
 		return nil, err

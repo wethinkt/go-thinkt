@@ -306,7 +306,7 @@ func PickSemanticResult(results []search.SemanticResult, query string) (*search.
 
 	model := NewSemanticPickerModel(results, query)
 	model.standalone = true
-	p := tea.NewProgram(model, termSizeOpts()...)
+	p := tea.NewProgram(model, TermSizeOpts()...)
 	finalModel, err := p.Run()
 	if err != nil {
 		return nil, err

@@ -443,7 +443,7 @@ func PickSearchResult(results []search.SessionResult, query string) (*search.Ses
 
 	model := NewSearchPickerModel(results, query)
 	model.standalone = true // Mark as standalone so it returns tea.Quit
-	p := tea.NewProgram(model, termSizeOpts()...)
+	p := tea.NewProgram(model, TermSizeOpts()...)
 	finalModel, err := p.Run()
 	if err != nil {
 		return nil, err

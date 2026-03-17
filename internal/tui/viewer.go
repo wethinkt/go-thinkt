@@ -9,7 +9,8 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
-func termSizeOpts() []tea.ProgramOption {
+// TermSizeOpts returns tea.ProgramOption values that set the initial window size.
+func TermSizeOpts() []tea.ProgramOption {
 	var opts []tea.ProgramOption
 	for _, fd := range []int{int(os.Stdout.Fd()), int(os.Stdin.Fd()), int(os.Stderr.Fd())} {
 		if term.IsTerminal(fd) {
@@ -38,7 +39,7 @@ func RunViewer(sessionPath string) (ViewerResult, error) {
 func RunViewerWithRegistry(sessionPath string, registry *thinkt.StoreRegistry) (ViewerResult, error) {
 	model := NewMultiViewerModelWithRegistry([]string{sessionPath}, registry)
 	model.standalone = true
-	p := tea.NewProgram(model, termSizeOpts()...)
+	p := tea.NewProgram(model, TermSizeOpts()...)
 	finalModel, err := p.Run()
 	if err != nil {
 		return ViewerResult{}, err
@@ -55,7 +56,7 @@ func RunMultiViewer(sessionPaths []string) (ViewerResult, error) {
 func RunMultiViewerWithRegistry(sessionPaths []string, registry *thinkt.StoreRegistry) (ViewerResult, error) {
 	model := NewMultiViewerModelWithRegistry(sessionPaths, registry)
 	model.standalone = true
-	p := tea.NewProgram(model, termSizeOpts()...)
+	p := tea.NewProgram(model, TermSizeOpts()...)
 	finalModel, err := p.Run()
 	if err != nil {
 		return ViewerResult{}, err
@@ -73,7 +74,7 @@ func RunSessionBrowser(sessions []thinkt.SessionMeta) error {
 // projectName is shown in the header breadcrumb; pass "" to auto-detect from session metadata.
 func RunSessionBrowserWithRegistry(sessions []thinkt.SessionMeta, registry *thinkt.StoreRegistry, projectName string) error {
 	shell := NewShellWithSessionsAndRegistry(sessions, registry, projectName)
-	p := tea.NewProgram(shell, termSizeOpts()...)
+	p := tea.NewProgram(shell, TermSizeOpts()...)
 	_, err := p.Run()
 	return err
 }

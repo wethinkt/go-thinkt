@@ -9,15 +9,23 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
-type formatOption struct {
+// FormatPickerResult is emitted by FormatPickerModel in embedded mode
+// when the user confirms or cancels the selection.
+type FormatPickerResult struct {
+	Format    string
+	Cancelled bool
+}
+
+type FormatOption struct {
 	value string
 	label string
 }
 
-type formatPickerModel struct {
-	options   []formatOption
-	cursor    int
-	cancelled bool
+type FormatPickerModel struct {
+	options    []FormatOption
+	cursor     int
+	cancelled  bool
+	standalone bool
 
 	titleStyle    lipgloss.Style
 	cursorStyle   lipgloss.Style
@@ -26,10 +34,10 @@ type formatPickerModel struct {
 	helpStyle     lipgloss.Style
 }
 
-func newFormatPicker() formatPickerModel {
+func NewFormatPicker() FormatPickerModel {
 	t := theme.Current()
-	return formatPickerModel{
-		options: []formatOption{
+	return FormatPickerModel{
+		options: []FormatOption{
 			{value: "md", label: "Markdown"},
 			{value: "html", label: "HTML"},
 			{value: "json", label: "JSON"},
@@ -42,15 +50,20 @@ func newFormatPicker() formatPickerModel {
 	}
 }
 
-func (m formatPickerModel) Init() tea.Cmd { return nil }
+func (m FormatPickerModel) Init() tea.Cmd { return nil }
 
-func (m formatPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m FormatPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q", "esc":
 			m.cancelled = true
-			return m, tea.Quit
+			if m.standalone {
+				return m, tea.Quit
+			}
+			return m, func() tea.Msg {
+				return FormatPickerResult{Cancelled: true}
+			}
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
@@ -60,13 +73,18 @@ func (m formatPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 		case "enter":
-			return m, tea.Quit
+			if m.standalone {
+				return m, tea.Quit
+			}
+			return m, func() tea.Msg {
+				return FormatPickerResult{Format: m.options[m.cursor].value}
+			}
 		}
 	}
 	return m, nil
 }
 
-func (m formatPickerModel) View() tea.View {
+func (m FormatPickerModel) ViewContent() string {
 	var b strings.Builder
 
 	b.WriteString(m.titleStyle.Render("Export format:"))
@@ -86,19 +104,24 @@ func (m formatPickerModel) View() tea.View {
 	b.WriteString(m.helpStyle.Render("↑/↓ to move • enter to select • esc to cancel"))
 	b.WriteString("\n")
 
-	inner := lipgloss.NewStyle().Padding(1, 2).Render(b.String())
+	return b.String()
+}
+
+func (m FormatPickerModel) View() tea.View {
+	inner := lipgloss.NewStyle().Padding(1, 2).Render(m.ViewContent())
 	return tea.NewView(inner)
 }
 
 // PickFormat shows a picker for export format (md, html, json).
 func PickFormat() (string, error) {
-	m := newFormatPicker()
+	m := NewFormatPicker()
+	m.standalone = true
 	p := tea.NewProgram(m)
 	final, err := p.Run()
 	if err != nil {
 		return "", err
 	}
-	result := final.(formatPickerModel)
+	result := final.(FormatPickerModel)
 	if result.cancelled {
 		return "", fmt.Errorf("cancelled")
 	}

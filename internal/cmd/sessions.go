@@ -249,7 +249,7 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 		}
 
 		// Show project picker
-		selected, err := tui.PickProject(projects)
+		selected, err := tui.PickProject(projects, "")
 		if err != nil {
 			return err
 		}
@@ -317,7 +317,7 @@ func runSessionsSummary(cmd *cobra.Command, args []string) error {
 		}
 
 		// Show project picker
-		selected, err := tui.PickProject(projects)
+		selected, err := tui.PickProject(projects, "")
 		if err != nil {
 			return err
 		}
@@ -455,7 +455,7 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 		}
 
 		// Show project picker
-		selected, err := tui.PickProject(projects)
+		selected, err := tui.PickProject(projects, "")
 		if err != nil {
 			return err
 		}
@@ -571,7 +571,7 @@ func runSessionsResume(cmd *cobra.Command, args []string) error {
 		if !term.IsTerminal(int(os.Stdin.Fd())) {
 			return fmt.Errorf("--project/-p is required when no TTY available")
 		}
-		selected, err := tui.PickProject(projects)
+		selected, err := tui.PickProject(projects, "")
 		if err != nil {
 			return err
 		}
@@ -615,7 +615,7 @@ func runSessionsResume(cmd *cobra.Command, args []string) error {
 	if projectDisplayName != "" {
 		title = projectDisplayName + " · " + title
 	}
-	selected, err := tui.PickSessionWithTitle(sessions, title)
+	selected, err := tui.PickSessionWithTitle(sessions, title, "")
 	if err != nil {
 		return err
 	}

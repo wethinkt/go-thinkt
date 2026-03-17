@@ -341,8 +341,9 @@ func runSharePush(cmd *cobra.Command, args []string) error {
 
 	// Build target flags
 	flags := target.Flags{
-		Project: sharePushProject,
-		Sources: sharePushSources,
+		Project:       sharePushProject,
+		Sources:       sharePushSources,
+		HeaderContext: "share",
 	}
 	if len(args) > 0 {
 		flags.Session = args[0]

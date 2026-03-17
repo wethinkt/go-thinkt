@@ -16,9 +16,10 @@ import (
 
 // Flags holds the CLI flags for session targeting.
 type Flags struct {
-	Project string
-	Session string
-	Sources []string
+	Project       string
+	Session       string
+	Sources       []string
+	HeaderContext string // e.g. "export" — shown in picker header bar
 }
 
 // Result holds the resolved session and its loaded content.
@@ -44,7 +45,7 @@ func ResolveSession(registry *thinkt.StoreRegistry, flags Flags) (*Result, error
 	}
 
 	// Try to resolve project
-	projectID, projectName, err := resolveProject(registry, flags, ctx)
+	projectID, projectName, err := resolveProject(registry, flags, ctx, flags.HeaderContext)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +86,15 @@ func ResolveSession(registry *thinkt.StoreRegistry, flags Flags) (*Result, error
 		return nil, fmt.Errorf("--project and --session are required when no TTY is available")
 	}
 
-	selected, err := tui.PickSessionWithTitle(sessions, projectName)
+	// Build breadcrumb for the session picker header: "export > projectName"
+	sessionHeader := flags.HeaderContext
+	if sessionHeader != "" && projectName != "" {
+		sessionHeader += " > " + projectName
+	}
+	selected, err := tui.PickSessionWith(sessions, tui.SessionPickerOpts{
+		HeaderContext: sessionHeader,
+		DisableResume: flags.HeaderContext != "",
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +104,7 @@ func ResolveSession(registry *thinkt.StoreRegistry, flags Flags) (*Result, error
 	return loadSession(selected.FullPath, projectName, registry)
 }
 
-func resolveProject(registry *thinkt.StoreRegistry, flags Flags, ctx context.Context) (string, string, error) {
+func resolveProject(registry *thinkt.StoreRegistry, flags Flags, ctx context.Context, headerContext string) (string, string, error) {
 	if flags.Project != "" {
 		projects, _ := getProjectsFromSources(registry, flags.Sources)
 		for _, p := range projects {
@@ -125,7 +134,7 @@ func resolveProject(registry *thinkt.StoreRegistry, flags Flags, ctx context.Con
 		return "", "", fmt.Errorf("no projects found")
 	}
 
-	selected, err := tui.PickProject(projects)
+	selected, err := tui.PickProject(projects, headerContext)
 	if err != nil {
 		return "", "", err
 	}
@@ -152,6 +161,79 @@ func loadSession(path, projectName string, registry *thinkt.StoreRegistry) (*Res
 		Meta:        ls.Metadata(),
 		Entries:     ls.Entries(),
 	}, nil
+}
+
+// ProjectResolution holds the result of non-interactive project resolution.
+type ProjectResolution struct {
+	// Resolved is true if a project was found without needing a picker.
+	Resolved    bool
+	ProjectID   string
+	ProjectName string
+	// Projects is non-nil when Resolved is false — the picker should show these.
+	Projects []thinkt.Project
+}
+
+// ResolveProjectNonInteractive attempts to resolve a project without any TUI.
+// If it can't (no CWD match, no --project flag), it returns the list of projects
+// for the caller to present in a picker.
+func ResolveProjectNonInteractive(registry *thinkt.StoreRegistry, flags Flags) (*ProjectResolution, error) {
+	ctx := context.Background()
+
+	if flags.Project != "" {
+		projects, _ := getProjectsFromSources(registry, flags.Sources)
+		for _, p := range projects {
+			if p.ID == flags.Project || p.Path == flags.Project {
+				return &ProjectResolution{Resolved: true, ProjectID: p.ID, ProjectName: p.Name}, nil
+			}
+		}
+		return &ProjectResolution{Resolved: true, ProjectID: flags.Project, ProjectName: flags.Project}, nil
+	}
+
+	cwd, err := os.Getwd()
+	if err == nil {
+		if project := registry.FindProjectForPath(ctx, cwd); project != nil {
+			return &ProjectResolution{Resolved: true, ProjectID: project.ID, ProjectName: project.Name}, nil
+		}
+	}
+
+	projects, err := getProjectsFromSources(registry, flags.Sources)
+	if err != nil {
+		return nil, err
+	}
+	if len(projects) == 0 {
+		return nil, fmt.Errorf("no projects found")
+	}
+	return &ProjectResolution{Projects: projects}, nil
+}
+
+// GetSessionsForProject returns sessions for a project, sorted by most recent first.
+func GetSessionsForProject(registry *thinkt.StoreRegistry, projectID string, sources []string) ([]thinkt.SessionMeta, error) {
+	sessions, err := getSessionsForProject(registry, projectID, sources)
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].ModifiedAt.After(sessions[j].ModifiedAt)
+	})
+	return sessions, nil
+}
+
+// LoadSession loads a session's entries and metadata from a file path.
+func LoadSession(path, projectName string, registry *thinkt.StoreRegistry) (*Result, error) {
+	return loadSession(path, projectName, registry)
+}
+
+// ResolveSessionByID tries to match a session ID/suffix against the given sessions.
+// Returns nil if no match found.
+func ResolveSessionByID(sessions []thinkt.SessionMeta, sessionFlag string) *thinkt.SessionMeta {
+	for i, s := range sessions {
+		if s.ID == sessionFlag ||
+			strings.HasSuffix(s.FullPath, sessionFlag) ||
+			strings.HasSuffix(s.FullPath, sessionFlag+".jsonl") {
+			return &sessions[i]
+		}
+	}
+	return nil
 }
 
 // getProjectsFromSources returns projects from the selected sources.

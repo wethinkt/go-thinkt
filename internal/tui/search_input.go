@@ -134,7 +134,7 @@ func (m SearchInputModel) Result() SearchInputResult {
 func PickSearchQuery() (string, error) {
 	model := NewSearchInputModel()
 	model.standalone = true
-	p := tea.NewProgram(model, termSizeOpts()...)
+	p := tea.NewProgram(model, TermSizeOpts()...)
 	finalModel, err := p.Run()
 	if err != nil {
 		return "", err

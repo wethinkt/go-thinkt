@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/wethinkt/go-thinkt/internal/export"
@@ -68,10 +69,10 @@ func runExport(cmd *cobra.Command, args []string) error {
 
 	registry := CreateSourceRegistry()
 
-	// Build target flags from CLI flags and positional args
 	flags := target.Flags{
-		Project: exportProject,
-		Sources: exportSources,
+		Project:       exportProject,
+		Sources:       exportSources,
+		HeaderContext: "export",
 	}
 	if len(args) > 0 {
 		flags.Session = args[0]
@@ -79,74 +80,179 @@ func runExport(cmd *cobra.Command, args []string) error {
 		flags.Session = exportSession
 	}
 
-	result, err := target.ResolveSession(registry, flags)
-	if err != nil {
-		return err
+	// Non-TTY: use the original sequential flow
+	if !target.IsTTY() {
+		return runExportNonInteractive(cmd, registry, flags)
 	}
 
-	// Content filtering
-	filter := target.DefaultFilter()
+	// TTY: run the unified export wizard
+	return runExportWizard(cmd, registry, flags)
+}
+
+func runExportWizard(cmd *cobra.Command, registry *thinkt.StoreRegistry, flags target.Flags) error {
+	config := exportWizardConfig{
+		ViewMode: exportView,
+	}
+
+	// Pre-resolve filter from flags
 	filterFlagsSet := cmd.Flags().Changed("no-thinking") ||
 		cmd.Flags().Changed("no-tools") ||
 		cmd.Flags().Changed("no-media") ||
 		cmd.Flags().Changed("system")
-
 	if filterFlagsSet {
-		filter.IncludeThinking = !exportNoThink
-		filter.IncludeToolUse = !exportNoTools
-		filter.IncludeToolResults = !exportNoTools
-		filter.IncludeMedia = !exportNoMedia
-		filter.IncludeSystem = exportSystem
-	} else if target.IsTTY() {
-		filter, err = target.PickContentFilter(filter)
-		if err != nil {
-			return err
+		f := target.ContentFilter{
+			IncludeThinking:    !exportNoThink,
+			IncludeToolUse:     !exportNoTools,
+			IncludeToolResults: !exportNoTools,
+			IncludeMedia:       !exportNoMedia,
+			IncludeSystem:      exportSystem,
 		}
+		config.Filter = &f
 	}
 
-	entries := target.FilterEntries(result.Entries, filter)
+	// Pre-resolve format from flags
+	if cmd.Flags().Changed("format") || cmd.Flags().Changed("html") ||
+		cmd.Flags().Changed("json") || cmd.Flags().Changed("md") {
+		config.Format = exportFormat
+	}
 
-	// Format picker
-	if !cmd.Flags().Changed("format") &&
-		!cmd.Flags().Changed("html") &&
-		!cmd.Flags().Changed("json") &&
-		!cmd.Flags().Changed("md") {
-		if target.IsTTY() {
-			exportFormat, err = tui.PickFormat()
+	// Pre-resolve project/session if possible
+	res, err := target.ResolveProjectNonInteractive(registry, flags)
+	if err != nil {
+		return err
+	}
+
+	if res.Resolved {
+		config.ProjectID = res.ProjectID
+		config.ProjectName = res.ProjectName
+
+		// Try to resolve session too
+		if flags.Session != "" && filepath.IsAbs(flags.Session) {
+			result, err := target.LoadSession(flags.Session, res.ProjectName, registry)
 			if err != nil {
 				return err
+			}
+			config.Session = &result.Meta
+		} else {
+			sessions, err := target.GetSessionsForProject(registry, res.ProjectID, flags.Sources)
+			if err != nil {
+				return err
+			}
+			if flags.Session != "" {
+				if s := target.ResolveSessionByID(sessions, flags.Session); s != nil {
+					config.Session = s
+				} else {
+					return fmt.Errorf("session not found: %s", flags.Session)
+				}
+			} else {
+				config.Sessions = sessions
 			}
 		}
 	}
 
+	wizard := newExportWizard(registry, flags, config)
+	p := tea.NewProgram(wizard, tui.TermSizeOpts()...)
+	finalModel, err := p.Run()
+	if err != nil {
+		return err
+	}
+
+	wiz := finalModel.(exportWizardModel)
+	if wiz.err != nil {
+		return wiz.err
+	}
+	if wiz.result.Cancelled {
+		return fmt.Errorf("cancelled")
+	}
+
+	// Load the session entries
+	result, err := target.LoadSession(wiz.result.Session.FullPath, wiz.result.ProjectName, registry)
+	if err != nil {
+		return err
+	}
+
+	entries := target.FilterEntries(result.Entries, wiz.result.Filter)
 	opts := export.Options{
 		Title: buildExportTitle(result.Meta),
 	}
 
 	if exportView {
-		switch exportFormat {
+		switch wiz.result.Format {
 		case "html":
-			return exportViewHTML(entries, opts)
+			if err := exportViewHTML(entries, opts); err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "exported %s to browser\n", formatDisplayName(wiz.result.Format))
+			return nil
 		case "json":
 			return fmt.Errorf("--view is not supported with JSON format")
 		default:
-			return exportWithGlow(entries, opts)
+			if err := exportWithGlow(entries, opts); err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "exported %s to terminal\n", formatDisplayName(wiz.result.Format))
+			return nil
 		}
 	}
 
-	// Output destination picker
-	if !cmd.Flags().Changed("output") && target.IsTTY() {
-		ext := "." + exportFormat
-		suggested := sanitizeFilename(opts.Title) + ext
-		choice, err := tui.PickOutput(suggested)
-		if err != nil {
-			return err
-		}
-		if choice.Mode == "file" {
-			exportOutput = choice.Path
-		}
-		// stdout: exportOutput stays ""
+	// Write output
+	outputPath := ""
+	if wiz.result.Output != nil && wiz.result.Output.Mode == "file" {
+		outputPath = wiz.result.Output.Path
 	}
+	if cmd.Flags().Changed("output") {
+		outputPath = exportOutput
+	}
+
+	w := os.Stdout
+	if outputPath != "" && outputPath != "-" {
+		f, err := os.Create(outputPath)
+		if err != nil {
+			return fmt.Errorf("create output: %w", err)
+		}
+		defer f.Close()
+		w = f
+	}
+
+	var exportErr error
+	switch wiz.result.Format {
+	case "html":
+		exportErr = export.ExportHTML(w, entries, opts)
+	case "json":
+		exportErr = export.ExportJSON(w, entries, opts)
+	default:
+		exportErr = export.ExportMarkdown(w, entries, opts)
+	}
+	if exportErr != nil {
+		return exportErr
+	}
+
+	dest := "stdout"
+	if outputPath != "" && outputPath != "-" {
+		dest = outputPath
+	}
+	fmt.Fprintf(os.Stderr, "exported %s to %s\n", formatDisplayName(wiz.result.Format), dest)
+	return nil
+}
+
+func runExportNonInteractive(cmd *cobra.Command, registry *thinkt.StoreRegistry, flags target.Flags) error {
+	result, err := target.ResolveSession(registry, flags)
+	if err != nil {
+		return err
+	}
+
+	filter := target.DefaultFilter()
+	if cmd.Flags().Changed("no-thinking") || cmd.Flags().Changed("no-tools") ||
+		cmd.Flags().Changed("no-media") || cmd.Flags().Changed("system") {
+		filter.IncludeThinking = !exportNoThink
+		filter.IncludeToolUse = !exportNoTools
+		filter.IncludeToolResults = !exportNoTools
+		filter.IncludeMedia = !exportNoMedia
+		filter.IncludeSystem = exportSystem
+	}
+
+	entries := target.FilterEntries(result.Entries, filter)
+	opts := export.Options{Title: buildExportTitle(result.Meta)}
 
 	w := os.Stdout
 	if exportOutput != "" && exportOutput != "-" {
@@ -166,6 +272,37 @@ func runExport(cmd *cobra.Command, args []string) error {
 	default:
 		return export.ExportMarkdown(w, entries, opts)
 	}
+}
+
+func formatDisplayName(format string) string {
+	switch format {
+	case "html":
+		return "HTML"
+	case "json":
+		return "JSON"
+	default:
+		return "Markdown"
+	}
+}
+
+func filterSummary(f target.ContentFilter) string {
+	var included []string
+	if f.IncludeThinking {
+		included = append(included, "thinking")
+	}
+	if f.IncludeToolUse {
+		included = append(included, "tools")
+	}
+	if f.IncludeMedia {
+		included = append(included, "media")
+	}
+	if f.IncludeSystem {
+		included = append(included, "system")
+	}
+	if len(included) == 0 {
+		return "text only"
+	}
+	return strings.Join(included, ", ")
 }
 
 func buildExportTitle(meta thinkt.SessionMeta) string {
@@ -252,8 +389,9 @@ func runExportTemplate(cmd *cobra.Command, args []string) error {
 
 	// Build target flags
 	flags := target.Flags{
-		Project: exportProject,
-		Sources: exportSources,
+		Project:       exportProject,
+		Sources:       exportSources,
+		HeaderContext: "export",
 	}
 	if len(args) > 0 {
 		flags.Session = args[0]
