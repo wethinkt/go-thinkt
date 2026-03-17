@@ -150,8 +150,9 @@ func runExportWizard(cmd *cobra.Command, registry *thinkt.StoreRegistry, flags t
 		}
 	}
 
-	wizard := newExportWizard(registry, flags, config)
-	p := tea.NewProgram(wizard, tui.TermSizeOpts()...)
+	termW, termH := tui.TermSize()
+	wizard := newExportWizard(registry, flags, config, termW, termH)
+	p := tea.NewProgram(wizard, tea.WithWindowSize(termW, termH))
 	finalModel, err := p.Run()
 	if err != nil {
 		return err
@@ -317,19 +318,6 @@ func buildExportTitle(meta thinkt.SessionMeta) string {
 		return filepath.Base(meta.ProjectPath) + " session"
 	}
 	return "Session Export"
-}
-
-func sanitizeFilename(s string) string {
-	// Replace characters unsafe for filenames
-	replacer := strings.NewReplacer(
-		"/", "-", "\\", "-", ":", "-", "*", "", "?", "",
-		"\"", "", "<", "", ">", "", "|", "", "\n", " ",
-	)
-	name := replacer.Replace(s)
-	if len(name) > 60 {
-		name = name[:60]
-	}
-	return strings.TrimSpace(name)
 }
 
 func exportViewHTML(entries []thinkt.Entry, opts export.Options) error {

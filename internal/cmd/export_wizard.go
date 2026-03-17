@@ -82,7 +82,6 @@ type exportWizardModel struct {
 
 	width  int
 	height int
-	ready  bool
 
 	labelStyle lipgloss.Style
 	valueStyle lipgloss.Style
@@ -99,12 +98,14 @@ type sessionLoadedMsg struct {
 	err      error
 }
 
-func newExportWizard(registry *thinkt.StoreRegistry, flags target.Flags, config exportWizardConfig) exportWizardModel {
+func newExportWizard(registry *thinkt.StoreRegistry, flags target.Flags, config exportWizardConfig, width, height int) exportWizardModel {
 	t := theme.Current()
 	m := exportWizardModel{
 		config:   config,
 		registry: registry,
 		flags:    flags,
+		width:    width,
+		height:   height,
 		labelStyle: lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg)),
 		valueStyle: lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg)).Bold(true),
 	}
@@ -189,7 +190,6 @@ func (m exportWizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.ready = true
 		// Forward adjusted size to current sub-model
 		subMsg := tea.WindowSizeMsg{Width: m.width, Height: m.availableHeight()}
 		return m.updateCurrentStep(subMsg)
@@ -367,10 +367,8 @@ func (m exportWizardModel) updateCurrentStep(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m exportWizardModel) View() tea.View {
-	if !m.ready {
-		v := tea.NewView("Loading...")
-		v.AltScreen = true
-		return v
+	if m.width == 0 {
+		return tea.NewView("")
 	}
 
 	var sections []string
@@ -394,9 +392,7 @@ func (m exportWizardModel) View() tea.View {
 	// Current step content
 	sections = append(sections, m.renderCurrentStep())
 
-	v := tea.NewView(strings.Join(sections, "\n"))
-	v.AltScreen = true
-	return v
+	return tea.NewView(strings.Join(sections, "\n"))
 }
 
 func (m exportWizardModel) buildBreadcrumb() string {
@@ -485,15 +481,21 @@ func (m *exportWizardModel) advanceFromFilter() tea.Cmd {
 }
 
 func (m exportWizardModel) suggestedFilename() string {
-	title := "export"
-	if m.result.Session != nil {
-		title = buildExportTitle(thinkt.SessionMeta{
-			FirstPrompt: m.result.Session.FirstPrompt,
-			ProjectPath: m.result.Session.ProjectPath,
-		})
-	}
 	ext := "." + m.result.Format
-	return sanitizeFilename(title) + ext
+	if m.result.Session == nil {
+		return "thinkt-export" + ext
+	}
+	s := m.result.Session
+	project := filepath.Base(s.ProjectPath)
+	if project == "" || project == "." {
+		project = "session"
+	}
+	date := s.CreatedAt.Format("2006-01-02")
+	shortID := s.ID
+	if len(shortID) > 8 {
+		shortID = shortID[:8]
+	}
+	return fmt.Sprintf("%s-%s-%s%s", project, date, shortID, ext)
 }
 
 func sessionLabel(meta *thinkt.SessionMeta) string {

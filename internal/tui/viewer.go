@@ -9,19 +9,24 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
-// TermSizeOpts returns tea.ProgramOption values that set the initial window size.
-func TermSizeOpts() []tea.ProgramOption {
-	var opts []tea.ProgramOption
+// TermSize returns the current terminal width and height.
+// Falls back to 80x24 if detection fails.
+func TermSize() (int, int) {
 	for _, fd := range []int{int(os.Stdout.Fd()), int(os.Stdin.Fd()), int(os.Stderr.Fd())} {
 		if term.IsTerminal(fd) {
 			w, h, err := term.GetSize(fd)
 			if err == nil && w > 0 && h > 0 {
-				opts = append(opts, tea.WithWindowSize(w, h))
-				break
+				return w, h
 			}
 		}
 	}
-	return opts
+	return 80, 24
+}
+
+// TermSizeOpts returns tea.ProgramOption values that set the initial window size.
+func TermSizeOpts() []tea.ProgramOption {
+	w, h := TermSize()
+	return []tea.ProgramOption{tea.WithWindowSize(w, h)}
 }
 
 // ViewerResult holds the outcome of a standalone viewer run.
