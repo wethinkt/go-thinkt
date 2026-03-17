@@ -48,25 +48,17 @@ The --view flag previews the export: pipes Markdown through glow, or opens
 HTML in the default browser.
 
 Examples:
-  thinkt export                          # Latest session as Markdown to stdout
-  thinkt export --html -o session.html   # Export as HTML to file
-  thinkt export --json                   # Export as JSON
-  thinkt export --view                   # Preview Markdown in terminal via glow
-  thinkt export --html --view            # Export HTML and open in browser
-  thinkt export abc123                   # Export specific session`,
+  thinkt export                            # Latest session as Markdown to stdout
+  thinkt export -f html -o session.html    # Export as HTML to file
+  thinkt export -f json                    # Export as JSON
+  thinkt export --view                     # Preview Markdown in terminal via glow
+  thinkt export -f html --view             # Export HTML and open in browser
+  thinkt export abc123                     # Export specific session`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runExport,
 }
 
 func runExport(cmd *cobra.Command, args []string) error {
-	// Handle format shorthands
-	if html, _ := cmd.Flags().GetBool("html"); html {
-		exportFormat = "html"
-	}
-	if j, _ := cmd.Flags().GetBool("json"); j {
-		exportFormat = "json"
-	}
-
 	registry := CreateSourceRegistry()
 
 	flags := target.Flags{
@@ -111,8 +103,7 @@ func runExportWizard(cmd *cobra.Command, registry *thinkt.StoreRegistry, flags t
 	}
 
 	// Pre-resolve format from flags
-	if cmd.Flags().Changed("format") || cmd.Flags().Changed("html") ||
-		cmd.Flags().Changed("json") || cmd.Flags().Changed("md") {
+	if cmd.Flags().Changed("format") {
 		config.Format = exportFormat
 	}
 
@@ -355,19 +346,14 @@ or --format plain for raw text.
 
 Examples:
   thinkt export template                        # Prompts as Markdown
-  thinkt export template --json                 # Prompts as JSON
-  thinkt export template --format plain         # Raw prompt text
+  thinkt export template -f json                # Prompts as JSON
+  thinkt export template -f plain               # Raw prompt text
   thinkt export template --template my.tmpl     # Custom template`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runExportTemplate,
 }
 
 func runExportTemplate(cmd *cobra.Command, args []string) error {
-	// Handle --json shorthand
-	if j, _ := cmd.Flags().GetBool("json"); j {
-		exportTmplFormat = "json"
-	}
-
 	format, err := prompt.ParseFormat(exportTmplFormat)
 	if err != nil {
 		return err
