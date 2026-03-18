@@ -163,6 +163,7 @@ func (m *exportWizardModel) initSessionPicker(sessions []thinkt.SessionMeta) {
 	m.config.Sessions = sessions
 	m.sessionPicker = tui.NewSessionPickerModel(sessions, nil)
 	m.sessionPicker.SetDisableResume(true)
+	m.sessionPicker.SetShowTitle(false)
 }
 
 func (m *exportWizardModel) initOutputPicker() {
@@ -392,7 +393,9 @@ func (m exportWizardModel) View() tea.View {
 	// Current step content
 	sections = append(sections, m.renderCurrentStep())
 
-	return tea.NewView(strings.Join(sections, "\n"))
+	v := tea.NewView(strings.Join(sections, "\n"))
+	v.AltScreen = true
+	return v
 }
 
 func (m exportWizardModel) buildBreadcrumb() string {

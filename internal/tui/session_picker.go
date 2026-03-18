@@ -374,6 +374,11 @@ func (m *SessionPickerModel) SetTitle(title string) {
 	m.list.Title = title
 }
 
+// SetShowTitle controls whether the list title is shown.
+func (m *SessionPickerModel) SetShowTitle(show bool) {
+	m.list.SetShowTitle(show)
+}
+
 // SetHeaderContext sets the command context shown in the header bar (e.g. "export").
 // When set, the list title is hidden since the session count moves to the header.
 func (m *SessionPickerModel) SetHeaderContext(ctx string) {
@@ -625,7 +630,10 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-var pickerStyle = lipgloss.NewStyle().Padding(1, 2)
+var (
+	pickerStyle       = lipgloss.NewStyle().Padding(1, 2)
+	pickerStyleNoTop  = lipgloss.NewStyle().Padding(0, 2)
+)
 
 func (m SessionPickerModel) ViewContent() string {
 	if !m.ready {
@@ -637,7 +645,11 @@ func (m SessionPickerModel) ViewContent() string {
 	if m.showSources {
 		return m.sourcePicker.viewContent()
 	}
-	content := pickerStyle.Render(m.list.View())
+	style := pickerStyle
+	if !m.list.ShowTitle() {
+		style = pickerStyleNoTop
+	}
+	content := style.Render(m.list.View())
 	if m.headerContext != "" && m.width > 0 {
 		detail := fmt.Sprintf("(%d sessions)", len(m.sessions))
 		return RenderHeaderBar(m.headerContext, detail, m.width) + "\n" + content

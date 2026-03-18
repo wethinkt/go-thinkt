@@ -54,8 +54,9 @@ Examples:
   thinkt export --view                     # Preview Markdown in terminal via glow
   thinkt export -f html --view             # Export HTML and open in browser
   thinkt export abc123                     # Export specific session`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runExport,
+	Args:         cobra.MaximumNArgs(1),
+	SilenceUsage: true,
+	RunE:         runExport,
 }
 
 func runExport(cmd *cobra.Command, args []string) error {
@@ -153,8 +154,13 @@ func runExportWizard(cmd *cobra.Command, registry *thinkt.StoreRegistry, flags t
 	if wiz.err != nil {
 		return wiz.err
 	}
-	if wiz.result.Cancelled {
-		return fmt.Errorf("cancelled")
+	if wiz.result.Cancelled || wiz.result.Session == nil {
+		return nil
+	}
+
+	// Print wizard summary (alt-screen wipes the TUI)
+	for _, s := range wiz.completedSteps {
+		fmt.Fprintf(os.Stderr, "  %s: %s\n", s.label, s.value)
 	}
 
 	// Load the session entries
