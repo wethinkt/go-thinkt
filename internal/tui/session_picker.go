@@ -643,7 +643,7 @@ func (m SessionPickerModel) ViewContent() string {
 		return ""
 	}
 	if m.showSources {
-		return m.sourcePicker.viewContent()
+		return m.sourcePicker.ViewContent()
 	}
 	style := pickerStyle
 	if !m.list.ShowTitle() {

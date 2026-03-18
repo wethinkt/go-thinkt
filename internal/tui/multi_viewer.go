@@ -1666,7 +1666,7 @@ func (m MultiViewerModel) renderScrollbar(height int) string {
 	return strings.Join(lines, "\n")
 }
 
-func (m MultiViewerModel) viewContent() string {
+func (m MultiViewerModel) ViewContent() string {
 	allDone := m.allSessionsAttempted()
 
 	// Show loading screen until viewport is ready and sessions are done
@@ -1801,7 +1801,7 @@ func (m MultiViewerModel) configureKeyboardView(v *tea.View) {
 }
 
 func (m MultiViewerModel) View() tea.View {
-	v := tea.NewView(m.viewContent())
+	v := tea.NewView(m.ViewContent())
 	v.AltScreen = true
 	m.configureMouseView(&v)
 	m.configureKeyboardView(&v)

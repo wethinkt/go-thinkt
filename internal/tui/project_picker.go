@@ -921,10 +921,10 @@ func (m ProjectPickerModel) ViewContent() string {
 		return ""
 	}
 	if m.showSources {
-		return m.sourcePicker.viewContent()
+		return m.sourcePicker.ViewContent()
 	}
 	if m.showApps {
-		return m.appPicker.viewContent()
+		return m.appPicker.ViewContent()
 	}
 	content := projectPickerStyle.Render(m.list.View())
 	if m.headerContext != "" && m.width > 0 {

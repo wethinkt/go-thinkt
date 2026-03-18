@@ -87,7 +87,7 @@ func (m SearchInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m SearchInputModel) viewContent() string {
+func (m SearchInputModel) ViewContent() string {
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color(theme.Current().TextPrimary.Fg))
@@ -120,7 +120,7 @@ func (m SearchInputModel) viewContent() string {
 }
 
 func (m SearchInputModel) View() tea.View {
-	v := tea.NewView(m.viewContent())
+	v := tea.NewView(m.ViewContent())
 	v.AltScreen = true
 	return v
 }

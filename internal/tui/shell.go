@@ -27,7 +27,7 @@ const shellHeaderHeight = 1
 // shellContent is implemented by models that can render their content as a string
 // for composition with the Shell's header bar.
 type shellContent interface {
-	viewContent() string
+	ViewContent() string
 }
 
 // mouseConfigProvider is optionally implemented by child models that need mouse support.
@@ -794,7 +794,7 @@ func (s *Shell) View() tea.View {
 	// Compose header + child content if the model supports it
 	if cv, ok := current.Model.(shellContent); ok {
 		header := s.renderHeader()
-		content := cv.viewContent()
+		content := cv.ViewContent()
 		v := tea.NewView(header + "\n" + content)
 		v.AltScreen = true
 		// Inherit mouse support from the child model

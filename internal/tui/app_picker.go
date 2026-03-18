@@ -182,7 +182,7 @@ func (m AppPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m AppPickerModel) viewContent() string {
+func (m AppPickerModel) ViewContent() string {
 	t := theme.Current()
 	accent := lipgloss.Color(t.GetAccent())
 
@@ -233,7 +233,7 @@ func (m AppPickerModel) viewContent() string {
 }
 
 func (m AppPickerModel) View() tea.View {
-	v := tea.NewView(m.viewContent())
+	v := tea.NewView(m.ViewContent())
 	v.AltScreen = true
 	return v
 }
