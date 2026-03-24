@@ -222,6 +222,14 @@ func (s *Shell) renderHeader() string {
 	switch m := current.Model.(type) {
 	case ProjectPickerModel:
 		context = "projects"
+		var infoParts []string
+		infoParts = append(infoParts, fmt.Sprintf("%d projects", m.ProjectCount()))
+		infoParts = append(infoParts, m.SortLabel())
+		if fl := m.SourceFilterLabel(); fl != "" {
+			infoParts = append(infoParts, "· "+fl)
+		}
+		infoParts = append(infoParts, "· "+m.ViewModeLabel())
+		info = strings.Join(infoParts, "  ")
 
 	case SessionPickerModel:
 		context = "sessions"
@@ -388,11 +396,12 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		tuilog.Log.Info("Shell.Update: pushing project picker", "projectCount", len(allProjects))
 		projectPicker := NewProjectPickerModel(allProjects)
+		projectPicker.SetShowTitle(false)
 		projCmd := s.stack.Push(NavItem{
 			Title: thinktI18n.T("tui.shell.projects", "Projects"),
 			Model: projectPicker,
 		}, s.width, s.height)
-		cmds = append(cmds, projCmd)
+		cmds = append(cmds, projCmd, detectActiveProjectsCmd(s.registry))
 
 		// If auto-detect finds a project, push session picker on top
 		if s.initialPage == InitialPageAuto {
@@ -441,6 +450,16 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// No auto-detect match; send size to the project picker so it renders
 		if s.hasWindowSize() {
 			cmds = append(cmds, s.windowSizeCmd())
+		}
+
+	case activeProjectsMsg:
+		// Find the project picker in the stack and set active projects
+		for i := range s.stack.items {
+			if pp, ok := s.stack.items[i].Model.(ProjectPickerModel); ok {
+				pp.SetActiveProjects(msg.paths)
+				s.stack.items[i].Model = pp
+				break
+			}
 		}
 
 	case ProjectPickerResult:
@@ -820,6 +839,35 @@ func listenForEnrichment(ch <-chan SessionsUpdatedMsg) tea.Cmd {
 		case <-time.After(10 * time.Second):
 			return nil // enrichment likely done
 		}
+	}
+}
+
+// activeProjectsMsg delivers detected active project paths to the project picker.
+type activeProjectsMsg struct {
+	paths []string
+}
+
+// detectActiveProjectsCmd runs active session detection in the background and
+// returns the unique project paths that have active sessions.
+func detectActiveProjectsCmd(registry *thinkt.StoreRegistry) tea.Cmd {
+	return func() tea.Msg {
+		detector := thinkt.NewActiveSessionDetector(registry)
+		ctx := context.Background()
+		sessions, err := detector.Detect(ctx)
+		if err != nil {
+			tuilog.Log.Error("Shell: active session detection failed", "error", err)
+			return nil
+		}
+		seen := make(map[string]bool)
+		var paths []string
+		for _, s := range sessions {
+			if s.ProjectPath != "" && !seen[s.ProjectPath] {
+				seen[s.ProjectPath] = true
+				paths = append(paths, s.ProjectPath)
+			}
+		}
+		tuilog.Log.Info("Shell: detected active projects", "count", len(paths))
+		return activeProjectsMsg{paths: paths}
 	}
 }
 

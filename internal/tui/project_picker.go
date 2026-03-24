@@ -16,6 +16,7 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/config"
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tui/colorpicker"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
@@ -126,21 +127,26 @@ func shortenPath(path string) string {
 
 // flatProjectDelegate renders projects as a flat single-line list (no tree structure).
 type flatProjectDelegate struct {
-	normalStyle   lipgloss.Style
-	selectedStyle lipgloss.Style
-	dimmedStyle   lipgloss.Style
-	mutedStyle    lipgloss.Style
-	cursorStyle   lipgloss.Style
+	normalStyle      lipgloss.Style
+	selectedStyle    lipgloss.Style
+	selectedBgStyle  lipgloss.Style
+	dimmedStyle      lipgloss.Style
+	mutedStyle       lipgloss.Style
+	cursorStyle      lipgloss.Style
+	showAbsoluteTime bool
+	activeProjects   map[string]bool
 }
 
 func newFlatProjectDelegate() flatProjectDelegate {
 	t := theme.Current()
+	selBg := colorpicker.BlendHex("#111111", t.GetAccent(), 0.12)
 	return flatProjectDelegate{
-		normalStyle:   lipgloss.NewStyle().PaddingLeft(2),
-		selectedStyle: lipgloss.NewStyle().PaddingLeft(1).Bold(true).Foreground(lipgloss.Color(t.TextPrimary.Fg)),
-		dimmedStyle:   lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color(t.TextMuted.Fg)),
-		mutedStyle:    lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)),
-		cursorStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
+		normalStyle:     lipgloss.NewStyle().PaddingLeft(2),
+		selectedStyle:   lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.TextPrimary.Fg)),
+		selectedBgStyle: lipgloss.NewStyle().Background(lipgloss.Color(selBg)).Bold(true),
+		dimmedStyle:     lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color(t.TextMuted.Fg)),
+		mutedStyle:      lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)),
+		cursorStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
 	}
 }
 
@@ -152,8 +158,8 @@ func (d flatProjectDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd {
 
 func (d flatProjectDelegate) ShortHelp() []key.Binding {
 	return []key.Binding{
-		key.NewBinding(key.WithKeys("d"), key.WithHelp("d", thinktI18n.T("tui.help.sortDate", "sort date"))),
-		key.NewBinding(key.WithKeys("n"), key.WithHelp("n", thinktI18n.T("tui.help.sortName", "sort name"))),
+		key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "date")),
+		key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "sort")),
 		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", thinktI18n.T("tui.help.sources", "sources"))),
 		key.NewBinding(key.WithKeys("t"), key.WithHelp("t", thinktI18n.T("tui.help.treeView", "tree view"))),
 	}
@@ -176,6 +182,14 @@ func (d flatProjectDelegate) Render(w io.Writer, m list.Model, index int, item l
 	emptyFilter := m.FilterState() == list.Filtering && m.FilterValue() == ""
 	agg := ti.node.project
 
+	// Active indicator
+	activeIndicator := ""
+	if d.activeProjects[agg.Path] {
+		activeIndicator = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(theme.Current().GetAccent())).
+			Render("● ")
+	}
+
 	// Build source badges
 	var badges []string
 	for _, sc := range agg.Sources {
@@ -185,18 +199,24 @@ func (d flatProjectDelegate) Render(w io.Writer, m list.Model, index int, item l
 		badges = append(badges, badge)
 	}
 	badgeStr := strings.Join(badges, "  ")
-	dateStr := thinktI18n.RelativeTimeShort(agg.LastModified)
+	var dateStr string
+	if d.showAbsoluteTime {
+		dateStr = agg.LastModified.Local().Format("2006-01-02 15:04")
+	} else {
+		dateStr = thinktI18n.RelativeTimeShort(agg.LastModified)
+	}
 
 	var line string
 	if emptyFilter {
-		line = d.dimmedStyle.Render(agg.Name)
+		line = d.dimmedStyle.Render(activeIndicator + agg.Name)
 	} else if isSelected {
+		bgStyle := d.selectedBgStyle.MaxWidth(m.Width())
 		marker := d.cursorStyle.Render("> ")
-		name := d.selectedStyle.Render(agg.Name)
+		name := d.selectedStyle.Render(activeIndicator + agg.Name)
 		date := d.mutedStyle.Render(dateStr)
-		line = marker + name + "  " + badgeStr + "  " + date
+		line = bgStyle.Render(marker + name + "  " + badgeStr + "  " + date)
 	} else {
-		name := d.normalStyle.Render(agg.Name)
+		name := d.normalStyle.Render(activeIndicator + agg.Name)
 		date := d.mutedStyle.Render(dateStr)
 		line = name + "  " + badgeStr + "  " + date
 	}
@@ -206,20 +226,25 @@ func (d flatProjectDelegate) Render(w io.Writer, m list.Model, index int, item l
 
 // treeProjectDelegate renders tree items (both dir headers and leaf projects).
 type treeProjectDelegate struct {
-	normalStyle    lipgloss.Style
-	selectedStyle  lipgloss.Style
-	dimmedStyle    lipgloss.Style
-	mutedStyle     lipgloss.Style
-	cursorStyle    lipgloss.Style
-	connectorStyle lipgloss.Style
-	dirStyle       lipgloss.Style
+	normalStyle      lipgloss.Style
+	selectedStyle    lipgloss.Style
+	selectedBgStyle  lipgloss.Style
+	dimmedStyle      lipgloss.Style
+	mutedStyle       lipgloss.Style
+	cursorStyle      lipgloss.Style
+	connectorStyle   lipgloss.Style
+	dirStyle         lipgloss.Style
+	showAbsoluteTime bool
+	activeProjects   map[string]bool
 }
 
 func newTreeProjectDelegate() treeProjectDelegate {
 	t := theme.Current()
+	selBg := colorpicker.BlendHex("#111111", t.GetAccent(), 0.12)
 	return treeProjectDelegate{
 		normalStyle:    lipgloss.NewStyle(),
 		selectedStyle:  lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.TextPrimary.Fg)),
+		selectedBgStyle: lipgloss.NewStyle().Background(lipgloss.Color(selBg)).Bold(true),
 		dimmedStyle:    lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg)),
 		mutedStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)),
 		cursorStyle:    lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
@@ -237,10 +262,10 @@ func (d treeProjectDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd {
 // ShortHelp returns key bindings for the short help view.
 func (d treeProjectDelegate) ShortHelp() []key.Binding {
 	return []key.Binding{
-		key.NewBinding(key.WithKeys("d"), key.WithHelp("d", thinktI18n.T("tui.help.sortDate", "sort date"))),
-		key.NewBinding(key.WithKeys("n"), key.WithHelp("n", thinktI18n.T("tui.help.sortName", "sort name"))),
+		key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "date")),
+		key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "sort")),
 		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", thinktI18n.T("tui.help.sources", "sources"))),
-		key.NewBinding(key.WithKeys("left", "right", "space"), key.WithHelp("←/→/space", thinktI18n.T("tui.help.collapseExpand", "collapse/expand"))),
+		key.NewBinding(key.WithKeys("space"), key.WithHelp("space", thinktI18n.T("tui.help.collapseExpand", "collapse/expand"))),
 		key.NewBinding(key.WithKeys("t"), key.WithHelp("t", thinktI18n.T("tui.help.flatView", "flat view"))),
 		key.NewBinding(key.WithKeys("/"), key.WithHelp("/", thinktI18n.T("tui.help.search", "search"))),
 	}
@@ -272,6 +297,8 @@ func (d treeProjectDelegate) Render(w io.Writer, m list.Model, index int, item l
 		cursor = d.cursorStyle.Render("> ")
 	}
 
+	bgStyle := d.selectedBgStyle.MaxWidth(m.Width())
+
 	if ti.node.kind == treeNodeDir {
 		// Directory node: show expand/collapse indicator + label
 		indicator := "▼ "
@@ -282,7 +309,7 @@ func (d treeProjectDelegate) Render(w io.Writer, m list.Model, index int, item l
 		if emptyFilter {
 			line = "  " + prefix + d.dimmedStyle.Render(indicator+ti.node.label)
 		} else if isSelected {
-			line = cursor + prefix + d.selectedStyle.Render(indicator+ti.node.label)
+			line = bgStyle.Render(cursor + prefix + d.selectedStyle.Render(indicator+ti.node.label))
 		} else {
 			line = "  " + prefix + d.dirStyle.Render(indicator+ti.node.label)
 		}
@@ -296,6 +323,14 @@ func (d treeProjectDelegate) Render(w io.Writer, m list.Model, index int, item l
 		return
 	}
 
+	// Active indicator
+	activeIndicator := ""
+	if d.activeProjects[agg.Path] {
+		activeIndicator = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(theme.Current().GetAccent())).
+			Render("● ")
+	}
+
 	// Build source badges: "claude:5  kimi:3"
 	var badges []string
 	for _, sc := range agg.Sources {
@@ -306,17 +341,22 @@ func (d treeProjectDelegate) Render(w io.Writer, m list.Model, index int, item l
 	}
 	badgeStr := strings.Join(badges, "  ")
 
-	dateStr := thinktI18n.RelativeTimeShort(agg.LastModified)
+	var dateStr string
+	if d.showAbsoluteTime {
+		dateStr = agg.LastModified.Local().Format("2006-01-02 15:04")
+	} else {
+		dateStr = thinktI18n.RelativeTimeShort(agg.LastModified)
+	}
 
 	var line string
 	if emptyFilter {
-		line = "  " + prefix + d.dimmedStyle.Render(ti.node.label)
+		line = "  " + prefix + d.dimmedStyle.Render(activeIndicator+ti.node.label)
 	} else if isSelected {
-		name := d.selectedStyle.Render(ti.node.label)
+		name := d.selectedStyle.Render(activeIndicator + ti.node.label)
 		date := d.mutedStyle.Render(dateStr)
-		line = cursor + prefix + name + "  " + badgeStr + "  " + date
+		line = bgStyle.Render(cursor + prefix + name + "  " + badgeStr + "  " + date)
 	} else {
-		name := d.normalStyle.Render(ti.node.label)
+		name := d.normalStyle.Render(activeIndicator + ti.node.label)
 		date := d.mutedStyle.Render(dateStr)
 		line = "  " + prefix + name + "  " + badgeStr + "  " + date
 	}
@@ -351,17 +391,19 @@ type ProjectPickerModel struct {
 	sourceFilter []thinkt.Source // empty = all sources
 	showSources  bool            // true when source picker overlay is active
 	sourcePicker SourcePickerModel
-	showApps      bool // true when app picker overlay is active
-	appPicker     AppPickerModel
-	headerContext string // e.g. "export" — shown in header bar
+	showApps         bool // true when app picker overlay is active
+	appPicker        AppPickerModel
+	headerContext    string // e.g. "export" — shown in header bar
+	showAbsoluteTime bool   // true to show date/time instead of "ago"
+	activeProjects   map[string]bool // projectPath -> true for projects with active sessions
 }
 
 type projectPickerKeyMap struct {
 	Enter      key.Binding
 	Back       key.Binding
 	Quit       key.Binding
-	SortDate   key.Binding
-	SortName   key.Binding
+	DateMode   key.Binding
+	CycleSort  key.Binding
 	Sources    key.Binding
 	OpenIn     key.Binding
 	OpenWeb    key.Binding
@@ -387,13 +429,13 @@ func defaultProjectPickerKeyMap() projectPickerKeyMap {
 			key.WithKeys("q", "ctrl+c"),
 			key.WithHelp("q", thinktI18n.T("tui.help.quit", "quit")),
 		),
-		SortDate: key.NewBinding(
+		DateMode: key.NewBinding(
 			key.WithKeys("d"),
-			key.WithHelp("d", thinktI18n.T("tui.help.sortDate", "sort date")),
+			key.WithHelp("d", "date"),
 		),
-		SortName: key.NewBinding(
+		CycleSort: key.NewBinding(
 			key.WithKeys("n"),
-			key.WithHelp("n", thinktI18n.T("tui.help.sortName", "sort name")),
+			key.WithHelp("n", "sort"),
 		),
 		Sources: key.NewBinding(
 			key.WithKeys("s"),
@@ -447,17 +489,95 @@ func pickerTitle(field sortField, dir sortDir, count int, sourceFilter []thinkt.
 	return title
 }
 
+// ProjectCount returns the number of leaf projects currently displayed.
+func (m ProjectPickerModel) ProjectCount() int {
+	return countLeaves(m.treeRoots)
+}
+
+// SortLabel returns a display string for the current sort (e.g. "name ↑").
+func (m ProjectPickerModel) SortLabel() string {
+	return fmt.Sprintf("%s %s", m.sortField, m.sortDir.arrow())
+}
+
+// SourceFilterLabel returns a display string for the active source filter,
+// or empty if no filter is active.
+func (m ProjectPickerModel) SourceFilterLabel() string {
+	if len(m.sourceFilter) == 0 {
+		return ""
+	}
+	names := make([]string, len(m.sourceFilter))
+	for i, s := range m.sourceFilter {
+		names[i] = string(s)
+	}
+	return strings.Join(names, ",")
+}
+
+// SetActiveProjects marks project paths that have active sessions.
+func (m *ProjectPickerModel) SetActiveProjects(paths []string) {
+	m.activeProjects = make(map[string]bool, len(paths))
+	for _, p := range paths {
+		m.activeProjects[p] = true
+	}
+	m.updateDelegateActive()
+}
+
+// updateDelegateActive propagates the active projects map to the current delegate.
+func (m *ProjectPickerModel) updateDelegateActive() {
+	if m.treeView {
+		d := newTreeProjectDelegate()
+		d.showAbsoluteTime = m.showAbsoluteTime
+		d.activeProjects = m.activeProjects
+		m.list.SetDelegate(d)
+	} else {
+		d := newFlatProjectDelegate()
+		d.showAbsoluteTime = m.showAbsoluteTime
+		d.activeProjects = m.activeProjects
+		m.list.SetDelegate(d)
+	}
+}
+
+// ViewModeLabel returns "tree" or "flat" based on the current view mode.
+func (m ProjectPickerModel) ViewModeLabel() string {
+	if m.treeView {
+		return "tree"
+	}
+	return "flat"
+}
+
+// SetShowTitle controls whether the list title is shown.
+func (m *ProjectPickerModel) SetShowTitle(show bool) {
+	m.list.SetShowTitle(show)
+}
+
 // SetHeaderContext sets the command context shown in the header bar (e.g. "export").
 func (m *ProjectPickerModel) SetHeaderContext(ctx string) {
 	m.headerContext = ctx
 }
 
 func (m ProjectPickerModel) listHeight(termHeight int) int {
-	h := termHeight - 2
+	h := termHeight
+	if m.list.ShowTitle() {
+		h -= 2 // title line + padding
+	}
 	if m.headerContext != "" {
 		h -= HeaderBarHeight + 1
 	}
 	return h
+}
+
+// updateDelegateTime re-creates the current delegate with the updated time display mode.
+func (m *ProjectPickerModel) updateDelegateTime() {
+	if m.treeView {
+		d := newTreeProjectDelegate()
+		d.showAbsoluteTime = m.showAbsoluteTime
+		d.activeProjects = m.activeProjects
+		m.list.SetDelegate(d)
+	} else {
+		d := newFlatProjectDelegate()
+		d.showAbsoluteTime = m.showAbsoluteTime
+		d.activeProjects = m.activeProjects
+		m.list.SetDelegate(d)
+	}
 }
 
 // NewProjectPickerModel creates a new project picker with a tree view.
@@ -483,7 +603,16 @@ func NewProjectPickerModel(projects []thinkt.Project) ProjectPickerModel {
 	l.Title = pickerTitle(sf, sd, countLeaves(roots), nil)
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(true)
-	l.SetFilteringEnabled(false)
+	l.SetFilteringEnabled(true)
+	l.KeyMap.Filter = key.NewBinding(
+		key.WithKeys("f"),
+		key.WithHelp("f", "filter"),
+	)
+	// Remove "f" from paginator next-page keys (we use it for filter)
+	l.KeyMap.NextPage = key.NewBinding(
+		key.WithKeys("right", "l", "pgdown"),
+		key.WithHelp("→/l", "next page"),
+	)
 
 	return ProjectPickerModel{
 		list:        l,
@@ -724,32 +853,23 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 
-		case key.Matches(msg, keys.SortDate):
-			if m.sortField == sortByDate {
-				// Same field: toggle direction
-				if m.sortDir == sortDesc {
-					m.sortDir = sortAsc
-				} else {
-					m.sortDir = sortDesc
-				}
-			} else {
+		case key.Matches(msg, keys.DateMode):
+			m.showAbsoluteTime = !m.showAbsoluteTime
+			m.updateDelegateTime()
+			return m, nil
+
+		case key.Matches(msg, keys.CycleSort):
+			// Cycle: date↓ → date↑ → name↑ → name↓ → date↓
+			switch {
+			case m.sortField == sortByDate && m.sortDir == sortDesc:
+				m.sortDir = sortAsc
+			case m.sortField == sortByDate && m.sortDir == sortAsc:
+				m.sortField = sortByName
+			case m.sortField == sortByName && m.sortDir == sortAsc:
+				m.sortDir = sortDesc
+			default:
 				m.sortField = sortByDate
 				m.sortDir = sortDesc
-			}
-			cmd := m.rebuildAndRefresh()
-			return m, cmd
-
-		case key.Matches(msg, keys.SortName):
-			if m.sortField == sortByName {
-				// Same field: toggle direction
-				if m.sortDir == sortAsc {
-					m.sortDir = sortDesc
-				} else {
-					m.sortDir = sortAsc
-				}
-			} else {
-				m.sortField = sortByName
-				m.sortDir = sortAsc
 			}
 			cmd := m.rebuildAndRefresh()
 			return m, cmd
@@ -811,12 +931,8 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, keys.TreeToggle):
 			m.treeView = !m.treeView
-			// Switch delegate
-			if m.treeView {
-				m.list.SetDelegate(newTreeProjectDelegate())
-			} else {
-				m.list.SetDelegate(newFlatProjectDelegate())
-			}
+			// Switch delegate, preserving date mode
+			m.updateDelegateTime()
 			cmd := m.rebuildAndRefresh()
 			return m, cmd
 
@@ -911,7 +1027,10 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-var projectPickerStyle = lipgloss.NewStyle().Padding(1, 2)
+var (
+	projectPickerStyle      = lipgloss.NewStyle().Padding(1, 2)
+	projectPickerStyleNoTop = lipgloss.NewStyle().Padding(0, 2)
+)
 
 func (m ProjectPickerModel) ViewContent() string {
 	if !m.ready {
@@ -926,7 +1045,11 @@ func (m ProjectPickerModel) ViewContent() string {
 	if m.showApps {
 		return m.appPicker.ViewContent()
 	}
-	content := projectPickerStyle.Render(m.list.View())
+	style := projectPickerStyle
+	if !m.list.ShowTitle() {
+		style = projectPickerStyleNoTop
+	}
+	content := style.Render(m.list.View())
 	if m.headerContext != "" && m.width > 0 {
 		return RenderHeaderBar(m.headerContext, "", "", m.width) + "\n" + content
 	}

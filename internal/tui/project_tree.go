@@ -54,9 +54,9 @@ func (t treeItem) Description() string { return "" }
 
 func (t treeItem) FilterValue() string {
 	if t.node.kind == treeNodeLeaf && t.node.project != nil {
-		return t.node.project.Path + " " + t.node.project.Name
+		return strings.ToLower(t.node.project.Path + " " + t.node.project.Name)
 	}
-	return t.node.fullPath + " " + t.node.label
+	return strings.ToLower(t.node.fullPath + " " + t.node.label)
 }
 
 // splitPathSegments splits a shortened path like "~/dev/foo" into segments.

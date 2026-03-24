@@ -147,7 +147,6 @@ func (d sessionDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 // ShortHelp returns key bindings for the help bar.
 func (d sessionDelegate) ShortHelp() []key.Binding {
 	bindings := []key.Binding{
-		key.NewBinding(key.WithKeys("f"), key.WithHelp("f", thinktI18n.T("tui.help.filter", "filter"))),
 		key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "date")),
 		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", thinktI18n.T("tui.help.sources", "sources"))),
 		key.NewBinding(key.WithKeys("/"), key.WithHelp("/", thinktI18n.T("tui.help.search", "search"))),
