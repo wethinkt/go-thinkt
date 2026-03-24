@@ -380,7 +380,7 @@ func (m exportWizardModel) View() tea.View {
 	if m.step == stepSession {
 		detail = fmt.Sprintf("(%d sessions)", len(m.config.Sessions))
 	}
-	header := tui.RenderHeaderBar(breadcrumb, detail, m.width)
+	header := tui.RenderHeaderBar(breadcrumb, "", detail, m.width)
 	if header != "" {
 		sections = append(sections, header)
 	}

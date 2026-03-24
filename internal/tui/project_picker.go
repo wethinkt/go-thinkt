@@ -928,7 +928,7 @@ func (m ProjectPickerModel) ViewContent() string {
 	}
 	content := projectPickerStyle.Render(m.list.View())
 	if m.headerContext != "" && m.width > 0 {
-		return RenderHeaderBar(m.headerContext, "", m.width) + "\n" + content
+		return RenderHeaderBar(m.headerContext, "", "", m.width) + "\n" + content
 	}
 	return content
 }

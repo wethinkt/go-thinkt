@@ -16,6 +16,7 @@ package colorpicker
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -592,4 +593,15 @@ func clamp(val, min, max int) int {
 
 func isHexChar(c byte) bool {
 	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+}
+
+// BlendHex linearly interpolates between two hex colors.
+// t=0 returns a, t=1 returns b.
+func BlendHex(a, b string, t float64) string {
+	ar, ag, ab := HexToRGB(a)
+	br, bg, bb := HexToRGB(b)
+	lerp := func(x, y int) int {
+		return int(math.Round(float64(x)*(1-t) + float64(y)*t))
+	}
+	return RGBToHex(lerp(ar, br), lerp(ag, bg), lerp(ab, bb))
 }

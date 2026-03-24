@@ -162,6 +162,7 @@ func NewShellWithSessionsAndRegistry(sessions []thinkt.SessionMeta, registry *th
 
 	picker := NewSessionPickerModel(sessions, nil)
 	picker.SetResumableSources(s.resumableSources())
+	picker.SetShowTitle(false)
 	s.stack.items = append(s.stack.items, NavItem{
 		Title: title,
 		Model: picker,
@@ -210,13 +211,13 @@ func (s *Shell) windowSizeCmd() tea.Cmd {
 // renderHeader renders the branded header bar "🧠thinkt <action>" with optional detail.
 func (s *Shell) renderHeader() string {
 	if s.stack.IsEmpty() {
-		return RenderHeaderBar("", "", s.width)
+		return RenderHeaderBar("", "", "", s.width)
 	}
 
 	items := s.stack.items
 	current := items[len(items)-1]
 
-	var context, detail string
+	var context, info, detail string
 
 	switch m := current.Model.(type) {
 	case ProjectPickerModel:
@@ -224,9 +225,15 @@ func (s *Shell) renderHeader() string {
 
 	case SessionPickerModel:
 		context = "sessions"
+		var infoParts []string
 		if current.Title != "" && current.Title != "Sessions" {
-			detail = current.Title
+			infoParts = append(infoParts, current.Title)
 		}
+		infoParts = append(infoParts, fmt.Sprintf("%d sessions", m.SessionCount()))
+		if fl := m.SourceFilterLabel(); fl != "" {
+			infoParts = append(infoParts, "· "+fl)
+		}
+		info = strings.Join(infoParts, "  ")
 
 	case MultiViewerModel:
 		context = "session"
@@ -268,7 +275,7 @@ func (s *Shell) renderHeader() string {
 		context = current.Title
 	}
 
-	return RenderHeaderBar(context, detail, s.width)
+	return RenderHeaderBar(context, info, detail, s.width)
 }
 
 func (s *Shell) Init() tea.Cmd {
@@ -419,6 +426,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						tuilog.Log.Info("Shell.Update: pushing session picker for auto-detected project", "sessionCount", len(allSessions))
 						picker := NewSessionPickerModel(allSessions, nil)
 						picker.SetResumableSources(s.resumableSources())
+						picker.SetShowTitle(false)
 						cmd := s.stack.Push(NavItem{
 							Title: project.Name,
 							Model: picker,
@@ -480,6 +488,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			tuilog.Log.Info("Shell.Update: pushing session picker", "sessionCount", len(allSessions))
 			picker := NewSessionPickerModel(allSessions, msg.SourceFilter)
 			picker.SetResumableSources(s.resumableSources())
+			picker.SetShowTitle(false)
 			cmd := s.stack.Push(NavItem{
 				Title: msg.Selected.Name,
 				Model: picker,

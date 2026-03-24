@@ -14,6 +14,7 @@ import (
 
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tui/colorpicker"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
@@ -30,7 +31,7 @@ func (i pickerSessionItem) Title() string {
 func (i pickerSessionItem) Description() string { return "" }
 
 func (i pickerSessionItem) FilterValue() string {
-	return i.meta.FirstPrompt + " " + i.meta.ID + " " + string(i.meta.Source)
+	return strings.ToLower(i.meta.Summary + " " + i.meta.FirstPrompt + " " + i.meta.ID + " " + string(i.meta.Source))
 }
 
 // sessionTitle returns the first prompt truncated to maxLen, or the session ID.
@@ -113,6 +114,7 @@ func formatFileSize(size int64) string {
 type sessionDelegate struct {
 	normalStyle      lipgloss.Style
 	selectedStyle    lipgloss.Style
+	selectedBgStyle  lipgloss.Style // subtle full-width background for selected row
 	dimmedStyle      lipgloss.Style
 	mutedStyle       lipgloss.Style
 	cursorStyle      lipgloss.Style
@@ -124,13 +126,17 @@ type sessionDelegate struct {
 
 func newSessionDelegate() sessionDelegate {
 	t := theme.Current()
+	// Blend accent into a dark base for a subtle selected-row background tint
+	accent := t.GetAccent()
+	selBg := colorpicker.BlendHex("#111111", accent, 0.12)
 	return sessionDelegate{
-		normalStyle:   lipgloss.NewStyle().PaddingLeft(4),
-		selectedStyle: lipgloss.NewStyle().PaddingLeft(1).Bold(true).Foreground(lipgloss.Color(t.TextPrimary.Fg)),
-		dimmedStyle:   lipgloss.NewStyle().PaddingLeft(4).Foreground(lipgloss.Color(t.TextMuted.Fg)),
-		mutedStyle:    lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)),
-		cursorStyle:   lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
-		sepStyle:      lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetBorderInactive())),
+		normalStyle:     lipgloss.NewStyle().PaddingLeft(2),
+		selectedStyle:   lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.TextPrimary.Fg)),
+		selectedBgStyle: lipgloss.NewStyle().Background(lipgloss.Color(selBg)),
+		dimmedStyle:     lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color(t.TextMuted.Fg)),
+		mutedStyle:      lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)),
+		cursorStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
+		sepStyle:        lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetBorderInactive())),
 	}
 }
 
@@ -141,6 +147,7 @@ func (d sessionDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 // ShortHelp returns key bindings for the help bar.
 func (d sessionDelegate) ShortHelp() []key.Binding {
 	bindings := []key.Binding{
+		key.NewBinding(key.WithKeys("f"), key.WithHelp("f", thinktI18n.T("tui.help.filter", "filter"))),
 		key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "date")),
 		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", thinktI18n.T("tui.help.sources", "sources"))),
 		key.NewBinding(key.WithKeys("/"), key.WithHelp("/", thinktI18n.T("tui.help.search", "search"))),
@@ -158,6 +165,34 @@ func (d sessionDelegate) FullHelp() [][]key.Binding {
 	return [][]key.Binding{d.ShortHelp()}
 }
 
+// highlightMatches applies a highlight style to case-insensitive occurrences of term in text.
+func highlightMatches(text, term string, baseStyle, matchStyle lipgloss.Style) string {
+	if term == "" {
+		return baseStyle.Render(text)
+	}
+	lower := strings.ToLower(text)
+	lowerTerm := strings.ToLower(term)
+	var b strings.Builder
+	i := 0
+	for i < len(lower) {
+		idx := strings.Index(lower[i:], lowerTerm)
+		if idx < 0 {
+			b.WriteString(baseStyle.Render(text[i:]))
+			break
+		}
+		if idx > 0 {
+			b.WriteString(baseStyle.Render(text[i : i+idx]))
+		}
+		b.WriteString(matchStyle.Render(text[i+idx : i+idx+len(lowerTerm)]))
+		i += idx + len(lowerTerm)
+	}
+	if i == 0 && term != "" {
+		// No match found at all
+		return baseStyle.Render(text)
+	}
+	return b.String()
+}
+
 func (d sessionDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
 	si, ok := item.(pickerSessionItem)
 	if !ok {
@@ -169,10 +204,15 @@ func (d sessionDelegate) Render(w io.Writer, m list.Model, index int, item list.
 
 	isSelected := index == m.Index()
 	emptyFilter := m.FilterState() == list.Filtering && m.FilterValue() == ""
+	isFiltered := m.FilterState() == list.Filtering || m.FilterState() == list.FilterApplied
+	filterTerm := ""
+	if isFiltered {
+		filterTerm = m.FilterValue()
+	}
 	meta := si.meta
 
 	// Available width for text (account for padding/cursor)
-	textWidth := m.Width() - 6
+	textWidth := m.Width() - 4
 	if textWidth < 20 {
 		textWidth = 20
 	}
@@ -223,26 +263,47 @@ func (d sessionDelegate) Render(w io.Writer, m list.Model, index int, item list.
 	detailStr := strings.Join(detailParts, "  ")
 
 	// Separator line
-	sepWidth := m.Width() - 6
+	sepWidth := m.Width() - 4
 	if sepWidth < 1 {
 		sepWidth = 1
 	}
 	sep := d.sepStyle.Render(strings.Repeat("─", sepWidth))
 
+	// Filter match highlight style
+	t := theme.Current()
+	matchStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(t.GetAccent())).
+		Bold(true).
+		Underline(true)
+
 	// Render based on state
 	if emptyFilter {
 		line1 := d.dimmedStyle.Render(activeIndicator + title)
 		line2 := d.dimmedStyle.Render(detailStr)
-		fmt.Fprintf(w, "%s\n%s\n%s", line1, line2, "    "+sep) //nolint: errcheck
+		fmt.Fprintf(w, "%s\n%s\n%s", line1, line2, "  "+sep) //nolint: errcheck
 	} else if isSelected {
-		marker := d.cursorStyle.Render(">  ")
-		line1 := marker + d.selectedStyle.Render(activeIndicator+title)
-		line2 := "    " + d.mutedStyle.Render(detailStr)
-		fmt.Fprintf(w, "%s\n%s\n%s", line1, line2, "    "+sep) //nolint: errcheck
+		marker := d.cursorStyle.Render("> ")
+		bgStyle := d.selectedBgStyle.MaxWidth(m.Width())
+		if filterTerm != "" {
+			titleStr := activeIndicator + highlightMatches(title, filterTerm, d.selectedStyle, matchStyle)
+			line1 := bgStyle.Render(marker + titleStr)
+			line2 := bgStyle.Render("  " + d.mutedStyle.Render(detailStr))
+			fmt.Fprintf(w, "%s\n%s\n%s", line1, line2, "  "+sep) //nolint: errcheck
+		} else {
+			line1 := bgStyle.Render(marker + d.selectedStyle.Render(activeIndicator+title))
+			line2 := bgStyle.Render("  " + d.mutedStyle.Render(detailStr))
+			fmt.Fprintf(w, "%s\n%s\n%s", line1, line2, "  "+sep) //nolint: errcheck
+		}
 	} else {
-		line1 := d.normalStyle.Render(activeIndicator + title)
-		line2 := d.normalStyle.Render(d.mutedStyle.Render(detailStr))
-		fmt.Fprintf(w, "%s\n%s\n%s", line1, line2, "    "+sep) //nolint: errcheck
+		if filterTerm != "" {
+			titleStr := "  " + activeIndicator + highlightMatches(title, filterTerm, lipgloss.NewStyle(), matchStyle)
+			line2 := d.normalStyle.Render(d.mutedStyle.Render(detailStr))
+			fmt.Fprintf(w, "%s\n%s\n%s", titleStr, line2, "  "+sep) //nolint: errcheck
+		} else {
+			line1 := d.normalStyle.Render(activeIndicator + title)
+			line2 := d.normalStyle.Render(d.mutedStyle.Render(detailStr))
+			fmt.Fprintf(w, "%s\n%s\n%s", line1, line2, "  "+sep) //nolint: errcheck
+		}
 	}
 }
 
@@ -344,12 +405,16 @@ func NewSessionPickerModel(sessions []thinkt.SessionMeta, sourceFilter []thinkt.
 	l.Title = sessionPickerTitle(len(filtered), sourceFilter)
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(true)
-	l.SetFilteringEnabled(false)
+	l.SetFilteringEnabled(true)
+	l.KeyMap.Filter = key.NewBinding(
+		key.WithKeys("f"),
+		key.WithHelp("f", "filter"),
+	)
 
-	// Remove "d" from paginator next-page keys (we use it for date toggle)
+	// Remove "d" and "f" from paginator next-page keys (we use them for date toggle and filter)
 	l.KeyMap.NextPage = key.NewBinding(
-		key.WithKeys("right", "l", "pgdown", "f"),
-		key.WithHelp("f", "next page"),
+		key.WithKeys("right", "l", "pgdown"),
+		key.WithHelp("→/l", "next page"),
 	)
 	l.KeyMap.PrevPage = key.NewBinding(
 		key.WithKeys("left", "h", "pgup", "b", "u"),
@@ -384,11 +449,32 @@ func (m *SessionPickerModel) SetActiveSessions(paths []string) {
 }
 
 func (m SessionPickerModel) listHeight(termHeight int) int {
-	h := termHeight - 2
-	if m.headerContext != "" {
-		h -= HeaderBarHeight + 1 // header + newline
+	h := termHeight
+	if m.list.ShowTitle() {
+		h -= 2 // title line + pickerStyle top padding
 	}
+	// if m.headerContext != "" {
+	// 	h -= HeaderBarHeight + 1 // header + newline
+	// }
 	return h
+}
+
+// SessionCount returns the number of currently displayed sessions (after filtering).
+func (m SessionPickerModel) SessionCount() int {
+	return len(m.sessions)
+}
+
+// SourceFilterLabel returns a display string for the active source filter (e.g. "claude,kimi"),
+// or empty if no filter is active.
+func (m SessionPickerModel) SourceFilterLabel() string {
+	if len(m.sourceFilter) == 0 {
+		return ""
+	}
+	names := make([]string, len(m.sourceFilter))
+	for i, s := range m.sourceFilter {
+		names[i] = string(s)
+	}
+	return strings.Join(names, ",")
 }
 
 // SetTitle overrides the list title.
@@ -662,8 +748,8 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 var (
-	pickerStyle       = lipgloss.NewStyle().Padding(1, 2)
-	pickerStyleNoTop  = lipgloss.NewStyle().Padding(0, 2)
+	pickerStyle      = lipgloss.NewStyle().Padding(1, 2)
+	pickerStyleNoTop = lipgloss.NewStyle().Padding(0, 2)
 )
 
 func (m SessionPickerModel) ViewContent() string {
@@ -683,7 +769,7 @@ func (m SessionPickerModel) ViewContent() string {
 	content := style.Render(m.list.View())
 	if m.headerContext != "" && m.width > 0 {
 		detail := fmt.Sprintf("(%d sessions)", len(m.sessions))
-		return RenderHeaderBar(m.headerContext, detail, m.width) + "\n" + content
+		return RenderHeaderBar(m.headerContext, "", detail, m.width) + "\n" + content
 	}
 	return content
 }
