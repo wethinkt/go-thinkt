@@ -1,8 +1,8 @@
 ---
-title: "thinkt theme builder"
+title: "thinkt config theme builder"
 ---
 
-## thinkt theme builder
+## thinkt config theme builder
 
 Launch interactive theme builder
 
@@ -17,12 +17,12 @@ If no name is provided, edits a copy of the current theme.
 If the theme doesn't exist, creates a new one based on the default.
 
 Examples:
-  thinkt theme builder             # Edit current theme
-  thinkt theme builder my-theme    # Edit or create my-theme
-  thinkt theme builder dark        # Edit the dark theme
+  thinkt config theme builder             # Edit current theme
+  thinkt config theme builder my-theme    # Edit or create my-theme
+  thinkt config theme builder dark        # Edit the dark theme
 
 ```
-thinkt theme builder [name] [flags]
+thinkt config theme builder [name] [flags]
 ```
 
 ### Options
@@ -39,5 +39,5 @@ thinkt theme builder [name] [flags]
 
 ### SEE ALSO
 
-* [thinkt theme](thinkt_theme/)	 - Browse and manage TUI themes
+* [thinkt config theme](thinkt_config_theme/)	 - Browse and manage TUI themes
 

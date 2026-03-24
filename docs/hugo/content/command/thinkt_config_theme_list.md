@@ -1,8 +1,8 @@
 ---
-title: "thinkt theme list"
+title: "thinkt config theme list"
 ---
 
-## thinkt theme list
+## thinkt config theme list
 
 List all available themes
 
@@ -11,7 +11,7 @@ List all available themes
 List all built-in and user themes. The active theme is marked with *.
 
 ```
-thinkt theme list [flags]
+thinkt config theme list [flags]
 ```
 
 ### Options
@@ -29,5 +29,5 @@ thinkt theme list [flags]
 
 ### SEE ALSO
 
-* [thinkt theme](thinkt_theme/)	 - Browse and manage TUI themes
+* [thinkt config theme](thinkt_config_theme/)	 - Browse and manage TUI themes
 

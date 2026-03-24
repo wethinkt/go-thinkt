@@ -1,13 +1,13 @@
 ---
-title: "thinkt apps list"
+title: "thinkt config apps list"
 ---
 
-## thinkt apps list
+## thinkt config apps list
 
 List all apps with enabled/disabled status
 
 ```
-thinkt apps list [flags]
+thinkt config apps list [flags]
 ```
 
 ### Options
@@ -25,5 +25,5 @@ thinkt apps list [flags]
 
 ### SEE ALSO
 
-* [thinkt apps](thinkt_apps/)	 - Manage open-in apps and default terminal
+* [thinkt config apps](thinkt_config_apps/)	 - Manage open-in apps and default terminal
 

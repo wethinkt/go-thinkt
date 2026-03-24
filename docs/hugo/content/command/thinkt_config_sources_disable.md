@@ -1,8 +1,8 @@
 ---
-title: "thinkt sources disable"
+title: "thinkt config sources disable"
 ---
 
-## thinkt sources disable
+## thinkt config sources disable
 
 Disable a source
 
@@ -11,7 +11,7 @@ Disable a source
 Disable a source so it is excluded from all commands. Use --all to disable all sources.
 
 ```
-thinkt sources disable [source] [flags]
+thinkt config sources disable [source] [flags]
 ```
 
 ### Options
@@ -30,5 +30,5 @@ thinkt sources disable [source] [flags]
 
 ### SEE ALSO
 
-* [thinkt sources](thinkt_sources/)	 - Manage and view available session sources
+* [thinkt config sources](thinkt_config_sources/)	 - Manage and view available session sources
 

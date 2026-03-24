@@ -1,8 +1,8 @@
 ---
-title: "thinkt language set"
+title: "thinkt config language set"
 ---
 
-## thinkt language set
+## thinkt config language set
 
 Set the display language
 
@@ -13,11 +13,11 @@ Set the display language. Use a BCP 47 tag (e.g., en, zh-Hans).
 Without an argument, launches an interactive picker (requires a terminal).
 
 Examples:
-  thinkt language set zh-Hans  # set to Chinese (Simplified)
-  thinkt language set          # interactive picker
+  thinkt config language set zh-Hans  # set to Chinese (Simplified)
+  thinkt config language set          # interactive picker
 
 ```
-thinkt language set [lang] [flags]
+thinkt config language set [lang] [flags]
 ```
 
 ### Options
@@ -34,5 +34,5 @@ thinkt language set [lang] [flags]
 
 ### SEE ALSO
 
-* [thinkt language](thinkt_language/)	 - Get or set the display language
+* [thinkt config language](thinkt_config_language/)	 - Get or set the display language
 

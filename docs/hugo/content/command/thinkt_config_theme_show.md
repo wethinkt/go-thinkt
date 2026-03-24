@@ -1,8 +1,8 @@
 ---
-title: "thinkt theme show"
+title: "thinkt config theme show"
 ---
 
-## thinkt theme show
+## thinkt config theme show
 
 Display a theme with styled samples
 
@@ -13,12 +13,12 @@ Display a theme with styled samples and a conversation preview.
 If no name is provided, shows the active theme.
 
 Examples:
-  thinkt theme show            # Show active theme
-  thinkt theme show dracula    # Show the dracula theme
-  thinkt theme show --json     # Output active theme as JSON
+  thinkt config theme show            # Show active theme
+  thinkt config theme show dracula    # Show the dracula theme
+  thinkt config theme show --json     # Output active theme as JSON
 
 ```
-thinkt theme show [name] [flags]
+thinkt config theme show [name] [flags]
 ```
 
 ### Options
@@ -36,5 +36,5 @@ thinkt theme show [name] [flags]
 
 ### SEE ALSO
 
-* [thinkt theme](thinkt_theme/)	 - Browse and manage TUI themes
+* [thinkt config theme](thinkt_config_theme/)	 - Browse and manage TUI themes
 

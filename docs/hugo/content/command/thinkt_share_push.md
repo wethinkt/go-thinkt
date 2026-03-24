@@ -8,17 +8,28 @@ Upload a session to share.wethinkt.com
 
 ### Synopsis
 
-Upload a Thinkt reasoning session for private storage or public sharing.
+Upload a session for private storage or public sharing.
+
+Without arguments, opens a project and session picker.
 
 ```
-thinkt share push <path> [flags]
+thinkt share push [session] [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help     help for push
-      --public   make session publicly visible
+  -h, --help             help for push
+      --no-media         exclude images and documents
+      --no-thinking      exclude thinking blocks
+      --no-tools         exclude tool use and results
+  -p, --project string   project path or ID
+      --public           make session publicly visible
+  -s, --session string   session ID or path
+      --source strings   filter by source
+      --system           include system entries
+      --tags string      comma-separated tags
+      --title string     session title
 ```
 
 ### Options inherited from parent commands

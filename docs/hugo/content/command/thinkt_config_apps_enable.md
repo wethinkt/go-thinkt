@@ -1,13 +1,13 @@
 ---
-title: "thinkt apps enable"
+title: "thinkt config apps enable"
 ---
 
-## thinkt apps enable
+## thinkt config apps enable
 
 Enable an app
 
 ```
-thinkt apps enable [id] [flags]
+thinkt config apps enable [id] [flags]
 ```
 
 ### Options
@@ -25,5 +25,5 @@ thinkt apps enable [id] [flags]
 
 ### SEE ALSO
 
-* [thinkt apps](thinkt_apps/)	 - Manage open-in apps and default terminal
+* [thinkt config apps](thinkt_config_apps/)	 - Manage open-in apps and default terminal
 

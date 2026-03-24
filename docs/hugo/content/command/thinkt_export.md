@@ -17,12 +17,12 @@ The --view flag previews the export: pipes Markdown through glow, or opens
 HTML in the default browser.
 
 Examples:
-  thinkt export                          # Latest session as Markdown to stdout
-  thinkt export --html -o session.html   # Export as HTML to file
-  thinkt export --json                   # Export as JSON
-  thinkt export --view                   # Preview Markdown in terminal via glow
-  thinkt export --html --view            # Export HTML and open in browser
-  thinkt export abc123                   # Export specific session
+  thinkt export                            # Latest session as Markdown to stdout
+  thinkt export -f html -o session.html    # Export as HTML to file
+  thinkt export -f json                    # Export as JSON
+  thinkt export --view                     # Preview Markdown in terminal via glow
+  thinkt export -f html --view             # Export HTML and open in browser
+  thinkt export abc123                     # Export specific session
 
 ```
 thinkt export [session] [flags]
@@ -31,17 +31,17 @@ thinkt export [session] [flags]
 ### Options
 
 ```
-      --format string   output format: md, html, json (default "md")
-  -h, --help            help for export
-      --html            shorthand for --format html
-      --json            shorthand for --format json
-      --md              shorthand for --format md (default)
-      --no-media        exclude images and documents
-      --no-thinking     exclude thinking blocks
-      --no-tools        exclude tool use and results
-  -o, --output string   output file (default: stdout)
-      --system          include system entries
-      --view            preview export (glow for md, browser for html)
+  -f, --format string    output format: md, html, json (default "md")
+  -h, --help             help for export
+      --no-media         exclude images and documents
+      --no-thinking      exclude thinking blocks
+      --no-tools         exclude tool use and results
+  -o, --output string    output file (default: stdout)
+  -p, --project string   project path or ID
+  -s, --session string   session ID or path
+      --source strings   filter by source
+      --system           include system entries
+      --view             preview export (glow for md, browser for html)
 ```
 
 ### Options inherited from parent commands

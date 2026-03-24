@@ -15,16 +15,16 @@ Supports: Claude Code, Kimi Code, Gemini CLI, GitHub Copilot CLI, Codex CLI
 Running without a subcommand launches the interactive TUI.
 
 Commands:
-  sources   Manage and view available session sources
+  config    Manage configuration (apps, language, sources, theme)
   tui       Launch interactive TUI explorer (default)
-  prompts   Extract and manage prompts from trace files
   projects  List and manage projects
   sessions  List and manage sessions
 
 Examples:
-  thinkt                          # Launch TUI
-  thinkt sources list             # List available sources (claude, kimi, gemini, copilot, codex)
-  thinkt projects list            # List all projects from all sources
+  thinkt                                  # Launch TUI
+  thinkt config sources list              # List available sources
+  thinkt config theme set dracula         # Set theme
+  thinkt projects list                    # List all projects from all sources
 
 ```
 thinkt [flags]
@@ -41,15 +41,14 @@ thinkt [flags]
 ### SEE ALSO
 
 * [thinkt agents](thinkt_agents/)	 - List active agents (local and remote)
-* [thinkt apps](thinkt_apps/)	 - Manage open-in apps and default terminal
 * [thinkt collect](thinkt_collect/)	 - Start trace collector server
 * [thinkt completion](thinkt_completion/)	 - Generate the autocompletion script for the specified shell
+* [thinkt config](thinkt_config/)	 - Manage thinkt configuration
 * [thinkt docs](thinkt_docs/)	 - Generate documentation for thinkt
 * [thinkt embeddings](thinkt_embeddings/)	 - Manage embedding model, storage, and sync
 * [thinkt export](thinkt_export/)	 - Export a session as Markdown, HTML, or JSON
 * [thinkt help](thinkt_help/)	 - Help topics for thinkt
 * [thinkt indexer](thinkt_indexer/)	 - Specialized indexing and search via DuckDB (requires thinkt-indexer)
-* [thinkt language](thinkt_language/)	 - Get or set the display language
 * [thinkt projects](thinkt_projects/)	 - Manage and view projects
 * [thinkt relay](thinkt_relay/)	 - Relay traces to a remote collector
 * [thinkt search](thinkt_search/)	 - Search for text across indexed sessions
@@ -58,9 +57,7 @@ thinkt [flags]
 * [thinkt sessions](thinkt_sessions/)	 - View and manage sessions across all sources
 * [thinkt setup](thinkt_setup/)	 - Scan for AI session sources and configure thinkt
 * [thinkt share](thinkt_share/)	 - Share sessions on share.wethinkt.com
-* [thinkt sources](thinkt_sources/)	 - Manage and view available session sources
 * [thinkt teams](thinkt_teams/)	 - List and inspect agent teams
-* [thinkt theme](thinkt_theme/)	 - Browse and manage TUI themes
 * [thinkt tui](thinkt_tui/)	 - Launch interactive TUI explorer
 * [thinkt version](thinkt_version/)	 - Print the version information
 * [thinkt web](thinkt_web/)	 - Open the web interface in your browser

@@ -1,8 +1,8 @@
 ---
-title: "thinkt theme browse"
+title: "thinkt config theme browse"
 ---
 
-## thinkt theme browse
+## thinkt config theme browse
 
 Browse and preview themes interactively
 
@@ -21,7 +21,7 @@ Key bindings:
   q/esc         Quit without changing
 
 ```
-thinkt theme browse [flags]
+thinkt config theme browse [flags]
 ```
 
 ### Options
@@ -38,5 +38,5 @@ thinkt theme browse [flags]
 
 ### SEE ALSO
 
-* [thinkt theme](thinkt_theme/)	 - Browse and manage TUI themes
+* [thinkt config theme](thinkt_config_theme/)	 - Browse and manage TUI themes
 

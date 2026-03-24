@@ -1,13 +1,13 @@
 ---
-title: "thinkt language list"
+title: "thinkt config language list"
 ---
 
-## thinkt language list
+## thinkt config language list
 
 List available languages
 
 ```
-thinkt language list [flags]
+thinkt config language list [flags]
 ```
 
 ### Options
@@ -25,5 +25,5 @@ thinkt language list [flags]
 
 ### SEE ALSO
 
-* [thinkt language](thinkt_language/)	 - Get or set the display language
+* [thinkt config language](thinkt_config_language/)	 - Get or set the display language
 

@@ -1,13 +1,13 @@
 ---
-title: "thinkt apps get-terminal"
+title: "thinkt config apps get-terminal"
 ---
 
-## thinkt apps get-terminal
+## thinkt config apps get-terminal
 
 Show the configured default terminal app
 
 ```
-thinkt apps get-terminal [flags]
+thinkt config apps get-terminal [flags]
 ```
 
 ### Options
@@ -25,5 +25,5 @@ thinkt apps get-terminal [flags]
 
 ### SEE ALSO
 
-* [thinkt apps](thinkt_apps/)	 - Manage open-in apps and default terminal
+* [thinkt config apps](thinkt_config_apps/)	 - Manage open-in apps and default terminal
 

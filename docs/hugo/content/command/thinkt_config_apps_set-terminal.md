@@ -1,8 +1,8 @@
 ---
-title: "thinkt apps set-terminal"
+title: "thinkt config apps set-terminal"
 ---
 
-## thinkt apps set-terminal
+## thinkt config apps set-terminal
 
 Set the default terminal app
 
@@ -11,7 +11,7 @@ Set the default terminal app
 Set the default terminal app. Without an argument, launches an interactive picker.
 
 ```
-thinkt apps set-terminal [id] [flags]
+thinkt config apps set-terminal [id] [flags]
 ```
 
 ### Options
@@ -29,5 +29,5 @@ thinkt apps set-terminal [id] [flags]
 
 ### SEE ALSO
 
-* [thinkt apps](thinkt_apps/)	 - Manage open-in apps and default terminal
+* [thinkt config apps](thinkt_config_apps/)	 - Manage open-in apps and default terminal
 

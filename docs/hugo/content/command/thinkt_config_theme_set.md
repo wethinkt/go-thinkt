@@ -1,8 +1,8 @@
 ---
-title: "thinkt theme set"
+title: "thinkt config theme set"
 ---
 
-## thinkt theme set
+## thinkt config theme set
 
 Set the active theme
 
@@ -14,12 +14,12 @@ Available built-in themes: dark, light
 User themes from ~/.thinkt/themes/ are also available.
 
 Examples:
-  thinkt theme set dark
-  thinkt theme set light
-  thinkt theme set my-custom-theme
+  thinkt config theme set dark
+  thinkt config theme set light
+  thinkt config theme set my-custom-theme
 
 ```
-thinkt theme set <name> [flags]
+thinkt config theme set <name> [flags]
 ```
 
 ### Options
@@ -36,5 +36,5 @@ thinkt theme set <name> [flags]
 
 ### SEE ALSO
 
-* [thinkt theme](thinkt_theme/)	 - Browse and manage TUI themes
+* [thinkt config theme](thinkt_config_theme/)	 - Browse and manage TUI themes
 

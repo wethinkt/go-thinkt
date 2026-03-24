@@ -1,13 +1,13 @@
 ---
-title: "thinkt apps disable"
+title: "thinkt config apps disable"
 ---
 
-## thinkt apps disable
+## thinkt config apps disable
 
 Disable an app
 
 ```
-thinkt apps disable [id] [flags]
+thinkt config apps disable [id] [flags]
 ```
 
 ### Options
@@ -25,5 +25,5 @@ thinkt apps disable [id] [flags]
 
 ### SEE ALSO
 
-* [thinkt apps](thinkt_apps/)	 - Manage open-in apps and default terminal
+* [thinkt config apps](thinkt_config_apps/)	 - Manage open-in apps and default terminal
 

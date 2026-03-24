@@ -1,8 +1,8 @@
 ---
-title: "thinkt sources list"
+title: "thinkt config sources list"
 ---
 
-## thinkt sources list
+## thinkt config sources list
 
 List available session sources
 
@@ -21,7 +21,7 @@ Sources include:
   - Qwen Code (~/.qwen)
 
 ```
-thinkt sources list [flags]
+thinkt config sources list [flags]
 ```
 
 ### Options
@@ -39,5 +39,5 @@ thinkt sources list [flags]
 
 ### SEE ALSO
 
-* [thinkt sources](thinkt_sources/)	 - Manage and view available session sources
+* [thinkt config sources](thinkt_config_sources/)	 - Manage and view available session sources
 

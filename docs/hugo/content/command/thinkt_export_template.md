@@ -16,8 +16,8 @@ or --format plain for raw text.
 
 Examples:
   thinkt export template                        # Prompts as Markdown
-  thinkt export template --json                 # Prompts as JSON
-  thinkt export template --format plain         # Raw prompt text
+  thinkt export template -f json                # Prompts as JSON
+  thinkt export template -f plain               # Raw prompt text
   thinkt export template --template my.tmpl     # Custom template
 
 ```
@@ -29,8 +29,10 @@ thinkt export template [session] [flags]
 ```
   -f, --format string     output format (markdown|json|plain) (default "markdown")
   -h, --help              help for template
-      --json              shorthand for --format json
   -o, --output string     output file (default: stdout)
+  -p, --project string    project path or ID
+  -s, --session string    session ID or path
+      --source strings    filter by source
       --template string   custom Go template file
 ```
 

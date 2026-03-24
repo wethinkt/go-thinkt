@@ -1,8 +1,8 @@
 ---
-title: "thinkt sources enable"
+title: "thinkt config sources enable"
 ---
 
-## thinkt sources enable
+## thinkt config sources enable
 
 Enable a source
 
@@ -11,7 +11,7 @@ Enable a source
 Enable a previously disabled source. Use --all to enable all sources.
 
 ```
-thinkt sources enable [source] [flags]
+thinkt config sources enable [source] [flags]
 ```
 
 ### Options
@@ -30,5 +30,5 @@ thinkt sources enable [source] [flags]
 
 ### SEE ALSO
 
-* [thinkt sources](thinkt_sources/)	 - Manage and view available session sources
+* [thinkt config sources](thinkt_config_sources/)	 - Manage and view available session sources
 
