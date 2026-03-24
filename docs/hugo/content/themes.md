@@ -1,16 +1,16 @@
 ---
 title: "Themes"
-weight: 6
+weight: 7
 ---
 
 # Themes
 
-thinkt ships with 14 built-in themes. Browse them interactively with `thinkt theme browse`, or switch with `thinkt theme set <name>`.
+thinkt ships with 14 built-in themes. Browse them interactively with `thinkt config theme browse`, or switch with `thinkt config theme set <name>`.
 
 You can also [import iTerm2 color schemes](#importing-iterm2-color-schemes) to create your own.
 
 {{< hint info >}}
-**Tip:** Use `thinkt theme browse` to preview themes live in your terminal before committing to one.
+**Tip:** Use `thinkt config theme browse` to preview themes live in your terminal before committing to one.
 {{< /hint >}}
 
 ---
@@ -38,7 +38,7 @@ Each palette shows: accent, borders, text colors, label colors, and block backgr
 
 ### dark
 
-Default dark theme — `thinkt theme set dark`
+Default dark theme — `thinkt config theme set dark`
 
 <div class="palette-row-label">chrome &amp; text</div>
 <div class="palette">
@@ -72,7 +72,7 @@ Default dark theme — `thinkt theme set dark`
 
 ### light
 
-Light theme for bright terminals — `thinkt theme set light`
+Light theme for bright terminals — `thinkt config theme set light`
 
 <div class="palette-row-label">chrome &amp; text</div>
 <div class="palette">
@@ -106,7 +106,7 @@ Light theme for bright terminals — `thinkt theme set light`
 
 ### dracula
 
-Dracula color scheme — `thinkt theme set dracula`
+Dracula color scheme — `thinkt config theme set dracula`
 
 <div class="palette-row-label">chrome &amp; text</div>
 <div class="palette">
@@ -140,7 +140,7 @@ Dracula color scheme — `thinkt theme set dracula`
 
 ### nord
 
-Nord color scheme — `thinkt theme set nord`
+Nord color scheme — `thinkt config theme set nord`
 
 <div class="palette-row-label">chrome &amp; text</div>
 <div class="palette">
@@ -174,7 +174,7 @@ Nord color scheme — `thinkt theme set nord`
 
 ### gruvbox-dark
 
-Gruvbox dark variant — `thinkt theme set gruvbox-dark`
+Gruvbox dark variant — `thinkt config theme set gruvbox-dark`
 
 <div class="palette-row-label">chrome &amp; text</div>
 <div class="palette">
@@ -208,7 +208,7 @@ Gruvbox dark variant — `thinkt theme set gruvbox-dark`
 
 ### gruvbox-light
 
-Gruvbox light variant — `thinkt theme set gruvbox-light`
+Gruvbox light variant — `thinkt config theme set gruvbox-light`
 
 <div class="palette-row-label">chrome &amp; text</div>
 <div class="palette">
@@ -242,7 +242,7 @@ Gruvbox light variant — `thinkt theme set gruvbox-light`
 
 ### catppuccin-mocha
 
-Catppuccin Mocha (dark) — `thinkt theme set catppuccin-mocha`
+Catppuccin Mocha (dark) — `thinkt config theme set catppuccin-mocha`
 
 <div class="palette-row-label">chrome &amp; text</div>
 <div class="palette">
@@ -276,7 +276,7 @@ Catppuccin Mocha (dark) — `thinkt theme set catppuccin-mocha`
 
 ### catppuccin-latte
 
-Catppuccin Latte (light) — `thinkt theme set catppuccin-latte`
+Catppuccin Latte (light) — `thinkt config theme set catppuccin-latte`
 
 <div class="palette-row-label">chrome &amp; text</div>
 <div class="palette">
@@ -310,7 +310,7 @@ Catppuccin Latte (light) — `thinkt theme set catppuccin-latte`
 
 ### solarized-dark
 
-Solarized dark variant — `thinkt theme set solarized-dark`
+Solarized dark variant — `thinkt config theme set solarized-dark`
 
 <div class="palette-row-label">chrome &amp; text</div>
 <div class="palette">
@@ -344,7 +344,7 @@ Solarized dark variant — `thinkt theme set solarized-dark`
 
 ### solarized-light
 
-Solarized light variant — `thinkt theme set solarized-light`
+Solarized light variant — `thinkt config theme set solarized-light`
 
 <div class="palette-row-label">chrome &amp; text</div>
 <div class="palette">
@@ -378,7 +378,7 @@ Solarized light variant — `thinkt theme set solarized-light`
 
 ### tokyo-night
 
-Tokyo Night color scheme — `thinkt theme set tokyo-night`
+Tokyo Night color scheme — `thinkt config theme set tokyo-night`
 
 <div class="palette-row-label">chrome &amp; text</div>
 <div class="palette">
@@ -412,7 +412,7 @@ Tokyo Night color scheme — `thinkt theme set tokyo-night`
 
 ### rose-pine
 
-Rose Pine color scheme — `thinkt theme set rose-pine`
+Rose Pine color scheme — `thinkt config theme set rose-pine`
 
 <div class="palette-row-label">chrome &amp; text</div>
 <div class="palette">
@@ -446,7 +446,7 @@ Rose Pine color scheme — `thinkt theme set rose-pine`
 
 ### one-dark
 
-Atom One Dark color scheme — `thinkt theme set one-dark`
+Atom One Dark color scheme — `thinkt config theme set one-dark`
 
 <div class="palette-row-label">chrome &amp; text</div>
 <div class="palette">
@@ -480,7 +480,7 @@ Atom One Dark color scheme — `thinkt theme set one-dark`
 
 ### monokai
 
-Monokai color scheme — `thinkt theme set monokai`
+Monokai color scheme — `thinkt config theme set monokai`
 
 <div class="palette-row-label">chrome &amp; text</div>
 <div class="palette">
@@ -517,13 +517,13 @@ You can import any `.itermcolors` file from the [iTerm2-Color-Schemes](https://g
 
 ```bash
 # Import a downloaded .itermcolors file
-thinkt theme import ~/Downloads/Zenburn.itermcolors
+thinkt config theme import ~/Downloads/Zenburn.itermcolors
 
 # Import with a custom name
-thinkt theme import scheme.itermcolors --name my-zenburn
+thinkt config theme import scheme.itermcolors --name my-zenburn
 
 # Activate the imported theme
-thinkt theme set my-zenburn
+thinkt config theme set my-zenburn
 ```
 
 The importer maps iTerm2 ANSI colors to thinkt's semantic theme fields:
@@ -540,7 +540,7 @@ The importer maps iTerm2 ANSI colors to thinkt's semantic theme fields:
 | Tool label | Ansi 3 (yellow) |
 | Block backgrounds | Blended from Background + ANSI accent |
 
-Imported themes are saved to `~/.thinkt/themes/` and can be further customized with `thinkt theme builder`.
+Imported themes are saved to `~/.thinkt/themes/` and can be further customized with `thinkt config theme builder`.
 
 ---
 
@@ -550,13 +550,13 @@ Beyond importing, you can create themes from scratch:
 
 ```bash
 # Launch the interactive theme builder
-thinkt theme builder my-theme
+thinkt config theme builder my-theme
 
 # Or start from an existing theme
-thinkt theme builder dracula
+thinkt config theme builder dracula
 ```
 
-Theme JSON files are stored in `~/.thinkt/themes/` and follow the structure defined in the [theme command reference](/command/thinkt_theme).
+Theme JSON files are stored in `~/.thinkt/themes/` and follow the structure defined in the [theme command reference](/command/thinkt_config_theme).
 
 ---
 

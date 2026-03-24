@@ -60,7 +60,7 @@ thinkt search "authentication"
 
 - [**Themes**](/themes) - 14 built-in color schemes (Dracula, Nord, Catppuccin, etc.) with interactive browser and iTerm2 import
 - [**Languages**](/languages) - Support for English, Chinese, and Spanish with easy switching
-- **App Management** - Configure open-in apps and default terminal via `thinkt apps`
+- **App Management** - Configure open-in apps and default terminal via `thinkt config apps`
 - **Embedding Management** - Configure and manage embedding models via `thinkt embeddings`
 
 ### With operational tools:

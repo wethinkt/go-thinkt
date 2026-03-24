@@ -79,8 +79,8 @@ The TUI navigates through three screens: **Project Picker** → **Session Picker
 View which AI assistants have session data on your machine:
 
 ```bash
-thinkt sources list         # List available sources
-thinkt sources status       # Detailed status with paths
+thinkt config sources list         # List available sources
+thinkt config sources status       # Detailed status with paths
 ```
 
 Supported sources: `claude`, `kimi`, `gemini`, `copilot`, `codex`, `qwen`
@@ -362,21 +362,21 @@ When the indexer server is running, `enable` and `disable` take effect immediate
 Manage the apps available for "open in" actions and the default terminal:
 
 ```bash
-thinkt apps                           # List all apps with status
-thinkt apps list                      # Same as above
-thinkt apps list --json               # JSON output (includes terminal capability)
-thinkt apps enable <id>               # Enable an app
-thinkt apps enable                    # Interactive picker for disabled apps
-thinkt apps disable <id>              # Disable an app
-thinkt apps disable                   # Interactive picker for enabled apps
-thinkt apps get-terminal              # Show the default terminal app
-thinkt apps set-terminal <id>         # Set the default terminal
-thinkt apps set-terminal              # Interactive picker for terminal apps
+thinkt config apps                           # List all apps with status
+thinkt config apps list                      # Same as above
+thinkt config apps list --json               # JSON output (includes terminal capability)
+thinkt config apps enable <id>               # Enable an app
+thinkt config apps enable                    # Interactive picker for disabled apps
+thinkt config apps disable <id>              # Disable an app
+thinkt config apps disable                   # Interactive picker for enabled apps
+thinkt config apps get-terminal              # Show the default terminal app
+thinkt config apps set-terminal <id>         # Set the default terminal
+thinkt config apps set-terminal              # Interactive picker for terminal apps
 ```
 
 Apps with terminal capability (those that can run shell commands) are shown in the `TERMINAL` column. Only terminal-capable apps can be set as the default terminal. The default terminal is used by the REST API to spawn resume commands.
 
-**Reference:** [thinkt apps](/command/thinkt_apps)
+**Reference:** [thinkt config apps](/command/thinkt_config_apps)
 
 ---
 
@@ -387,12 +387,12 @@ Customize the TUI appearance with 14 built-in themes or import your own.
 ### Browse and Switch Themes
 
 ```bash
-thinkt theme                          # Browse themes interactively (default)
-thinkt theme list                     # List all available themes
-thinkt theme set dracula              # Switch to a theme
-thinkt theme show                     # Show current theme with samples
-thinkt theme show --json              # Export theme as JSON
-thinkt theme builder                  # Interactive theme builder
+thinkt config theme                          # Browse themes interactively (default)
+thinkt config theme list                     # List all available themes
+thinkt config theme set dracula              # Switch to a theme
+thinkt config theme show                     # Show current theme with samples
+thinkt config theme show --json              # Export theme as JSON
+thinkt config theme builder                  # Interactive theme builder
 ```
 
 ### Built-in Themes
@@ -419,14 +419,14 @@ thinkt theme builder                  # Interactive theme builder
 Import any `.itermcolors` file from the [iTerm2-Color-Schemes](https://github.com/mbadolato/iTerm2-Color-Schemes) repository or other sources:
 
 ```bash
-thinkt theme import ~/Downloads/Zenburn.itermcolors
-thinkt theme import scheme.itermcolors --name my-theme
-thinkt theme set my-theme
+thinkt config theme import ~/Downloads/Zenburn.itermcolors
+thinkt config theme import scheme.itermcolors --name my-theme
+thinkt config theme set my-theme
 ```
 
-Imported themes are saved to `~/.thinkt/themes/` and can be further customized with `thinkt theme builder`.
+Imported themes are saved to `~/.thinkt/themes/` and can be further customized with `thinkt config theme builder`.
 
-**Reference:** [thinkt theme](/command/thinkt_theme)
+**Reference:** [thinkt config theme](/command/thinkt_config_theme)
 
 ---
 

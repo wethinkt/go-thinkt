@@ -1,6 +1,6 @@
 ---
 title: "Languages"
-weight: 7
+weight: 8
 ---
 
 # Languages
@@ -32,17 +32,17 @@ You can permanently set your preferred language via the CLI:
 
 ```bash
 # Show the current language
-thinkt language
-thinkt language get
+thinkt config language
+thinkt config language get
 
 # List available languages and coverage
-thinkt language list
+thinkt config language list
 
 # Interactively choose a language
-thinkt language set
+thinkt config language set
 
 # Set directly by tag
-thinkt language set es
+thinkt config language set es
 ```
 
 ### 3. System Locale

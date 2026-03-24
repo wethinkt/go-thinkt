@@ -100,7 +100,7 @@ docker run --rm \
   -v ~/.gemini:/data/.gemini:ro \
   -v ~/.copilot:/data/.copilot:ro \
   -v ~/.codex:/data/.codex:ro \
-  ghcr.io/wethinkt/thinkt sources status
+  ghcr.io/wethinkt/thinkt config sources status
 ```
 
 {{< hint info >}}
@@ -359,7 +359,7 @@ Verify the mount paths are correct:
 # List what the container sees
 docker run --rm \
   -v ~/.claude:/data/.claude:ro \
-  ghcr.io/wethinkt/thinkt sources status
+  ghcr.io/wethinkt/thinkt config sources status
 ```
 
 ### Port Already in Use

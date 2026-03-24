@@ -86,8 +86,8 @@ thinkt search "query"                # Search indexed sessions
 thinkt semantic search "query"       # Semantic search
 thinkt embeddings list               # List embedding models
 thinkt embeddings status             # Embedding status
-thinkt apps                         # List open-in apps and terminal capability
-thinkt apps set-terminal            # Set default terminal for resume
+thinkt config apps                  # List open-in apps and terminal capability
+thinkt config apps set-terminal     # Set default terminal for resume
 ```
 
 ### 3. REST API
