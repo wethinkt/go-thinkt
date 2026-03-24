@@ -28,12 +28,12 @@ Sources are the AI coding assistants that store session data
 on this machine (e.g., Claude Code, Kimi Code, Gemini CLI, Copilot CLI, Codex CLI).
 
 Examples:
-  thinkt sources list           # List all available sources
-  thinkt sources status         # Show detailed source status
-  thinkt sources enable claude  # Enable a source
-  thinkt sources disable kimi   # Disable a source
-  thinkt sources enable --all   # Enable all sources
-  thinkt sources disable --all  # Disable all sources`,
+  thinkt config sources list           # List all available sources
+  thinkt config sources status         # Show detailed source status
+  thinkt config sources enable claude  # Enable a source
+  thinkt config sources disable kimi   # Disable a source
+  thinkt config sources enable --all   # Enable all sources
+  thinkt config sources disable --all  # Disable all sources`,
 	RunE: runSourcesList,
 }
 

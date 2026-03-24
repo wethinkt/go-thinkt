@@ -299,7 +299,7 @@ func ListThemes(w io.Writer) error {
 
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "Active theme marked with *\n")
-	fmt.Fprintf(w, "Use 'thinkt theme set <name>' to change theme\n")
+	fmt.Fprintf(w, "Use 'thinkt config theme set <name>' to change theme\n")
 
 	return nil
 }

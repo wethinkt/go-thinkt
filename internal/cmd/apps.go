@@ -23,13 +23,13 @@ var appsCmd = &cobra.Command{
 Apps are configured in ~/.thinkt/config.json.
 
 Examples:
-  thinkt apps                        # List all apps
-  thinkt apps list                   # List all apps
-  thinkt apps enable vscode          # Enable an app
-  thinkt apps disable finder         # Disable an app
-  thinkt apps get-terminal           # Show default terminal
-  thinkt apps set-terminal ghostty   # Set default terminal
-  thinkt apps set-terminal           # Interactive terminal picker`,
+  thinkt config apps                        # List all apps
+  thinkt config apps list                   # List all apps
+  thinkt config apps enable vscode          # Enable an app
+  thinkt config apps disable finder         # Disable an app
+  thinkt config apps get-terminal           # Show default terminal
+  thinkt config apps set-terminal ghostty   # Set default terminal
+  thinkt config apps set-terminal           # Interactive terminal picker`,
 	RunE: runAppsList,
 }
 
@@ -303,7 +303,7 @@ func runAppsSetTerminal(cmd *cobra.Command, args []string) error {
 	for _, app := range cfg.AllowedApps {
 		if app.ID == id {
 			if !app.Enabled {
-				return fmt.Errorf("app %q is disabled; enable it first with: thinkt apps enable %s", id, id)
+				return fmt.Errorf("app %q is disabled; enable it first with: thinkt config apps enable %s", id, id)
 			}
 			if len(app.ExecRun) == 0 {
 				return fmt.Errorf("app %q is not a terminal (no ExecRun capability)", id)

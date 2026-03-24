@@ -26,13 +26,13 @@ The theme controls colors for conversation blocks, labels, borders,
 and other UI elements. Themes are stored in ~/.thinkt/themes/.
 
 Examples:
-  thinkt theme               # Browse themes interactively
-  thinkt theme show          # Show current theme with samples
-  thinkt theme show --json   # Output theme as JSON
-  thinkt theme list          # List all available themes
-  thinkt theme set dracula   # Switch to a theme
-  thinkt theme builder       # Interactive theme builder
-  thinkt theme import f.itermcolors  # Import iTerm2 color scheme`,
+  thinkt config theme               # Browse themes interactively
+  thinkt config theme show          # Show current theme with samples
+  thinkt config theme show --json   # Output theme as JSON
+  thinkt config theme list          # List all available themes
+  thinkt config theme set dracula   # Switch to a theme
+  thinkt config theme builder       # Interactive theme builder
+  thinkt config theme import f.itermcolors  # Import iTerm2 color scheme`,
 	RunE: runThemeBrowse,
 }
 
@@ -44,9 +44,9 @@ var themeShowCmd = &cobra.Command{
 If no name is provided, shows the active theme.
 
 Examples:
-  thinkt theme show            # Show active theme
-  thinkt theme show dracula    # Show the dracula theme
-  thinkt theme show --json     # Output active theme as JSON`,
+  thinkt config theme show            # Show active theme
+  thinkt config theme show dracula    # Show the dracula theme
+  thinkt config theme show --json     # Output active theme as JSON`,
 	Args:         cobra.MaximumNArgs(1),
 	RunE:         runThemeShow,
 	SilenceUsage: true,
@@ -69,9 +69,9 @@ Available built-in themes: dark, light
 User themes from ~/.thinkt/themes/ are also available.
 
 Examples:
-  thinkt theme set dark
-  thinkt theme set light
-  thinkt theme set my-custom-theme`,
+  thinkt config theme set dark
+  thinkt config theme set light
+  thinkt config theme set my-custom-theme`,
 	Args: cobra.ExactArgs(1),
 	RunE: runThemeSet,
 }
@@ -88,9 +88,9 @@ If no name is provided, edits a copy of the current theme.
 If the theme doesn't exist, creates a new one based on the default.
 
 Examples:
-  thinkt theme builder             # Edit current theme
-  thinkt theme builder my-theme    # Edit or create my-theme
-  thinkt theme builder dark        # Edit the dark theme`,
+  thinkt config theme builder             # Edit current theme
+  thinkt config theme builder my-theme    # Edit or create my-theme
+  thinkt config theme builder dark        # Edit the dark theme`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runThemeBuilder,
 }
@@ -161,7 +161,7 @@ Key bindings:
 
 func runThemeBrowse(cmd *cobra.Command, args []string) error {
 	if !isTTY() {
-		return fmt.Errorf("interactive theme browser requires a terminal; use 'thinkt theme list' or 'thinkt theme show'")
+		return fmt.Errorf("interactive theme browser requires a terminal; use 'thinkt config theme list' or 'thinkt config theme show'")
 	}
 	return tui.RunThemeBrowser()
 }
@@ -171,14 +171,14 @@ var themeImportName string
 var themeImportCmd = &cobra.Command{
 	Use:   "import <file.itermcolors>",
 	Short: "Import an iTerm2 color scheme as a theme",
-	Long: `Import an iTerm2 .itermcolors file and convert it to a thinkt theme.
+	Long: `Import an iTerm2 .itermcolors file and convert it to a thinkt config theme.
 
 The imported theme is saved to ~/.thinkt/themes/ and can be activated
-with 'thinkt theme set'.
+with 'thinkt config theme set'.
 
 Examples:
-  thinkt theme import ~/Downloads/Dracula.itermcolors
-  thinkt theme import scheme.itermcolors --name my-theme`,
+  thinkt config theme import ~/Downloads/Dracula.itermcolors
+  thinkt config theme import scheme.itermcolors --name my-theme`,
 	Args: cobra.ExactArgs(1),
 	RunE: runThemeImport,
 }
@@ -210,7 +210,7 @@ func runThemeImport(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println(thinktI18n.Tf("cmd.theme.importSuccess", "Theme %q imported successfully.", name))
-	fmt.Println(thinktI18n.Tf("cmd.theme.activateHint", "Activate it with: thinkt theme set %s", name))
+	fmt.Println(thinktI18n.Tf("cmd.theme.activateHint", "Activate it with: thinkt config theme set %s", name))
 	return nil
 }
 

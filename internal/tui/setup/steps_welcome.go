@@ -96,7 +96,7 @@ func (m Model) viewWelcome() string {
 
 	// CLI hint
 	if m.cursor >= 0 && m.cursor < len(m.langs) {
-		b.WriteString(fmt.Sprintf("\n\n  %s\n", m.renderCLIHint("thinkt language set "+m.langs[m.cursor].Tag)))
+		b.WriteString(fmt.Sprintf("\n\n  %s\n", m.renderCLIHint("thinkt config language set "+m.langs[m.cursor].Tag)))
 	}
 
 	return b.String()

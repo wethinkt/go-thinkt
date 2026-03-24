@@ -117,9 +117,9 @@ func (m Model) viewSourceConsent() string {
 
 	// CLI hint based on current cursor
 	consentCmds := []string{
-		"thinkt sources enable",
-		"thinkt sources enable --all",
-		"thinkt sources disable --all",
+		"thinkt config sources enable",
+		"thinkt config sources enable --all",
+		"thinkt config sources disable --all",
 		"",
 	}
 	if m.consentCursor < len(consentCmds) && consentCmds[m.consentCursor] != "" {

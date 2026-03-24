@@ -53,7 +53,7 @@ func (m Model) viewSuggestions() string {
 		mutedStyle.Render(thinktI18n.T("tui.setup.suggestions.cmdSearch", "Run keyword search"))))
 
 	b.WriteString(fmt.Sprintf("    %s %s\n",
-		padRight(codeStyle.Render("thinkt theme"), cmdCol),
+		padRight(codeStyle.Render("thinkt config theme"), cmdCol),
 		mutedStyle.Render(thinktI18n.T("tui.setup.suggestions.cmdTheme", "Change your TUI theme"))))
 
 	b.WriteString(fmt.Sprintf("\n  %s\n",

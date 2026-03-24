@@ -109,17 +109,38 @@ var helpLlmsCmd = &cobra.Command{
 	},
 }
 
-var cheatJSON bool
+var (
+	cheatJSON  bool
+	cheatMD    bool
+	cheatOne   bool
+	cheatTwo   bool
+	cheatThree bool
+)
+
+func cheatDepth() int {
+	if cheatOne {
+		return 1
+	}
+	if cheatTwo {
+		return 2
+	}
+	return 3
+}
 
 var helpCheatCmd = &cobra.Command{
 	Use:   "cheat",
 	Short: "Quick-reference command tree",
-	Long:  "Print a compact cheat sheet showing every command and subcommand.",
+	Long:  "Print a compact cheat sheet showing every command and subcommand.\n\nDepth flags control how many levels to show (default: 3).",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		depth := cheatDepth()
 		if cheatJSON {
-			return printCheatSheetJSON()
+			return printCheatSheetJSON(depth)
 		}
-		printCheatSheet()
+		if cheatMD {
+			printCheatSheetMD(depth)
+			return nil
+		}
+		printCheatSheet(depth)
 		return nil
 	},
 }
@@ -135,57 +156,75 @@ func localizedShort(c *cobra.Command) string {
 	return c.Short
 }
 
-func printCheatSheet() {
+// visibleCommands returns non-hidden, non-help children of cmd.
+func visibleCommands(cmd *cobra.Command) []*cobra.Command {
+	var out []*cobra.Command
+	for _, c := range cmd.Commands() {
+		if !c.Hidden && c.Name() != "help" {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+func printCheatSheet(maxDepth int) {
 	fmt.Println("🧠 " + thinktI18n.T("cmd.help.cheat.heading", "thinkt — command cheat sheet"))
 	fmt.Println()
 
-	cmds := rootCmd.Commands()
-	// Filter to visible, non-help commands.
-	visible := cmds[:0]
-	for _, c := range cmds {
-		if !c.Hidden && c.Name() != "help" {
-			visible = append(visible, c)
-		}
-	}
-
+	visible := visibleCommands(rootCmd)
 	w := tabwriter.NewWriter(os.Stdout, 2, 0, 2, ' ', 0)
-	for i, sub := range visible {
-		isLast := i == len(visible)-1
+	printCheatLevel(w, visible, "  ", maxDepth, 1)
+	w.Flush()
+	fmt.Println()
+	fmt.Println(thinktI18n.T("cmd.help.cheat.footer", "Run 'thinkt help <command>' for detailed usage."))
+}
+
+func printCheatLevel(w *tabwriter.Writer, cmds []*cobra.Command, prefix string, maxDepth, depth int) {
+	for i, cmd := range cmds {
+		isLast := i == len(cmds)-1
 		connector := "├── "
 		if isLast {
 			connector = "└── "
 		}
-		fmt.Fprintf(w, "  %s%s\t%s\n", connector, sub.Name(), localizedShort(sub))
+		fmt.Fprintf(w, "%s%s%s\t%s\n", prefix, connector, cmd.Name(), localizedShort(cmd))
 
-		children := sub.Commands()
-		// Filter hidden children.
-		vis := children[:0]
-		for _, ch := range children {
-			if !ch.Hidden {
-				vis = append(vis, ch)
+		if depth < maxDepth {
+			children := visibleCommands(cmd)
+			if len(children) > 0 {
+				continuation := prefix + "│   "
+				if isLast {
+					continuation = prefix + "    "
+				}
+				printCheatLevel(w, children, continuation, maxDepth, depth+1)
 			}
 		}
 
-		continuation := "│   "
-		if isLast {
-			continuation = "    "
-		}
-		for j, child := range vis {
-			childConn := "├── "
-			if j == len(vis)-1 {
-				childConn = "└── "
-			}
-			fmt.Fprintf(w, "  %s%s%s\t%s\n", continuation, childConn, child.Name(), localizedShort(child))
-		}
-
-		// Blank spacer line between sections.
-		if !isLast {
-			fmt.Fprintf(w, "  │\n")
+		// Blank spacer between top-level sections.
+		if depth == 1 && !isLast {
+			fmt.Fprintf(w, "%s│\n", prefix)
 		}
 	}
-	w.Flush()
+}
+
+func printCheatSheetMD(maxDepth int) {
+	fmt.Println("# thinkt — command cheat sheet")
 	fmt.Println()
-	fmt.Println(thinktI18n.T("cmd.help.cheat.footer", "Run 'thinkt help <command>' for detailed usage."))
+	visible := visibleCommands(rootCmd)
+	printCheatMDLevel(visible, "", maxDepth, 1)
+	fmt.Println()
+	fmt.Println("Run `thinkt help <command>` for detailed usage.")
+}
+
+func printCheatMDLevel(cmds []*cobra.Command, prefix string, maxDepth, depth int) {
+	for _, cmd := range cmds {
+		fmt.Printf("%s- **%s** — %s\n", prefix, cmd.Name(), localizedShort(cmd))
+		if depth < maxDepth {
+			children := visibleCommands(cmd)
+			if len(children) > 0 {
+				printCheatMDLevel(children, prefix+"  ", maxDepth, depth+1)
+			}
+		}
+	}
 }
 
 type cheatCommand struct {
@@ -194,25 +233,24 @@ type cheatCommand struct {
 	Subcommands []cheatCommand `json:"subcommands,omitempty"`
 }
 
-func printCheatSheetJSON() error {
-	cmds := rootCmd.Commands()
+func printCheatSheetJSON(maxDepth int) error {
+	result := buildCheatJSON(visibleCommands(rootCmd), maxDepth, 1)
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(result)
+}
+
+func buildCheatJSON(cmds []*cobra.Command, maxDepth, depth int) []cheatCommand {
 	var result []cheatCommand
-	for _, sub := range cmds {
-		if sub.Hidden || sub.Name() == "help" {
-			continue
-		}
-		entry := cheatCommand{Name: sub.Name(), Description: localizedShort(sub)}
-		for _, child := range sub.Commands() {
-			if !child.Hidden {
-				entry.Subcommands = append(entry.Subcommands, cheatCommand{
-					Name:        child.Name(),
-					Description: localizedShort(child),
-				})
+	for _, cmd := range cmds {
+		entry := cheatCommand{Name: cmd.Name(), Description: localizedShort(cmd)}
+		if depth < maxDepth {
+			children := visibleCommands(cmd)
+			if len(children) > 0 {
+				entry.Subcommands = buildCheatJSON(children, maxDepth, depth+1)
 			}
 		}
 		result = append(result, entry)
 	}
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	return enc.Encode(result)
+	return result
 }

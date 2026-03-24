@@ -23,11 +23,11 @@ var languageCmd = &cobra.Command{
 Running without a subcommand shows the current language.
 
 Examples:
-  thinkt language              # show current language
-  thinkt language get --json   # JSON output
-  thinkt language list         # list available languages
-  thinkt language set zh-Hans  # set directly
-  thinkt language set          # interactive picker`,
+  thinkt config language              # show current language
+  thinkt config language get --json   # JSON output
+  thinkt config language list         # list available languages
+  thinkt config language set zh-Hans  # set directly
+  thinkt config language set          # interactive picker`,
 	Args: cobra.NoArgs,
 	RunE: runLanguageGet,
 }
@@ -55,8 +55,8 @@ var languageSetCmd = &cobra.Command{
 Without an argument, launches an interactive picker (requires a terminal).
 
 Examples:
-  thinkt language set zh-Hans  # set to Chinese (Simplified)
-  thinkt language set          # interactive picker`,
+  thinkt config language set zh-Hans  # set to Chinese (Simplified)
+  thinkt config language set          # interactive picker`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runLanguageSet,
 }
@@ -228,7 +228,7 @@ func runLanguageSet(cmd *cobra.Command, args []string) error {
 	} else {
 		// Interactive picker
 		if !isTTY() {
-			return fmt.Errorf("interactive language picker requires a terminal; use 'thinkt language set <lang>'")
+			return fmt.Errorf("interactive language picker requires a terminal; use 'thinkt config language set <lang>'")
 		}
 		activeTag := thinktI18n.ResolveLocale(cfg.Language)
 		selected, err := tui.RunLanguagePicker(activeTag)
@@ -252,7 +252,7 @@ func runLanguageSet(cmd *cobra.Command, args []string) error {
 		}
 	}
 	if !found {
-		return fmt.Errorf("language %q not available; use 'thinkt language list' to see options", tag)
+		return fmt.Errorf("language %q not available; use 'thinkt config language list' to see options", tag)
 	}
 
 	cfg.Language = tag

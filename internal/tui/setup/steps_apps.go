@@ -132,7 +132,7 @@ func (m Model) viewApps() string {
 	b.WriteString(fmt.Sprintf("\n  %s\n",
 		mutedStyle.Render(m.withEscQ(thinktI18n.T("tui.setup.apps.help", "↑/↓: navigate · Space: toggle · Enter: continue · esc: exit")))))
 
-	b.WriteString(fmt.Sprintf("\n\n  %s\n", m.renderCLIHint("thinkt apps enable/disable")))
+	b.WriteString(fmt.Sprintf("\n\n  %s\n", m.renderCLIHint("thinkt config apps enable/disable")))
 
 	return b.String()
 }
@@ -245,7 +245,7 @@ func (m Model) viewTerminal() string {
 		b.WriteString(m.renderVerticalConfirm())
 	}
 
-	b.WriteString(fmt.Sprintf("\n\n  %s\n", m.renderCLIHint("thinkt apps set-terminal")))
+	b.WriteString(fmt.Sprintf("\n\n  %s\n", m.renderCLIHint("thinkt config apps set-terminal")))
 
 	return b.String()
 }

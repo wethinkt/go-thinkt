@@ -38,16 +38,16 @@ Supports: Claude Code, Kimi Code, Gemini CLI, GitHub Copilot CLI, Codex CLI
 Running without a subcommand launches the interactive TUI.
 
 Commands:
-  sources   Manage and view available session sources
+  config    Manage configuration (apps, language, sources, theme)
   tui       Launch interactive TUI explorer (default)
-  prompts   Extract and manage prompts from trace files
   projects  List and manage projects
   sessions  List and manage sessions
 
 Examples:
-  thinkt                          # Launch TUI
-  thinkt sources list             # List available sources (claude, kimi, gemini, copilot, codex)
-  thinkt projects list            # List all projects from all sources`,
+  thinkt                                  # Launch TUI
+  thinkt config sources list              # List available sources
+  thinkt config theme set dracula         # Set theme
+  thinkt projects list                    # List all projects from all sources`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Initialize debug logging once for all commands.
 		if logPath == "" {
@@ -199,6 +199,12 @@ func init() {
 
 	helpCmd.AddCommand(helpLlmsCmd)
 	helpCheatCmd.Flags().BoolVar(&cheatJSON, "json", false, "output as JSON")
+	helpCheatCmd.Flags().BoolVar(&cheatMD, "md", false, "output as Markdown")
+	helpCheatCmd.MarkFlagsMutuallyExclusive("json", "md")
+	helpCheatCmd.Flags().BoolVarP(&cheatOne, "one", "1", false, "show 1 level (top-level commands only)")
+	helpCheatCmd.Flags().BoolVarP(&cheatTwo, "two", "2", false, "show 2 levels")
+	helpCheatCmd.Flags().BoolVarP(&cheatThree, "three", "3", false, "show 3 levels (default)")
+	helpCheatCmd.MarkFlagsMutuallyExclusive("one", "two", "three")
 	helpCmd.AddCommand(helpCheatCmd)
 	helpEnvCmd.Flags().BoolVar(&envJSON, "json", false, "output as JSON")
 	helpCmd.AddCommand(helpEnvCmd)
@@ -208,13 +214,14 @@ func init() {
 	rootCmd.AddCommand(serverCmd)
 	rootCmd.AddCommand(projectsCmd)
 	rootCmd.AddCommand(sessionsCmd)
-	rootCmd.AddCommand(sourcesCmd)
-	rootCmd.AddCommand(themeCmd)
 	// Language subcommands
 	languageCmd.AddCommand(languageGetCmd, languageListCmd, languageSetCmd)
 	languageGetCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
 	languageListCmd.Flags().BoolVar(&outputJSON, "json", false, "output as JSON")
-	rootCmd.AddCommand(languageCmd)
+	// Config command tree
+	configCmd.AddCommand(appsCmd, languageCmd, sourcesCmd, themeCmd)
+	rootCmd.AddCommand(configCmd)
+
 	rootCmd.AddCommand(indexerCmd)
 	rootCmd.AddCommand(versionCmd)
 
@@ -345,7 +352,6 @@ func init() {
 	// Apps subcommands
 	appsCmd.AddCommand(appsListCmd, appsEnableCmd, appsDisableCmd, appsGetTermCmd, appsSetTermCmd)
 	appsCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "output as JSON")
-	rootCmd.AddCommand(appsCmd)
 	rootCmd.AddCommand(webCmd)
 
 	// Sources subcommands
