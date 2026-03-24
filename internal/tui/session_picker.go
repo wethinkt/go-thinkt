@@ -111,14 +111,15 @@ func formatFileSize(size int64) string {
 // Line 2: size, time ago, source, model, ID
 // Line 3: separator
 type sessionDelegate struct {
-	normalStyle    lipgloss.Style
-	selectedStyle  lipgloss.Style
-	dimmedStyle    lipgloss.Style
-	mutedStyle     lipgloss.Style
-	cursorStyle    lipgloss.Style
-	sepStyle       lipgloss.Style
-	activeSessions map[string]bool // sessionPath -> true
-	hideResume     bool
+	normalStyle      lipgloss.Style
+	selectedStyle    lipgloss.Style
+	dimmedStyle      lipgloss.Style
+	mutedStyle       lipgloss.Style
+	cursorStyle      lipgloss.Style
+	sepStyle         lipgloss.Style
+	activeSessions   map[string]bool // sessionPath -> true
+	hideResume       bool
+	showAbsoluteTime bool
 }
 
 func newSessionDelegate() sessionDelegate {
@@ -140,6 +141,7 @@ func (d sessionDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 // ShortHelp returns key bindings for the help bar.
 func (d sessionDelegate) ShortHelp() []key.Binding {
 	bindings := []key.Binding{
+		key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "date")),
 		key.NewBinding(key.WithKeys("s"), key.WithHelp("s", thinktI18n.T("tui.help.sources", "sources"))),
 		key.NewBinding(key.WithKeys("/"), key.WithHelp("/", thinktI18n.T("tui.help.search", "search"))),
 	}
@@ -196,7 +198,11 @@ func (d sessionDelegate) Render(w io.Writer, m list.Model, index int, item list.
 		ts = meta.CreatedAt
 	}
 	if !ts.IsZero() {
-		detailParts = append(detailParts, thinktI18n.RelativeTimeShort(ts))
+		if d.showAbsoluteTime {
+			detailParts = append(detailParts, ts.Local().Format("2006-01-02 15:04"))
+		} else {
+			detailParts = append(detailParts, thinktI18n.RelativeTimeShort(ts))
+		}
 	}
 	if meta.Source != "" {
 		sourceStr := lipgloss.NewStyle().
@@ -270,16 +276,18 @@ type SessionPickerModel struct {
 	activeSessions   map[string]bool        // sessionPath -> true for active sessions
 	headerContext    string                 // e.g. "export" — shown in header bar
 	disableResume    bool                   // true to hide the resume (r) key
+	showAbsoluteTime bool                   // true to show date/time instead of "ago"
 }
 
 type pickerKeyMap struct {
-	Enter   key.Binding
-	Back    key.Binding
-	Quit    key.Binding
-	Sources key.Binding
-	Search  key.Binding // / key for search
-	Resume  key.Binding
-	OpenWeb key.Binding
+	Enter    key.Binding
+	Back     key.Binding
+	Quit     key.Binding
+	Sources  key.Binding
+	Search   key.Binding // / key for search
+	Resume   key.Binding
+	OpenWeb  key.Binding
+	DateMode key.Binding
 }
 
 func defaultPickerKeyMap() pickerKeyMap {
@@ -312,6 +320,10 @@ func defaultPickerKeyMap() pickerKeyMap {
 			key.WithKeys("w"),
 			key.WithHelp("w", thinktI18n.T("tui.help.openWeb", "open web")),
 		),
+		DateMode: key.NewBinding(
+			key.WithKeys("d"),
+			key.WithHelp("d", "date mode"),
+		),
 	}
 }
 
@@ -333,6 +345,16 @@ func NewSessionPickerModel(sessions []thinkt.SessionMeta, sourceFilter []thinkt.
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(true)
 	l.SetFilteringEnabled(false)
+
+	// Remove "d" from paginator next-page keys (we use it for date toggle)
+	l.KeyMap.NextPage = key.NewBinding(
+		key.WithKeys("right", "l", "pgdown", "f"),
+		key.WithHelp("f", "next page"),
+	)
+	l.KeyMap.PrevPage = key.NewBinding(
+		key.WithKeys("left", "h", "pgup", "b", "u"),
+		key.WithHelp("b", "prev page"),
+	)
 
 	return SessionPickerModel{
 		list:         l,
@@ -602,6 +624,15 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					openInWeb(si.meta.ProjectPath, si.meta.FullPath)
 				}
 			}
+			return m, nil
+
+		case key.Matches(msg, keys.DateMode):
+			m.showAbsoluteTime = !m.showAbsoluteTime
+			d := newSessionDelegate()
+			d.activeSessions = m.activeSessions
+			d.hideResume = m.disableResume
+			d.showAbsoluteTime = m.showAbsoluteTime
+			m.list.SetDelegate(d)
 			return m, nil
 
 		case key.Matches(msg, keys.Enter):

@@ -207,85 +207,68 @@ func (s *Shell) windowSizeCmd() tea.Cmd {
 	}
 }
 
-// renderHeader renders the top header bar with breadcrumb on the left and "thinkt" on the right.
+// renderHeader renders the branded header bar "🧠thinkt <action>" with optional detail.
 func (s *Shell) renderHeader() string {
-	t := theme.Current()
+	if s.stack.IsEmpty() {
+		return RenderHeaderBar("", "", s.width)
+	}
 
-	nameStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(t.TextPrimary.Fg))
+	items := s.stack.items
+	current := items[len(items)-1]
 
-	sepStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(t.TextMuted.Fg))
+	var context, detail string
 
-	actionStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(t.TextSecondary.Fg))
+	switch m := current.Model.(type) {
+	case ProjectPickerModel:
+		context = "projects"
 
-	brandStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(t.TextMuted.Fg))
-
-	sep := sepStyle.Render("  >  ")
-
-	// Build left side (breadcrumb)
-	var left string
-	if !s.stack.IsEmpty() {
-		items := s.stack.items
-		current := items[len(items)-1]
-
-		switch current.Model.(type) {
-		case ProjectPickerModel:
-			left = actionStyle.Render(thinktI18n.T("tui.shell.selectProject", "Select project..."))
-
-		case SessionPickerModel:
-			if current.Title == "Sessions" {
-				left = actionStyle.Render(thinktI18n.T("tui.shell.selectSession", "Select session..."))
-			} else {
-				left = nameStyle.Render(current.Title) + sep + actionStyle.Render(thinktI18n.T("tui.shell.selectSession", "Select session..."))
-			}
-
-		case MultiViewerModel:
-			// Find the project name from the stack
-			for i := len(items) - 2; i >= 0; i-- {
-				if _, ok := items[i].Model.(SessionPickerModel); ok {
-					left = nameStyle.Render(items[i].Title) + sep + nameStyle.Render(current.Title)
-					break
-				}
-			}
-			if left == "" {
-				left = nameStyle.Render(current.Title)
-			}
-			// Append role filters
-			left += "  " + current.Model.(MultiViewerModel).FilterStatus()
-
-		case SearchInputModel:
-			left = actionStyle.Render(thinktI18n.T("tui.shell.searchAction", "Search..."))
-
-		case SearchPickerModel:
-			left = nameStyle.Render(current.Title)
-
-		case AgentsPageModel:
-			left = actionStyle.Render("Agents")
-
-		case AgentTailModel:
-			left = nameStyle.Render("Agents") + sep + nameStyle.Render(current.Title)
-
-		default:
-			left = nameStyle.Render(current.Title)
+	case SessionPickerModel:
+		context = "sessions"
+		if current.Title != "" && current.Title != "Sessions" {
+			detail = current.Title
 		}
+
+	case MultiViewerModel:
+		context = "session"
+		// Show project > session in detail
+		for i := len(items) - 2; i >= 0; i-- {
+			if _, ok := items[i].Model.(SessionPickerModel); ok {
+				detail = items[i].Title + " > " + current.Title
+				break
+			}
+		}
+		if detail == "" {
+			detail = current.Title
+		}
+		if fs := m.FilterStatus(); fs != "" {
+			detail += "  " + fs
+		}
+
+	case SearchInputModel:
+		context = "search"
+
+	case SearchPickerModel:
+		context = "search"
+		detail = current.Title
+
+	case AgentsPageModel:
+		context = "agents"
+
+	case AgentTailModel:
+		context = "agents"
+		detail = current.Title
+
+	case CollectorPageModel:
+		context = "collector"
+
+	case ExporterPageModel:
+		context = "relay"
+
+	default:
+		context = current.Title
 	}
 
-	// Right side
-	right := brandStyle.Render("🧠 thinkt")
-
-	// Compose: left-justified breadcrumb, right-justified brand
-	leftWidth := lipgloss.Width(left)
-	rightWidth := lipgloss.Width(right)
-	padding := s.width - leftWidth - rightWidth
-	if padding < 1 {
-		padding = 1
-	}
-
-	return left + strings.Repeat(" ", padding) + right
+	return RenderHeaderBar(context, detail, s.width)
 }
 
 func (s *Shell) Init() tea.Cmd {

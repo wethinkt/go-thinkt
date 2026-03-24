@@ -65,9 +65,8 @@ func (m CollectorPageModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		headerHeight := 2 // padding
-		contentWidth := msg.Width - 4
-		contentHeight := msg.Height - headerHeight - 4
+		contentWidth := msg.Width - 4  // padding
+		contentHeight := msg.Height - 4 // padding + help
 		if !m.ready {
 			m.viewport = viewport.New()
 			m.viewport.SetWidth(contentWidth)
@@ -114,27 +113,22 @@ func (m CollectorPageModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m CollectorPageModel) View() tea.View {
+func (m CollectorPageModel) ViewContent() string {
 	if !m.ready {
-		v := tea.NewView("Loading collector status...")
-		v.AltScreen = true
-		return v
+		return "Loading collector status..."
 	}
 
 	t := theme.Current()
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.GetAccent()))
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
 	padStyle := lipgloss.NewStyle().Padding(1, 2)
 
-	title := titleStyle.Render("Collector Status")
-	if m.loading {
-		title += " (refreshing...)"
-	}
-
 	help := helpStyle.Render("r: refresh  esc: back  q: quit  j/k: scroll")
 
-	content := title + "\n" + m.viewport.View() + "\n" + help
-	v := tea.NewView(padStyle.Render(content))
+	return padStyle.Render(m.viewport.View() + "\n" + help)
+}
+
+func (m CollectorPageModel) View() tea.View {
+	v := tea.NewView(m.ViewContent())
 	v.AltScreen = true
 	return v
 }

@@ -73,9 +73,8 @@ func (m AgentsPageModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		headerHeight := 2
-		contentWidth := msg.Width - 4
-		contentHeight := msg.Height - headerHeight - 4
+		contentWidth := msg.Width - 4  // padding
+		contentHeight := msg.Height - 4 // padding + help
 		if !m.ready {
 			m.viewport = viewport.New()
 			m.viewport.SetWidth(contentWidth)
@@ -143,24 +142,22 @@ func (m AgentsPageModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m AgentsPageModel) View() tea.View {
+func (m AgentsPageModel) ViewContent() string {
 	if !m.ready {
-		v := tea.NewView("Loading agents...")
-		v.AltScreen = true
-		return v
+		return "Loading agents..."
 	}
 
 	t := theme.Current()
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.GetAccent()))
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
 	padStyle := lipgloss.NewStyle().Padding(1, 2)
 
-	title := titleStyle.Render(fmt.Sprintf("Agents [%s]", m.filter))
-
 	help := helpStyle.Render("f: filter  enter: tail  r: refresh  esc: back  q: quit  j/k: scroll")
 
-	content := title + "\n" + m.viewport.View() + "\n" + help
-	v := tea.NewView(padStyle.Render(content))
+	return padStyle.Render(m.viewport.View() + "\n" + help)
+}
+
+func (m AgentsPageModel) View() tea.View {
+	v := tea.NewView(m.ViewContent())
 	v.AltScreen = true
 	return v
 }
