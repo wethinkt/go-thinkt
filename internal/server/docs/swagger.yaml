@@ -46,79 +46,6 @@ definitions:
       total:
         type: integer
     type: object
-  rpc.ToolCount:
-    properties:
-      count:
-        type: integer
-      name:
-        type: string
-    type: object
-  search.Match:
-    properties:
-      line_num:
-        type: integer
-      match_end:
-        description: End offset of match within Preview
-        type: integer
-      match_start:
-        description: Start offset of match within Preview
-        type: integer
-      preview:
-        type: string
-      role:
-        type: string
-    type: object
-  search.SemanticResult:
-    properties:
-      chunk_index:
-        type: integer
-      distance:
-        type: number
-      entry_uuid:
-        type: string
-      first_prompt:
-        type: string
-      line_number:
-        type: integer
-      project_name:
-        type: string
-      role:
-        type: string
-      score:
-        description: Combined relevance + diversity score
-        type: number
-      session_id:
-        type: string
-      session_path:
-        type: string
-      source:
-        type: string
-      tier:
-        type: string
-      timestamp:
-        type: string
-      tool_name:
-        type: string
-      total_chunks:
-        type: integer
-      word_count:
-        type: integer
-    type: object
-  search.SessionResult:
-    properties:
-      matches:
-        items:
-          $ref: '#/definitions/search.Match'
-        type: array
-      path:
-        type: string
-      project_name:
-        type: string
-      session_id:
-        type: string
-      source:
-        type: string
-    type: object
   server.ActiveSessionsResponse:
     properties:
       sessions:
@@ -220,21 +147,82 @@ definitions:
       dir:
         type: string
     type: object
+  server.SearchMatch:
+    properties:
+      line_num:
+        type: integer
+      match_end:
+        type: integer
+      match_start:
+        type: integer
+      preview:
+        type: string
+      role:
+        type: string
+    type: object
   server.SearchResponse:
     properties:
       results:
         items:
-          $ref: '#/definitions/search.SessionResult'
+          $ref: '#/definitions/server.SearchSessionResult'
         type: array
       total_matches:
         type: integer
+    type: object
+  server.SearchSessionResult:
+    properties:
+      matches:
+        items:
+          $ref: '#/definitions/server.SearchMatch'
+        type: array
+      path:
+        type: string
+      project_name:
+        type: string
+      session_id:
+        type: string
+      source:
+        type: string
     type: object
   server.SemanticSearchResponse:
     properties:
       results:
         items:
-          $ref: '#/definitions/search.SemanticResult'
+          $ref: '#/definitions/server.SemanticSearchResult'
         type: array
+    type: object
+  server.SemanticSearchResult:
+    properties:
+      chunk_index:
+        type: integer
+      distance:
+        type: number
+      entry_uuid:
+        type: string
+      first_prompt:
+        type: string
+      line_number:
+        type: integer
+      project_name:
+        type: string
+      role:
+        type: string
+      session_id:
+        type: string
+      session_path:
+        type: string
+      source:
+        type: string
+      tier:
+        type: string
+      timestamp:
+        type: string
+      tool_name:
+        type: string
+      total_chunks:
+        type: integer
+      word_count:
+        type: integer
     type: object
   server.ServerInfoResponse:
     properties:
@@ -335,7 +323,7 @@ definitions:
         type: string
       top_tools:
         items:
-          $ref: '#/definitions/rpc.ToolCount'
+          $ref: '#/definitions/server.StatsToolCount'
         type: array
       total_embeddings:
         type: integer
@@ -347,6 +335,13 @@ definitions:
         type: integer
       total_tokens:
         type: integer
+    type: object
+  server.StatsToolCount:
+    properties:
+      count:
+        type: integer
+      name:
+        type: string
     type: object
   server.TeamMessagesResponse:
     properties:

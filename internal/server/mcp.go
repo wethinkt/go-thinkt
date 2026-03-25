@@ -719,7 +719,7 @@ func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallTool
 		}
 		results, totalMatches, err := svc.Search(opts)
 		if err == nil {
-			output := rpc.SearchData{Results: toIndexerSearchResults(results), TotalMatches: totalMatches}
+			output := SearchResponse{Results: toSearchResponse(results), TotalMatches: totalMatches}
 			return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
 		}
 		// Fall through to RPC on error.
@@ -739,7 +739,7 @@ func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallTool
 	if err != nil {
 		return toolErrorResult("search_failed", "indexer search failed", err)
 	}
-	output := rpc.SearchData{Results: results, TotalMatches: totalMatches}
+	output := SearchResponse{Results: fromIndexerSearchResults(results), TotalMatches: totalMatches}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
 }
 

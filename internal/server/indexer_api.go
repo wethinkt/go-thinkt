@@ -12,14 +12,70 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 )
 
+// SearchMatch represents a single match within a session.
+type SearchMatch struct {
+	LineNum    int    `json:"line_num"`
+	Preview    string `json:"preview"`
+	Role       string `json:"role"`
+	MatchStart int    `json:"match_start"`
+	MatchEnd   int    `json:"match_end"`
+}
+
+// SearchSessionResult represents all matches found in a single session.
+type SearchSessionResult struct {
+	SessionID   string        `json:"session_id"`
+	ProjectName string        `json:"project_name"`
+	Source      string        `json:"source"`
+	Path        string        `json:"path"`
+	Matches     []SearchMatch `json:"matches"`
+}
+
 // SearchResponse is the HTTP response for text search.
-type SearchResponse = rpc.SearchData
+type SearchResponse struct {
+	Results      []SearchSessionResult `json:"results"`
+	TotalMatches int                   `json:"total_matches"`
+}
+
+// StatsToolCount is a tool name and its usage count.
+type StatsToolCount struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
 
 // StatsResponse is the HTTP response for usage statistics.
-type StatsResponse = rpc.StatsData
+type StatsResponse struct {
+	TotalProjects   int              `json:"total_projects"`
+	TotalSessions   int              `json:"total_sessions"`
+	TotalEntries    int              `json:"total_entries"`
+	TotalTokens     int              `json:"total_tokens"`
+	TotalEmbeddings int              `json:"total_embeddings"`
+	EmbedModel      string           `json:"embed_model"`
+	TopTools        []StatsToolCount `json:"top_tools"`
+}
+
+// SemanticSearchResult represents a single semantic search result.
+type SemanticSearchResult struct {
+	SessionID   string  `json:"session_id"`
+	EntryUUID   string  `json:"entry_uuid"`
+	ChunkIndex  int     `json:"chunk_index"`
+	TotalChunks int     `json:"total_chunks"`
+	Distance    float64 `json:"distance"`
+	Tier        string  `json:"tier,omitempty"`
+	Role        string  `json:"role,omitempty"`
+	Timestamp   string  `json:"timestamp,omitempty"`
+	ToolName    string  `json:"tool_name,omitempty"`
+	WordCount   int     `json:"word_count,omitempty"`
+	ProjectName string  `json:"project_name,omitempty"`
+	Source      string  `json:"source,omitempty"`
+	SessionPath string  `json:"session_path,omitempty"`
+	FirstPrompt string  `json:"first_prompt,omitempty"`
+	LineNumber  int     `json:"line_number,omitempty"`
+}
 
 // SemanticSearchResponse is the HTTP response for semantic search.
-type SemanticSearchResponse = rpc.SemanticSearchData
+type SemanticSearchResponse struct {
+	Results []SemanticSearchResult `json:"results"`
+}
 
 // IndexerStatusData is the HTTP representation of indexer server state.
 type IndexerStatusData = rpc.StatusData
@@ -77,7 +133,7 @@ func (s *HTTPServer) handleSearchSessions(w http.ResponseWriter, r *http.Request
 		}
 		results, totalMatches, err := svc.Search(opts)
 		if err == nil {
-			writeJSON(w, http.StatusOK, SearchResponse{Results: toIndexerSearchResults(results), TotalMatches: totalMatches})
+			writeJSON(w, http.StatusOK, SearchResponse{Results: toSearchResponse(results), TotalMatches: totalMatches})
 			return
 		}
 		// Fall through to RPC on error.
@@ -94,7 +150,7 @@ func (s *HTTPServer) handleSearchSessions(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	writeJSON(w, http.StatusOK, SearchResponse{Results: results, TotalMatches: totalMatches})
+	writeJSON(w, http.StatusOK, SearchResponse{Results: fromIndexerSearchResults(results), TotalMatches: totalMatches})
 }
 
 // handleGetStats returns usage statistics from the index.
@@ -119,7 +175,7 @@ func (s *HTTPServer) handleGetStats(w http.ResponseWriter, r *http.Request) {
 			rows, err := s.indexDB.Query("SELECT tool_name, count(*) AS cnt FROM entries WHERE tool_name != '' GROUP BY tool_name ORDER BY cnt DESC LIMIT 25")
 			if err == nil {
 				for rows.Next() {
-					var tc rpc.ToolCount
+					var tc StatsToolCount
 					if rows.Scan(&tc.Name, &tc.Count) == nil {
 						stats.TopTools = append(stats.TopTools, tc)
 					}
@@ -199,7 +255,7 @@ func (s *HTTPServer) handleSemanticSearch(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	writeJSON(w, http.StatusOK, SemanticSearchResponse{Results: results})
+	writeJSON(w, http.StatusOK, SemanticSearchResponse{Results: fromSemanticResults(results)})
 }
 
 // IndexerHealthResponse describes the health of the indexer server.
@@ -292,20 +348,56 @@ func (s *HTTPServer) handleIndexerStatus(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-// toIndexerSearchResults converts index/search results to indexer/search results.
-func toIndexerSearchResults(results []indexsearch.SessionResult) []search.SessionResult {
-	out := make([]search.SessionResult, len(results))
+// toSearchResponse converts index/search results to API response types.
+func toSearchResponse(results []indexsearch.SessionResult) []SearchSessionResult {
+	out := make([]SearchSessionResult, len(results))
 	for i, r := range results {
-		matches := make([]search.Match, len(r.Matches))
+		matches := make([]SearchMatch, len(r.Matches))
 		for j, m := range r.Matches {
-			matches[j] = search.Match{
+			matches[j] = SearchMatch{
 				LineNum: m.LineNum, Preview: m.Preview, Role: m.Role,
 				MatchStart: m.MatchStart, MatchEnd: m.MatchEnd,
 			}
 		}
-		out[i] = search.SessionResult{
+		out[i] = SearchSessionResult{
 			SessionID: r.SessionID, ProjectName: r.ProjectName,
 			Source: r.Source, Path: r.Path, Matches: matches,
+		}
+	}
+	return out
+}
+
+// fromIndexerSearchResults converts indexer/search results to API response types.
+func fromIndexerSearchResults(results []search.SessionResult) []SearchSessionResult {
+	out := make([]SearchSessionResult, len(results))
+	for i, r := range results {
+		matches := make([]SearchMatch, len(r.Matches))
+		for j, m := range r.Matches {
+			matches[j] = SearchMatch{
+				LineNum: m.LineNum, Preview: m.Preview, Role: m.Role,
+				MatchStart: m.MatchStart, MatchEnd: m.MatchEnd,
+			}
+		}
+		out[i] = SearchSessionResult{
+			SessionID: r.SessionID, ProjectName: r.ProjectName,
+			Source: r.Source, Path: r.Path, Matches: matches,
+		}
+	}
+	return out
+}
+
+// fromSemanticResults converts indexer/search semantic results to API response types.
+func fromSemanticResults(results []search.SemanticResult) []SemanticSearchResult {
+	out := make([]SemanticSearchResult, len(results))
+	for i, r := range results {
+		out[i] = SemanticSearchResult{
+			SessionID: r.SessionID, EntryUUID: r.EntryUUID,
+			ChunkIndex: r.ChunkIndex, TotalChunks: r.TotalChunks,
+			Distance: r.Distance, Tier: r.Tier, Role: r.Role,
+			Timestamp: r.Timestamp, ToolName: r.ToolName,
+			WordCount: r.WordCount, ProjectName: r.ProjectName,
+			Source: r.Source, SessionPath: r.SessionPath,
+			FirstPrompt: r.FirstPrompt, LineNumber: r.LineNumber,
 		}
 	}
 	return out
