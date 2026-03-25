@@ -1,0 +1,71 @@
+// internal/cmd/sync.go
+package cmd
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/spf13/cobra"
+	"github.com/wethinkt/go-thinkt/internal/index"
+	indexdb "github.com/wethinkt/go-thinkt/internal/index/db"
+)
+
+var syncCmd = &cobra.Command{
+	Use:   "sync",
+	Short: "Synchronize all local sessions into the SQLite index",
+	Long: `Index all local AI assistant sessions into the SQLite search database.
+
+This scans all registered sources and indexes session metadata (no private
+content is stored). The index enables fast search and stats queries.
+
+Run this once after install, then the background watcher keeps it up to date.`,
+	RunE: runSync,
+}
+
+func runSync(cmd *cobra.Command, args []string) error {
+	dbPath, err := indexdb.DefaultPath()
+	if err != nil {
+		return fmt.Errorf("resolve db path: %w", err)
+	}
+
+	database, err := indexdb.Open(dbPath)
+	if err != nil {
+		return fmt.Errorf("open index db: %w", err)
+	}
+	defer database.Close()
+
+	registry := CreateSourceRegistry()
+	ingester := index.NewIngester(database, registry)
+
+	ctx := context.Background()
+
+	projects, err := registry.ListAllProjects(ctx)
+	if err != nil {
+		return fmt.Errorf("list projects: %w", err)
+	}
+
+	if len(projects) == 0 {
+		fmt.Println("No projects found to index.")
+		return nil
+	}
+
+	totalProjects := len(projects)
+	ingester.OnProgress = func(pIdx, pTotal, sIdx, sTotal int, message string) {
+		if verbose {
+			fmt.Printf("[%d/%d] %s\n", pIdx, pTotal, message)
+		}
+	}
+
+	for idx, p := range projects {
+		if err := ingester.IngestProject(ctx, p, idx+1, totalProjects); err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "Error indexing project %s: %v\n", p.Name, err)
+		}
+	}
+
+	fmt.Println("Indexing complete.")
+	return nil
+}
+
+func init() {
+	// Registration happens in root.go
+}
