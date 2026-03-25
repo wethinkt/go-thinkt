@@ -324,7 +324,7 @@ func (s *HTTPServer) handleGetProjects(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
-	result, err := listProjects(r.Context(), s.registry, sourceFilter, includeDeleted, limit, offset)
+	result, err := listProjects(r.Context(), s.indexDB, s.registry, sourceFilter, includeDeleted, limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "list_projects_failed", err.Error())
 		return
@@ -438,7 +438,7 @@ func (s *HTTPServer) findSessionsForSourceProject(ctx context.Context, sourceNam
 	if _, ok := s.registry.Get(source); !ok {
 		return nil, &unknownSourceSessionsError{source: source}
 	}
-	result, err := listSessions(ctx, s.registry, source, projectID, 0, 0)
+	result, err := listSessions(ctx, s.indexDB, s.registry, source, projectID, 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -452,7 +452,7 @@ func (s *HTTPServer) findSessionsForProject(ctx context.Context, projectID strin
 	var matched []thinkt.SessionMeta
 
 	for _, store := range s.registry.All() {
-		result, err := listSessions(ctx, s.registry, store.Source(), projectID, 0, 0)
+		result, err := listSessions(ctx, s.indexDB, s.registry, store.Source(), projectID, 0, 0)
 		if err != nil || result.Total == 0 {
 			continue
 		}

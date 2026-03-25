@@ -7,7 +7,9 @@ import (
 	"strconv"
 	"strings"
 
+	indexsearch "github.com/wethinkt/go-thinkt/internal/index/search"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
+	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 )
 
 // SearchResponse is the HTTP response for text search.
@@ -61,6 +63,27 @@ func (s *HTTPServer) handleSearchSessions(w http.ResponseWriter, r *http.Request
 	params.CaseSensitive = r.URL.Query().Get("case_sensitive") == "true"
 	params.Regex = r.URL.Query().Get("regex") == "true"
 
+	// Try direct SQLite first.
+	if s.indexDB != nil {
+		svc := indexsearch.NewService(s.indexDB)
+		opts := indexsearch.SearchOptions{
+			Query:           params.Query,
+			FilterProject:   params.Project,
+			FilterSource:    params.Source,
+			Limit:           params.Limit,
+			LimitPerSession: params.LimitPerSession,
+			CaseSensitive:   params.CaseSensitive,
+			UseRegex:        params.Regex,
+		}
+		results, totalMatches, err := svc.Search(opts)
+		if err == nil {
+			writeJSON(w, http.StatusOK, SearchResponse{Results: toIndexerSearchResults(results), TotalMatches: totalMatches})
+			return
+		}
+		// Fall through to RPC on error.
+	}
+
+	// RPC fallback.
 	results, totalMatches, err := indexerSearch(params)
 	if err != nil {
 		if errors.Is(err, errIndexerUnavailable) {
@@ -85,6 +108,31 @@ func (s *HTTPServer) handleSearchSessions(w http.ResponseWriter, r *http.Request
 // @Router /stats [get]
 // @Security BearerAuth
 func (s *HTTPServer) handleGetStats(w http.ResponseWriter, r *http.Request) {
+	// Try direct SQLite first.
+	if s.indexDB != nil {
+		var stats StatsResponse
+		if err := s.indexDB.QueryRow("SELECT count(*) FROM projects").Scan(&stats.TotalProjects); err == nil {
+			_ = s.indexDB.QueryRow("SELECT count(*) FROM sessions").Scan(&stats.TotalSessions)
+			_ = s.indexDB.QueryRow("SELECT count(*) FROM entries").Scan(&stats.TotalEntries)
+			_ = s.indexDB.QueryRow("SELECT COALESCE(sum(input_tokens + output_tokens), 0) FROM entries").Scan(&stats.TotalTokens)
+
+			rows, err := s.indexDB.Query("SELECT tool_name, count(*) AS cnt FROM entries WHERE tool_name != '' GROUP BY tool_name ORDER BY cnt DESC LIMIT 25")
+			if err == nil {
+				for rows.Next() {
+					var tc rpc.ToolCount
+					if rows.Scan(&tc.Name, &tc.Count) == nil {
+						stats.TopTools = append(stats.TopTools, tc)
+					}
+				}
+				rows.Close()
+			}
+
+			writeJSON(w, http.StatusOK, stats)
+			return
+		}
+	}
+
+	// RPC fallback.
 	data, err := indexerStats()
 	if err != nil {
 		if errors.Is(err, errIndexerUnavailable) {
@@ -171,10 +219,18 @@ type IndexerHealthResponse struct {
 // @Router /indexer/health [get]
 func (s *HTTPServer) handleIndexerHealth(w http.ResponseWriter, r *http.Request) {
 	result := IndexerHealthResponse{
-		Available: rpc.ServerAvailable(),
+		Available: s.indexDB != nil || rpc.ServerAvailable(),
 	}
 
-	if result.Available {
+	if s.indexDB != nil {
+		var projects, sessions int
+		if s.indexDB.QueryRow("SELECT count(*) FROM projects").Scan(&projects) == nil {
+			_ = s.indexDB.QueryRow("SELECT count(*) FROM sessions").Scan(&sessions)
+			result.DatabaseAccessible = true
+			result.IndexedProjects = projects
+			result.IndexedSessions = sessions
+		}
+	} else if result.Available {
 		data, err := indexerStats()
 		if err == nil {
 			var stats StatsResponse
@@ -234,4 +290,23 @@ func (s *HTTPServer) handleIndexerStatus(w http.ResponseWriter, r *http.Request)
 		Running:           true,
 		IndexerStatusData: status,
 	})
+}
+
+// toIndexerSearchResults converts index/search results to indexer/search results.
+func toIndexerSearchResults(results []indexsearch.SessionResult) []search.SessionResult {
+	out := make([]search.SessionResult, len(results))
+	for i, r := range results {
+		matches := make([]search.Match, len(r.Matches))
+		for j, m := range r.Matches {
+			matches[j] = search.Match{
+				LineNum: m.LineNum, Preview: m.Preview, Role: m.Role,
+				MatchStart: m.MatchStart, MatchEnd: m.MatchEnd,
+			}
+		}
+		out[i] = search.SessionResult{
+			SessionID: r.SessionID, ProjectName: r.ProjectName,
+			Source: r.Source, Path: r.Path, Matches: matches,
+		}
+	}
+	return out
 }

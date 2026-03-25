@@ -15,6 +15,7 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
+	indexdb "github.com/wethinkt/go-thinkt/internal/index/db"
 	_ "github.com/wethinkt/go-thinkt/internal/server/docs" // swagger docs
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
@@ -107,6 +108,7 @@ type HTTPServer struct {
 	pathValidator  *thinkt.PathValidator
 	authenticator  *BearerAuthenticator
 	startedAt      time.Time
+	indexDB        *indexdb.DB // SQLite index for search/stats/listing (nil = use RPC fallback)
 }
 
 // NewHTTPServer creates a new HTTP server for the REST API.
@@ -130,6 +132,11 @@ func NewHTTPServerWithAuth(registry *thinkt.StoreRegistry, config Config, authCo
 // SetTeamStore sets the team store for team API endpoints.
 func (s *HTTPServer) SetTeamStore(ts thinkt.TeamStore) {
 	s.teamStore = ts
+}
+
+// SetIndexDB sets the SQLite index database for direct queries.
+func (s *HTTPServer) SetIndexDB(db *indexdb.DB) {
+	s.indexDB = db
 }
 
 // setupRouter configures all routes.

@@ -2,9 +2,12 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"sort"
+	"strings"
 	"time"
 
+	indexdb "github.com/wethinkt/go-thinkt/internal/index/db"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
@@ -19,10 +22,10 @@ type projectResult struct {
 	Returned int
 }
 
-// listProjects tries the indexer RPC first for richer metadata, falling back
+// listProjects tries SQLite first, then indexer RPC, falling back
 // to the StoreRegistry filesystem path. Callers get consistent filtering,
 // sorting, and pagination regardless of the data source.
-func listProjects(ctx context.Context, registry *thinkt.StoreRegistry, source string, includeDeleted bool, limit, offset int) (*projectResult, error) {
+func listProjects(ctx context.Context, idb *indexdb.DB, registry *thinkt.StoreRegistry, source string, includeDeleted bool, limit, offset int) (*projectResult, error) {
 	if limit <= 0 {
 		limit = defaultListLimit
 	}
@@ -30,7 +33,14 @@ func listProjects(ctx context.Context, registry *thinkt.StoreRegistry, source st
 		offset = 0
 	}
 
-	// Try indexer RPC first.
+	// Try direct SQLite first.
+	if idb != nil {
+		if result, err := sqliteListProjects(idb, source, includeDeleted, limit, offset); err == nil {
+			return result, nil
+		}
+	}
+
+	// Try indexer RPC.
 	if data, err := indexerListProjects(rpc.ListProjectsParams{
 		Source: source,
 		Limit:  limit,
@@ -76,6 +86,61 @@ func listProjects(ctx context.Context, registry *thinkt.StoreRegistry, source st
 	return &projectResult{Projects: page, Total: total, Returned: len(page)}, nil
 }
 
+// sqliteListProjects queries the SQLite index for project listing.
+func sqliteListProjects(idb *indexdb.DB, source string, includeDeleted bool, limit, offset int) (*projectResult, error) {
+	// Count query
+	countSQL := "SELECT count(*) FROM projects WHERE 1=1"
+	var countArgs []interface{}
+	if source != "" {
+		countSQL += " AND source = ?"
+		countArgs = append(countArgs, strings.ToLower(source))
+	}
+	var total int
+	if err := idb.QueryRow(countSQL, countArgs...).Scan(&total); err != nil {
+		return nil, err
+	}
+
+	// Data query
+	dataSQL := `SELECT p.id, p.name, p.path, p.source,
+		(SELECT count(*) FROM sessions s WHERE s.project_id = p.id) AS session_count,
+		p.updated_at
+		FROM projects p WHERE 1=1`
+	var dataArgs []interface{}
+	if source != "" {
+		dataSQL += " AND p.source = ?"
+		dataArgs = append(dataArgs, strings.ToLower(source))
+	}
+	dataSQL += " ORDER BY p.updated_at DESC LIMIT ? OFFSET ?"
+	dataArgs = append(dataArgs, limit, offset)
+
+	rows, err := idb.Query(dataSQL, dataArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var projects []thinkt.Project
+	for rows.Next() {
+		var p thinkt.Project
+		var updatedAt sql.NullString
+		if err := rows.Scan(&p.ID, &p.Name, &p.Path, &p.Source, &p.SessionCount, &updatedAt); err != nil {
+			continue
+		}
+		if updatedAt.Valid {
+			if t, err := time.Parse(time.RFC3339, updatedAt.String); err == nil {
+				p.LastModified = t
+			}
+		}
+		p.PathExists = true
+		projects = append(projects, p)
+	}
+	if projects == nil {
+		projects = []thinkt.Project{}
+	}
+
+	return &projectResult{Projects: projects, Total: total, Returned: len(projects)}, nil
+}
+
 // sessionResult is the unified return type for listSessions.
 type sessionResult struct {
 	Sessions []thinkt.SessionMeta
@@ -83,9 +148,9 @@ type sessionResult struct {
 	Returned int
 }
 
-// listSessions tries the indexer RPC first for richer metadata (accurate
-// entry_count, model), falling back to the StoreRegistry filesystem path.
-func listSessions(ctx context.Context, registry *thinkt.StoreRegistry, source thinkt.Source, projectID string, limit, offset int) (*sessionResult, error) {
+// listSessions tries SQLite first, then indexer RPC, falling back to the
+// StoreRegistry filesystem path.
+func listSessions(ctx context.Context, idb *indexdb.DB, registry *thinkt.StoreRegistry, source thinkt.Source, projectID string, limit, offset int) (*sessionResult, error) {
 	if limit <= 0 {
 		limit = defaultListLimit
 	}
@@ -93,7 +158,14 @@ func listSessions(ctx context.Context, registry *thinkt.StoreRegistry, source th
 		offset = 0
 	}
 
-	// Try indexer RPC first.
+	// Try direct SQLite first.
+	if idb != nil {
+		if result, err := sqliteListSessions(idb, source, projectID, limit, offset); err == nil && result.Total > 0 {
+			return result, nil
+		}
+	}
+
+	// Try indexer RPC.
 	if data, err := indexerListSessions(rpc.ListSessionsParams{
 		ProjectID: projectID,
 		Source:    string(source),
@@ -101,18 +173,18 @@ func listSessions(ctx context.Context, registry *thinkt.StoreRegistry, source th
 		Offset:    offset,
 	}); err == nil && data.Total > 0 {
 		sessions := make([]thinkt.SessionMeta, 0, len(data.Sessions))
-		for _, s := range data.Sessions {
+		for _, sess := range data.Sessions {
 			sm := thinkt.SessionMeta{
-				ID:         s.ID,
-				FullPath:   s.Path,
-				Model:      s.Model,
-				EntryCount: s.EntryCount,
+				ID:         sess.ID,
+				FullPath:   sess.Path,
+				Model:      sess.Model,
+				EntryCount: sess.EntryCount,
 				Source:     source,
 			}
-			if t, err := parseTimeRFC3339(s.CreatedAt); err == nil {
+			if t, err := parseTimeRFC3339(sess.CreatedAt); err == nil {
 				sm.CreatedAt = t
 			}
-			if t, err := parseTimeRFC3339(s.UpdatedAt); err == nil {
+			if t, err := parseTimeRFC3339(sess.UpdatedAt); err == nil {
 				sm.ModifiedAt = t
 			}
 			sessions = append(sessions, sm)
@@ -143,6 +215,60 @@ func listSessions(ctx context.Context, registry *thinkt.StoreRegistry, source th
 	page := all[offset:end]
 
 	return &sessionResult{Sessions: page, Total: total, Returned: len(page)}, nil
+}
+
+// sqliteListSessions queries the SQLite index for session listing.
+func sqliteListSessions(idb *indexdb.DB, source thinkt.Source, projectID string, limit, offset int) (*sessionResult, error) {
+	countSQL := `SELECT count(*) FROM sessions s
+		JOIN projects p ON s.project_id = p.id
+		WHERE p.id = ? AND p.source = ?`
+	var total int
+	if err := idb.QueryRow(countSQL, projectID, strings.ToLower(string(source))).Scan(&total); err != nil {
+		return nil, err
+	}
+
+	dataSQL := `SELECT s.id, s.path, s.model, s.created_at, s.updated_at,
+		(SELECT count(*) FROM entries e WHERE e.session_id = s.id) AS entry_count
+		FROM sessions s
+		JOIN projects p ON s.project_id = p.id
+		WHERE p.id = ? AND p.source = ?
+		ORDER BY s.updated_at DESC LIMIT ? OFFSET ?`
+
+	rows, err := idb.Query(dataSQL, projectID, strings.ToLower(string(source)), limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []thinkt.SessionMeta
+	for rows.Next() {
+		var sm thinkt.SessionMeta
+		var createdAt, updatedAt sql.NullString
+		var model sql.NullString
+		if err := rows.Scan(&sm.ID, &sm.FullPath, &model, &createdAt, &updatedAt, &sm.EntryCount); err != nil {
+			continue
+		}
+		sm.Source = source
+		if model.Valid {
+			sm.Model = model.String
+		}
+		if createdAt.Valid {
+			if t, err := time.Parse(time.RFC3339, createdAt.String); err == nil {
+				sm.CreatedAt = t
+			}
+		}
+		if updatedAt.Valid {
+			if t, err := time.Parse(time.RFC3339, updatedAt.String); err == nil {
+				sm.ModifiedAt = t
+			}
+		}
+		sessions = append(sessions, sm)
+	}
+	if sessions == nil {
+		sessions = []thinkt.SessionMeta{}
+	}
+
+	return &sessionResult{Sessions: sessions, Total: total, Returned: len(sessions)}, nil
 }
 
 // parseTimeRFC3339 parses an RFC3339 string, returning zero time on error.

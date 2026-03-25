@@ -22,6 +22,8 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/fingerprint"
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
+	"github.com/wethinkt/go-thinkt/internal/index"
+	indexdb "github.com/wethinkt/go-thinkt/internal/index/db"
 	"github.com/wethinkt/go-thinkt/internal/server"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
@@ -648,6 +650,30 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 		srv.SetTeamStore(ts)
 	}
 
+	// Open SQLite index for direct queries (search, stats, listing).
+	var idb *indexdb.DB
+	if indexDBPath, err := indexdb.DefaultPath(); err == nil {
+		if db, err := indexdb.Open(indexDBPath); err == nil {
+			idb = db
+			srv.SetIndexDB(idb)
+			defer idb.Close()
+		}
+	}
+
+	// Start background watcher for incremental sync.
+	if idb != nil {
+		watcher, err := index.NewWatcher(idb, registry, 0)
+		if err != nil {
+			tuilog.Log.Warn("index watcher creation failed", "error", err)
+		} else {
+			if err := watcher.Start(ctx); err != nil {
+				tuilog.Log.Warn("index watcher start failed", "error", err)
+			} else {
+				defer watcher.Stop()
+			}
+		}
+	}
+
 	// Print startup message
 	fmt.Println(thinktI18n.T("cmd.server.httpStarting", "🚀 Thinkt server starting..."))
 	fmt.Println(thinktI18n.T("cmd.server.servingTraces", "📁 Serving traces from local sources"))
@@ -815,6 +841,15 @@ func runServerMCP(cmd *cobra.Command, args []string) error {
 	// Create MCP server with authentication and filtering
 	tuilog.Log.Info("Creating MCP server")
 	mcpServer := server.NewMCPServerWithAuth(registry, authConfig)
+
+	// Open SQLite index for direct queries (search, stats, listing).
+	if indexDBPath, err := indexdb.DefaultPath(); err == nil {
+		if idb, err := indexdb.Open(indexDBPath); err == nil {
+			mcpServer.SetIndexDB(idb)
+			defer idb.Close()
+		}
+	}
+
 	mcpServer.SetToolFilters(allowTools, denyTools)
 
 	if useStdio {

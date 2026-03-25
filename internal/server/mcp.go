@@ -15,6 +15,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
+	indexdb "github.com/wethinkt/go-thinkt/internal/index/db"
+	indexsearch "github.com/wethinkt/go-thinkt/internal/index/search"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -30,6 +32,12 @@ type MCPServer struct {
 	authenticator  *BearerAuthenticator
 	allowTools     map[string]bool
 	denyTools      map[string]bool
+	indexDB        *indexdb.DB // SQLite index for search/stats/listing (nil = use RPC fallback)
+}
+
+// SetIndexDB sets the SQLite index database for direct queries.
+func (ms *MCPServer) SetIndexDB(db *indexdb.DB) {
+	ms.indexDB = db
 }
 
 // NewMCPServer creates a new MCP server with thinkt tools.
@@ -382,7 +390,7 @@ func (ms *MCPServer) handleListProjects(ctx context.Context, req *mcp.CallToolRe
 			}, listProjectsOutput{}, nil
 		}
 	}
-	result, err := listProjects(ctx, ms.registry, input.Source, input.IncludeDeleted, input.Limit, input.Offset)
+	result, err := listProjects(ctx, ms.indexDB, ms.registry, input.Source, input.IncludeDeleted, input.Limit, input.Offset)
 	if err != nil {
 		return nil, listProjectsOutput{}, err
 	}
@@ -409,7 +417,7 @@ func (ms *MCPServer) handleListSessions(ctx context.Context, req *mcp.CallToolRe
 		return r, errorListSessionsOutput("unknown_source", fmt.Sprintf("unknown source: %s", source), nil), err
 	}
 
-	result, err := listSessions(ctx, ms.registry, source, input.ProjectID, input.Limit, input.Offset)
+	result, err := listSessions(ctx, ms.indexDB, ms.registry, source, input.ProjectID, input.Limit, input.Offset)
 	if err != nil {
 		r, _, retErr := toolErrorResult("list_sessions_failed", "failed to list sessions", err)
 		return r, errorListSessionsOutput("list_sessions_failed", "failed to list sessions", err), retErr
@@ -696,6 +704,28 @@ func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallTool
 			return toolErrorResult("unknown_source", fmt.Sprintf("unknown or disabled source: %s", source), nil)
 		}
 	}
+
+	// Try direct SQLite first.
+	if ms.indexDB != nil {
+		svc := indexsearch.NewService(ms.indexDB)
+		opts := indexsearch.SearchOptions{
+			Query:           input.Query,
+			FilterProject:   input.Project,
+			FilterSource:    input.Source,
+			Limit:           input.Limit,
+			LimitPerSession: input.LimitPerSession,
+			CaseSensitive:   input.CaseSensitive,
+			UseRegex:        input.Regex,
+		}
+		results, totalMatches, err := svc.Search(opts)
+		if err == nil {
+			output := rpc.SearchData{Results: toIndexerSearchResults(results), TotalMatches: totalMatches}
+			return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
+		}
+		// Fall through to RPC on error.
+	}
+
+	// RPC fallback.
 	params := rpc.SearchParams{
 		Query:           input.Query,
 		Project:         input.Project,
@@ -740,6 +770,30 @@ func (ms *MCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallTool
 }
 
 func (ms *MCPServer) handleGetUsageStats(ctx context.Context, req *mcp.CallToolRequest, _ getUsageStatsInput) (*mcp.CallToolResult, any, error) {
+	// Try direct SQLite first.
+	if ms.indexDB != nil {
+		var stats rpc.StatsData
+		if err := ms.indexDB.QueryRow("SELECT count(*) FROM projects").Scan(&stats.TotalProjects); err == nil {
+			_ = ms.indexDB.QueryRow("SELECT count(*) FROM sessions").Scan(&stats.TotalSessions)
+			_ = ms.indexDB.QueryRow("SELECT count(*) FROM entries").Scan(&stats.TotalEntries)
+			_ = ms.indexDB.QueryRow("SELECT COALESCE(sum(input_tokens + output_tokens), 0) FROM entries").Scan(&stats.TotalTokens)
+
+			rows, err := ms.indexDB.Query("SELECT tool_name, count(*) AS cnt FROM entries WHERE tool_name != '' GROUP BY tool_name ORDER BY cnt DESC LIMIT 25")
+			if err == nil {
+				for rows.Next() {
+					var tc rpc.ToolCount
+					if rows.Scan(&tc.Name, &tc.Count) == nil {
+						stats.TopTools = append(stats.TopTools, tc)
+					}
+				}
+				rows.Close()
+			}
+
+			return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(stats)}}}, stats, nil
+		}
+	}
+
+	// RPC fallback.
 	data, err := indexerStats()
 	if err != nil {
 		return toolErrorResult("stats_failed", "failed to load usage stats", err)
