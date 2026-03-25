@@ -3,6 +3,7 @@ package db
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -128,5 +129,15 @@ func TestOpenReadOnlyExistingDB(t *testing.T) {
 	}
 	if name != "test" {
 		t.Fatalf("name = %q, want %q", name, "test")
+	}
+}
+
+func TestDefaultPath(t *testing.T) {
+	path, err := DefaultPath()
+	if err != nil {
+		t.Fatalf("DefaultPath: %v", err)
+	}
+	if !strings.HasSuffix(path, filepath.Join("dbs", "index.db")) {
+		t.Fatalf("unexpected path: %s", path)
 	}
 }
