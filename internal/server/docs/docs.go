@@ -124,7 +124,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Opens the specified path in an allowed application (e.g., Finder, VS Code)",
+                "description": "Opens the specified path in an allowed application (e.g., Finder, VS Code).\nThis endpoint requires POST and rejects cross-origin browser requests.",
                 "consumes": [
                     "application/json"
                 ],

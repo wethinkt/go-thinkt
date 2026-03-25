@@ -928,8 +928,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Opens the specified path in an allowed application (e.g., Finder,
-        VS Code)
+      description: |-
+        Opens the specified path in an allowed application (e.g., Finder, VS Code).
+        This endpoint requires POST and rejects cross-origin browser requests.
       parameters:
       - description: Open-in request
         in: body

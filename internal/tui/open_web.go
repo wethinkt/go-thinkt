@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
@@ -19,13 +20,15 @@ func openInWeb(projectPath, sessionPath string) {
 		return
 	}
 
-	baseURL := fmt.Sprintf("http://%s:%d", inst.Host, inst.Port)
-
-	// Build hash fragment with deep-link params and auth token
-	params := url.Values{}
-	if inst.Token != "" {
-		params.Set("token", inst.Token)
+	host := inst.Host
+	if host == "" {
+		host = "localhost"
 	}
+	baseURL := fmt.Sprintf("http://%s:%d", host, inst.Port)
+
+	// Build hash fragment with deep-link params. If the server is authenticated,
+	// a short-lived launch ticket carries the token outside argv.
+	params := url.Values{}
 	if sessionPath != "" {
 		params.Set("session_path", sessionPath)
 	}
@@ -33,8 +36,19 @@ func openInWeb(projectPath, sessionPath string) {
 		params.Set("project_id", projectPath)
 	}
 
-	openURL := baseURL
-	if len(params) > 0 {
+	openURL := baseURL + "/"
+	token, err := config.ReadInstanceToken(config.InstanceServer, inst.PID)
+	if err == nil && token != "" {
+		ticket, launchErr := config.CreateBrowserLaunch(config.BrowserLaunchPayload{
+			Path:     "/",
+			Token:    token,
+			Fragment: params,
+		})
+		if launchErr == nil {
+			openURL = strings.TrimRight(baseURL, "/") + "/launch/" + ticket
+		}
+	}
+	if !strings.Contains(openURL, "/launch/") && len(params) > 0 {
 		openURL += "#" + params.Encode()
 	}
 

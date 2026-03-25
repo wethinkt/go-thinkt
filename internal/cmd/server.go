@@ -262,14 +262,16 @@ func runWebOpen(isLite bool) error {
 		return fmt.Errorf("failed to start or find running server")
 	}
 
-	targetURL := fmt.Sprintf("http://%s:%d", inst.Host, inst.Port)
+	host := inst.Host
+	if host == "" {
+		host = "localhost"
+	}
+	targetPath := "/"
 	if isLite {
-		targetURL += "/lite/"
+		targetPath = "/lite/"
 	}
-	openURL := targetURL
-	if inst.Token != "" {
-		openURL += "#token=" + url.QueryEscape(inst.Token)
-	}
+	targetURL := fmt.Sprintf("http://%s:%d%s", host, inst.Port, targetPath)
+	openURL := buildBrowserOpenURL(inst, targetPath, nil)
 
 	fmt.Println(thinktI18n.Tf("cmd.server.openingBrowser", "🌐 Opening %s in browser...", targetURL))
 	openBrowser(openURL)
@@ -309,9 +311,6 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 	if serveQuiet {
 		runArgs = append(runArgs, "--quiet")
 	}
-	if apiToken != "" {
-		runArgs = append(runArgs, "--token", apiToken)
-	}
 	if serveNoAuth {
 		runArgs = append(runArgs, "--no-auth")
 	}
@@ -332,6 +331,9 @@ func runServerStart(cmd *cobra.Command, args []string) error {
 
 	// Run in background
 	c := exec.Command(executable, runArgs...)
+	if apiToken != "" {
+		c.Env = setEnvVar(os.Environ(), "THINKT_API_TOKEN", apiToken)
+	}
 	c.Stdout = logFile
 	c.Stderr = logFile
 	if err := config.StartBackground(c); err != nil {
@@ -389,6 +391,7 @@ func runServerStop(cmd *cobra.Command, args []string) error {
 	if err := config.StopInstance(*inst); err != nil {
 		return fmt.Errorf("failed to stop server: %w", err)
 	}
+	_ = config.RemoveInstanceToken(config.InstanceServer, inst.PID)
 	fmt.Println(thinktI18n.T("cmd.server.stopped", "✅ 🧠 thinkt server stopped."))
 	return nil
 }
@@ -426,13 +429,6 @@ func runServerStatus(cmd *cobra.Command, args []string) error {
 	fmt.Println(thinktI18n.Tf("cmd.server.status.running", "   Status: Running (PID: %d)", inst.PID))
 	fmt.Println(thinktI18n.Tf("cmd.server.status.address", "   Address: http://%s:%d", inst.Host, inst.Port))
 	fmt.Println(thinktI18n.Tf("cmd.server.status.uptime", "   Uptime: %s", time.Since(inst.StartedAt).Round(time.Second)))
-	if inst.Token != "" {
-		if len(inst.Token) > 14 {
-			fmt.Println(thinktI18n.Tf("cmd.server.status.token", "   Token: %s...", inst.Token[:14]))
-		} else {
-			fmt.Println(thinktI18n.Tf("cmd.server.status.token", "   Token: %s", inst.Token))
-		}
-	}
 	if inst.LogPath != "" {
 		fmt.Println(thinktI18n.Tf("cmd.server.status.log", "   Log: %s", inst.LogPath))
 	}
@@ -568,14 +564,15 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Resolve the effective token for instance registry
-	var resolvedToken string
-	switch authConfig.Mode {
-	case server.AuthModeToken:
-		resolvedToken = authConfig.Token
-	case server.AuthModeEnvToken:
-		resolvedToken = os.Getenv(authConfig.EnvVar)
+	resolvedToken := resolveAuthToken(authConfig)
+	if resolvedToken != "" {
+		if err := config.WriteInstanceToken(config.InstanceServer, os.Getpid(), resolvedToken); err != nil {
+			return fmt.Errorf("failed to write runtime auth token: %w", err)
+		}
 	}
+	defer func() {
+		_ = config.RemoveInstanceToken(config.InstanceServer, os.Getpid())
+	}()
 
 	// Create context that cancels on interrupt
 	ctx, cancel := context.WithCancel(context.Background())
@@ -643,7 +640,6 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 		InstanceType:  config.InstanceServer,
 		LogPath:       appLogPath,
 		HTTPLogPath:   httpLogPath,
-		Token:         resolvedToken,
 		IndexerPID:    indexerPID,
 	}
 	defer thinktConfig.Close()
@@ -665,10 +661,11 @@ func runServerTokenShow(cmd *cobra.Command, args []string) error {
 	if inst == nil {
 		return fmt.Errorf("no server is running")
 	}
-	if inst.Token == "" {
+	token, err := config.ReadInstanceToken(config.InstanceServer, inst.PID)
+	if err != nil || token == "" {
 		return fmt.Errorf("server is running but has no token (started without authentication)")
 	}
-	fmt.Println(inst.Token)
+	fmt.Println(token)
 	return nil
 }
 
@@ -869,4 +866,59 @@ func openBrowser(url string) {
 		return
 	}
 	_ = cmd.Start()
+}
+
+func resolveAuthToken(authConfig server.AuthConfig) string {
+	switch authConfig.Mode {
+	case server.AuthModeToken:
+		return authConfig.Token
+	case server.AuthModeEnvToken:
+		return os.Getenv(authConfig.EnvVar)
+	default:
+		return ""
+	}
+}
+
+func buildBrowserOpenURL(inst *config.Instance, path string, fragment url.Values) string {
+	host := inst.Host
+	if host == "" {
+		host = "localhost"
+	}
+	targetPath := path
+	if targetPath == "" {
+		targetPath = "/"
+	}
+	if !strings.HasPrefix(targetPath, "/") {
+		targetPath = "/" + targetPath
+	}
+
+	baseURL := fmt.Sprintf("http://%s:%d", host, inst.Port)
+	token, err := config.ReadInstanceToken(config.InstanceServer, inst.PID)
+	if err == nil && token != "" {
+		ticket, launchErr := config.CreateBrowserLaunch(config.BrowserLaunchPayload{
+			Path:     targetPath,
+			Token:    token,
+			Fragment: fragment,
+		})
+		if launchErr == nil {
+			return baseURL + "/launch/" + ticket
+		}
+	}
+
+	openURL := baseURL + targetPath
+	if len(fragment) > 0 {
+		openURL += "#" + fragment.Encode()
+	}
+	return openURL
+}
+
+func setEnvVar(env []string, key, value string) []string {
+	prefix := key + "="
+	filtered := make([]string, 0, len(env)+1)
+	for _, entry := range env {
+		if !strings.HasPrefix(entry, prefix) {
+			filtered = append(filtered, entry)
+		}
+	}
+	return append(filtered, prefix+value)
 }

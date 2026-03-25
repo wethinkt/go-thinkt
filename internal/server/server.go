@@ -39,7 +39,6 @@ type Config struct {
 	InstanceType  config.InstanceType // instance type for discovery file registration
 	LogPath       string              // path to process log file (for instance registry)
 	HTTPLogPath   string              // path to HTTP access log file (for instance registry)
-	Token         string              // resolved auth token (stored in instance registry for discovery)
 	IndexerPID    int                 // PID of sidecar indexer process (0 if none)
 	httpLogFile   *os.File            // internal: opened log file handle
 }
@@ -164,6 +163,7 @@ func (s *HTTPServer) setupRouter() chi.Router {
 
 	// Prometheus metrics — no auth required
 	r.Handle("/metrics", combinedMetricsHandler())
+	r.Get("/launch/{ticket}", s.handleBrowserLaunch)
 
 	// API routes (auth middleware applied here, not globally, so static assets are unprotected)
 	r.Route("/api/v1", func(r chi.Router) {
@@ -287,7 +287,6 @@ func (s *HTTPServer) ListenAndServe(ctx context.Context) error {
 		Host:        s.config.Host,
 		LogPath:     s.config.LogPath,
 		HTTPLogPath: s.config.HTTPLogPath,
-		Token:       s.config.Token,
 		IndexerPID:  s.config.IndexerPID,
 		StartedAt:   time.Now(),
 	}
