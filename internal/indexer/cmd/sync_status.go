@@ -98,5 +98,5 @@ var syncStatusCmd = &cobra.Command{
 
 func init() {
 	syncStatusCmd.Flags().BoolVar(&syncStatusJSON, "json", false, "Output as JSON")
-	syncCmd.AddCommand(syncStatusCmd)
+	rootCmd.AddCommand(syncStatusCmd)
 }
