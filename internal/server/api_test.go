@@ -108,3 +108,55 @@ func TestHandleOpenIn_DisallowedApp(t *testing.T) {
 		t.Errorf("expected status %d, got %d", http.StatusForbidden, w.Code)
 	}
 }
+
+func TestHandleOpenIn_CrossOriginRejected(t *testing.T) {
+	registry := thinkt.NewRegistry()
+	config := DefaultConfig()
+	server := NewHTTPServerWithAuth(registry, config, AuthConfig{Mode: AuthModeNone})
+
+	body := []byte(`{"app": "` + platformFileManager() + `", "path": "/some/path"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/open-in", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "https://evil.example")
+	w := httptest.NewRecorder()
+
+	server.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d", http.StatusForbidden, w.Code)
+	}
+
+	var response ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if response.Error != "forbidden" {
+		t.Fatalf("expected error code %q, got %q", "forbidden", response.Error)
+	}
+}
+
+func TestHandleOpenIn_SameOriginReachesAppValidation(t *testing.T) {
+	registry := thinkt.NewRegistry()
+	config := DefaultConfig()
+	server := NewHTTPServerWithAuth(registry, config, AuthConfig{Mode: AuthModeNone})
+
+	body := []byte(`{"app": "malicious_app", "path": "/some/path"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/open-in", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "http://example.com")
+	w := httptest.NewRecorder()
+
+	server.router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d", http.StatusForbidden, w.Code)
+	}
+
+	var response ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if response.Error != "app_not_allowed" {
+		t.Fatalf("expected error code %q, got %q", "app_not_allowed", response.Error)
+	}
+}

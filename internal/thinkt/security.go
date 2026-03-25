@@ -12,7 +12,7 @@ import (
 // PathValidator provides secure path validation for file operations.
 type PathValidator struct {
 	registry        *StoreRegistry
-	AdditionalBases []string // For testing - additional allowed base directories
+	AdditionalBases []string // Explicitly allowed base directories for trusted callers and tests
 }
 
 // NewPathValidator creates a new path validator with access to project information.
@@ -24,7 +24,7 @@ func NewPathValidator(registry *StoreRegistry) *PathValidator {
 // It ensures the path:
 //   - Exists on the filesystem
 //   - Is a directory (not a file)
-//   - Is within an allowed location (user's home or known project)
+//   - Is within an allowed location (a discovered project root or explicit allowlist)
 //   - Is not a symlink to outside allowed locations
 //
 // Returns the cleaned, absolute path if valid, or an error if invalid.
@@ -71,13 +71,13 @@ func (v *PathValidator) ValidateOpenInPath(path string) (string, error) {
 
 // GetAllowedBaseDirectories returns the list of directories that are allowed
 // for the open-in feature. This includes:
-//   - The user's home directory
+//   - Any explicitly allowed base directories
 //   - All known project directories from the registry
-//   - Any additional bases set for testing
 //
 // All paths are resolved to their real (symlink-free) paths.
 func (v *PathValidator) GetAllowedBaseDirectories() ([]string, error) {
 	var bases []string
+	seen := make(map[string]struct{})
 
 	// Helper to add a base directory, resolving symlinks
 	addBase := func(path string) {
@@ -90,23 +90,21 @@ func (v *PathValidator) GetAllowedBaseDirectories() ([]string, error) {
 			// If we can't resolve, use the original path as fallback
 			realPath = path
 		}
+		if _, ok := seen[realPath]; ok {
+			return
+		}
+		seen[realPath] = struct{}{}
 		bases = append(bases, realPath)
 	}
 
-	// Add additional bases first (for testing)
+	// Add explicit allowlist bases first.
 	for _, base := range v.AdditionalBases {
 		addBase(base)
 	}
 
-	// Add home directory
-	homeDir, err := os.UserHomeDir()
-	if err == nil && homeDir != "" {
-		addBase(homeDir)
-	}
-
 	// Add all project directories from the registry
 	if v.registry != nil {
-		projects, err := v.registry.ListAllProjects(context.TODO())
+		projects, err := v.registry.ListAllProjects(context.TODO(), WithIncludeDeleted(false))
 		if err == nil {
 			for _, p := range projects {
 				addBase(p.Path)

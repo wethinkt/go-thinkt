@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -136,7 +137,11 @@ func TestPathValidator_ValidateOpenInPath(t *testing.T) {
 	// Create test directories
 	safeDir := filepath.Join(tmpDir, "safe")
 	nestedDir := filepath.Join(safeDir, "nested")
+	otherDir := filepath.Join(tmpDir, "other")
 	if err := os.MkdirAll(nestedDir, 0755); err != nil {
+		t.Fatalf("Failed to create test directories: %v", err)
+	}
+	if err := os.MkdirAll(otherDir, 0755); err != nil {
 		t.Fatalf("Failed to create test directories: %v", err)
 	}
 
@@ -160,9 +165,8 @@ func TestPathValidator_ValidateOpenInPath(t *testing.T) {
 
 	validator := thinkt.NewPathValidator(registry)
 
-	// Manually add the temp directory to allowed bases for testing
-	// This is needed because t.TempDir() is typically outside home on macOS (/var/folders/...)
-	validator.AdditionalBases = []string{tmpDir}
+	// Explicitly allow only the safe directory hierarchy.
+	validator.AdditionalBases = []string{safeDir}
 
 	tests := []struct {
 		name    string
@@ -178,6 +182,9 @@ func TestPathValidator_ValidateOpenInPath(t *testing.T) {
 
 		// Files (not directories)
 		{"file instead of dir", testFile, true},
+
+		// Existing directory outside the allowlist
+		{"outside explicit allowlist", otherDir, true},
 
 		// Symlinks (valid if they point to allowed locations)
 		{"symlink to safe", symlinkDir, false},
@@ -201,8 +208,23 @@ func TestPathValidator_ValidateOpenInPath(t *testing.T) {
 	}
 }
 
-func TestPathValidator_GetAllowedBaseDirectories(t *testing.T) {
+func TestPathValidator_GetAllowedBaseDirectories_ProjectRootsOnly(t *testing.T) {
+	tmpDir := t.TempDir()
+	projectDir := filepath.Join(tmpDir, "project")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatalf("Failed to create project directory: %v", err)
+	}
+	deletedProjectDir := filepath.Join(tmpDir, "deleted-project")
+
 	registry := thinkt.NewRegistry()
+	registry.Register(&fakeProjectStore{
+		source: thinkt.Source("fake"),
+		projects: []thinkt.Project{
+			{ID: "project", Path: projectDir, Source: thinkt.Source("fake")},
+			{ID: "deleted", Path: deletedProjectDir, Source: thinkt.Source("fake")},
+		},
+	})
+
 	validator := thinkt.NewPathValidator(registry)
 
 	bases, err := validator.GetAllowedBaseDirectories()
@@ -210,21 +232,75 @@ func TestPathValidator_GetAllowedBaseDirectories(t *testing.T) {
 		t.Fatalf("GetAllowedBaseDirectories() unexpected error: %v", err)
 	}
 
-	// Should always include home directory
-	homeDir, err := os.UserHomeDir()
+	resolvedProjectDir, err := filepath.EvalSymlinks(projectDir)
 	if err != nil {
-		t.Skip("Cannot get home directory")
+		resolvedProjectDir = projectDir
 	}
 
-	foundHome := false
-	for _, base := range bases {
-		if base == homeDir {
-			foundHome = true
-			break
-		}
-	}
-
-	if !foundHome {
-		t.Errorf("GetAllowedBaseDirectories() should include home directory %q, got %v", homeDir, bases)
+	if len(bases) != 1 || bases[0] != resolvedProjectDir {
+		t.Fatalf("GetAllowedBaseDirectories() = %v, want [%q]", bases, resolvedProjectDir)
 	}
 }
+
+func TestPathValidator_ValidateOpenInPath_RejectsNonProjectDirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+	projectDir := filepath.Join(tmpDir, "project")
+	otherDir := filepath.Join(tmpDir, "other")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatalf("Failed to create project directory: %v", err)
+	}
+	if err := os.MkdirAll(otherDir, 0755); err != nil {
+		t.Fatalf("Failed to create non-project directory: %v", err)
+	}
+
+	registry := thinkt.NewRegistry()
+	registry.Register(&fakeProjectStore{
+		source: thinkt.Source("fake"),
+		projects: []thinkt.Project{
+			{ID: "project", Path: projectDir, Source: thinkt.Source("fake")},
+		},
+	})
+
+	validator := thinkt.NewPathValidator(registry)
+
+	if _, err := validator.ValidateOpenInPath(projectDir); err != nil {
+		t.Fatalf("ValidateOpenInPath(projectDir) unexpected error: %v", err)
+	}
+
+	if _, err := validator.ValidateOpenInPath(otherDir); err == nil {
+		t.Fatal("ValidateOpenInPath(otherDir) expected error, got nil")
+	}
+}
+
+type fakeProjectStore struct {
+	source   thinkt.Source
+	projects []thinkt.Project
+}
+
+func (f *fakeProjectStore) Source() thinkt.Source       { return f.source }
+func (f *fakeProjectStore) Workspace() thinkt.Workspace { return thinkt.Workspace{} }
+func (f *fakeProjectStore) ListProjects(context.Context) ([]thinkt.Project, error) {
+	return append([]thinkt.Project(nil), f.projects...), nil
+}
+func (f *fakeProjectStore) GetProject(_ context.Context, id string) (*thinkt.Project, error) {
+	for _, p := range f.projects {
+		if p.ID == id || p.Path == id {
+			cp := p
+			return &cp, nil
+		}
+	}
+	return nil, nil
+}
+func (f *fakeProjectStore) ListSessions(context.Context, string, ...thinkt.ListSessionsOption) ([]thinkt.SessionMeta, error) {
+	return nil, nil
+}
+func (f *fakeProjectStore) GetSessionMeta(context.Context, string) (*thinkt.SessionMeta, error) {
+	return nil, nil
+}
+func (f *fakeProjectStore) LoadSession(context.Context, string) (*thinkt.Session, error) {
+	return nil, nil
+}
+func (f *fakeProjectStore) OpenSession(context.Context, string) (thinkt.SessionReader, error) {
+	return nil, nil
+}
+func (f *fakeProjectStore) WatchConfig() thinkt.WatchConfig { return thinkt.DefaultWatchConfig() }

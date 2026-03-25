@@ -242,14 +242,14 @@ func newTreeProjectDelegate() treeProjectDelegate {
 	t := theme.Current()
 	selBg := colorpicker.BlendHex("#111111", t.GetAccent(), 0.12)
 	return treeProjectDelegate{
-		normalStyle:    lipgloss.NewStyle(),
-		selectedStyle:  lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.TextPrimary.Fg)),
+		normalStyle:     lipgloss.NewStyle(),
+		selectedStyle:   lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.TextPrimary.Fg)),
 		selectedBgStyle: lipgloss.NewStyle().Background(lipgloss.Color(selBg)).Bold(true),
-		dimmedStyle:    lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg)),
-		mutedStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)),
-		cursorStyle:    lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
-		connectorStyle: lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetBorderInactive())),
-		dirStyle:       lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.TextSecondary.Fg)),
+		dimmedStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg)),
+		mutedStyle:      lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg)),
+		cursorStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent())).Bold(true),
+		connectorStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetBorderInactive())),
+		dirStyle:        lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.TextSecondary.Fg)),
 	}
 }
 
@@ -374,27 +374,27 @@ type ProjectPickerResult struct {
 
 // ProjectPickerModel is a project browser TUI.
 type ProjectPickerModel struct {
-	list         list.Model
-	allProjects  []thinkt.Project    // original unfiltered projects
-	aggregated   []aggregatedProject // current aggregated+filtered view
-	treeRoots    []*treeNode         // tree structure for display
-	expandState  map[string]bool     // preserved expand/collapse state by fullPath
-	result       ProjectPickerResult
-	quitting     bool
-	width        int
-	height       int
-	ready        bool
-	standalone   bool // true when run via PickProject(), false when embedded in Shell
-	treeView     bool // true = tree, false = flat list
-	sortField    sortField
-	sortDir      sortDir
-	sourceFilter []thinkt.Source // empty = all sources
-	showSources  bool            // true when source picker overlay is active
-	sourcePicker SourcePickerModel
+	list             list.Model
+	allProjects      []thinkt.Project    // original unfiltered projects
+	aggregated       []aggregatedProject // current aggregated+filtered view
+	treeRoots        []*treeNode         // tree structure for display
+	expandState      map[string]bool     // preserved expand/collapse state by fullPath
+	result           ProjectPickerResult
+	quitting         bool
+	width            int
+	height           int
+	ready            bool
+	standalone       bool // true when run via PickProject(), false when embedded in Shell
+	treeView         bool // true = tree, false = flat list
+	sortField        sortField
+	sortDir          sortDir
+	sourceFilter     []thinkt.Source // empty = all sources
+	showSources      bool            // true when source picker overlay is active
+	sourcePicker     SourcePickerModel
 	showApps         bool // true when app picker overlay is active
 	appPicker        AppPickerModel
-	headerContext    string // e.g. "export" — shown in header bar
-	showAbsoluteTime bool   // true to show date/time instead of "ago"
+	headerContext    string          // e.g. "export" — shown in header bar
+	showAbsoluteTime bool            // true to show date/time instead of "ago"
 	activeProjects   map[string]bool // projectPath -> true for projects with active sessions
 }
 
@@ -799,6 +799,7 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if path != "" {
 						// Validate path before launching
 						validator := thinkt.NewPathValidator(nil)
+						validator.AdditionalBases = []string{path}
 						validatedPath, err := validator.ValidateOpenInPath(path)
 						if err != nil {
 							tuilog.Log.Error("ProjectPicker: path validation failed", "path", path, "error", err)

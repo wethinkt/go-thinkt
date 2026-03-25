@@ -974,7 +974,8 @@ type AllowedAppsResponse struct {
 
 // handleOpenIn opens a path in the specified application.
 // @Summary Open a path in an application
-// @Description Opens the specified path in an allowed application (e.g., Finder, VS Code)
+// @Description Opens the specified path in an allowed application (e.g., Finder, VS Code).
+// @Description This endpoint requires POST and rejects cross-origin browser requests.
 // @Tags open-in
 // @Accept json
 // @Produce json
@@ -987,6 +988,11 @@ type AllowedAppsResponse struct {
 // @Router /open-in [post]
 // @Security BearerAuth
 func (s *HTTPServer) handleOpenIn(w http.ResponseWriter, r *http.Request) {
+	if err := requireSameOriginForStateChange(r); err != nil {
+		writeError(w, http.StatusForbidden, "forbidden", "Cross-origin requests are not allowed for this endpoint")
+		return
+	}
+
 	var req OpenInRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", "Invalid JSON body")
