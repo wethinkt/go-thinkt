@@ -1,29 +1,21 @@
 package indexer
 
-import "github.com/wethinkt/go-thinkt/internal/thinkt"
+import (
+	indexdb "github.com/wethinkt/go-thinkt/internal/index/db"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
+)
 
-const projectIDScopeSeparator = "::"
-
-// ProjectIDScopeSeparator returns the separator used in scoped project IDs.
+// ProjectIDScopeSeparator delegates to the shared implementation in internal/index/db.
 func ProjectIDScopeSeparator() string {
-	return projectIDScopeSeparator
+	return indexdb.ProjectIDScopeSeparator()
 }
 
-// ScopedProjectID builds a source-scoped project ID for index rows.
-// This avoids collisions when multiple sources reuse the same raw project ID.
+// ScopedProjectID delegates to the shared implementation in internal/index/db.
 func ScopedProjectID(source thinkt.Source, projectID string) string {
-	if source == "" {
-		return projectID
-	}
-	return string(source) + projectIDScopeSeparator + projectID
+	return indexdb.ScopedProjectID(source, projectID)
 }
 
-// ScopedProjectIDCandidates returns both legacy and scoped project IDs.
-// It is used by read paths while old rows may still exist in the index.
+// ScopedProjectIDCandidates delegates to the shared implementation in internal/index/db.
 func ScopedProjectIDCandidates(source thinkt.Source, projectID string) []string {
-	scoped := ScopedProjectID(source, projectID)
-	if scoped == projectID {
-		return []string{projectID}
-	}
-	return []string{projectID, scoped}
+	return indexdb.ScopedProjectIDCandidates(source, projectID)
 }

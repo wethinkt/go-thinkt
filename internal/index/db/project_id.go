@@ -4,6 +4,11 @@ import "github.com/wethinkt/go-thinkt/internal/thinkt"
 
 const projectIDScopeSeparator = "::"
 
+// ProjectIDScopeSeparator returns the separator used in scoped project IDs.
+func ProjectIDScopeSeparator() string {
+	return projectIDScopeSeparator
+}
+
 // ScopedProjectID builds a source-scoped project ID for index rows.
 // This avoids collisions when multiple sources reuse the same raw project ID.
 func ScopedProjectID(source thinkt.Source, projectID string) string {
