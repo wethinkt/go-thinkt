@@ -291,10 +291,11 @@ func sortProjectsList(projects []thinkt.Project, spec string) {
 			continue
 		}
 		desc := false
-		if part[0] == '-' {
+		switch part[0] {
+		case '-':
 			desc = true
 			part = part[1:]
-		} else if part[0] == '+' {
+		case '+':
 			part = part[1:]
 		}
 		switch part {

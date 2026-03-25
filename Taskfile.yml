@@ -3,7 +3,7 @@ version: "3"
 vars:
   BIN_DIR: ./bin
   SWAG_VERSION: v1.16.6
-  GORELEASER_CROSS_VERSION: v1.25.6
+  GORELEASER_CROSS_VERSION: v1.25.8
 
 tasks:
   ###############################################################################

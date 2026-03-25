@@ -72,7 +72,7 @@ go-thinkt/
 ├── .goreleaser.yml              # Release config (thinkt)
 ├── .goreleaser-indexer.yml      # Release config (thinkt-indexer)
 ├── Dockerfile                   # Docker build for thinkt
-└── go.mod                       # Go 1.25.5
+└── go.mod                       # Go 1.25.8
 ```
 
 ## Binaries
@@ -91,7 +91,7 @@ Provides: `server`, `sync`, `search`, `semantic`, `stats` commands. The `server`
 
 ## Prerequisites
 
-- **Go 1.25.5+**
+- **Go 1.25.8+**
 - **[Task](https://taskfile.dev/)** (build orchestration)
 - **swag** (Swagger codegen): `go install github.com/swaggo/swag/cmd/swag@v1.16.6`
 - **C compiler** (for thinkt-indexer only — DuckDB requires CGO)
