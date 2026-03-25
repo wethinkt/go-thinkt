@@ -229,7 +229,7 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("no project detected\n\nUse -p <path> to specify a project, or run from within a project directory\nOr use 'thinkt sessions' (without --json) for interactive mode")
 		}
 
-		projects, err := GetProjectsFromSources(registry, sessionSources)
+		projects, err := registry.ProjectsFromSources(ctx, sessionSources)
 		if err != nil {
 			return err
 		}
@@ -262,7 +262,7 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 	logSelectedProject()
 
 	// Get sessions for the selected project
-	sessions, err := GetSessionsForProject(registry, sessionProject, sessionSources)
+	sessions, err := registry.SessionsForProject(ctx, sessionProject, sessionSources)
 	if err != nil {
 		return err
 	}
@@ -297,7 +297,7 @@ func runSessionsSummary(cmd *cobra.Command, args []string) error {
 
 	// If still no project, show project picker
 	if sessionProject == "" {
-		projects, err := GetProjectsFromSources(registry, sessionSources)
+		projects, err := registry.ProjectsFromSources(ctx, sessionSources)
 		if err != nil {
 			return err
 		}
@@ -330,7 +330,7 @@ func runSessionsSummary(cmd *cobra.Command, args []string) error {
 	logSelectedProject()
 
 	// Get sessions for the selected project
-	sessions, err := GetSessionsForProject(registry, sessionProject, sessionSources)
+	sessions, err := registry.SessionsForProject(ctx, sessionProject, sessionSources)
 	if err != nil {
 		return err
 	}
@@ -435,7 +435,7 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 
 	// If still no project, show project picker
 	if sessionProject == "" {
-		projects, err := GetProjectsFromSources(registry, sessionSources)
+		projects, err := registry.ProjectsFromSources(ctx, sessionSources)
 		if err != nil {
 			return err
 		}
@@ -469,7 +469,7 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 	logSelectedProject()
 
 	// Get all sessions in the project
-	sessions, err := GetSessionsForProject(registry, sessionProject, sessionSources)
+	sessions, err := registry.SessionsForProject(ctx, sessionProject, sessionSources)
 	if err != nil {
 		return err
 	}
@@ -560,7 +560,7 @@ func runSessionsResume(cmd *cobra.Command, args []string) error {
 
 	// If still no project, show project picker
 	if sessionProject == "" {
-		projects, err := GetProjectsFromSources(registry, sessionSources)
+		projects, err := registry.ProjectsFromSources(ctx, sessionSources)
 		if err != nil {
 			return err
 		}
@@ -584,7 +584,7 @@ func runSessionsResume(cmd *cobra.Command, args []string) error {
 
 	logSelectedProject()
 
-	sessions, err := GetSessionsForProject(registry, sessionProject, sessionSources)
+	sessions, err := registry.SessionsForProject(ctx, sessionProject, sessionSources)
 	if err != nil {
 		return err
 	}

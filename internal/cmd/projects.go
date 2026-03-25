@@ -167,8 +167,9 @@ func runProjectsView(cmd *cobra.Command, args []string) error {
 
 func runProjectsList(cmd *cobra.Command, args []string) error {
 	registry := CreateSourceRegistry()
+	ctx := context.Background()
 
-	projects, err := GetProjectsFromSources(registry, projectSources)
+	projects, err := registry.ProjectsFromSources(ctx, projectSources)
 	if err != nil {
 		return err
 	}
@@ -200,8 +201,9 @@ func runProjectsList(cmd *cobra.Command, args []string) error {
 
 func runProjectsTree(cmd *cobra.Command, args []string) error {
 	registry := CreateSourceRegistry()
+	ctx := context.Background()
 
-	projects, err := GetProjectsFromSources(registry, projectSources)
+	projects, err := registry.ProjectsFromSources(ctx, projectSources)
 	if err != nil {
 		return err
 	}
@@ -225,8 +227,9 @@ func runProjectsTree(cmd *cobra.Command, args []string) error {
 
 func runProjectsSummary(cmd *cobra.Command, args []string) error {
 	registry := CreateSourceRegistry()
+	ctx := context.Background()
 
-	projects, err := GetProjectsFromSources(registry, projectSources)
+	projects, err := registry.ProjectsFromSources(ctx, projectSources)
 	if err != nil {
 		return err
 	}
