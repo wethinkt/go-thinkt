@@ -15,6 +15,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/hybridgroup/yzma v1.11.1
+	github.com/mattn/go-sqlite3 v1.14.37
 	github.com/modelcontextprotocol/go-sdk v1.4.1
 	github.com/nicksnyder/go-i18n/v2 v2.6.1
 	github.com/prometheus/client_golang v1.23.2
