@@ -225,8 +225,12 @@ func init() {
 	rootCmd.AddCommand(indexerCmd)
 	rootCmd.AddCommand(versionCmd)
 
-	// Top-level aliases for common indexer commands
-	rootCmd.AddCommand(makeIndexerAlias("search", "Search for text across indexed sessions"))
+	// Native SQLite-backed commands
+	rootCmd.AddCommand(syncCmd)
+	rootCmd.AddCommand(statsCmd)
+	rootCmd.AddCommand(searchCmd)
+
+	// Top-level aliases for indexer-only commands
 	rootCmd.AddCommand(makeIndexerAlias("semantic", "Search sessions by meaning using on-device embeddings"))
 	rootCmd.AddCommand(makeIndexerAlias("embeddings", "Manage embedding model, storage, and sync"))
 	rootCmd.AddCommand(teamsCmd)
