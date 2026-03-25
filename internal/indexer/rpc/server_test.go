@@ -11,13 +11,10 @@ import (
 type mockHandler struct {
 	indexSyncCalled      bool
 	embedSyncCalled      bool
-	searchCalled         bool
 	semanticSearchCalled bool
-	statsCalled          bool
 	statusCalled         bool
 	metricsCalled        bool
 
-	lastSearchParams         SearchParams
 	lastSemanticSearchParams SemanticSearchParams
 }
 
@@ -39,21 +36,10 @@ func (m *mockHandler) HandleSummarizeSync(_ context.Context, params SummarizeSyn
 	return &Response{OK: true}, nil
 }
 
-func (m *mockHandler) HandleSearch(_ context.Context, params SearchParams) (*Response, error) {
-	m.searchCalled = true
-	m.lastSearchParams = params
-	return &Response{OK: true, Data: json.RawMessage(`{"results":[]}`)}, nil
-}
-
 func (m *mockHandler) HandleSemanticSearch(_ context.Context, params SemanticSearchParams) (*Response, error) {
 	m.semanticSearchCalled = true
 	m.lastSemanticSearchParams = params
 	return &Response{OK: true, Data: json.RawMessage(`{"results":[]}`)}, nil
-}
-
-func (m *mockHandler) HandleStats(_ context.Context) (*Response, error) {
-	m.statsCalled = true
-	return &Response{OK: true, Data: json.RawMessage(`{"sessions":42}`)}, nil
 }
 
 func (m *mockHandler) HandleConfigReload(_ context.Context) (*Response, error) {
@@ -64,14 +50,6 @@ func (m *mockHandler) HandleMetrics(_ context.Context) (*Response, error) {
 	m.metricsCalled = true
 	data, _ := json.Marshal(MetricsData{Text: "# HELP test_metric test\n# TYPE test_metric counter\ntest_metric 1\n"})
 	return &Response{OK: true, Data: data}, nil
-}
-
-func (m *mockHandler) HandleListProjects(_ context.Context, params ListProjectsParams) (*Response, error) {
-	return OKResponse(ListProjectsData{Projects: []ProjectData{}, Total: 0, Returned: 0})
-}
-
-func (m *mockHandler) HandleListSessions(_ context.Context, params ListSessionsParams) (*Response, error) {
-	return OKResponse(ListSessionsData{Sessions: []SessionData{}, Total: 0, Returned: 0})
 }
 
 func (m *mockHandler) HandleStatus(_ context.Context) (*Response, error) {
@@ -98,50 +76,6 @@ func startTestServer(t *testing.T) (string, *mockHandler) {
 	}
 	t.Cleanup(srv.Stop)
 	return sock, h
-}
-
-func TestStats(t *testing.T) {
-	sock, h := startTestServer(t)
-
-	resp, err := CallAt(sock, MethodStats, nil, nil)
-	if err != nil {
-		t.Fatalf("call stats: %v", err)
-	}
-	if !resp.OK {
-		t.Fatalf("expected ok response, got error: %s", resp.Error)
-	}
-	if !h.statsCalled {
-		t.Fatal("expected stats handler to be called")
-	}
-	if string(resp.Data) != `{"sessions":42}` {
-		t.Fatalf("unexpected data: %s", resp.Data)
-	}
-}
-
-func TestSearch(t *testing.T) {
-	sock, h := startTestServer(t)
-
-	params := SearchParams{
-		Query:   "hello world",
-		Project: "myproject",
-		Limit:   10,
-	}
-	resp, err := CallAt(sock, MethodSearch, params, nil)
-	if err != nil {
-		t.Fatalf("call search: %v", err)
-	}
-	if !resp.OK {
-		t.Fatalf("expected ok response, got error: %s", resp.Error)
-	}
-	if !h.searchCalled {
-		t.Fatal("expected search handler to be called")
-	}
-	if h.lastSearchParams.Query != "hello world" {
-		t.Fatalf("expected query 'hello world', got %q", h.lastSearchParams.Query)
-	}
-	if h.lastSearchParams.Project != "myproject" {
-		t.Fatalf("expected project 'myproject', got %q", h.lastSearchParams.Project)
-	}
 }
 
 func TestUnknownMethod(t *testing.T) {

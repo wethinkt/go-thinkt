@@ -17,14 +17,10 @@ type Handler interface {
 	HandleIndexSync(ctx context.Context, params SyncParams, send func(Progress)) (*Response, error)
 	HandleEmbedSync(ctx context.Context, params EmbedSyncParams, send func(Progress)) (*Response, error)
 	HandleSummarizeSync(ctx context.Context, params SummarizeSyncParams, send func(Progress)) (*Response, error)
-	HandleSearch(ctx context.Context, params SearchParams) (*Response, error)
 	HandleSemanticSearch(ctx context.Context, params SemanticSearchParams) (*Response, error)
-	HandleStats(ctx context.Context) (*Response, error)
 	HandleStatus(ctx context.Context) (*Response, error)
 	HandleMetrics(ctx context.Context) (*Response, error)
 	HandleConfigReload(ctx context.Context) (*Response, error)
-	HandleListProjects(ctx context.Context, params ListProjectsParams) (*Response, error)
-	HandleListSessions(ctx context.Context, params ListSessionsParams) (*Response, error)
 }
 
 // Server listens on a Unix domain socket and dispatches RPC requests to a Handler.
@@ -149,16 +145,6 @@ func (s *Server) handleConn(conn net.Conn) {
 		}
 		resp, handlerErr = s.handler.HandleSummarizeSync(ctx, SummarizeSyncParams{}, send)
 
-	case MethodSearch:
-		var params SearchParams
-		if req.Params != nil {
-			if err := json.Unmarshal(req.Params, &params); err != nil {
-				writeJSON(conn, Response{OK: false, Error: "invalid search params: " + err.Error()})
-				return
-			}
-		}
-		resp, handlerErr = s.handler.HandleSearch(ctx, params)
-
 	case MethodSemanticSearch:
 		var params SemanticSearchParams
 		if req.Params != nil {
@@ -169,9 +155,6 @@ func (s *Server) handleConn(conn net.Conn) {
 		}
 		resp, handlerErr = s.handler.HandleSemanticSearch(ctx, params)
 
-	case MethodStats:
-		resp, handlerErr = s.handler.HandleStats(ctx)
-
 	case MethodStatus:
 		resp, handlerErr = s.handler.HandleStatus(ctx)
 
@@ -180,26 +163,6 @@ func (s *Server) handleConn(conn net.Conn) {
 
 	case MethodConfigReload:
 		resp, handlerErr = s.handler.HandleConfigReload(ctx)
-
-	case MethodListProjects:
-		var params ListProjectsParams
-		if req.Params != nil {
-			if err := json.Unmarshal(req.Params, &params); err != nil {
-				writeJSON(conn, Response{OK: false, Error: "invalid list_projects params: " + err.Error()})
-				return
-			}
-		}
-		resp, handlerErr = s.handler.HandleListProjects(ctx, params)
-
-	case MethodListSessions:
-		var params ListSessionsParams
-		if req.Params != nil {
-			if err := json.Unmarshal(req.Params, &params); err != nil {
-				writeJSON(conn, Response{OK: false, Error: "invalid list_sessions params: " + err.Error()})
-				return
-			}
-		}
-		resp, handlerErr = s.handler.HandleListSessions(ctx, params)
 
 	default:
 		writeJSON(conn, Response{OK: false, Error: fmt.Sprintf("unknown method: %q", req.Method)})
