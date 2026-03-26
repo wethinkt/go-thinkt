@@ -21,6 +21,8 @@ func metricsSource(s string) string {
 func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20) // 10MB limit
+
 	var req IngestRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ingestRequestsTotal.WithLabelValues("error").Inc()
@@ -116,6 +118,8 @@ func (s *Server) handleSearchTraces(w http.ResponseWriter, r *http.Request) {
 
 // handleRegisterAgent processes POST /v1/agents/register requests.
 func (s *Server) handleRegisterAgent(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1MB limit
+
 	var reg AgentRegistration
 	if err := json.NewDecoder(r.Body).Decode(&reg); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json", "Failed to parse request body")
@@ -164,6 +168,8 @@ func (s *Server) handleGetUsageStats(w http.ResponseWriter, r *http.Request) {
 
 // handleSessionActivity processes POST /v1/sessions/activity requests from relays.
 func (s *Server) handleSessionActivity(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1MB limit
+
 	var event SessionActivityEvent
 	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_json", "Failed to parse request body")

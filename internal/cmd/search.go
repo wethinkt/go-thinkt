@@ -34,7 +34,8 @@ The index is used to find relevant files, then scans them directly.
 Your private content stays in local files, not the index.
 
 By default opens an interactive TUI. Use --list for scripting output.`,
-	Args: cobra.ExactArgs(1),
+	SilenceUsage: true,
+	Args:         cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		queryText := args[0]
 
@@ -45,7 +46,7 @@ By default opens an interactive TUI. Use --list for scripting output.`,
 
 		database, err := indexdb.OpenReadOnly(dbPath)
 		if err != nil {
-			return fmt.Errorf("open index db: %w (run 'thinkt sync' first)", err)
+			return fmt.Errorf("no search index found — run 'thinkt sync' first")
 		}
 		defer database.Close()
 

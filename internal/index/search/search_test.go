@@ -75,6 +75,48 @@ func TestExtractPreview(t *testing.T) {
 	}
 }
 
+func TestNewMatcherRegexRejectsPathological(t *testing.T) {
+	// Nested repeat operators like (a+)+ cause catastrophic backtracking.
+	pathological := []string{
+		`(a+)+b`,
+		`((a+)+)+`,
+		`(a*)*b`,
+	}
+	for _, pat := range pathological {
+		_, err := NewMatcher(pat, false, true)
+		if err == nil {
+			t.Errorf("expected error for pathological regex %q, got nil", pat)
+		}
+	}
+}
+
+func TestNewMatcherRegexRejectsTooLong(t *testing.T) {
+	long := make([]byte, maxRegexLen+1)
+	for i := range long {
+		long[i] = 'a'
+	}
+	_, err := NewMatcher(string(long), false, true)
+	if err == nil {
+		t.Fatal("expected error for oversized regex pattern")
+	}
+}
+
+func TestNewMatcherRegexAllowsValid(t *testing.T) {
+	// Reasonable regex patterns should still work.
+	valid := []string{
+		`\d+`,
+		`foo|bar`,
+		`[a-z]+\s+\d{1,3}`,
+		`(foo|bar)+`,
+	}
+	for _, pat := range valid {
+		_, err := NewMatcher(pat, false, true)
+		if err != nil {
+			t.Errorf("unexpected error for valid regex %q: %v", pat, err)
+		}
+	}
+}
+
 func TestDefaultSearchOptions(t *testing.T) {
 	opts := DefaultSearchOptions()
 	if opts.Limit != 50 {

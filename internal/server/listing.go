@@ -33,9 +33,15 @@ func listProjects(ctx context.Context, idb *indexdb.DB, registry *thinkt.StoreRe
 		offset = 0
 	}
 
+	// Derive enabled sources from registry for SQLite filtering.
+	var enabledSources []string
+	for _, src := range registry.Sources() {
+		enabledSources = append(enabledSources, string(src))
+	}
+
 	// Try direct SQLite first.
 	if idb != nil {
-		if result, err := sqliteListProjects(idb, source, includeDeleted, limit, offset); err == nil {
+		if result, err := sqliteListProjects(idb, source, enabledSources, limit, offset); err == nil {
 			return result, nil
 		}
 	}
@@ -87,31 +93,29 @@ func listProjects(ctx context.Context, idb *indexdb.DB, registry *thinkt.StoreRe
 }
 
 // sqliteListProjects queries the SQLite index for project listing.
-func sqliteListProjects(idb *indexdb.DB, source string, includeDeleted bool, limit, offset int) (*projectResult, error) {
-	// Count query
-	countSQL := "SELECT count(*) FROM projects WHERE 1=1"
-	var countArgs []interface{}
+func sqliteListProjects(idb *indexdb.DB, source string, enabledSources []string, limit, offset int) (*projectResult, error) {
+	// Build source filter.
+	whereClause := " WHERE 1=1"
+	var filterArgs []any
 	if source != "" {
-		countSQL += " AND source = ?"
-		countArgs = append(countArgs, strings.ToLower(source))
+		whereClause += " AND p.source = ?"
+		filterArgs = append(filterArgs, strings.ToLower(source))
 	}
+	srcClause, srcArgs := indexdb.SourceFilter(enabledSources, "p.source")
+	whereClause += " " + srcClause
+	filterArgs = append(filterArgs, srcArgs...)
+
+	// Count query.
 	var total int
-	if err := idb.QueryRow(countSQL, countArgs...).Scan(&total); err != nil {
+	if err := idb.QueryRow("SELECT count(*) FROM projects p"+whereClause, filterArgs...).Scan(&total); err != nil {
 		return nil, err
 	}
 
-	// Data query
+	// Data query — sort by session count (projects table has no updated_at).
 	dataSQL := `SELECT p.id, p.name, p.path, p.source,
-		(SELECT count(*) FROM sessions s WHERE s.project_id = p.id) AS session_count,
-		p.updated_at
-		FROM projects p WHERE 1=1`
-	var dataArgs []interface{}
-	if source != "" {
-		dataSQL += " AND p.source = ?"
-		dataArgs = append(dataArgs, strings.ToLower(source))
-	}
-	dataSQL += " ORDER BY p.updated_at DESC LIMIT ? OFFSET ?"
-	dataArgs = append(dataArgs, limit, offset)
+		(SELECT count(*) FROM sessions s WHERE s.project_id = p.id) AS session_count
+		FROM projects p` + whereClause + ` ORDER BY session_count DESC LIMIT ? OFFSET ?`
+	dataArgs := append(filterArgs, limit, offset) //nolint: gocritic
 
 	rows, err := idb.Query(dataSQL, dataArgs...)
 	if err != nil {
@@ -122,14 +126,8 @@ func sqliteListProjects(idb *indexdb.DB, source string, includeDeleted bool, lim
 	var projects []thinkt.Project
 	for rows.Next() {
 		var p thinkt.Project
-		var updatedAt sql.NullString
-		if err := rows.Scan(&p.ID, &p.Name, &p.Path, &p.Source, &p.SessionCount, &updatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.Path, &p.Source, &p.SessionCount); err != nil {
 			continue
-		}
-		if updatedAt.Valid {
-			if t, err := time.Parse(time.RFC3339, updatedAt.String); err == nil {
-				p.LastModified = t
-			}
 		}
 		p.PathExists = true
 		projects = append(projects, p)

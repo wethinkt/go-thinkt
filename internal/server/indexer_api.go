@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	indexdb "github.com/wethinkt/go-thinkt/internal/index/db"
 	indexsearch "github.com/wethinkt/go-thinkt/internal/index/search"
 	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/indexer/search"
@@ -126,6 +127,7 @@ func (s *HTTPServer) handleSearchSessions(w http.ResponseWriter, r *http.Request
 			Query:           params.Query,
 			FilterProject:   params.Project,
 			FilterSource:    params.Source,
+			FilterSources:   s.enabledSourceNames(),
 			Limit:           params.Limit,
 			LimitPerSession: params.LimitPerSession,
 			CaseSensitive:   params.CaseSensitive,
@@ -166,13 +168,27 @@ func (s *HTTPServer) handleSearchSessions(w http.ResponseWriter, r *http.Request
 func (s *HTTPServer) handleGetStats(w http.ResponseWriter, r *http.Request) {
 	// Try direct SQLite first.
 	if s.indexDB != nil {
-		var stats StatsResponse
-		if err := s.indexDB.QueryRow("SELECT count(*) FROM projects").Scan(&stats.TotalProjects); err == nil {
-			_ = s.indexDB.QueryRow("SELECT count(*) FROM sessions").Scan(&stats.TotalSessions)
-			_ = s.indexDB.QueryRow("SELECT count(*) FROM entries").Scan(&stats.TotalEntries)
-			_ = s.indexDB.QueryRow("SELECT COALESCE(sum(input_tokens + output_tokens), 0) FROM entries").Scan(&stats.TotalTokens)
+		sourceClause, sourceArgs := indexdb.SourceFilter(s.enabledSourceNames(), "p.source")
 
-			rows, err := s.indexDB.Query("SELECT tool_name, count(*) AS cnt FROM entries WHERE tool_name != '' GROUP BY tool_name ORDER BY cnt DESC LIMIT 25")
+		var stats StatsResponse
+		if err := s.indexDB.QueryRow(
+			"SELECT count(*) FROM projects p WHERE 1=1 "+sourceClause, sourceArgs...,
+		).Scan(&stats.TotalProjects); err == nil {
+			_ = s.indexDB.QueryRow(
+				"SELECT count(*) FROM sessions s JOIN projects p ON s.project_id = p.id WHERE 1=1 "+sourceClause,
+				sourceArgs...,
+			).Scan(&stats.TotalSessions)
+			_ = s.indexDB.QueryRow(
+				"SELECT count(*) FROM entries e JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id WHERE 1=1 "+sourceClause,
+				sourceArgs...,
+			).Scan(&stats.TotalEntries)
+			_ = s.indexDB.QueryRow(
+				"SELECT COALESCE(sum(e.input_tokens + e.output_tokens), 0) FROM entries e JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id WHERE 1=1 "+sourceClause,
+				sourceArgs...,
+			).Scan(&stats.TotalTokens)
+
+			toolSQL := "SELECT e.tool_name, count(*) AS cnt FROM entries e JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id WHERE e.tool_name != '' " + sourceClause + " GROUP BY e.tool_name ORDER BY cnt DESC LIMIT 25"
+			rows, err := s.indexDB.Query(toolSQL, sourceArgs...)
 			if err == nil {
 				for rows.Next() {
 					var tc StatsToolCount

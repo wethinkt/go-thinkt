@@ -139,6 +139,17 @@ func (s *HTTPServer) SetIndexDB(db *indexdb.DB) {
 	s.indexDB = db
 }
 
+// enabledSourceNames returns the source names registered in the registry.
+// Used to filter SQLite queries to only enabled sources.
+func (s *HTTPServer) enabledSourceNames() []string {
+	sources := s.registry.Sources()
+	names := make([]string, len(sources))
+	for i, src := range sources {
+		names[i] = string(src)
+	}
+	return names
+}
+
 // setupRouter configures all routes.
 func (s *HTTPServer) setupRouter() chi.Router {
 	r := chi.NewRouter()

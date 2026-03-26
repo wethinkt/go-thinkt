@@ -13,8 +13,9 @@ import (
 var statsJSON bool
 
 var statsCmd = &cobra.Command{
-	Use:   "stats",
-	Short: "Show usage statistics from the index",
+	Use:           "stats",
+	Short:         "Show usage statistics from the index",
+	SilenceUsage:  true,
 	Long: `Display aggregate statistics from the SQLite session index.
 
 Shows project, session, entry, and token counts along with top tool usage.
@@ -41,9 +42,9 @@ func runStats(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("resolve db path: %w", err)
 	}
 
-	database, err := indexdb.OpenReadOnly(dbPath)
+	database, err := indexdb.Open(dbPath)
 	if err != nil {
-		return fmt.Errorf("open index db: %w (run 'thinkt sync' first)", err)
+		return fmt.Errorf("open index db: %w", err)
 	}
 	defer database.Close()
 

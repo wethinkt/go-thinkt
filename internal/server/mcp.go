@@ -40,6 +40,16 @@ func (ms *MCPServer) SetIndexDB(db *indexdb.DB) {
 	ms.indexDB = db
 }
 
+// enabledSourceNames returns the source names registered in the registry.
+func (ms *MCPServer) enabledSourceNames() []string {
+	sources := ms.registry.Sources()
+	names := make([]string, len(sources))
+	for i, src := range sources {
+		names[i] = string(src)
+	}
+	return names
+}
+
 // NewMCPServer creates a new MCP server with thinkt tools.
 func NewMCPServer(registry *thinkt.StoreRegistry) *MCPServer {
 	return NewMCPServerWithAuth(registry, DefaultMCPAuthConfig())
@@ -712,6 +722,7 @@ func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallTool
 			Query:           input.Query,
 			FilterProject:   input.Project,
 			FilterSource:    input.Source,
+			FilterSources:   ms.enabledSourceNames(),
 			Limit:           input.Limit,
 			LimitPerSession: input.LimitPerSession,
 			CaseSensitive:   input.CaseSensitive,
@@ -772,13 +783,24 @@ func (ms *MCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallTool
 func (ms *MCPServer) handleGetUsageStats(ctx context.Context, req *mcp.CallToolRequest, _ getUsageStatsInput) (*mcp.CallToolResult, any, error) {
 	// Try direct SQLite first.
 	if ms.indexDB != nil {
-		var stats rpc.StatsData
-		if err := ms.indexDB.QueryRow("SELECT count(*) FROM projects").Scan(&stats.TotalProjects); err == nil {
-			_ = ms.indexDB.QueryRow("SELECT count(*) FROM sessions").Scan(&stats.TotalSessions)
-			_ = ms.indexDB.QueryRow("SELECT count(*) FROM entries").Scan(&stats.TotalEntries)
-			_ = ms.indexDB.QueryRow("SELECT COALESCE(sum(input_tokens + output_tokens), 0) FROM entries").Scan(&stats.TotalTokens)
+		sourceClause, sourceArgs := indexdb.SourceFilter(ms.enabledSourceNames(), "p.source")
 
-			rows, err := ms.indexDB.Query("SELECT tool_name, count(*) AS cnt FROM entries WHERE tool_name != '' GROUP BY tool_name ORDER BY cnt DESC LIMIT 25")
+		var stats rpc.StatsData
+		if err := ms.indexDB.QueryRow(
+			"SELECT count(*) FROM projects p WHERE 1=1 "+sourceClause, sourceArgs...,
+		).Scan(&stats.TotalProjects); err == nil {
+			_ = ms.indexDB.QueryRow(
+				"SELECT count(*) FROM sessions s JOIN projects p ON s.project_id = p.id WHERE 1=1 "+sourceClause, sourceArgs...,
+			).Scan(&stats.TotalSessions)
+			_ = ms.indexDB.QueryRow(
+				"SELECT count(*) FROM entries e JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id WHERE 1=1 "+sourceClause, sourceArgs...,
+			).Scan(&stats.TotalEntries)
+			_ = ms.indexDB.QueryRow(
+				"SELECT COALESCE(sum(e.input_tokens + e.output_tokens), 0) FROM entries e JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id WHERE 1=1 "+sourceClause, sourceArgs...,
+			).Scan(&stats.TotalTokens)
+
+			toolSQL := "SELECT e.tool_name, count(*) AS cnt FROM entries e JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id WHERE e.tool_name != '' " + sourceClause + " GROUP BY e.tool_name ORDER BY cnt DESC LIMIT 25"
+			rows, err := ms.indexDB.Query(toolSQL, sourceArgs...)
 			if err == nil {
 				for rows.Next() {
 					var tc rpc.ToolCount

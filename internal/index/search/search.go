@@ -5,15 +5,20 @@ package search
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
+	"regexp/syntax"
 	"strings"
 	"sync"
 
 	"github.com/wethinkt/go-thinkt/internal/index/db"
 )
+
+// maxRegexLen is the maximum allowed length for a user-supplied regex pattern.
+const maxRegexLen = 1000
 
 // Matcher encapsulates the search matching strategy.
 type Matcher struct {
@@ -27,6 +32,23 @@ func NewMatcher(query string, caseSensitive, useRegex bool) (*Matcher, error) {
 	pattern := query
 	if !useRegex {
 		pattern = regexp.QuoteMeta(query)
+	} else {
+		if len(query) > maxRegexLen {
+			return nil, fmt.Errorf("regex pattern too long (%d chars, max %d)", len(query), maxRegexLen)
+		}
+		// Parse and check for pathological nesting depth that causes
+		// catastrophic backtracking (e.g. "(a+)+b").
+		flags := syntax.Perl
+		if !caseSensitive {
+			flags |= syntax.FoldCase
+		}
+		parsed, err := syntax.Parse(query, flags)
+		if err != nil {
+			return nil, fmt.Errorf("invalid regex %q: %w", query, err)
+		}
+		if regexNestingDepth(parsed) > 1 {
+			return nil, fmt.Errorf("regex too complex: nesting of repeat operators exceeds limit")
+		}
 	}
 	if !caseSensitive {
 		pattern = "(?i)" + pattern
@@ -36,6 +58,25 @@ func NewMatcher(query string, caseSensitive, useRegex bool) (*Matcher, error) {
 		return nil, fmt.Errorf("invalid pattern %q: %w", query, err)
 	}
 	return &Matcher{re: re}, nil
+}
+
+// regexNestingDepth returns the maximum nesting depth of repeat operators
+// (Star, Plus, Quest, Repeat) in a parsed regex tree. Deep nesting of repeats
+// is the primary cause of catastrophic backtracking.
+func regexNestingDepth(re *syntax.Regexp) int {
+	isRepeat := re.Op == syntax.OpStar || re.Op == syntax.OpPlus ||
+		re.Op == syntax.OpQuest || re.Op == syntax.OpRepeat
+	maxChild := 0
+	for _, sub := range re.Sub {
+		d := regexNestingDepth(sub)
+		if d > maxChild {
+			maxChild = d
+		}
+	}
+	if isRepeat {
+		return 1 + maxChild
+	}
+	return maxChild
 }
 
 func (m *Matcher) Match(text string) bool {
@@ -173,7 +214,10 @@ func (s *Service) Search(opts SearchOptions) ([]SessionResult, int, error) {
 		return nil, 0, err
 	}
 
-	// Parallel Scan
+	// Parallel Scan — use a context so scanners stop when the limit is reached.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	rawHits := make(chan RawMatch)
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, 20)
@@ -185,11 +229,11 @@ func (s *Service) Search(opts SearchOptions) ([]SessionResult, int, error) {
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			scanFile(cand, matcher, rawHits)
+			scanFile(ctx, cand, matcher, rawHits)
 		}(c)
 	}
 
-	// Closer
+	// Closer — runs after all scanners finish.
 	go func() {
 		wg.Wait()
 		close(rawHits)
@@ -197,7 +241,7 @@ func (s *Service) Search(opts SearchOptions) ([]SessionResult, int, error) {
 
 	// Aggregate hits by session
 	sessionGroups := make(map[string]*SessionResult)
-	var sessionOrder []string // Maintain some order
+	var sessionOrder []string
 
 	totalMatches := 0
 	for hit := range rawHits {
@@ -228,8 +272,11 @@ func (s *Service) Search(opts SearchOptions) ([]SessionResult, int, error) {
 		})
 		totalMatches++
 
-		// Apply global limit (rough, might go over slightly due to grouping)
+		// Cancel scanners when global limit is reached, then drain remaining hits.
 		if opts.Limit > 0 && totalMatches >= opts.Limit {
+			cancel()
+			for range rawHits {
+			}
 			break
 		}
 	}
@@ -246,7 +293,7 @@ func (s *Service) Search(opts SearchOptions) ([]SessionResult, int, error) {
 	return finalResults, totalMatches, nil
 }
 
-func scanFile(c Candidate, m *Matcher, out chan<- RawMatch) {
+func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch) {
 	f, err := os.Open(c.Path)
 	if err != nil {
 		return
@@ -257,6 +304,10 @@ func scanFile(c Candidate, m *Matcher, out chan<- RawMatch) {
 	lineNum := 0
 
 	for scanner.Scan() {
+		if ctx.Err() != nil {
+			return
+		}
+
 		lineNum++
 		text := scanner.Text()
 
@@ -275,13 +326,17 @@ func scanFile(c Candidate, m *Matcher, out chan<- RawMatch) {
 			}
 
 			preview, matchStart, matchEnd := extractPreview(text, m)
-			out <- RawMatch{
+			select {
+			case out <- RawMatch{
 				Candidate:  c,
 				LineNum:    lineNum,
 				Preview:    preview,
 				Role:       role,
 				MatchStart: matchStart,
 				MatchEnd:   matchEnd,
+			}:
+			case <-ctx.Done():
+				return
 			}
 		}
 	}
