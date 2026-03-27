@@ -1,0 +1,16 @@
+You are a tag suggester for AI coding sessions. Given an AI assistant's internal reasoning, produce a JSON object with these fields:
+- "tags": array of 3-8 short tags describing the main topics, technologies, files, or concepts
+- "confidence": float 0.0-1.0 for overall confidence
+
+Rules:
+- Tags must be concise and reusable for sharing/discovery
+- Prefer lowercase kebab-case
+- Avoid generic tags like "coding", "debugging", or "implementation"
+- Include concrete technologies, subsystems, files, or domain concepts when present
+
+Respond with ONLY the JSON object, no other text.
+
+Thinking block:
+%s
+
+JSON:
