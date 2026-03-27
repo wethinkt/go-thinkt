@@ -31,17 +31,6 @@ builds:
     ldflags:
       - -s -w -X main.version={{.Version}}
 
-  # ── thinkt-indexer ─────────────────────────────────────────────────────
-  - id: indexer-windows-amd64
-    main: ./cmd/thinkt-indexer
-    binary: thinkt-indexer
-    goos: [windows]
-    goarch: [amd64]
-    env:
-      - CGO_ENABLED=1
-    ldflags:
-      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
-
   # ── thinkt-collector ───────────────────────────────────────────────────
   - id: collector-windows-amd64
     main: ./cmd/thinkt-collector
@@ -58,7 +47,6 @@ archives:
     ids:
       - thinkt-windows-amd64
       - relay-windows-amd64
-      - indexer-windows-amd64
       - collector-windows-amd64
     formats:
       - zip

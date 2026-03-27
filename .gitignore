@@ -9,8 +9,6 @@ bin/
 /thinkt.zip
 /thinkt-collector
 /thinkt-relay
-/thinkt-indexer
-/thinkt-indexer.zip
 
 # Logs
 *.log

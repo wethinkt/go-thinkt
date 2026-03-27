@@ -23,29 +23,6 @@ definitions:
       tag:
         type: string
     type: object
-  rpc.ProgressInfo:
-    properties:
-      chunks_done:
-        type: integer
-      chunks_total:
-        type: integer
-      done:
-        type: integer
-      entries:
-        type: integer
-      message:
-        type: string
-      project:
-        type: integer
-      project_name:
-        type: string
-      project_total:
-        type: integer
-      session_id:
-        type: string
-      total:
-        type: integer
-    type: object
   server.ActiveSessionsResponse:
     properties:
       sessions:
@@ -79,30 +56,6 @@ definitions:
         type: integer
       indexed_sessions:
         type: integer
-    type: object
-  server.IndexerStatusResponse:
-    properties:
-      embed_progress:
-        $ref: '#/definitions/rpc.ProgressInfo'
-      embedding:
-        type: boolean
-      model:
-        type: string
-      model_dim:
-        type: integer
-      running:
-        type: boolean
-      state:
-        description: '"idle", "syncing", "embedding", "syncing+embedding"'
-        type: string
-      sync_progress:
-        $ref: '#/definitions/rpc.ProgressInfo'
-      syncing:
-        type: boolean
-      uptime_seconds:
-        type: integer
-      watching:
-        type: boolean
     type: object
   server.LanguagesResponse:
     properties:
@@ -876,7 +829,8 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/server.IndexerStatusResponse'
+            additionalProperties: true
+            type: object
         "401":
           description: Unauthorized - invalid or missing token
           schema:
@@ -1103,7 +1057,7 @@ paths:
       - sessions
   /search:
     get:
-      description: Search for text within the original session files using the DuckDB
+      description: Search for text within the original session files using the SQLite
         index
       parameters:
       - description: Search query text

@@ -54,7 +54,8 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/server.IndexerStatusResponse"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "401": {
@@ -404,7 +405,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Search for text within the original session files using the DuckDB index",
+                "description": "Search for text within the original session files using the SQLite index",
                 "produces": [
                     "application/json"
                 ],
@@ -1259,41 +1260,6 @@ const docTemplate = `{
                 }
             }
         },
-        "rpc.ProgressInfo": {
-            "type": "object",
-            "properties": {
-                "chunks_done": {
-                    "type": "integer"
-                },
-                "chunks_total": {
-                    "type": "integer"
-                },
-                "done": {
-                    "type": "integer"
-                },
-                "entries": {
-                    "type": "integer"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "project": {
-                    "type": "integer"
-                },
-                "project_name": {
-                    "type": "string"
-                },
-                "project_total": {
-                    "type": "integer"
-                },
-                "session_id": {
-                    "type": "string"
-                },
-                "total": {
-                    "type": "integer"
-                }
-            }
-        },
         "server.ActiveSessionsResponse": {
             "type": "object",
             "properties": {
@@ -1344,42 +1310,6 @@ const docTemplate = `{
                 },
                 "indexed_sessions": {
                     "type": "integer"
-                }
-            }
-        },
-        "server.IndexerStatusResponse": {
-            "type": "object",
-            "properties": {
-                "embed_progress": {
-                    "$ref": "#/definitions/rpc.ProgressInfo"
-                },
-                "embedding": {
-                    "type": "boolean"
-                },
-                "model": {
-                    "type": "string"
-                },
-                "model_dim": {
-                    "type": "integer"
-                },
-                "running": {
-                    "type": "boolean"
-                },
-                "state": {
-                    "description": "\"idle\", \"syncing\", \"embedding\", \"syncing+embedding\"",
-                    "type": "string"
-                },
-                "sync_progress": {
-                    "$ref": "#/definitions/rpc.ProgressInfo"
-                },
-                "syncing": {
-                    "type": "boolean"
-                },
-                "uptime_seconds": {
-                    "type": "integer"
-                },
-                "watching": {
-                    "type": "boolean"
                 }
             }
         },

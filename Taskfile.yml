@@ -36,7 +36,6 @@ tasks:
       - build:thinkt
       - build:collector
       - build:relay
-      - build:indexer
 
   build:thinkt:
     desc: Build the thinkt CLI
@@ -79,21 +78,6 @@ tasks:
       - "{{.BIN_DIR}}/thinkt-relay"
     cmds:
       - go build -o {{.BIN_DIR}}/thinkt-relay ./cmd/thinkt-relay
-
-  build:indexer:
-    desc: Build the thinkt-indexer CLI
-    deps: [go-tidy]
-    sources:
-      - ./cmd/thinkt-indexer/**/*.go
-      - ./cmd/thinkt-indexer/**/*.sql
-      - ./internal/**/*.go
-      - ./internal/i18n/locales/*.toml
-      - go.mod
-      - go.sum
-    generates:
-      - "{{.BIN_DIR}}/thinkt-indexer"
-    cmds:
-      - CGO_ENABLED=1 go build -o {{.BIN_DIR}}/thinkt-indexer ./cmd/thinkt-indexer
 
   test:
     desc: Run tests
@@ -195,16 +179,11 @@ tasks:
   docker:build-all:
     deps:
       - docker:build-relay
-      - docker:build-indexer
       - docker:build-thinkt
 
   docker:build-relay:
     cmds:
       - docker build -f etc/Dockerfile.relay .
-
-  docker:build-indexer:
-    cmds:
-      - docker build -f etc/Dockerfile.indexer .
 
   docker:build-thinkt:
     cmds:

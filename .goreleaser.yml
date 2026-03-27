@@ -72,57 +72,6 @@ builds:
     ldflags:
       - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
 
-  # ── thinkt-indexer ─────────────────────────────────────────────────────
-  - id: indexer-linux-amd64
-    main: ./cmd/thinkt-indexer
-    binary: thinkt-indexer
-    goos: [linux]
-    goarch: [amd64]
-    env:
-      - CGO_ENABLED=1
-      - CC=x86_64-linux-gnu-gcc
-      - CXX=x86_64-linux-gnu-g++
-    ldflags:
-      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
-
-  - id: indexer-linux-arm64
-    main: ./cmd/thinkt-indexer
-    binary: thinkt-indexer
-    goos: [linux]
-    goarch: [arm64]
-    env:
-      - CGO_ENABLED=1
-      - CC=aarch64-linux-gnu-gcc
-      - CXX=aarch64-linux-gnu-g++
-    ldflags:
-      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
-
-  - id: indexer-darwin-amd64
-    main: ./cmd/thinkt-indexer
-    binary: thinkt-indexer
-    goos: [darwin]
-    goarch: [amd64]
-    env:
-      - MACOSX_DEPLOYMENT_TARGET=11.0
-      - CGO_ENABLED=1
-      - CC=o64-clang
-      - CXX=o64-clang++
-    ldflags:
-      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
-
-  - id: indexer-darwin-arm64
-    main: ./cmd/thinkt-indexer
-    binary: thinkt-indexer
-    goos: [darwin]
-    goarch: [arm64]
-    env:
-      - MACOSX_DEPLOYMENT_TARGET=11.0
-      - CGO_ENABLED=1
-      - CC=oa64-clang
-      - CXX=oa64-clang++
-    ldflags:
-      - -s -w -X github.com/wethinkt/go-thinkt/internal/version.Version={{.Version}}
-
   # ── thinkt-relay ──────────────────────────────────────────────────────────
   - id: relay-linux-amd64
     main: ./cmd/thinkt-relay
@@ -236,10 +185,6 @@ archives:
       - relay-linux-arm64
       - relay-darwin-amd64
       - relay-darwin-arm64
-      - indexer-linux-amd64
-      - indexer-linux-arm64
-      - indexer-darwin-amd64
-      - indexer-darwin-arm64
       - collector-linux-amd64
       - collector-linux-arm64
       - collector-darwin-amd64
@@ -275,8 +220,6 @@ notarize:
         - thinkt-darwin-arm64
         - relay-darwin-amd64
         - relay-darwin-arm64
-        - indexer-darwin-amd64
-        - indexer-darwin-arm64
         - collector-darwin-amd64
         - collector-darwin-arm64
       sign:
@@ -305,7 +248,6 @@ homebrew_casks:
     license: MIT
     binaries:
       - thinkt
-      - thinkt-indexer
       - thinkt-relay
       - thinkt-collector
     completions:
@@ -338,21 +280,6 @@ homebrew_casks:
       - man/man1/thinkt-help-env.1
       - man/man1/thinkt-help-llms.1
       - man/man1/thinkt-help.1
-      - man/man1/thinkt-indexer-embeddings.1
-      - man/man1/thinkt-indexer-help.1
-      - man/man1/thinkt-indexer-logs.1
-      - man/man1/thinkt-indexer-metrics.1
-      - man/man1/thinkt-indexer-search.1
-      - man/man1/thinkt-indexer-semantic.1
-      - man/man1/thinkt-indexer-sessions.1
-      - man/man1/thinkt-indexer-start.1
-      - man/man1/thinkt-indexer-stats.1
-      - man/man1/thinkt-indexer-status.1
-      - man/man1/thinkt-indexer-stop.1
-      - man/man1/thinkt-indexer-summarize.1
-      - man/man1/thinkt-indexer-sync.1
-      - man/man1/thinkt-indexer-version.1
-      - man/man1/thinkt-indexer.1
       - man/man1/thinkt-language-get.1
       - man/man1/thinkt-language-list.1
       - man/man1/thinkt-language-set.1
@@ -494,43 +421,6 @@ dockers:
     use: buildx
     goarch: arm64
 
-  - id: indexer-linux-amd64
-    ids:
-      - indexer-linux-amd64
-    dockerfile: etc/Dockerfile.indexer
-    image_templates:
-      - "ghcr.io/wethinkt/thinkt-indexer:{{ .Version }}-amd64"
-      - "ghcr.io/wethinkt/thinkt-indexer:latest-amd64"
-    build_flag_templates:
-      - "--pull"
-      - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.title=thinkt-indexer"
-      - "--label=org.opencontainers.image.description=thinkt indexer"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.source={{ .GitURL }}"
-    use: buildx
-
-  - id: indexer-linux-arm64
-    ids:
-      - indexer-linux-arm64
-    dockerfile: etc/Dockerfile.indexer
-    image_templates:
-      - "ghcr.io/wethinkt/thinkt-indexer:{{ .Version }}-arm64"
-      - "ghcr.io/wethinkt/thinkt-indexer:latest-arm64"
-    build_flag_templates:
-      - "--pull"
-      - "--platform=linux/arm64"
-      - "--label=org.opencontainers.image.title=thinkt-indexer"
-      - "--label=org.opencontainers.image.description=thinkt indexer"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.source={{ .GitURL }}"
-    use: buildx
-    goarch: arm64
-
 docker_manifests:
   - name_template: "ghcr.io/wethinkt/thinkt:{{ .Version }}"
     image_templates:
@@ -551,13 +441,3 @@ docker_manifests:
     image_templates:
       - "ghcr.io/wethinkt/thinkt-relay:latest-amd64"
       - "ghcr.io/wethinkt/thinkt-relay:latest-arm64"
-
-  - name_template: "ghcr.io/wethinkt/thinkt-indexer:{{ .Version }}"
-    image_templates:
-      - "ghcr.io/wethinkt/thinkt-indexer:{{ .Version }}-amd64"
-      - "ghcr.io/wethinkt/thinkt-indexer:{{ .Version }}-arm64"
-
-  - name_template: "ghcr.io/wethinkt/thinkt-indexer:latest"
-    image_templates:
-      - "ghcr.io/wethinkt/thinkt-indexer:latest-amd64"
-      - "ghcr.io/wethinkt/thinkt-indexer:latest-arm64"
