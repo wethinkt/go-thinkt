@@ -15,6 +15,7 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
+	"github.com/wethinkt/go-thinkt/internal/index"
 	indexdb "github.com/wethinkt/go-thinkt/internal/index/db"
 	_ "github.com/wethinkt/go-thinkt/internal/server/docs" // swagger docs
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -108,7 +109,10 @@ type HTTPServer struct {
 	pathValidator  *thinkt.PathValidator
 	authenticator  *BearerAuthenticator
 	startedAt      time.Time
-	indexDB        *indexdb.DB // SQLite index for search/stats/listing (nil = use RPC fallback)
+	indexDB        *indexdb.DB           // SQLite index for search/stats/listing (nil = unavailable)
+	embDB          *indexdb.DB           // embeddings database (may be nil)
+	embedder       EmbedderInterface     // embedding model (may be nil)
+	status         *index.StatusTracker  // worker status (may be nil)
 }
 
 // NewHTTPServer creates a new HTTP server for the REST API.
@@ -137,6 +141,21 @@ func (s *HTTPServer) SetTeamStore(ts thinkt.TeamStore) {
 // SetIndexDB sets the SQLite index database for direct queries.
 func (s *HTTPServer) SetIndexDB(db *indexdb.DB) {
 	s.indexDB = db
+}
+
+// SetEmbeddingsDB sets the embeddings database for semantic search.
+func (s *HTTPServer) SetEmbeddingsDB(db *indexdb.DB) {
+	s.embDB = db
+}
+
+// SetEmbedder sets the embedding model for semantic search.
+func (s *HTTPServer) SetEmbedder(e EmbedderInterface) {
+	s.embedder = e
+}
+
+// SetStatusTracker sets the worker status tracker for the indexer status endpoint.
+func (s *HTTPServer) SetStatusTracker(st *index.StatusTracker) {
+	s.status = st
 }
 
 // enabledSourceNames returns the source names registered in the registry.

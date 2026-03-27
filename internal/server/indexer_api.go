@@ -1,16 +1,13 @@
 package server
 
 import (
-	"encoding/json"
-	"errors"
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
 
 	indexdb "github.com/wethinkt/go-thinkt/internal/index/db"
 	indexsearch "github.com/wethinkt/go-thinkt/internal/index/search"
-	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
-	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 )
 
 // SearchMatch represents a single match within a session.
@@ -78,9 +75,6 @@ type SemanticSearchResponse struct {
 	Results []SemanticSearchResult `json:"results"`
 }
 
-// IndexerStatusData is the HTTP representation of indexer server state.
-type IndexerStatusData = rpc.StatusData
-
 // handleSearchSessions searches for text across indexed sessions.
 // @Summary Search across indexed sessions
 // @Description Search for text within the original session files using the DuckDB index
@@ -106,53 +100,37 @@ func (s *HTTPServer) handleSearchSessions(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	params := rpc.SearchParams{
-		Query:   query,
-		Project: r.URL.Query().Get("project"),
-		Source:  r.URL.Query().Get("source"),
+	if s.indexDB == nil {
+		writeError(w, http.StatusServiceUnavailable, "indexer_unavailable", "index database is not available")
+		return
 	}
+
+	var limit, limitPerSession int
 	if v := r.URL.Query().Get("limit"); v != "" {
-		params.Limit, _ = strconv.Atoi(v)
+		limit, _ = strconv.Atoi(v)
 	}
 	if v := r.URL.Query().Get("limit_per_session"); v != "" {
-		params.LimitPerSession, _ = strconv.Atoi(v)
-	}
-	params.CaseSensitive = r.URL.Query().Get("case_sensitive") == "true"
-	params.Regex = r.URL.Query().Get("regex") == "true"
-
-	// Try direct SQLite first.
-	if s.indexDB != nil {
-		svc := indexsearch.NewService(s.indexDB)
-		opts := indexsearch.SearchOptions{
-			Query:           params.Query,
-			FilterProject:   params.Project,
-			FilterSource:    params.Source,
-			FilterSources:   s.enabledSourceNames(),
-			Limit:           params.Limit,
-			LimitPerSession: params.LimitPerSession,
-			CaseSensitive:   params.CaseSensitive,
-			UseRegex:        params.Regex,
-		}
-		results, totalMatches, err := svc.Search(opts)
-		if err == nil {
-			writeJSON(w, http.StatusOK, SearchResponse{Results: toSearchResponse(results), TotalMatches: totalMatches})
-			return
-		}
-		// Fall through to RPC on error.
+		limitPerSession, _ = strconv.Atoi(v)
 	}
 
-	// RPC fallback.
-	results, totalMatches, err := indexerSearch(params)
+	svc := indexsearch.NewService(s.indexDB)
+	opts := indexsearch.SearchOptions{
+		Query:           query,
+		FilterProject:   r.URL.Query().Get("project"),
+		FilterSource:    r.URL.Query().Get("source"),
+		FilterSources:   s.enabledSourceNames(),
+		Limit:           limit,
+		LimitPerSession: limitPerSession,
+		CaseSensitive:   r.URL.Query().Get("case_sensitive") == "true",
+		UseRegex:        r.URL.Query().Get("regex") == "true",
+	}
+	results, totalMatches, err := svc.Search(opts)
 	if err != nil {
-		if errors.Is(err, errIndexerUnavailable) {
-			writeError(w, http.StatusServiceUnavailable, "indexer_unavailable", err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, "search_failed", err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, SearchResponse{Results: fromIndexerSearchResults(results), TotalMatches: totalMatches})
+	writeJSON(w, http.StatusOK, SearchResponse{Results: toSearchResponse(results), TotalMatches: totalMatches})
 }
 
 // handleGetStats returns usage statistics from the index.
@@ -166,62 +144,49 @@ func (s *HTTPServer) handleSearchSessions(w http.ResponseWriter, r *http.Request
 // @Router /stats [get]
 // @Security BearerAuth
 func (s *HTTPServer) handleGetStats(w http.ResponseWriter, r *http.Request) {
-	// Try direct SQLite first.
-	if s.indexDB != nil {
-		sourceClause, sourceArgs := indexdb.SourceFilter(s.enabledSourceNames(), "p.source")
+	if s.indexDB == nil {
+		writeError(w, http.StatusServiceUnavailable, "indexer_unavailable", "index database is not available")
+		return
+	}
 
-		var stats StatsResponse
-		if err := s.indexDB.QueryRow(
-			"SELECT count(*) FROM projects p WHERE 1=1 "+sourceClause, sourceArgs...,
-		).Scan(&stats.TotalProjects); err == nil {
-			_ = s.indexDB.QueryRow(
-				"SELECT count(*) FROM sessions s JOIN projects p ON s.project_id = p.id WHERE 1=1 "+sourceClause,
-				sourceArgs...,
-			).Scan(&stats.TotalSessions)
-			_ = s.indexDB.QueryRow(
-				"SELECT count(*) FROM entries e JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id WHERE 1=1 "+sourceClause,
-				sourceArgs...,
-			).Scan(&stats.TotalEntries)
-			_ = s.indexDB.QueryRow(
-				"SELECT COALESCE(sum(e.input_tokens + e.output_tokens), 0) FROM entries e JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id WHERE 1=1 "+sourceClause,
-				sourceArgs...,
-			).Scan(&stats.TotalTokens)
+	stats := queryStats(s.indexDB, s.enabledSourceNames())
+	writeJSON(w, http.StatusOK, stats)
+}
 
-			toolSQL := "SELECT e.tool_name, count(*) AS cnt FROM entries e JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id WHERE e.tool_name != '' " + sourceClause + " GROUP BY e.tool_name ORDER BY cnt DESC LIMIT 25"
-			rows, err := s.indexDB.Query(toolSQL, sourceArgs...)
-			if err == nil {
-				for rows.Next() {
-					var tc StatsToolCount
-					if rows.Scan(&tc.Name, &tc.Count) == nil {
-						stats.TopTools = append(stats.TopTools, tc)
-					}
-				}
-				rows.Close()
+// queryStats runs the stats queries against the index database.
+func queryStats(db *indexdb.DB, enabledSources []string) StatsResponse {
+	sourceClause, sourceArgs := indexdb.SourceFilter(enabledSources, "p.source")
+	var stats StatsResponse
+
+	_ = db.QueryRow(
+		"SELECT count(*) FROM projects p WHERE 1=1 "+sourceClause, sourceArgs...,
+	).Scan(&stats.TotalProjects)
+	_ = db.QueryRow(
+		"SELECT count(*) FROM sessions s JOIN projects p ON s.project_id = p.id WHERE 1=1 "+sourceClause,
+		sourceArgs...,
+	).Scan(&stats.TotalSessions)
+	_ = db.QueryRow(
+		"SELECT count(*) FROM entries e JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id WHERE 1=1 "+sourceClause,
+		sourceArgs...,
+	).Scan(&stats.TotalEntries)
+	_ = db.QueryRow(
+		"SELECT COALESCE(sum(e.input_tokens + e.output_tokens), 0) FROM entries e JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id WHERE 1=1 "+sourceClause,
+		sourceArgs...,
+	).Scan(&stats.TotalTokens)
+
+	toolSQL := "SELECT e.tool_name, count(*) AS cnt FROM entries e JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id WHERE e.tool_name != '' " + sourceClause + " GROUP BY e.tool_name ORDER BY cnt DESC LIMIT 25"
+	rows, err := db.Query(toolSQL, sourceArgs...)
+	if err == nil {
+		for rows.Next() {
+			var tc StatsToolCount
+			if rows.Scan(&tc.Name, &tc.Count) == nil {
+				stats.TopTools = append(stats.TopTools, tc)
 			}
-
-			writeJSON(w, http.StatusOK, stats)
-			return
 		}
+		rows.Close()
 	}
 
-	// RPC fallback.
-	data, err := indexerStats()
-	if err != nil {
-		if errors.Is(err, errIndexerUnavailable) {
-			writeError(w, http.StatusServiceUnavailable, "indexer_unavailable", err.Error())
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "stats_failed", err.Error())
-		return
-	}
-
-	var result StatsResponse
-	if err := json.Unmarshal(data, &result); err != nil {
-		writeError(w, http.StatusInternalServerError, "invalid_response", "Failed to parse stats response")
-		return
-	}
-
-	writeJSON(w, http.StatusOK, result)
+	return stats
 }
 
 // handleSemanticSearch searches by meaning using on-device embeddings.
@@ -248,30 +213,50 @@ func (s *HTTPServer) handleSemanticSearch(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	params := rpc.SemanticSearchParams{
-		Query:   query,
-		Project: r.URL.Query().Get("project"),
-		Source:  r.URL.Query().Get("source"),
+	if s.embedder == nil || s.embDB == nil || s.indexDB == nil {
+		writeError(w, http.StatusServiceUnavailable, "indexer_unavailable", "semantic search is not available (embedder or database not configured)")
+		return
 	}
-	if v := r.URL.Query().Get("limit"); v != "" {
-		params.Limit, _ = strconv.Atoi(v)
-	}
-	if v := r.URL.Query().Get("max_distance"); v != "" {
-		params.MaxDistance, _ = strconv.ParseFloat(v, 64)
-	}
-	params.Diversity = r.URL.Query().Get("diversity") == "true"
 
-	results, err := indexerSemanticSearch(params)
+	// Embed the query text.
+	vectors, err := s.embedder.EmbedTexts(r.Context(), []string{query})
 	if err != nil {
-		if errors.Is(err, errIndexerUnavailable) {
-			writeError(w, http.StatusServiceUnavailable, "indexer_unavailable", err.Error())
-			return
-		}
+		writeError(w, http.StatusInternalServerError, "embed_failed", err.Error())
+		return
+	}
+	if len(vectors) == 0 {
+		writeError(w, http.StatusInternalServerError, "embed_failed", "no embedding vector produced")
+		return
+	}
+
+	var limit int
+	if v := r.URL.Query().Get("limit"); v != "" {
+		limit, _ = strconv.Atoi(v)
+	}
+	var maxDistance float64
+	if v := r.URL.Query().Get("max_distance"); v != "" {
+		maxDistance, _ = strconv.ParseFloat(v, 64)
+	}
+
+	svc := indexsearch.NewService(s.indexDB)
+	opts := indexsearch.SemanticSearchOptions{
+		QueryEmbedding: vectors[0],
+		Model:          s.embedder.EmbedModelID(),
+		Dim:            s.embedder.Dim(),
+		FilterProject:  r.URL.Query().Get("project"),
+		FilterSource:   r.URL.Query().Get("source"),
+		FilterSources:  s.enabledSourceNames(),
+		Limit:          limit,
+		MaxDistance:     maxDistance,
+		Diversity:      r.URL.Query().Get("diversity") == "true",
+	}
+	results, err := svc.SemanticSearch(s.embDB, opts)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, "semantic_search_failed", err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, SemanticSearchResponse{Results: fromSemanticResults(results)})
+	writeJSON(w, http.StatusOK, SemanticSearchResponse{Results: fromNewSemanticResults(results)})
 }
 
 // IndexerHealthResponse describes the health of the indexer server.
@@ -291,7 +276,7 @@ type IndexerHealthResponse struct {
 // @Router /indexer/health [get]
 func (s *HTTPServer) handleIndexerHealth(w http.ResponseWriter, r *http.Request) {
 	result := IndexerHealthResponse{
-		Available: s.indexDB != nil || rpc.ServerAvailable(),
+		Available: s.indexDB != nil,
 	}
 
 	if s.indexDB != nil {
@@ -302,65 +287,35 @@ func (s *HTTPServer) handleIndexerHealth(w http.ResponseWriter, r *http.Request)
 			result.IndexedProjects = projects
 			result.IndexedSessions = sessions
 		}
-	} else if result.Available {
-		data, err := indexerStats()
-		if err == nil {
-			var stats StatsResponse
-			if err := json.Unmarshal(data, &stats); err == nil {
-				result.DatabaseAccessible = true
-				result.IndexedProjects = stats.TotalProjects
-				result.IndexedSessions = stats.TotalSessions
-			}
-		}
 	}
 
 	writeJSON(w, http.StatusOK, result)
 }
 
-// IndexerStatusResponse describes the current state of the indexer server.
-type IndexerStatusResponse struct {
-	Running bool `json:"running"`
-	IndexerStatusData
-}
-
-// handleIndexerStatus returns the live status of the indexer server via RPC.
+// handleIndexerStatus returns the live status of the index worker.
 // @Summary Get indexer server status
 // @Description Returns the current state of the indexer server including sync/embedding progress, model info, and uptime. Requires a running indexer server.
 // @Tags indexer
 // @Produce json
-// @Success 200 {object} IndexerStatusResponse
+// @Success 200 {object} map[string]any
 // @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
 // @Router /indexer/status [get]
 // @Security BearerAuth
 func (s *HTTPServer) handleIndexerStatus(w http.ResponseWriter, r *http.Request) {
-	if !rpc.ServerAvailable() {
-		writeJSON(w, http.StatusOK, IndexerStatusResponse{
-			IndexerStatusData: IndexerStatusData{State: "stopped"},
-		})
+	if s.status == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"running": false, "state": "stopped"})
 		return
 	}
-
-	resp, err := rpc.Call(rpc.MethodStatus, nil, nil)
-	if err != nil {
-		writeJSON(w, http.StatusOK, IndexerStatusResponse{
-			IndexerStatusData: IndexerStatusData{State: "stopped"},
-		})
-		return
-	}
-	if !resp.OK {
-		writeError(w, http.StatusInternalServerError, "status_failed", resp.Error)
-		return
-	}
-
-	var status IndexerStatusData
-	if err := json.Unmarshal(resp.Data, &status); err != nil {
-		writeError(w, http.StatusInternalServerError, "invalid_response", "Failed to parse status")
-		return
-	}
-
-	writeJSON(w, http.StatusOK, IndexerStatusResponse{
-		Running:           true,
-		IndexerStatusData: status,
+	snap := s.status.Snapshot()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"running":        true,
+		"state":          snap.State,
+		"syncing":        snap.Syncing,
+		"embedding":      snap.Embedding,
+		"summarizing":    snap.Summarizing,
+		"model":          snap.Model,
+		"model_dim":      snap.ModelDim,
+		"uptime_seconds": snap.UptimeSeconds,
 	})
 }
 
@@ -383,27 +338,8 @@ func toSearchResponse(results []indexsearch.SessionResult) []SearchSessionResult
 	return out
 }
 
-// fromIndexerSearchResults converts indexer/search results to API response types.
-func fromIndexerSearchResults(results []search.SessionResult) []SearchSessionResult {
-	out := make([]SearchSessionResult, len(results))
-	for i, r := range results {
-		matches := make([]SearchMatch, len(r.Matches))
-		for j, m := range r.Matches {
-			matches[j] = SearchMatch{
-				LineNum: m.LineNum, Preview: m.Preview, Role: m.Role,
-				MatchStart: m.MatchStart, MatchEnd: m.MatchEnd,
-			}
-		}
-		out[i] = SearchSessionResult{
-			SessionID: r.SessionID, ProjectName: r.ProjectName,
-			Source: r.Source, Path: r.Path, Matches: matches,
-		}
-	}
-	return out
-}
-
-// fromSemanticResults converts indexer/search semantic results to API response types.
-func fromSemanticResults(results []search.SemanticResult) []SemanticSearchResult {
+// fromNewSemanticResults converts index/search semantic results to API response types.
+func fromNewSemanticResults(results []indexsearch.SemanticResult) []SemanticSearchResult {
 	out := make([]SemanticSearchResult, len(results))
 	for i, r := range results {
 		out[i] = SemanticSearchResult{
@@ -417,4 +353,16 @@ func fromSemanticResults(results []search.SemanticResult) []SemanticSearchResult
 		}
 	}
 	return out
+}
+
+// EmbedderInterface is the interface for embedding text, used by semantic search.
+// The concrete implementation wraps index/embedding.Embedder to avoid importing
+// CGO/llama dependencies into the server package.
+type EmbedderInterface interface {
+	// EmbedTexts returns embedding vectors for the given texts.
+	EmbedTexts(ctx context.Context, texts []string) ([][]float32, error)
+	// EmbedModelID returns the model identifier string.
+	EmbedModelID() string
+	// Dim returns the embedding dimension.
+	Dim() int
 }

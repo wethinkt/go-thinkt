@@ -83,15 +83,6 @@ func combinedMetricsHandler() http.Handler {
 			}
 		}
 
-		// Include indexer metrics when available over RPC.
-		// Prefix names to avoid collisions with API/runtime metrics.
-		if text, err := indexerMetrics(); err == nil && text != "" {
-			if out.Len() > 0 && out.Bytes()[out.Len()-1] != '\n' {
-				out.WriteByte('\n')
-			}
-			out.WriteString(prefixPrometheusMetricNames(text, "thinkt_indexer_"))
-		}
-
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 		_, _ = w.Write(out.Bytes())
 	})

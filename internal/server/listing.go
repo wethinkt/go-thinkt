@@ -8,7 +8,6 @@ import (
 	"time"
 
 	indexdb "github.com/wethinkt/go-thinkt/internal/index/db"
-	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
@@ -44,26 +43,6 @@ func listProjects(ctx context.Context, idb *indexdb.DB, registry *thinkt.StoreRe
 		if result, err := sqliteListProjects(idb, source, enabledSources, limit, offset); err == nil {
 			return result, nil
 		}
-	}
-
-	// Try indexer RPC.
-	if data, err := indexerListProjects(rpc.ListProjectsParams{
-		Source: source,
-		Limit:  limit,
-		Offset: offset,
-	}); err == nil {
-		projects := make([]thinkt.Project, 0, len(data.Projects))
-		for _, p := range data.Projects {
-			projects = append(projects, thinkt.Project{
-				ID:           p.ID,
-				Name:         p.Name,
-				Path:         p.Path,
-				Source:       thinkt.Source(p.Source),
-				SessionCount: p.SessionCount,
-				PathExists:   true,
-			})
-		}
-		return &projectResult{Projects: projects, Total: data.Total, Returned: data.Returned}, nil
 	}
 
 	// Fallback: filesystem via StoreRegistry with filtering/pagination.
@@ -161,33 +140,6 @@ func listSessions(ctx context.Context, idb *indexdb.DB, registry *thinkt.StoreRe
 		if result, err := sqliteListSessions(idb, source, projectID, limit, offset); err == nil && result.Total > 0 {
 			return result, nil
 		}
-	}
-
-	// Try indexer RPC.
-	if data, err := indexerListSessions(rpc.ListSessionsParams{
-		ProjectID: projectID,
-		Source:    string(source),
-		Limit:     limit,
-		Offset:    offset,
-	}); err == nil && data.Total > 0 {
-		sessions := make([]thinkt.SessionMeta, 0, len(data.Sessions))
-		for _, sess := range data.Sessions {
-			sm := thinkt.SessionMeta{
-				ID:         sess.ID,
-				FullPath:   sess.Path,
-				Model:      sess.Model,
-				EntryCount: sess.EntryCount,
-				Source:     source,
-			}
-			if t, err := parseTimeRFC3339(sess.CreatedAt); err == nil {
-				sm.CreatedAt = t
-			}
-			if t, err := parseTimeRFC3339(sess.UpdatedAt); err == nil {
-				sm.ModifiedAt = t
-			}
-			sessions = append(sessions, sm)
-		}
-		return &sessionResult{Sessions: sessions, Total: data.Total, Returned: data.Returned}, nil
 	}
 
 	// Fallback: filesystem via store.

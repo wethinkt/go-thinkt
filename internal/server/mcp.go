@@ -17,8 +17,6 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/config"
 	indexdb "github.com/wethinkt/go-thinkt/internal/index/db"
 	indexsearch "github.com/wethinkt/go-thinkt/internal/index/search"
-	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
-	"github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 	"github.com/wethinkt/go-thinkt/internal/version"
@@ -32,12 +30,24 @@ type MCPServer struct {
 	authenticator  *BearerAuthenticator
 	allowTools     map[string]bool
 	denyTools      map[string]bool
-	indexDB        *indexdb.DB // SQLite index for search/stats/listing (nil = use RPC fallback)
+	indexDB        *indexdb.DB       // SQLite index for search/stats/listing (nil = unavailable)
+	embDB          *indexdb.DB       // embeddings database (may be nil)
+	embedder       EmbedderInterface // embedding model (may be nil)
 }
 
 // SetIndexDB sets the SQLite index database for direct queries.
 func (ms *MCPServer) SetIndexDB(db *indexdb.DB) {
 	ms.indexDB = db
+}
+
+// SetEmbeddingsDB sets the embeddings database for semantic search.
+func (ms *MCPServer) SetEmbeddingsDB(db *indexdb.DB) {
+	ms.embDB = db
+}
+
+// SetEmbedder sets the embedding model for semantic search.
+func (ms *MCPServer) SetEmbedder(e EmbedderInterface) {
+	ms.embedder = e
 }
 
 // enabledSourceNames returns the source names registered in the registry.
@@ -357,7 +367,7 @@ type semanticSearchInput struct {
 
 // semanticSearchOutput wraps results for MCP structured content compatibility.
 type semanticSearchOutput struct {
-	Results []search.SemanticResult `json:"results"`
+	Results []indexsearch.SemanticResult `json:"results"`
 }
 
 type toolErrorDetail struct {
@@ -715,42 +725,26 @@ func (ms *MCPServer) handleSearchSessions(ctx context.Context, req *mcp.CallTool
 		}
 	}
 
-	// Try direct SQLite first.
-	if ms.indexDB != nil {
-		svc := indexsearch.NewService(ms.indexDB)
-		opts := indexsearch.SearchOptions{
-			Query:           input.Query,
-			FilterProject:   input.Project,
-			FilterSource:    input.Source,
-			FilterSources:   ms.enabledSourceNames(),
-			Limit:           input.Limit,
-			LimitPerSession: input.LimitPerSession,
-			CaseSensitive:   input.CaseSensitive,
-			UseRegex:        input.Regex,
-		}
-		results, totalMatches, err := svc.Search(opts)
-		if err == nil {
-			output := SearchResponse{Results: toSearchResponse(results), TotalMatches: totalMatches}
-			return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
-		}
-		// Fall through to RPC on error.
+	if ms.indexDB == nil {
+		return toolErrorResult("indexer_unavailable", "index database is not available", nil)
 	}
 
-	// RPC fallback.
-	params := rpc.SearchParams{
+	svc := indexsearch.NewService(ms.indexDB)
+	opts := indexsearch.SearchOptions{
 		Query:           input.Query,
-		Project:         input.Project,
-		Source:          input.Source,
+		FilterProject:   input.Project,
+		FilterSource:    input.Source,
+		FilterSources:   ms.enabledSourceNames(),
 		Limit:           input.Limit,
 		LimitPerSession: input.LimitPerSession,
 		CaseSensitive:   input.CaseSensitive,
-		Regex:           input.Regex,
+		UseRegex:        input.Regex,
 	}
-	results, totalMatches, err := indexerSearch(params)
+	results, totalMatches, err := svc.Search(opts)
 	if err != nil {
 		return toolErrorResult("search_failed", "indexer search failed", err)
 	}
-	output := SearchResponse{Results: fromIndexerSearchResults(results), TotalMatches: totalMatches}
+	output := SearchResponse{Results: toSearchResponse(results), TotalMatches: totalMatches}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(output)}}}, output, nil
 }
 
@@ -764,15 +758,31 @@ func (ms *MCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallTool
 			return toolErrorResult("unknown_source", fmt.Sprintf("unknown or disabled source: %s", source), nil)
 		}
 	}
-	params := rpc.SemanticSearchParams{
-		Query:       input.Query,
-		Project:     input.Project,
-		Source:      input.Source,
-		Limit:       input.Limit,
-		MaxDistance: input.MaxDistance,
-		Diversity:   input.Diversity,
+	if ms.embedder == nil || ms.embDB == nil || ms.indexDB == nil {
+		return toolErrorResult("indexer_unavailable", "semantic search is not available (embedder or database not configured)", nil)
 	}
-	results, err := indexerSemanticSearch(params)
+
+	vectors, err := ms.embedder.EmbedTexts(ctx, []string{input.Query})
+	if err != nil {
+		return toolErrorResult("embed_failed", "failed to embed query", err)
+	}
+	if len(vectors) == 0 {
+		return toolErrorResult("embed_failed", "no embedding vector produced", nil)
+	}
+
+	svc := indexsearch.NewService(ms.indexDB)
+	opts := indexsearch.SemanticSearchOptions{
+		QueryEmbedding: vectors[0],
+		Model:          ms.embedder.EmbedModelID(),
+		Dim:            ms.embedder.Dim(),
+		FilterProject:  input.Project,
+		FilterSource:   input.Source,
+		FilterSources:  ms.enabledSourceNames(),
+		Limit:          input.Limit,
+		MaxDistance:     input.MaxDistance,
+		Diversity:      input.Diversity,
+	}
+	results, err := svc.SemanticSearch(ms.embDB, opts)
 	if err != nil {
 		return toolErrorResult("semantic_search_failed", "semantic search failed", err)
 	}
@@ -781,46 +791,12 @@ func (ms *MCPServer) handleSemanticSearch(ctx context.Context, req *mcp.CallTool
 }
 
 func (ms *MCPServer) handleGetUsageStats(ctx context.Context, req *mcp.CallToolRequest, _ getUsageStatsInput) (*mcp.CallToolResult, any, error) {
-	// Try direct SQLite first.
-	if ms.indexDB != nil {
-		sourceClause, sourceArgs := indexdb.SourceFilter(ms.enabledSourceNames(), "p.source")
-
-		var stats rpc.StatsData
-		if err := ms.indexDB.QueryRow(
-			"SELECT count(*) FROM projects p WHERE 1=1 "+sourceClause, sourceArgs...,
-		).Scan(&stats.TotalProjects); err == nil {
-			_ = ms.indexDB.QueryRow(
-				"SELECT count(*) FROM sessions s JOIN projects p ON s.project_id = p.id WHERE 1=1 "+sourceClause, sourceArgs...,
-			).Scan(&stats.TotalSessions)
-			_ = ms.indexDB.QueryRow(
-				"SELECT count(*) FROM entries e JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id WHERE 1=1 "+sourceClause, sourceArgs...,
-			).Scan(&stats.TotalEntries)
-			_ = ms.indexDB.QueryRow(
-				"SELECT COALESCE(sum(e.input_tokens + e.output_tokens), 0) FROM entries e JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id WHERE 1=1 "+sourceClause, sourceArgs...,
-			).Scan(&stats.TotalTokens)
-
-			toolSQL := "SELECT e.tool_name, count(*) AS cnt FROM entries e JOIN sessions s ON e.session_id = s.id JOIN projects p ON s.project_id = p.id WHERE e.tool_name != '' " + sourceClause + " GROUP BY e.tool_name ORDER BY cnt DESC LIMIT 25"
-			rows, err := ms.indexDB.Query(toolSQL, sourceArgs...)
-			if err == nil {
-				for rows.Next() {
-					var tc rpc.ToolCount
-					if rows.Scan(&tc.Name, &tc.Count) == nil {
-						stats.TopTools = append(stats.TopTools, tc)
-					}
-				}
-				rows.Close()
-			}
-
-			return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(stats)}}}, stats, nil
-		}
+	if ms.indexDB == nil {
+		return toolErrorResult("indexer_unavailable", "index database is not available", nil)
 	}
 
-	// RPC fallback.
-	data, err := indexerStats()
-	if err != nil {
-		return toolErrorResult("stats_failed", "failed to load usage stats", err)
-	}
-	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(data)}}}, json.RawMessage(data), nil
+	stats := queryStats(ms.indexDB, ms.enabledSourceNames())
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: formatJSON(stats)}}}, stats, nil
 }
 
 // domainErrorCode maps domain-level errors to MCP error codes.
