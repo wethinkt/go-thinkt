@@ -33,6 +33,9 @@ type Watcher struct {
 	inFlightMu sync.Mutex
 	inFlight   map[string]bool
 	dirty      map[string]bool
+
+	// OnSessionIndexed is called after a session is successfully re-indexed.
+	OnSessionIndexed func(sessionID string)
 }
 
 // NewWatcher creates a new Watcher. A zero debounce defaults to 2 seconds.
@@ -231,6 +234,8 @@ func (w *Watcher) reindexSession(realPath string, entry sessionIndexEntry) {
 		if err := ingester.IngestSession(ctx, entry.projectID, entry.session); err != nil {
 			tuilog.Log.Error("watcher: failed to re-index session",
 				"session_id", entry.session.ID, "error", err)
+		} else if w.OnSessionIndexed != nil {
+			w.OnSessionIndexed(entry.session.ID)
 		}
 
 		w.inFlightMu.Lock()
