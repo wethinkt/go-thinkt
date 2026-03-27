@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
@@ -73,29 +71,9 @@ func runSetupInteractive(factories []thinkt.StoreFactory) error {
 	return nil
 }
 
-func startIndexerIfEnabled(result setup.Result) {
-	if !result.Indexer {
-		return
-	}
-
-	binPath := config.FindIndexerBinary()
-	if binPath == "" {
-		return
-	}
-
-	confDir, err := config.Dir()
-	if err != nil {
-		return
-	}
-
-	logFile := filepath.Join(confDir, "logs", "indexer.log")
-	if err := os.MkdirAll(filepath.Dir(logFile), config.DirPerms); err != nil {
-		return
-	}
-
-	c := exec.Command(binPath, "sync", "--quiet", "--log", logFile)
-	_ = config.StartBackground(c)
-}
+// startIndexerIfEnabled is a no-op stub. The indexer is now built into the main
+// binary and runs as a background worker, so no separate process is needed.
+func startIndexerIfEnabled(_ setup.Result) {}
 
 // needsSetup returns true when no config file exists on disk.
 func needsSetup() bool {

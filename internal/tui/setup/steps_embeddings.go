@@ -8,17 +8,19 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/hybridgroup/yzma/pkg/llama"
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
-	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
+	"github.com/wethinkt/go-thinkt/internal/index/embedding"
+	"github.com/wethinkt/go-thinkt/internal/index/llm"
 )
 
 func (m Model) enableEmbeddings() (tea.Model, tea.Cmd) {
 	m.result.Embeddings = true
-	// Build sorted model ID list for picker
-	m.embModelIDs = make([]string, 0, len(embedding.KnownModels))
-	for id := range embedding.KnownModels {
-		m.embModelIDs = append(m.embModelIDs, id)
+	// Build sorted model ID list for picker (embedding models only)
+	m.embModelIDs = make([]string, 0)
+	for id, spec := range llm.KnownModels {
+		if spec.Kind == llm.KindEmbedding {
+			m.embModelIDs = append(m.embModelIDs, id)
+		}
 	}
 	sort.Strings(m.embModelIDs)
 	// Pre-select default model
@@ -111,7 +113,7 @@ func (m Model) viewEmbeddingModel() string {
 	}
 
 	for i, id := range m.embModelIDs {
-		spec := embedding.KnownModels[id]
+		spec := llm.KnownModels[id]
 		pointer := "  "
 		nameStyle := bodyStyle
 		if i == m.embCursor {
@@ -119,17 +121,13 @@ func (m Model) viewEmbeddingModel() string {
 			nameStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.primary))
 		}
 
-		// Format detail: "768-dim, mean pooling, ~140MB"
-		pooling := "mean"
-		if spec.PoolingType != llama.PoolingTypeMean {
-			pooling = "last-token"
-		}
+		// Format detail: "768-dim, ~140MB"
 		modelSizes := map[string]string{
 			"nomic-embed-text-v1.5": "~140MB",
 			"qwen3-embedding-0.6b":  "~800MB",
 		}
 		size := modelSizes[id]
-		detail := mutedStyle.Render(fmt.Sprintf("%d-dim, %s pooling, %s", spec.Dim, pooling, size))
+		detail := mutedStyle.Render(fmt.Sprintf("%d-dim, %s", spec.Dim, size))
 
 		isDefault := ""
 		if id == embedding.DefaultModelID {

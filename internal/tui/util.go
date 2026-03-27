@@ -1,16 +1,22 @@
 package tui
 
 import (
-	"github.com/wethinkt/go-thinkt/internal/config"
-	"github.com/wethinkt/go-thinkt/internal/indexer/db"
+	"os"
+
+	"github.com/wethinkt/go-thinkt/internal/index/db"
 )
 
-// IndexerAvailable checks if the thinkt-indexer binary is available.
+// IndexerAvailable checks if the search index database exists.
 func IndexerAvailable() bool {
-	return config.FindIndexerBinary() != ""
+	p, err := db.DefaultPath()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(p)
+	return err == nil
 }
 
-// DefaultDBPath returns the default path to the DuckDB index file.
+// DefaultDBPath returns the default path to the SQLite index file.
 func DefaultDBPath() (string, error) {
 	return db.DefaultPath()
 }

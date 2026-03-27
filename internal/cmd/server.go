@@ -725,62 +725,10 @@ func runServerFingerprint(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// startIndexerSidecar starts the indexer as a child process if available and not
-// already running. Returns the exec.Cmd (caller should defer cmd.Process.Kill())
-// or nil if the sidecar was not started.
-func startIndexerSidecar(appLogPath string) *exec.Cmd {
-	// Skip if an indexer is already registered (e.g. via `thinkt indexer start`)
-	if inst := config.FindInstanceByType(config.InstanceIndexerServer); inst != nil {
-		tuilog.Log.Info("Indexer already running, skipping sidecar", "pid", inst.PID)
-		fmt.Fprintln(os.Stderr, thinktI18n.Tf("cmd.server.indexerAlreadyRunning", "📇 Indexer already running (PID: %d)", inst.PID))
-		return nil
-	}
-
-	indexerPath := config.FindIndexerBinary()
-	if indexerPath == "" {
-		return nil
-	}
-
-	tuilog.Log.Info("Starting indexer sidecar", "path", indexerPath)
-
-	indexerArgs := []string{"server", "--quiet"}
-
-	// Derive indexer log path: use the same logs directory as the app log,
-	// falling back to the default ~/.thinkt/logs/ directory.
-	var indexerLog string
-	if appLogPath != "" {
-		indexerLog = filepath.Join(filepath.Dir(appLogPath), "indexer.log")
-	} else if confDir, err := config.Dir(); err == nil {
-		indexerLog = filepath.Join(confDir, "logs", "indexer.log")
-	}
-	if indexerLog != "" {
-		_ = os.MkdirAll(filepath.Dir(indexerLog), config.DirPerms)
-		indexerArgs = append(indexerArgs, "--log", indexerLog)
-	}
-
-	cmd := exec.Command(indexerPath, indexerArgs...)
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		tuilog.Log.Error("Failed to start indexer sidecar", "error", err)
-		return nil
-	}
-
-	// Wait briefly to detect immediate crashes (e.g. missing shared libraries).
-	// Use short retries so we don't block startup longer than necessary.
-	for range 5 {
-		time.Sleep(100 * time.Millisecond)
-		if !config.IsProcessAlive(cmd.Process.Pid) {
-			tuilog.Log.Error("Indexer sidecar exited immediately", "pid", cmd.Process.Pid)
-			fmt.Fprintln(os.Stderr, thinktI18n.T("cmd.server.indexerExited", "⚠️  Indexer sidecar started but exited immediately (check server log for errors)"))
-			return nil
-		}
-	}
-
-	fmt.Fprintln(os.Stderr, thinktI18n.Tf("cmd.server.indexerStarted", "📇 Indexer sidecar started (PID: %d)", cmd.Process.Pid))
-
-	return cmd
+// startIndexerSidecar is a no-op stub. The indexer is now built into the main
+// binary and runs as a background worker, so no separate sidecar is needed.
+func startIndexerSidecar(_ string) *exec.Cmd {
+	return nil
 }
 
 func runServerMCP(cmd *cobra.Command, args []string) error {

@@ -47,7 +47,7 @@ func (m Model) viewIndexer() string {
 	return fmt.Sprintf("%s\n  %s\n\n  %s\n\n  %s\n\n%s\n\n%s\n",
 		m.renderStepHeader(thinktI18n.T("tui.setup.indexer.title", "Indexer")),
 		bodyStyle.Render(thinktI18n.T("tui.setup.indexer.body",
-			"The indexer keeps a local DuckDB database in sync with your session files. It enables fast search, filtering, and usage statistics across all sources.")),
+			"The indexer keeps a local SQLite database in sync with your session files. It enables fast search, filtering, and usage statistics across all sources.")),
 		bodyStyle.Render(thinktI18n.T("tui.setup.indexer.resources",
 			"Typical usage: ~50MB disk per 10k sessions, low background CPU.")),
 		bodyStyle.Render(thinktI18n.T("tui.setup.indexer.prompt", "Enable background indexing?")),

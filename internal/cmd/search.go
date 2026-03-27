@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 	indexdb "github.com/wethinkt/go-thinkt/internal/index/db"
 	"github.com/wethinkt/go-thinkt/internal/index/search"
-	indexersearch "github.com/wethinkt/go-thinkt/internal/indexer/search"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 	"golang.org/x/term"
 )
@@ -93,10 +92,8 @@ By default opens an interactive TUI. Use --list for scripting output.`,
 			return nil
 		}
 
-		// Convert index/search results to indexer/search types for the TUI picker.
-		tuiResults := toIndexerResults(results)
 		for {
-			selected, err := tui.PickSearchResult(tuiResults, queryText)
+			selected, err := tui.PickSearchResult(results, queryText)
 			if err != nil {
 				return fmt.Errorf("TUI error: %w", err)
 			}
@@ -112,32 +109,6 @@ By default opens an interactive TUI. Use --list for scripting output.`,
 			}
 		}
 	},
-}
-
-// toIndexerResults converts index/search results to indexer/search types
-// for the TUI picker, which currently imports indexer/search types.
-func toIndexerResults(results []search.SessionResult) []indexersearch.SessionResult {
-	out := make([]indexersearch.SessionResult, len(results))
-	for i, r := range results {
-		matches := make([]indexersearch.Match, len(r.Matches))
-		for j, m := range r.Matches {
-			matches[j] = indexersearch.Match{
-				LineNum:    m.LineNum,
-				Preview:    m.Preview,
-				Role:       m.Role,
-				MatchStart: m.MatchStart,
-				MatchEnd:   m.MatchEnd,
-			}
-		}
-		out[i] = indexersearch.SessionResult{
-			SessionID:   r.SessionID,
-			ProjectName: r.ProjectName,
-			Source:      r.Source,
-			Path:        r.Path,
-			Matches:     matches,
-		}
-	}
-	return out
 }
 
 func init() {

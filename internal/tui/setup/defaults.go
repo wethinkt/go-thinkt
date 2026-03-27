@@ -6,7 +6,7 @@ import (
 
 	"github.com/wethinkt/go-thinkt/internal/config"
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
-	"github.com/wethinkt/go-thinkt/internal/indexer/embedding"
+	"github.com/wethinkt/go-thinkt/internal/index/embedding"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 

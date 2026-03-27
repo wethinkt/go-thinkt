@@ -62,7 +62,7 @@ var helpCommands = []helpEntry{
 	{"teams", "cmd.help.cmd.teams", "List and inspect agent teams"},
 	{"apps", "cmd.help.cmd.apps", "Manage open-in apps and default terminal"},
 	{"embeddings", "cmd.help.cmd.embeddings", "Manage embedding model, storage, and sync"},
-	{"indexer", "cmd.help.cmd.indexer", "Specialized indexing and search via DuckDB"},
+	{"indexer", "cmd.help.cmd.indexer", "Specialized indexing and search via SQLite"},
 	{"collect", "cmd.help.cmd.collect", "Start trace collector server"},
 	{"export", "cmd.help.cmd.export", "Export traces to a remote collector"},
 	{"language", "cmd.help.cmd.language", "Get or set the display language"},

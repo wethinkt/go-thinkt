@@ -2,13 +2,13 @@ package embedding_test
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"testing"
 
+	sqlite_vec "github.com/asg017/sqlite-vec-go-bindings/cgo"
+	"github.com/wethinkt/go-thinkt/internal/index/db"
 	"github.com/wethinkt/go-thinkt/internal/index/embedding"
-	"github.com/wethinkt/go-thinkt/internal/indexer/db"
-	"github.com/wethinkt/go-thinkt/internal/indexer/search"
+	"github.com/wethinkt/go-thinkt/internal/index/search"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
@@ -68,16 +68,27 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 			e.UUID, string(e.Role), len(e.Text))
 	}
 
-	// Store embeddings in the embeddings DB
+	// Store embeddings in the embeddings DB via sqlite-vec
 	for idx, m := range mapping {
 		if idx >= len(embedResult.Vectors) {
 			break
 		}
 		id := requests[idx].ID
-		_, err := embDB.Exec(fmt.Sprintf(`
-			INSERT INTO embeddings (id, session_id, entry_uuid, chunk_index, tier, model, dim, embedding, text_hash)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?::FLOAT[%d], ?)`, embedder.Dim()),
-			id, m.SessionID, m.EntryUUID, m.ChunkIndex, string(m.Tier), embedder.EmbedModelID(), embedder.Dim(), embedResult.Vectors[idx], m.TextHash)
+		vecBlob, err := sqlite_vec.SerializeFloat32(embedResult.Vectors[idx])
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = embDB.Exec(`
+			INSERT INTO vec_embeddings (embedding_id, session_id, tier, model, embedding)
+			VALUES (?, ?, ?, ?, ?)`,
+			id, m.SessionID, string(m.Tier), embedder.EmbedModelID(), vecBlob)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = embDB.Exec(`
+			INSERT INTO embedding_meta (embedding_id, entry_uuid, chunk_index, text_hash)
+			VALUES (?, ?, ?, ?)`,
+			id, m.EntryUUID, m.ChunkIndex, m.TextHash)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -89,8 +100,8 @@ func TestEndToEnd_EmbedAndSearch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	svc := search.NewService(indexDB, embDB)
-	results, err := svc.SemanticSearch(search.SemanticSearchOptions{
+	svc := search.NewService(indexDB)
+	results, err := svc.SemanticSearch(embDB, search.SemanticSearchOptions{
 		QueryEmbedding: queryResult.Vectors[0],
 		Model:          embedder.EmbedModelID(),
 		Dim:            embedder.Dim(),

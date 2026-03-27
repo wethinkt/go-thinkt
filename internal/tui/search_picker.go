@@ -11,7 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
-	"github.com/wethinkt/go-thinkt/internal/indexer/search"
+	"github.com/wethinkt/go-thinkt/internal/index/search"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"

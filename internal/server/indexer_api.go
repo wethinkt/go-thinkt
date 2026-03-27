@@ -77,7 +77,7 @@ type SemanticSearchResponse struct {
 
 // handleSearchSessions searches for text across indexed sessions.
 // @Summary Search across indexed sessions
-// @Description Search for text within the original session files using the DuckDB index
+// @Description Search for text within the original session files using the SQLite index
 // @Tags indexer
 // @Produce json
 // @Param q query string true "Search query text"

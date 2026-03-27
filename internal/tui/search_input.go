@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -10,9 +9,8 @@ import (
 	"charm.land/lipgloss/v2"
 
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
-	"github.com/wethinkt/go-thinkt/internal/indexer/db"
-	"github.com/wethinkt/go-thinkt/internal/indexer/rpc"
-	"github.com/wethinkt/go-thinkt/internal/indexer/search"
+	"github.com/wethinkt/go-thinkt/internal/index/db"
+	"github.com/wethinkt/go-thinkt/internal/index/search"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
@@ -148,9 +146,7 @@ func PickSearchQuery() (string, error) {
 }
 
 // PerformSearch performs a search with the given query and returns the results.
-// This is a helper function that can be used by both the indexer CLI and the TUI.
-// It tries the indexer RPC first (avoids DB lock contention), then falls back
-// to opening the database directly.
+// This is a helper function that can be used by both the CLI and the TUI.
 func PerformSearch(query string, opts search.SearchOptions) ([]search.SessionResult, error) {
 	if query == "" {
 		return nil, fmt.Errorf("empty search query")
@@ -158,35 +154,13 @@ func PerformSearch(query string, opts search.SearchOptions) ([]search.SessionRes
 
 	opts.Query = query
 
-	// Try RPC first — avoids lock contention when the indexer is running.
-	if rpc.ServerAvailable() {
-		params := rpc.SearchParams{
-			Query:           query,
-			Limit:           opts.Limit,
-			LimitPerSession: opts.LimitPerSession,
-			CaseSensitive:   opts.CaseSensitive,
-			Regex:           opts.UseRegex,
-			Project:         opts.FilterProject,
-			Source:          opts.FilterSource,
-		}
-		resp, err := rpc.Call(rpc.MethodSearch, params, nil)
-		if err == nil && resp.OK {
-			var data rpc.SearchData
-			if err := json.Unmarshal(resp.Data, &data); err == nil {
-				return data.Results, nil
-			}
-		}
-		// Fall through to direct DB on RPC failure.
-	}
-
-	// Direct DB fallback — works when the indexer is not running.
 	dbPath, err := DefaultDBPath()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get default DB path: %w", err)
 	}
 
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("index database not found — run 'thinkt-indexer sync' to build the search index")
+		return nil, fmt.Errorf("index database not found — run 'thinkt llm sync' to build the search index")
 	}
 
 	database, err := db.OpenReadOnly(dbPath)
@@ -195,7 +169,7 @@ func PerformSearch(query string, opts search.SearchOptions) ([]search.SessionRes
 	}
 	defer database.Close()
 
-	svc := search.NewService(database, nil)
+	svc := search.NewService(database)
 	results, _, err := svc.Search(opts)
 	if err != nil {
 		return nil, err
