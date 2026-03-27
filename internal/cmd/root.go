@@ -222,17 +222,12 @@ func init() {
 	configCmd.AddCommand(appsCmd, languageCmd, sourcesCmd, themeCmd)
 	rootCmd.AddCommand(configCmd)
 
-	rootCmd.AddCommand(indexerCmd)
 	rootCmd.AddCommand(versionCmd)
 
 	// Native SQLite-backed commands
 	rootCmd.AddCommand(syncCmd)
 	rootCmd.AddCommand(statsCmd)
 	rootCmd.AddCommand(searchCmd)
-
-	// Top-level aliases for indexer-only commands
-	rootCmd.AddCommand(makeIndexerAlias("semantic", "Search sessions by meaning using on-device embeddings"))
-	rootCmd.AddCommand(makeIndexerAlias("embeddings", "Manage embedding model, storage, and sync"))
 	rootCmd.AddCommand(teamsCmd)
 	// Collect command flags
 	rootCmd.AddCommand(collectCmd)
