@@ -40,7 +40,7 @@ func listProjects(ctx context.Context, idb *indexdb.DB, registry *thinkt.StoreRe
 
 	// Try direct SQLite first.
 	if idb != nil {
-		if result, err := sqliteListProjects(idb, source, enabledSources, limit, offset); err == nil {
+		if result, err := sqliteListProjects(idb, source, enabledSources, limit, offset); err == nil && result.Total > 0 {
 			return result, nil
 		}
 	}
