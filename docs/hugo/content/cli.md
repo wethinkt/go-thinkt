@@ -327,6 +327,23 @@ thinkt embeddings purge             # Remove old model embeddings
 
 Search sessions by meaning using on-device embeddings (nomic-embed-text-v1.5 by default, configurable via `thinkt embeddings model`). Disabled by default.
 
+Current embedding runtime support in the implementation:
+
+| OS | Arch | Runtime mode |
+|----|------|--------------|
+| macOS | `arm64` | `metal` (auto-selected) |
+| macOS | `amd64` | `cpu` |
+| Linux | `amd64` | `cpu`, `cuda` if detected |
+| Linux | `arm64` | `cpu`, `cuda` if detected |
+| Windows | `amd64` | `cpu`, `cuda` if detected |
+| Windows | `arm64` | `cpu` |
+
+Notes:
+
+- The current auto-selection logic only chooses between `metal`, `cuda`, and `cpu`.
+- `vulkan` and `rocm` runtimes are not currently exposed by `thinkt`, even though the underlying runtime downloader supports some combinations.
+- Windows `arm64` should be treated as CPU-only for embeddings.
+
 ```bash
 # Enable semantic search (model downloads on first sync)
 thinkt embeddings enable

@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	lipgloss "charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 	"github.com/wethinkt/go-thinkt/internal/index/llm"
+	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
 
 var llmModelCmd = &cobra.Command{
@@ -43,22 +45,74 @@ func init() {
 
 func runLLMModelList(cmd *cobra.Command, args []string) error {
 	models := llm.ListModels()
-	fmt.Fprintf(os.Stdout, "%-30s %-12s %-6s %s\n", "MODEL", "KIND", "DIM", "STATUS")
-	fmt.Fprintf(os.Stdout, "%-30s %-12s %-6s %s\n", "-----", "----", "---", "------")
+
+	t := theme.Current()
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(t.GetAccent()))
+	primaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextPrimary.Fg))
+	secondaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextSecondary.Fg))
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.TextMuted.Fg))
+	accentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(t.GetAccent()))
+
+	type row struct {
+		id, kind, dim, status string
+		ready                 bool
+	}
+
+	var rows []row
 	for _, m := range models {
 		path, err := llm.ModelPath(m.ID)
 		if err != nil {
 			continue
 		}
+		ready := llm.IsModelDownloaded(path)
 		status := "not downloaded"
-		if llm.IsModelDownloaded(path) {
+		if ready {
 			status = "ready"
 		}
 		dimStr := "-"
 		if m.Dim > 0 {
 			dimStr = fmt.Sprintf("%d", m.Dim)
 		}
-		fmt.Fprintf(os.Stdout, "%-30s %-12s %-6s %s\n", m.ID, m.Kind, dimStr, status)
+		rows = append(rows, row{m.ID, string(m.Kind), dimStr, status, ready})
+	}
+
+	const gap = 2
+	colModel := 5  // "MODEL"
+	colKind := 4   // "KIND"
+	colDim := 3    // "DIM"
+	for _, r := range rows {
+		if len(r.id) > colModel {
+			colModel = len(r.id)
+		}
+		if len(r.kind) > colKind {
+			colKind = len(r.kind)
+		}
+		if len(r.dim) > colDim {
+			colDim = len(r.dim)
+		}
+	}
+	colModel += gap
+	colKind += gap
+	colDim += gap
+
+	col := func(s lipgloss.Style, w int) lipgloss.Style { return s.Width(w) }
+
+	fmt.Fprintf(os.Stdout, "%s%s%s%s\n",
+		col(headerStyle, colModel).Render("MODEL"),
+		col(headerStyle, colKind).Render("KIND"),
+		col(headerStyle, colDim).Render("DIM"),
+		headerStyle.Render("STATUS"))
+
+	for _, r := range rows {
+		statusStyle := mutedStyle
+		if r.ready {
+			statusStyle = accentStyle
+		}
+		fmt.Fprintf(os.Stdout, "%s%s%s%s\n",
+			col(primaryStyle, colModel).Render(r.id),
+			col(secondaryStyle, colKind).Render(r.kind),
+			col(mutedStyle, colDim).Render(r.dim),
+			statusStyle.Render(r.status))
 	}
 	return nil
 }
