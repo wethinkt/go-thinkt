@@ -1117,11 +1117,12 @@ func (s *Store) scanProjects(sessionsDir string) ([]thinkt.Project, error) {
 
 		info, _ := entry.Info()
 
+		shortHash := hash[:min(len(hash), 8)]
 		projects = append(projects, thinkt.Project{
 			ID:           hash,
-			Name:         hash[:8], // Show first 8 chars of hash
+			Name:         shortHash,
 			Path:         hash,
-			DisplayPath:  hash[:8] + "...",
+			DisplayPath:  shortHash + "...",
 			SessionCount: len(stubs),
 			LastModified: info.ModTime(),
 			Source:       thinkt.SourceKimi,

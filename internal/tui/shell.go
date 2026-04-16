@@ -534,7 +534,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Use multi-viewer with single session for now
 			viewer := NewMultiViewerModelWithRegistry([]string{msg.Selected.FullPath}, s.registry)
 			cmd := s.stack.Push(NavItem{
-				Title: msg.Selected.ID[:8],
+				Title: shortenID(msg.Selected.ID),
 				Model: viewer,
 			}, s.width, s.height)
 			cmds = append(cmds, cmd)
@@ -641,7 +641,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Open the selected session in the viewer
 			viewer := NewMultiViewerModelWithRegistry([]string{msg.Selected.Path}, s.registry)
 			cmd := s.stack.Push(NavItem{
-				Title: msg.Selected.SessionID[:8],
+				Title: shortenID(msg.Selected.SessionID),
 				Model: viewer,
 			}, s.width, s.height)
 			cmds = append(cmds, cmd)

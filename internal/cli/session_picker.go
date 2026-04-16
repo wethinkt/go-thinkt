@@ -23,7 +23,7 @@ func (i SessionPickerItem) Title() string {
 	if i.Session.FirstPrompt != "" {
 		return thinkt.TruncateString(i.Session.FirstPrompt, thinkt.DefaultTruncateLength)
 	}
-	return i.Session.ID[:8]
+	return i.Session.ID[:min(len(i.Session.ID), 8)]
 }
 
 func (i SessionPickerItem) Description() string {
