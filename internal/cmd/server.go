@@ -669,7 +669,7 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 			if err := watcher.Start(ctx); err != nil {
 				tuilog.Log.Warn("index watcher start failed", "error", err)
 			} else {
-				defer watcher.Stop()
+				defer func() { _ = watcher.Stop() }()
 			}
 		}
 	}

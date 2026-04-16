@@ -221,10 +221,3 @@ func sqliteListSessions(idb *indexdb.DB, source thinkt.Source, projectID string,
 	return &sessionResult{Sessions: sessions, Total: total, Returned: len(sessions)}, nil
 }
 
-// parseTimeRFC3339 parses an RFC3339 string, returning zero time on error.
-func parseTimeRFC3339(s string) (t time.Time, err error) {
-	if s == "" {
-		return
-	}
-	return time.Parse(time.RFC3339, s)
-}

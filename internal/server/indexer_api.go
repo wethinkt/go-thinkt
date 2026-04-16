@@ -206,6 +206,8 @@ func queryStats(db *indexdb.DB, enabledSources []string) StatsResponse {
 // @Failure 503 {object} ErrorResponse "Service Unavailable - indexer not found"
 // DISABLED @Router /semantic-search [get]
 // DISABLED @Security BearerAuth
+//
+//nolint:unused // retained for re-enable; route registration commented in server.go
 func (s *HTTPServer) handleSemanticSearch(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	if query == "" {
@@ -339,6 +341,8 @@ func toSearchResponse(results []indexsearch.SessionResult) []SearchSessionResult
 }
 
 // fromNewSemanticResults converts index/search semantic results to API response types.
+//
+//nolint:unused // retained for re-enable alongside handleSemanticSearch
 func fromNewSemanticResults(results []indexsearch.SemanticResult) []SemanticSearchResult {
 	out := make([]SemanticSearchResult, len(results))
 	for i, r := range results {

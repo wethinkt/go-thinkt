@@ -24,6 +24,8 @@ type TeamMessagesResponse struct {
 }
 
 // requireTeamStore is middleware that returns 404 if no team store is configured.
+//
+//nolint:unused // retained for re-enable; teams routes commented in server.go
 func (s *HTTPServer) requireTeamStore(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.teamStore == nil {
@@ -44,6 +46,8 @@ func (s *HTTPServer) requireTeamStore(next http.Handler) http.Handler {
 // @Failure 500 {object} ErrorResponse
 // DISABLED @Router /teams [get]
 // DISABLED @Security BearerAuth
+//
+//nolint:unused // retained for re-enable; teams routes commented in server.go
 func (s *HTTPServer) handleGetTeams(w http.ResponseWriter, r *http.Request) {
 	teams, err := s.teamStore.ListTeams(r.Context())
 	if err != nil {
@@ -69,6 +73,8 @@ func (s *HTTPServer) handleGetTeams(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} ErrorResponse
 // DISABLED @Router /teams/{teamName} [get]
 // DISABLED @Security BearerAuth
+//
+//nolint:unused // retained for re-enable; teams routes commented in server.go
 func (s *HTTPServer) handleGetTeam(w http.ResponseWriter, r *http.Request) {
 	teamName := chi.URLParam(r, "teamName")
 	if teamName == "" {
@@ -100,6 +106,8 @@ func (s *HTTPServer) handleGetTeam(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} ErrorResponse
 // DISABLED @Router /teams/{teamName}/tasks [get]
 // DISABLED @Security BearerAuth
+//
+//nolint:unused // retained for re-enable; teams routes commented in server.go
 func (s *HTTPServer) handleGetTeamTasks(w http.ResponseWriter, r *http.Request) {
 	teamName := chi.URLParam(r, "teamName")
 	if teamName == "" {
@@ -131,6 +139,8 @@ func (s *HTTPServer) handleGetTeamTasks(w http.ResponseWriter, r *http.Request) 
 // @Failure 500 {object} ErrorResponse
 // DISABLED @Router /teams/{teamName}/members/{memberName}/messages [get]
 // DISABLED @Security BearerAuth
+//
+//nolint:unused // retained for re-enable; teams routes commented in server.go
 func (s *HTTPServer) handleGetTeamMemberMessages(w http.ResponseWriter, r *http.Request) {
 	teamName := chi.URLParam(r, "teamName")
 	memberName := chi.URLParam(r, "memberName")
