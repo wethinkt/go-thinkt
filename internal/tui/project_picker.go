@@ -942,9 +942,10 @@ func (m ProjectPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Signal the shell to open search
 			return m, func() tea.Msg { return OpenSearchMsg{} }
 
-		case key.Matches(msg, keys.Agents):
-			tuilog.Log.Info("ProjectPicker.Update: Agents key pressed")
-			return m, func() tea.Msg { return OpenAgentsPageMsg{} }
+		// Agents — hidden from TUI surface; keep wiring intact for re-enable.
+		// case key.Matches(msg, keys.Agents):
+		// 	tuilog.Log.Info("ProjectPicker.Update: Agents key pressed")
+		// 	return m, func() tea.Msg { return OpenAgentsPageMsg{} }
 
 		case m.treeView && key.Matches(msg, keys.Toggle):
 			// Toggle expand/collapse on directory nodes

@@ -42,8 +42,8 @@ func (s *HTTPServer) requireTeamStore(next http.Handler) http.Handler {
 // @Success 200 {object} TeamsResponse
 // @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
 // @Failure 500 {object} ErrorResponse
-// @Router /teams [get]
-// @Security BearerAuth
+// DISABLED @Router /teams [get]
+// DISABLED @Security BearerAuth
 func (s *HTTPServer) handleGetTeams(w http.ResponseWriter, r *http.Request) {
 	teams, err := s.teamStore.ListTeams(r.Context())
 	if err != nil {
@@ -67,8 +67,8 @@ func (s *HTTPServer) handleGetTeams(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /teams/{teamName} [get]
-// @Security BearerAuth
+// DISABLED @Router /teams/{teamName} [get]
+// DISABLED @Security BearerAuth
 func (s *HTTPServer) handleGetTeam(w http.ResponseWriter, r *http.Request) {
 	teamName := chi.URLParam(r, "teamName")
 	if teamName == "" {
@@ -98,8 +98,8 @@ func (s *HTTPServer) handleGetTeam(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} TeamTasksResponse
 // @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
 // @Failure 500 {object} ErrorResponse
-// @Router /teams/{teamName}/tasks [get]
-// @Security BearerAuth
+// DISABLED @Router /teams/{teamName}/tasks [get]
+// DISABLED @Security BearerAuth
 func (s *HTTPServer) handleGetTeamTasks(w http.ResponseWriter, r *http.Request) {
 	teamName := chi.URLParam(r, "teamName")
 	if teamName == "" {
@@ -129,8 +129,8 @@ func (s *HTTPServer) handleGetTeamTasks(w http.ResponseWriter, r *http.Request) 
 // @Success 200 {object} TeamMessagesResponse
 // @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
 // @Failure 500 {object} ErrorResponse
-// @Router /teams/{teamName}/members/{memberName}/messages [get]
-// @Security BearerAuth
+// DISABLED @Router /teams/{teamName}/members/{memberName}/messages [get]
+// DISABLED @Security BearerAuth
 func (s *HTTPServer) handleGetTeamMemberMessages(w http.ResponseWriter, r *http.Request) {
 	teamName := chi.URLParam(r, "teamName")
 	memberName := chi.URLParam(r, "memberName")

@@ -204,8 +204,8 @@ func queryStats(db *indexdb.DB, enabledSources []string) StatsResponse {
 // @Failure 400 {object} ErrorResponse "Bad Request - missing query"
 // @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
 // @Failure 503 {object} ErrorResponse "Service Unavailable - indexer not found"
-// @Router /semantic-search [get]
-// @Security BearerAuth
+// DISABLED @Router /semantic-search [get]
+// DISABLED @Security BearerAuth
 func (s *HTTPServer) handleSemanticSearch(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	if query == "" {

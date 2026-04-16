@@ -22,7 +22,8 @@ var llmStatusCmd = &cobra.Command{
 
 func init() {
 	llmCmd.AddCommand(llmStatusCmd)
-	rootCmd.AddCommand(llmCmd)
+	// LLM command — hidden from CLI surface; keep wiring intact for re-enable.
+	// rootCmd.AddCommand(llmCmd)
 }
 
 func runLLMStatus(cmd *cobra.Command, args []string) error {

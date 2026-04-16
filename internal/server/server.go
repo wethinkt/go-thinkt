@@ -234,19 +234,20 @@ func (s *HTTPServer) setupRouter() chi.Router {
 
 		// Indexer endpoints (search/stats)
 		r.Get("/search", s.handleSearchSessions)
-		r.Get("/semantic-search", s.handleSemanticSearch)
+		// Semantic search — hidden from HTTP surface; keep handler for re-enable.
+		// r.Get("/semantic-search", s.handleSemanticSearch)
 		r.Get("/stats", s.handleGetStats)
 		r.Get("/indexer/health", s.handleIndexerHealth)
 		r.Get("/indexer/status", s.handleIndexerStatus)
 
-		// Team endpoints
-		r.Route("/teams", func(r chi.Router) {
-			r.Use(s.requireTeamStore)
-			r.Get("/", s.handleGetTeams)
-			r.Get("/{teamName}", s.handleGetTeam)
-			r.Get("/{teamName}/tasks", s.handleGetTeamTasks)
-			r.Get("/{teamName}/members/{memberName}/messages", s.handleGetTeamMemberMessages)
-		})
+		// Team endpoints — hidden from HTTP surface; keep handlers for re-enable.
+		// r.Route("/teams", func(r chi.Router) {
+		// 	r.Use(s.requireTeamStore)
+		// 	r.Get("/", s.handleGetTeams)
+		// 	r.Get("/{teamName}", s.handleGetTeam)
+		// 	r.Get("/{teamName}/tasks", s.handleGetTeamTasks)
+		// 	r.Get("/{teamName}/members/{memberName}/messages", s.handleGetTeamMemberMessages)
+		// })
 	})
 
 	// Swagger documentation

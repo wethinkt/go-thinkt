@@ -228,9 +228,10 @@ func init() {
 	rootCmd.AddCommand(syncCmd)
 	rootCmd.AddCommand(statsCmd)
 	rootCmd.AddCommand(searchCmd)
-	rootCmd.AddCommand(teamsCmd)
-	// Collect command flags
-	rootCmd.AddCommand(collectCmd)
+	// Teams command — hidden from CLI surface; keep wiring intact for re-enable.
+	// rootCmd.AddCommand(teamsCmd)
+	// Collect command flags — hidden from CLI surface; keep wiring intact for re-enable.
+	// rootCmd.AddCommand(collectCmd)
 	collectCmd.Flags().IntVarP(&collectPort, "port", "p", 8785, "collector port")
 	collectCmd.Flags().StringVar(&collectHost, "host", "localhost", "collector host")
 	collectCmd.Flags().StringVar(&collectStorage, "storage", "", "DuckDB storage path")
@@ -242,16 +243,16 @@ func init() {
 	exportParquetCmd.Flags().StringVar(&parquetSince, "since", "", "only entries after this time (RFC3339 or YYYY-MM-DD)")
 	exportParquetCmd.Flags().StringVar(&parquetUntil, "until", "", "only entries before this time (RFC3339 or YYYY-MM-DD)")
 
-	// Relay command flags
-	rootCmd.AddCommand(relayCmd)
+	// Relay command flags — hidden from CLI surface; keep wiring intact for re-enable.
+	// rootCmd.AddCommand(relayCmd)
 	relayCmd.Flags().StringVar(&relayCollectorURL, "collector-url", "", "collector URL (default: auto-discover)")
 	relayCmd.Flags().StringVar(&relayAPIKey, "api-key", "", "API key for collector authentication")
 	relayCmd.Flags().StringVar(&relaySource, "source", "", "filter by source (claude, kimi, etc.)")
 	relayCmd.Flags().BoolVar(&relayForward, "forward", false, "continuous watch mode")
 	relayCmd.Flags().BoolVar(&relayFlush, "flush", false, "flush the disk buffer")
 	relayCmd.Flags().BoolVarP(&relayQuiet, "quiet", "q", false, "suppress non-error output")
-	// Agents command
-	rootCmd.AddCommand(agentsCmd)
+	// Agents command — hidden from CLI surface; keep wiring intact for re-enable.
+	// rootCmd.AddCommand(agentsCmd)
 	agentsCmd.Flags().BoolVar(&agentsLocal, "local", false, "show only local agents")
 	agentsCmd.Flags().BoolVar(&agentsRemote, "remote", false, "show only remote agents")
 	agentsCmd.Flags().StringVar(&agentsSource, "source", "", "filter by source (claude, kimi, etc.)")
@@ -402,7 +403,8 @@ func init() {
 	shareDeleteCmd.Flags().BoolVarP(&shareDeleteForce, "force", "f", false, "skip confirmation")
 	shareCmd.AddCommand(shareDeleteCmd)
 	shareCmd.AddCommand(shareProfileCmd)
-	rootCmd.AddCommand(shareCmd)
+	// Share command — hidden from CLI surface; keep wiring intact for re-enable.
+	// rootCmd.AddCommand(shareCmd)
 
 	// Export command
 	exportCmd.Flags().StringVarP(&exportFormat, "format", "f", "md", "output format: md, html, json")
