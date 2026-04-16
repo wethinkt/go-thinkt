@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
@@ -51,6 +53,15 @@ func runTUI(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
+
+	// Start background sync (quick-scan + watcher) if enabled. Errors are logged only.
+	cfg, _ := config.Load()
+	bgCtx, cancelBG := context.WithCancel(context.Background())
+	stopBG := startBackgroundSync(bgCtx, cfg)
+	defer func() {
+		cancelBG()
+		stopBG()
+	}()
 
 	// Use new Shell with NavStack for multi-source support
 	shell := tui.NewShell(tui.InitialPageAuto)

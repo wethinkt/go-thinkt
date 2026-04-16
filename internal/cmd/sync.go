@@ -10,6 +10,8 @@ import (
 	indexdb "github.com/wethinkt/go-thinkt/internal/index/db"
 )
 
+var syncQuiet bool
+
 var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Synchronize all local sessions into the SQLite index",
@@ -45,27 +47,40 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(projects) == 0 {
-		fmt.Println("No projects found to index.")
+		if !syncQuiet {
+			fmt.Println("No projects found to index.")
+		}
 		return nil
 	}
 
-	totalProjects := len(projects)
-	ingester.OnProgress = func(pIdx, pTotal, sIdx, sTotal int, message string) {
-		if verbose {
-			fmt.Printf("[%d/%d] %s\n", pIdx, pTotal, message)
+	sp := NewSyncProgress()
+	showProgress := sp.ShouldShowProgress(syncQuiet, verbose)
+
+	if showProgress {
+		ingester.OnProgress = func(pIdx, pTotal, sIdx, sTotal int, message string) {
+			sp.RenderIndexing(pIdx, pTotal, sIdx, sTotal, message)
 		}
 	}
 
+	totalProjects := len(projects)
 	for idx, p := range projects {
 		if err := ingester.IngestProject(ctx, p, idx+1, totalProjects); err != nil {
+			if showProgress {
+				sp.Finish()
+			}
 			fmt.Fprintf(cmd.ErrOrStderr(), "Error indexing project %s: %v\n", p.Name, err)
 		}
 	}
 
-	fmt.Println("Indexing complete.")
+	if showProgress {
+		sp.Finish()
+	}
+	if !syncQuiet {
+		fmt.Println("Indexing complete.")
+	}
 	return nil
 }
 
 func init() {
-	// Registration happens in root.go
+	syncCmd.Flags().BoolVarP(&syncQuiet, "quiet", "q", false, "suppress progress output")
 }

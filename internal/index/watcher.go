@@ -22,13 +22,14 @@ type sessionIndexEntry struct {
 
 // Watcher monitors session directories for changes and triggers ingestion.
 type Watcher struct {
-	database     *db.DB
-	registry     *thinkt.StoreRegistry
-	debounce     time.Duration
-	watcher      *fsnotify.Watcher
-	done         chan struct{}
-	mu           sync.Mutex
-	sessionIndex map[string]sessionIndexEntry // normalized path -> session info
+	database       *db.DB
+	registry       *thinkt.StoreRegistry
+	debounce       time.Duration
+	rescanInterval time.Duration
+	watcher        *fsnotify.Watcher
+	done           chan struct{}
+	mu             sync.Mutex
+	sessionIndex   map[string]sessionIndexEntry // normalized path -> session info
 
 	inFlightMu sync.Mutex
 	inFlight   map[string]bool
@@ -66,6 +67,11 @@ func (w *Watcher) setDebounce(d time.Duration) {
 	w.debounce = d
 }
 
+// SetRescanInterval configures periodic project rescans. A value ≤0 disables rescanning.
+func (w *Watcher) SetRescanInterval(d time.Duration) {
+	w.rescanInterval = d
+}
+
 // Start begins monitoring projects for changes.
 func (w *Watcher) Start(ctx context.Context) error {
 	projects, err := w.registry.ListAllProjects(ctx)
@@ -80,7 +86,36 @@ func (w *Watcher) Start(ctx context.Context) error {
 	}
 
 	go w.watchLoop(ctx)
+	if w.rescanInterval > 0 {
+		go w.rescanLoop(ctx)
+	}
 	return nil
+}
+
+// rescanLoop periodically re-lists projects so brand-new project directories are picked up.
+// watchProject is idempotent, so re-calling it for already-watched projects is safe.
+func (w *Watcher) rescanLoop(ctx context.Context) {
+	t := time.NewTicker(w.rescanInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-w.done:
+			return
+		case <-t.C:
+			projects, err := w.registry.ListAllProjects(ctx)
+			if err != nil {
+				tuilog.Log.Warn("watcher: rescan list projects failed", "error", err)
+				continue
+			}
+			for _, p := range projects {
+				if err := w.watchProject(p); err != nil {
+					tuilog.Log.Warn("watcher: rescan failed to watch project", "project", p.Name, "error", err)
+				}
+			}
+		}
+	}
 }
 
 // Stop stops the watcher.

@@ -18,6 +18,7 @@ const (
 	defaultEmbedModel         = "nomic-embed-text-v1.5"
 	defaultSummarizationModel = "qwen2.5-3b-instruct"
 	defaultDebounce           = "2s"
+	defaultRescanInterval     = "60s"
 	defaultFilePerms          = 0600
 )
 
@@ -67,9 +68,10 @@ type ShareConfig struct {
 
 // IndexerConfig holds indexer-related settings.
 type IndexerConfig struct {
-	Sources  []string `json:"sources"`  // Source filter (empty = all)
-	Watch    bool     `json:"watch"`    // Enable file watching
-	Debounce string   `json:"debounce"` // Debounce duration (e.g. "2s")
+	Sources        []string `json:"sources"`         // Source filter (empty = all)
+	Watch          bool     `json:"watch"`           // Enable file watching
+	Debounce       string   `json:"debounce"`        // Debounce duration (e.g. "2s")
+	RescanInterval string   `json:"rescan_interval"` // Periodic project rescan (e.g. "60s"; "0" disables)
 }
 
 // DebounceDuration returns the parsed debounce duration (default: 2s).
@@ -80,6 +82,19 @@ func (c IndexerConfig) DebounceDuration() time.Duration {
 		}
 	}
 	return 2 * time.Second
+}
+
+// RescanIntervalDuration returns the parsed rescan interval. A value ≤0 disables rescanning.
+// Empty or unparseable defaults to 60s.
+func (c IndexerConfig) RescanIntervalDuration() time.Duration {
+	if c.RescanInterval == "" {
+		return 60 * time.Second
+	}
+	d, err := time.ParseDuration(c.RescanInterval)
+	if err != nil {
+		return 60 * time.Second
+	}
+	return d
 }
 
 // EnabledSources returns the sorted names of all enabled sources.
@@ -168,9 +183,10 @@ func Default() Config {
 			Model:   defaultSummarizationModel,
 		},
 		Indexer: IndexerConfig{
-			Sources:  []string{},
-			Watch:    true,
-			Debounce: defaultDebounce,
+			Sources:        []string{},
+			Watch:          true,
+			Debounce:       defaultDebounce,
+			RescanInterval: defaultRescanInterval,
 		},
 		Share: ShareConfig{
 			Enabled: true,

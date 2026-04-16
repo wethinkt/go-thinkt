@@ -662,10 +662,12 @@ func runServerHTTP(cmd *cobra.Command, args []string) error {
 
 	// Start background watcher for incremental sync.
 	if idb != nil {
-		watcher, err := index.NewWatcher(idb, registry, 0)
+		cfg, _ := config.Load()
+		watcher, err := index.NewWatcher(idb, registry, cfg.Indexer.DebounceDuration())
 		if err != nil {
 			tuilog.Log.Warn("index watcher creation failed", "error", err)
 		} else {
+			watcher.SetRescanInterval(cfg.Indexer.RescanIntervalDuration())
 			if err := watcher.Start(ctx); err != nil {
 				tuilog.Log.Warn("index watcher start failed", "error", err)
 			} else {
