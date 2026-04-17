@@ -18,6 +18,10 @@ ARG TARGETARCH
 ADD . /src
 WORKDIR /src
 
+RUN DEBIAN_FRONTEND=noninteractive apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        libsqlite3-dev
+
 RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o bin/thinkt ./cmd/thinkt
 
 ##############################################################################
