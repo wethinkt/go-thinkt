@@ -540,13 +540,13 @@ other = "Fallo en sincronización RPC de incrustaciones, volviendo a modo local:
 other = "Sincronización de incrustaciones completada (vía servidor)."
 
 [indexer.embeddings.sync.notEnabled]
-other = "Incrustaciones no habilitadas (ejecuta: thinkt-indexer embeddings enable)"
+other = "Incrustaciones no habilitadas (ejecuta: thinkt embeddings enable)"
 
 [indexer.embeddings.sync.dbLocked]
-other = "Base de datos de índice bloqueada por otro proceso (posiblemente 'thinkt-indexer serve'); usa la sincronización de incrustaciones del servidor"
+other = "Base de datos de índice bloqueada por otro proceso (posiblemente 'thinkt serve'); usa la sincronización de incrustaciones del servidor"
 
 [indexer.embeddings.sync.embDbLocked]
-other = "Base de datos de incrustaciones bloqueada por otro proceso; usa 'thinkt-indexer serve' para acceso concurrente"
+other = "Base de datos de incrustaciones bloqueada por otro proceso; usa 'thinkt serve' para acceso concurrente"
 
 [indexer.embeddings.sync.complete]
 other = "Sincronización de incrustaciones completada."

@@ -376,7 +376,7 @@ curl "http://localhost:8784/api/v1/sessions/%2Fpath%2Fto%2Fsession.jsonl?limit=1
 
 #### Search Sessions
 
-Search for text across indexed sessions. Requires `thinkt-indexer` to be available.
+Search for text across indexed sessions. Requires the SQLite index to be populated (run `thinkt sync` once, or rely on the background watcher).
 
 ```
 GET /api/v1/search?q=query
@@ -488,7 +488,7 @@ GET /api/v1/indexer/health
 ```json
 {
   "available": true,
-  "path": "/usr/local/bin/thinkt-indexer",
+  "path": "~/.thinkt/dbs/index.db",
   "database_accessible": true,
   "indexed_projects": 12,
   "indexed_sessions": 156

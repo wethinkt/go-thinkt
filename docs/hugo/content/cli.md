@@ -283,14 +283,11 @@ thinkt-collector --port 8785 --token mytoken
 
 ## Indexer
 
-The indexer provides DuckDB-powered indexing and search for your session data. Most indexer commands are accessible as top-level aliases through the main `thinkt` CLI, as well as directly via the `thinkt-indexer` binary:
+A built-in SQLite index backs `thinkt search` and `thinkt stats`. It stores metadata only (no message content) at `~/.thinkt/dbs/index.db`.
 
 ```bash
-# Start the indexer server (syncs, watches, and serves RPC)
-thinkt indexer start
-
-# Sync all sessions to the index
-thinkt-indexer sync
+# Populate the index (idempotent; only re-reads changed files)
+thinkt sync
 
 # Search (case-insensitive by default)
 thinkt search "authentication"
@@ -305,72 +302,12 @@ thinkt search --regex "func\s+Test\w+"
 thinkt search "TODO" --project my-app --source codex
 
 # Usage statistics
-thinkt indexer stats
+thinkt stats
 ```
 
-### Embeddings
+Running `thinkt` (TUI) or `thinkt server` will keep the index current in the background via a file watcher. Set `indexer.watch = false` in config to disable.
 
-Manage on-device embedding models for semantic search:
-
-```bash
-thinkt embeddings list              # List available models with stats
-thinkt embeddings status            # Show embedding config and status
-thinkt embeddings model             # Switch embedding model (interactive)
-thinkt embeddings model <id>        # Switch to specific model
-thinkt embeddings enable            # Enable semantic embeddings
-thinkt embeddings disable           # Disable semantic embeddings
-thinkt embeddings sync              # Run embedding sync
-thinkt embeddings purge             # Remove old model embeddings
-```
-
-### Semantic Search
-
-Search sessions by meaning using on-device embeddings (nomic-embed-text-v1.5 by default, configurable via `thinkt embeddings model`). Disabled by default.
-
-Current embedding runtime support in the implementation:
-
-| OS | Arch | Runtime mode |
-|----|------|--------------|
-| macOS | `arm64` | `metal` (auto-selected) |
-| macOS | `amd64` | `cpu` |
-| Linux | `amd64` | `cpu`, `cuda` if detected |
-| Linux | `arm64` | `cpu`, `cuda` if detected |
-| Windows | `amd64` | `cpu`, `cuda` if detected |
-| Windows | `arm64` | `cpu` |
-
-Notes:
-
-- The current auto-selection logic only chooses between `metal`, `cuda`, and `cpu`.
-- `vulkan` and `rocm` runtimes are not currently exposed by `thinkt`, even though the underlying runtime downloader supports some combinations.
-- Windows `arm64` should be treated as CPU-only for embeddings.
-
-```bash
-# Enable semantic search (model downloads on first sync)
-thinkt embeddings enable
-
-# Search by meaning
-thinkt semantic search "database migration strategy"
-
-# Filter and options
-thinkt semantic search "error handling" --project my-app --source claude
-thinkt semantic search "testing patterns" --diversity --limit 10
-thinkt semantic search "API design" --max-distance 0.5
-
-# Output formats
-thinkt semantic search "query" --list    # Plain text (for scripting)
-thinkt semantic search "query" --json    # JSON output
-
-# Check status
-thinkt embeddings status
-thinkt embeddings status --json
-
-# Disable
-thinkt embeddings disable
-```
-
-When the indexer server is running, `enable` and `disable` take effect immediately — the server loads or unloads the embedding model at runtime without restart.
-
-**Reference:** [thinkt indexer search](/command/thinkt_indexer_search) · [thinkt indexer semantic](/command/thinkt_indexer_semantic)
+**Reference:** [thinkt sync](/command/thinkt_sync) · [thinkt search](/command/thinkt_search) · [thinkt stats](/command/thinkt_stats)
 
 ---
 

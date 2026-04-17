@@ -1,6 +1,4 @@
 // Package search provides types and functions for searching indexed sessions.
-// This package is designed to be used both by the thinkt-indexer CLI and
-// as a shareable TUI component in the main thinkt application.
 package search
 
 import (

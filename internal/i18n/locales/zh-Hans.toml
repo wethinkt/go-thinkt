@@ -540,13 +540,13 @@ other = "RPC 嵌入同步失败，回退到本地模式: %v\n"
 other = "嵌入同步完成（通过服务器）。"
 
 [indexer.embeddings.sync.notEnabled]
-other = "嵌入未启用（运行: thinkt-indexer embeddings enable）"
+other = "嵌入未启用（运行: thinkt embeddings enable）"
 
 [indexer.embeddings.sync.dbLocked]
-other = "索引数据库被另一个进程锁定（可能是 'thinkt-indexer serve'）；请使用服务器的嵌入同步"
+other = "索引数据库被另一个进程锁定（可能是 'thinkt serve'）；请使用服务器的嵌入同步"
 
 [indexer.embeddings.sync.embDbLocked]
-other = "嵌入数据库被另一个进程锁定；请使用 'thinkt-indexer serve' 以支持并发访问"
+other = "嵌入数据库被另一个进程锁定；请使用 'thinkt serve' 以支持并发访问"
 
 [indexer.embeddings.sync.complete]
 other = "嵌入同步完成。"

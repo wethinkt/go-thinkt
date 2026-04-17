@@ -29,7 +29,6 @@ Sources are auto-discovered. Use `--source claude|kimi|gemini|copilot|codex|qwen
 | Package | Purpose |
 |---------|---------|
 | `cmd/thinkt` | CLI entry point (Cobra commands) |
-| `cmd/thinkt-indexer` | DuckDB-powered indexer CLI |
 | `internal/thinkt` | Core types, Store/TeamStore interfaces, registry, cache |
 | [`internal/sources`](./internal/sources/) | [Source factory registry](./internal/sources/README.md) |
 | [`internal/sources/claude`](./internal/sources/claude/) | Claude Code storage + teams implementation |
@@ -141,21 +140,9 @@ thinkt
 │   ├── markdown
 │   └── man
 └── version             # Print version information
-
-thinkt-indexer          # DuckDB-powered indexer (separate binary)
-├── sync                # Full sync of all sessions
-├── search              # Search across indexed sessions
-├── semantic            # Semantic search management
-├── sessions            # List indexed sessions
-├── stats               # Show usage statistics
-├── embeddings          # Embedding management
-├── metrics             # Prometheus metrics
-├── logs                # View indexer logs
-└── watch               # Watch for changes and auto-index
-
-thinkt-relay            # Standalone trace relay (separate binary)
-thinkt-collector        # Standalone trace collector (separate binary)
 ```
+
+The index (SQLite, under `~/.thinkt/dbs/index.db`) is populated by `thinkt sync` and kept current by the background watcher started by `thinkt` (TUI) and `thinkt server`. Trace relay and collector functionality live under `thinkt relay` and `thinkt collect`.
 
 ### TUI Architecture
 
@@ -338,7 +325,7 @@ The REST API (`thinkt server`) exposes indexer functionality via `internal/serve
 | `GET /api/v1/indexer/health` | `handleIndexerHealth` | Indexer binary and DB health |
 | `GET /api/v1/indexer/status` | `handleIndexerStatus` | Live indexer status (sync, embedding progress) |
 
-These endpoints shell out to the `thinkt-indexer` binary (same pattern as MCP tools).
+These endpoints query the built-in SQLite index directly (no subprocess).
 
 ### Trace Collector & Relay
 

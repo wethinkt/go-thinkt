@@ -230,7 +230,7 @@ List currently active AI coding sessions detected on the local machine via IDE l
 
 ### search_sessions
 
-Search for text across all indexed sessions. Requires `thinkt-indexer` to be installed and sessions to be indexed with `thinkt-indexer sync`.
+Search for text across all indexed sessions. Requires the SQLite index to be populated (run `thinkt sync` once, or rely on the background watcher).
 
 **Parameters:**
 | Name | Type | Required | Default | Description |
@@ -269,7 +269,7 @@ Search for text across all indexed sessions. Requires `thinkt-indexer` to be ins
 
 ### semantic_search
 
-Search for sessions by meaning using on-device embeddings. Requires `thinkt-indexer` with semantic search enabled (`thinkt-indexer semantic enable`).
+Search for sessions by meaning using on-device embeddings. Hidden from the 0.9.0 user surface while polish is in progress — available via MCP when explicitly allowed.
 
 **Parameters:**
 | Name | Type | Required | Default | Description |

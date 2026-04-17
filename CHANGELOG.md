@@ -1,6 +1,18 @@
 # `go-thinkt` CHANGELOG
 
-## v0.8.1 (2026-03-13)
+## v0.9.0 (2026-04-16)
+
+Although this bullet list is short, the LLM-generated list was huge and I am sparing you.
+Basically, we overhauled `thinkt` to improve usability.
+
+  * Migrated from DuckDB to SQLite
+  * Unified `thinkt` and `thinkt-indexer` 
+  * Restructure CLI
+  * Polished TUI
+  * Security hardening 
+
+ ## v0.8.1 (2026-03-13)
+
 
 * **Session Export**
   - New `thinkt export` command for exporting sessions as Markdown (default), self-contained HTML, or JSON

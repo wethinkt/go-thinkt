@@ -33,19 +33,18 @@ thinkt-vscode        (VS Code extension, connects to go-thinkt API)
 ```
 go-thinkt/
 ├── cmd/
-│   ├── thinkt/                  # Main CLI entry point → internal/cmd
-│   └── thinkt-indexer/          # Indexer entry point → internal/indexer/cmd
+│   └── thinkt/                  # CLI entry point → internal/cmd
 ├── internal/
 │   ├── cmd/                     # CLI command definitions (cobra)
 │   ├── cli/                     # CLI helpers (list, view, copy, delete)
 │   ├── config/                  # Configuration, platform app detection
 │   ├── fingerprint/             # Machine fingerprint hashing
-│   ├── indexer/                 # DuckDB-powered indexer subsystem
-│   │   ├── cmd/                 # Indexer CLI commands (server, sync, search, semantic, stats)
-│   │   ├── db/                  # DuckDB connection and driver
-│   │   ├── embedding/           # On-device embedding via Qwen3-Embedding
-│   │   ├── rpc/                 # Unix socket RPC protocol
-│   │   └── search/              # Full-text, metadata, and semantic search
+│   ├── index/                   # SQLite index, ingester, watcher, search
+│   │   ├── db/                  # SQLite driver, schema, migrations
+│   │   ├── embedding/           # On-device embedding (yzma + sqlite-vec)
+│   │   ├── llm/                 # Local LLM runtime management
+│   │   ├── search/              # Text, metadata, and semantic search
+│   │   └── summarize/           # Local summarization pipeline
 │   ├── jsonl/                   # JSONL format parsing
 │   ├── prompt/                  # Prompt extraction and templates
 │   ├── server/                  # HTTP/REST API and MCP server
@@ -57,7 +56,8 @@ go-thinkt/
 │   │   ├── kimi/                # Kimi Code (~/.kimi)
 │   │   ├── gemini/              # Gemini CLI (~/.gemini)
 │   │   ├── copilot/             # Copilot CLI (~/.copilot)
-│   │   └── codex/               # Codex CLI (~/.codex)
+│   │   ├── codex/               # Codex CLI (~/.codex)
+│   │   └── qwen/                # Qwen Code (~/.qwen)
 │   ├── thinkt/                  # Core abstraction layer (types, discovery, caching)
 │   ├── tui/                     # Terminal UI (bubbletea)
 │   │   ├── theme/               # Theme definitions and builder
@@ -69,32 +69,23 @@ go-thinkt/
 ├── completions/                 # Shell completions (bash, fish, zsh)
 ├── manpages/                    # Generated man pages
 ├── Taskfile.yml                 # Build orchestration
-├── .goreleaser.yml              # Release config (thinkt)
-├── .goreleaser-indexer.yml      # Release config (thinkt-indexer)
-├── Dockerfile                   # Docker build for thinkt
+├── .goreleaser.yml              # Release config
+├── Dockerfile                   # Docker build
 └── go.mod                       # Go 1.25.8
 ```
 
-## Binaries
+## Binary
 
-### thinkt
+`thinkt` is the single CLI. It requires CGO (`CGO_ENABLED=1`) for the SQLite index and the `sqlite-vec` extension. Pre-built binaries are distributed via GitHub Releases, Homebrew, and Docker.
 
-The main CLI. Pure Go (`CGO_ENABLED=0`), cross-compiled for Linux, macOS, FreeBSD, and Windows.
-
-Provides: TUI, project/session browsing, team inspection, prompt extraction, HTTP server, MCP server, theme builder.
-
-### thinkt-indexer
-
-DuckDB-powered indexer for search and analytics. Requires CGO (`CGO_ENABLED=1`) for DuckDB C bindings. Available on Linux and macOS only.
-
-Provides: `server`, `sync`, `search`, `semantic`, `stats` commands. The `server` command runs as a long-lived process with Unix socket RPC, file watching, and on-device embedding via Qwen3-Embedding. Data stored in `~/.thinkt/dbs/indexer.duckdb` (metadata) and `~/.thinkt/dbs/embeddings/` (semantic search vectors). Semantic search is disabled by default — enable with `thinkt-indexer semantic enable`.
+Provides: TUI, project/session browsing, HTTP + MCP server, SQLite-backed search and stats, session export, prompt extraction, theme builder.
 
 ## Prerequisites
 
 - **Go 1.25.8+**
 - **[Task](https://taskfile.dev/)** (build orchestration)
 - **swag** (Swagger codegen): `go install github.com/swaggo/swag/cmd/swag@v1.16.6`
-- **C compiler** (for thinkt-indexer only — DuckDB requires CGO)
+- **C compiler** (CGO is required for the SQLite index)
 - **Git submodules** must be initialized for the embedded web apps
 
 ## Building
@@ -107,12 +98,8 @@ cd go-thinkt
 # Set up developer dependencies -- needed when you update Golang
 task dev-deps
 
-# Build both binaries
+# Build thinkt
 task build
-
-# Build individually
-task build:thinkt       # CGO_ENABLED=0
-task build:indexer      # CGO_ENABLED=1
 
 # Output goes to ./bin/
 ```
@@ -144,7 +131,6 @@ task mcp:stdio-schema   # Dump MCP tool/resource schemas
 
 # Docker
 task docker:build-thinkt
-task docker:build-indexer
 
 # Release testing
 task release:test       # goreleaser snapshot build
@@ -186,14 +172,14 @@ Session data is loaded on demand. `internal/thinkt/lazy.go` and `internal/thinkt
 
 Platform-specific code uses Go build tags: `_darwin.go`, `_linux.go`, `_windows.go`, `_freebsd.go`. This covers app detection (`internal/config/`), process handling, browser opening, and machine fingerprinting.
 
-### CGO split
+### CGO
 
-The main `thinkt` binary is pure Go for maximum portability. The indexer requires CGO for DuckDB, so it's built and released separately with its own goreleaser config.
+`thinkt` requires CGO for the SQLite driver (`mattn/go-sqlite3`) and the `sqlite-vec` extension. The local LLM runtime (`yzma`) uses `purego`/libffi to load llama.cpp at runtime, so it does not require CGO at build time.
 
 ### Security
 
 - Path validation prevents directory traversal in API/MCP endpoints (`internal/thinkt/security.go`)
-- DuckDB connections disable `enable_external_access` to prevent SQL injection file access
+- DuckDB (collector) connections disable `enable_external_access` to prevent SQL injection file access
 - Optional Bearer token auth for both REST API and MCP server
 
 ## Ports
@@ -205,14 +191,11 @@ The main `thinkt` binary is pure Go for maximum portability. The indexer require
 | `thinkt server mcp --port` | 8786 |
 | thinkt-vscode (reserved) | 8787 |
 | `thinkt collect` | 8785 (includes `/metrics`) |
-| `thinkt-relay --metrics-port` | disabled (opt-in) |
+| `thinkt relay --metrics-port` | disabled (opt-in) |
 
 ## Release
 
-Releases use [GoReleaser](https://goreleaser.com/) with two configs:
-
-- `.goreleaser.yml` — `thinkt` (CGO_ENABLED=0, all platforms)
-- `.goreleaser-indexer.yml` — `thinkt-indexer` (CGO_ENABLED=1, Linux + macOS)
+Releases use [GoReleaser](https://goreleaser.com/) with `.goreleaser.yml` — a single `thinkt` binary with `CGO_ENABLED=1` for Linux and macOS.
 
 macOS binaries are code-signed and notarized via `task release:notarize`.
 

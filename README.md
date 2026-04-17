@@ -40,9 +40,7 @@ All of this structured data is exposed to you to easily navigate:
 
 For developers, we have an [OpenAPI server](https://wethinkt.github.io/go-thinkt/rest-api/) and a the [`ts-thinkt` TypeScript package](https://github.com/wethinkt/ts-thinkt/blob/main/README.md).  Gophers, right now most of the implementation is in [package `internal`](./internal/); stabilizing a public package is on our roadmap.
 
-Integrated in `thinkt` is an [indexer](https://wethinkt.github.io/go-thinkt/command/thinkt_indexer/) to speed up searches and other operations, as well as support for [semantic search]() local inferencing support
-
-For beyond local deployments, we also have [`thinkt-relay` and `thinkt-collector`](https://wethinkt.github.io/go-thinkt/collector/) tools.
+A built-in SQLite index powers fast `thinkt search` and `thinkt stats` queries; run `thinkt sync` once to populate it, and the TUI / server keep it current in the background.
 
 ## [User Guide](https://wethinkt.github.io/go-thinkt/)
 
@@ -52,8 +50,7 @@ For beyond local deployments, we also have [`thinkt-relay` and `thinkt-collector
 - **Multi-Source Support**: Works with Claude Code (`~/.claude`), Kimi Code (`~/.kimi`), Gemini CLI (`~/.gemini`), Copilot CLI (`~/.copilot`), Codex CLI (`~/.codex`), and Qwen Code (`~/.qwen`) — sessions from all sources are shown together
 - **Tree View**: Browse projects in a collapsible tree grouped by directory, or switch to a flat list
 - **Agent Teams**: Inspect multi-agent teams (Claude Code), including members, tasks, and messages
-- **Analytics**: Token usage, tool frequency, word analysis, activity timelines via `thinkt-indexer`
-- **Local Summarization**: Generate per-session summaries, classify thinking blocks, and suggest shareable tags with local models via `thinkt-indexer summarize`
+- **Analytics**: Token usage, tool frequency, word analysis, activity timelines via `thinkt stats`
 - **Session Export**: Export sessions as Markdown, self-contained HTML, or JSON with content filtering and preview mode
 - **Prompt Extraction**: Extract user prompts with Go template support via `thinkt export template`
 - **MCP Server**: Model Context Protocol integration for use with AI assistants
@@ -203,22 +200,22 @@ thinkt tui --log /tmp/thinkt-debug.log
 | `thinkt apps` | List configured open-in apps |
 | `thinkt apps enable/disable` | Enable or disable an app |
 | `thinkt apps set-terminal` | Set the default terminal app |
+| `thinkt sync` | Populate the SQLite index with session metadata |
 | `thinkt search` | Search for text across indexed sessions |
-| `thinkt semantic search` | Search sessions by meaning using on-device embeddings |
-| `thinkt embeddings` | Manage embedding model, storage, and sync |
+| `thinkt stats` | Show usage statistics from the index |
 | `thinkt theme` | Browse and manage TUI themes |
 | `thinkt theme list` | List all available themes |
 | `thinkt theme set <name>` | Set the active theme |
 | `thinkt theme import` | Import iTerm2 color scheme |
 | `thinkt theme builder` | Interactive theme editor |
 
-## Indexer (DuckDB-Powered)
+## Indexer (SQLite-Powered)
 
-The `thinkt-indexer` provides fast, searchable storage for your conversation traces. Indexer commands are accessible through the main `thinkt` CLI as well as via the `thinkt-indexer` binary directly:
+A built-in SQLite index provides fast, searchable storage for your conversation metadata. No separate binary required — everything is part of `thinkt`:
 
 ```bash
-# Start the indexer server (syncs, watches for changes, and serves RPC)
-thinkt indexer start
+# Populate the index (idempotent; only re-reads changed files)
+thinkt sync
 
 # Search across indexed sessions (case-insensitive by default)
 thinkt search "authentication"
@@ -228,82 +225,15 @@ thinkt search "AuthManager" --case-sensitive
 thinkt search --regex "func\s+Test\w+"
 
 # Show usage statistics
-thinkt indexer stats
-
-# Manage local summarization and tags
-thinkt-indexer summarize status
-thinkt-indexer summarize sync
-thinkt-indexer summarize tags "fix sync gate races and add sharing tags"
-
-# Manage embeddings
-thinkt embeddings list
-thinkt embeddings status
-thinkt embeddings model
-
-# Or use thinkt-indexer directly
-thinkt-indexer sync
-thinkt-indexer search "authentication"
-thinkt-indexer stats
-thinkt-indexer summarize tags --json "duckdb sync gate sharing flow"
+thinkt stats
 ```
 
-`thinkt-indexer summarize` uses local generative models for three related tasks:
+The index is updated incrementally in the background:
 
-- entry-level summary/classification of thinking blocks
-- session-level summaries
-- shareable tag suggestions for discovery and sharing workflows
+- Running the TUI (`thinkt` / `thinkt tui`) kicks off a quick-scan and starts a file watcher for live updates.
+- Running `thinkt server` does the same for any process connected to the HTTP/MCP API.
 
-The summarization prompts are embedded from [internal/indexer/summarize/prompts/](./internal/indexer/summarize/prompts/) so they can be tuned without editing Go string literals.
-
-### Semantic Search
-
-On-device semantic search uses on-device embedding models (nomic-embed-text-v1.5 by default) to find sessions by meaning, not just keywords. The model is configurable via `thinkt embeddings model`.
-
-Current embedding runtime support in the implementation:
-
-| OS | Arch | Runtime mode |
-|----|------|--------------|
-| macOS | `arm64` | `metal` (auto-selected) |
-| macOS | `amd64` | `cpu` |
-| Linux | `amd64` | `cpu`, `cuda` if detected |
-| Linux | `arm64` | `cpu`, `cuda` if detected |
-| Windows | `amd64` | `cpu`, `cuda` if detected |
-| Windows | `arm64` | `cpu` |
-
-Notes:
-
-- The current auto-selection logic only chooses between `metal`, `cuda`, and `cpu`.
-- `vulkan` and `rocm` runtimes are not currently exposed by `thinkt`, even though the underlying runtime downloader supports some combinations.
-- Windows `arm64` should be treated as CPU-only for embeddings.
-
-```bash
-# Enable semantic search (downloads model on first use)
-thinkt-indexer semantic enable
-
-# Search by meaning
-thinkt semantic search "database migration strategy"
-
-# Filter by project or source
-thinkt semantic search "error handling" --project my-app --source claude
-
-# Diversity mode spreads results across different sessions
-thinkt semantic search "testing patterns" --diversity
-
-# Check embedding status
-thinkt embeddings status
-thinkt embeddings status --json
-
-# Or use thinkt-indexer directly
-thinkt-indexer semantic search "database migration strategy"
-thinkt-indexer semantic stats
-
-# Disable semantic search
-thinkt-indexer semantic disable
-```
-
-Semantic search is disabled by default. Enable it with `thinkt-indexer semantic enable` — the embedding model is downloaded automatically on first sync.
-
-Indexer data is stored in `~/.thinkt/dbs/indexer.duckdb` (metadata) and `~/.thinkt/embeddings/` (per-model embedding databases). Set `THINKT_HOME` to override `~/.thinkt`.
+Index data is stored at `~/.thinkt/dbs/index.db` (set `THINKT_HOME` to override `~/.thinkt`). The index stores metadata only — no message content is persisted.
 
 ## TUI Keyboard Shortcuts
 
@@ -471,7 +401,7 @@ thinkt collect --port 8785 --token mytoken  # With authentication
 thinkt-collector --port 8785 --token mytoken
 ```
 
-Collector data is stored in `~/.thinkt/collector.duckdb` (separate from the indexer).
+Collector data is stored in `~/.thinkt/collector.duckdb` (separate from the index).
 
 ### Relay
 
@@ -609,8 +539,7 @@ Contents of `THINKT_HOME`:
 |------|---------|
 | `config.json` | User configuration (theme, language, apps) |
 | `instances.json` | Running server instance registry |
-| `dbs/indexer.duckdb` | DuckDB indexer database |
-| `embeddings/` | Per-model embedding databases |
+| `dbs/index.db` | SQLite index (metadata) |
 | `machine_id` | Fallback machine fingerprint |
 
 ## Environment Variables
