@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Neomantra Corp / BrainSTM
 
 ARG THINKT_BUILD_BASE="golang"
-ARG THINKT_BUILD_TAG="1.25-trixie"
+ARG THINKT_BUILD_TAG="1.26-trixie"
 
 ARG THINKT_RUNTIME_BASE="debian"
 ARG THINKT_RUNTIME_TAG="trixie-slim"
@@ -18,7 +18,7 @@ ARG TARGETARCH
 ADD . /src
 WORKDIR /src
 
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/thinkt ./cmd/thinkt
+RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o bin/thinkt ./cmd/thinkt
 
 ##############################################################################
 # Runtime
@@ -27,7 +27,7 @@ RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/thinkt ./cmd/thinkt
 FROM ${THINKT_RUNTIME_BASE}:${THINKT_RUNTIME_TAG} AS runtime
 
 ARG THINKT_BUILD_BASE="golang"
-ARG THINKT_BUILD_TAG="1.25-trixie"
+ARG THINKT_BUILD_TAG="1.26-trixie"
 ARG THINKT_RUNTIME_BASE="debian"
 ARG THINKT_RUNTIME_TAG="trixie-slim"
 ARG TARGETARCH
