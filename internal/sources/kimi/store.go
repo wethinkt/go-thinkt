@@ -882,11 +882,16 @@ func (s *Store) scanProjects(sessionsDir string) ([]thinkt.Project, error) {
 
 		info, _ := entry.Info()
 
+		displayHash := hash
+		if len(displayHash) > 8 {
+			displayHash = displayHash[:8]
+		}
+
 		projects = append(projects, thinkt.Project{
 			ID:           hash,
-			Name:         hash[:8], // Show first 8 chars of hash
+			Name:         displayHash, // Show first 8 chars of hash
 			Path:         hash,
-			DisplayPath:  hash[:8] + "...",
+			DisplayPath:  displayHash + "...",
 			SessionCount: len(sessions),
 			LastModified: info.ModTime(),
 			Source:       thinkt.SourceKimi,

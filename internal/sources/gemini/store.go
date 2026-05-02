@@ -134,11 +134,15 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 		}
 
 		if sessionCount > 0 {
+			displayHash := projectHash
+			if len(displayHash) > 8 {
+				displayHash = displayHash[:8]
+			}
 			projects = append(projects, thinkt.Project{
 				ID:           projectHash,
 				Name:         projectName,
 				Path:         projectPath,
-				DisplayPath:  "gemini://" + projectHash[:8],
+				DisplayPath:  "gemini://" + displayHash,
 				SessionCount: sessionCount,
 				LastModified: lastMod,
 				Source:       thinkt.SourceGemini,
