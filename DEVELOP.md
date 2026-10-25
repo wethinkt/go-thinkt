@@ -71,7 +71,7 @@ go-thinkt/
 ├── Taskfile.yml                 # Build orchestration
 ├── .goreleaser.yml              # Release config
 ├── Dockerfile                   # Docker build
-└── go.mod                       # Go 1.25.8
+└── go.mod                       # Go 1.26.8
 ```
 
 ## Binary
@@ -82,11 +82,18 @@ Provides: TUI, project/session browsing, HTTP + MCP server, SQLite-backed search
 
 ## Prerequisites
 
-- **Go 1.25.8+**
+- **Go 1.26.8+**
 - **[Task](https://taskfile.dev/)** (build orchestration)
 - **swag** (Swagger codegen): `go install github.com/swaggo/swag/cmd/swag@v1.16.6`
 - **C compiler** (CGO is required for the SQLite index)
 - **Git submodules** must be initialized for the embedded web apps
+
+Application launching uses `nimbleterminal.dev/ntopenwith`. The system file-manager
+entries hand paths to its OS source; explicit editor and terminal commands use its
+detached launcher. Thinkt keeps its app IDs, enabled preferences, and path
+authorization. Project editor/terminal discovery still uses the platform lists in
+`internal/config/apps_*.go` (the OS source does not discover these for folders on
+macOS).
 
 ## Building
 
