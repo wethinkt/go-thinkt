@@ -94,7 +94,10 @@ func ClassifyType(t EntryType, attachmentType string) RecordClass {
 // an error only for malformed lines of an entry class. User and assistant
 // messages are pre-parsed; unknown types keep their raw line.
 func decodeRecord(line []byte) (*Entry, RecordClass, error) {
-	_, _, class := ClassifyLine(line)
+	_, _, class, err := classifyHead(line)
+	if err != nil {
+		return nil, class, err
+	}
 	if !class.IsEntry() {
 		return nil, class, nil
 	}
@@ -125,6 +128,13 @@ func decodeRecord(line []byte) (*Entry, RecordClass, error) {
 // ClassifyLine decodes only the type and attachment.type fields of a raw
 // line. A line that is not a JSON object classifies as bookkeeping.
 func ClassifyLine(line []byte) (EntryType, string, RecordClass) {
+	typ, att, class, _ := classifyHead(line)
+	return typ, att, class
+}
+
+// classifyHead is ClassifyLine with the decode error, so the Parser can keep
+// reporting malformed lines while the classification still drops them.
+func classifyHead(line []byte) (EntryType, string, RecordClass, error) {
 	var head struct {
 		Type       EntryType `json:"type"`
 		Attachment struct {
@@ -132,7 +142,7 @@ func ClassifyLine(line []byte) (EntryType, string, RecordClass) {
 		} `json:"attachment"`
 	}
 	if err := json.Unmarshal(line, &head); err != nil {
-		return "", "", ClassBookkeeping
+		return "", "", ClassBookkeeping, err
 	}
-	return head.Type, head.Attachment.Type, ClassifyType(head.Type, head.Attachment.Type)
+	return head.Type, head.Attachment.Type, ClassifyType(head.Type, head.Attachment.Type), nil
 }
