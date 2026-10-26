@@ -21,3 +21,8 @@ body.thinkt-page { margin: 0; padding: 24px; background: #10141c; color: #e3e8f0
 .thinkt-conversation table { border-collapse: collapse; width: 100%; }
 .thinkt-conversation th, .thinkt-conversation td { border: 1px solid #52637a; padding: 6px; text-align: left; }
 .thinkt-page .metadata, .thinkt-conversation .metadata, .thinkt-conversation .related, .thinkt-conversation .media-placeholder { color: #aab9cc; font-size: 13px; }
+.thinkt-conversation .block-child { margin-left: 1rem; }
+.thinkt-conversation pre.diff .diff-add { color: #9ae6b4; }
+.thinkt-conversation pre.diff .diff-del { color: #fa9494; }
+.thinkt-conversation pre.diff .diff-hunk { color: #9fc3ff; }
+.thinkt-conversation pre.diff .diff-file { color: #aab9cc; }

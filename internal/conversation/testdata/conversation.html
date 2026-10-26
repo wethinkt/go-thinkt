@@ -25,6 +25,11 @@ body.thinkt-page { margin: 0; padding: 24px; background: #10141c; color: #e3e8f0
 .thinkt-conversation table { border-collapse: collapse; width: 100%; }
 .thinkt-conversation th, .thinkt-conversation td { border: 1px solid #52637a; padding: 6px; text-align: left; }
 .thinkt-page .metadata, .thinkt-conversation .metadata, .thinkt-conversation .related, .thinkt-conversation .media-placeholder { color: #aab9cc; font-size: 13px; }
+.thinkt-conversation .block-child { margin-left: 1rem; }
+.thinkt-conversation pre.diff .diff-add { color: #9ae6b4; }
+.thinkt-conversation pre.diff .diff-del { color: #fa9494; }
+.thinkt-conversation pre.diff .diff-hunk { color: #9fc3ff; }
+.thinkt-conversation pre.diff .diff-file { color: #aab9cc; }
 </style></head><body class="thinkt-page">
 <h1>A conversation, in terminal and web</h1>
 <article class="thinkt-conversation">
@@ -37,7 +42,7 @@ body.thinkt-page { margin: 0; padding: 24px; background: #10141c; color: #e3e8f0
 </div>
 </section>
 </section>
-<section class="entry role-assistant" id="message-b900f53d84bd8b50dbde3216cdca342ae60fabcc71e0e07b8ddf4b3736a0d562" data-session-id="demo-session" data-entry-id="assistant-1" data-entry-index="1">
+<section class="entry role-assistant" id="message-b900f53d84bd8b50dbde3216cdca342ae60fabcc71e0e07b8ddf4b3736a0d562" data-session-id="demo-session" data-entry-id="assistant-1" data-entry-index="1" data-turn-id="msg_assistant-1">
 <h2 class="entry-header">Assistant</h2>
 <p class="metadata">2026-10-25T14:00:01Z · claude · example-model</p>
 <section class="block block-thinking" id="message-b900f53d84bd8b50dbde3216cdca342ae60fabcc71e0e07b8ddf4b3736a0d562-block-0">
@@ -101,7 +106,7 @@ The result stays here, in its original position.</code></pre>
 </div>
 </section>
 </section>
-<section class="entry role-assistant" id="message-771a67992209bf967787755a6af2477abb0e29beef1bfb0abf4e1571340cf177" data-session-id="demo-session" data-entry-id="assistant-2" data-entry-index="3">
+<section class="entry role-assistant" id="message-771a67992209bf967787755a6af2477abb0e29beef1bfb0abf4e1571340cf177" data-session-id="demo-session" data-entry-id="assistant-2" data-entry-index="3" data-turn-id="msg_assistant-2">
 <h2 class="entry-header">Assistant</h2>
 <p class="metadata">2026-10-25T14:00:03Z · claude</p>
 <section class="block block-text" id="message-771a67992209bf967787755a6af2477abb0e29beef1bfb0abf4e1571340cf177-block-0">
@@ -122,6 +127,48 @@ The result stays here, in its original position.</code></pre>
 <h3 class="image-header">Image</h3>
 <div class="block-body">
 <p class="media-placeholder" data-media-id="message-771a67992209bf967787755a6af2477abb0e29beef1bfb0abf4e1571340cf177-block-1">Image — image/png</p>
+</div>
+</section>
+</section>
+<section class="entry role-assistant" id="message-549b19b16fec12fed6a7091b45fa0650afc476ed1c7862ae271245775fb54f3c" data-session-id="demo-session" data-entry-id="assistant-3" data-entry-index="4" data-turn-id="msg_assistant-3">
+<h2 class="entry-header">Assistant</h2>
+<p class="metadata">2026-10-25T14:00:04Z · claude · example-model · general-purpose · test-driven-development</p>
+<section class="block block-tool_use" id="message-549b19b16fec12fed6a7091b45fa0650afc476ed1c7862ae271245775fb54f3c-block-0">
+<h3 class="tool_use-header">Tool: Edit</h3>
+<div class="block-body">
+<pre><code>{
+  &#34;file_path&#34;: &#34;internal/conversation/README.md&#34;,
+  &#34;new_string&#34;: &#34;new&#34;,
+  &#34;old_string&#34;: &#34;old&#34;
+}</code></pre>
+<p class="related"><a href="#message-60d3b19e0993aec8228d6467fc51977796a9c375aff2b504fcea1c07f5d2a281-block-0">Tool result</a></p>
+</div>
+</section>
+</section>
+<section class="entry role-user" id="message-60d3b19e0993aec8228d6467fc51977796a9c375aff2b504fcea1c07f5d2a281" data-session-id="demo-session" data-entry-id="tool-2" data-entry-index="5">
+<h2 class="entry-header">User</h2>
+<p class="metadata">2026-10-25T14:00:05Z · claude</p>
+<section class="block block-tool_result" id="message-60d3b19e0993aec8228d6467fc51977796a9c375aff2b504fcea1c07f5d2a281-block-0">
+<h3 class="tool_result-header">Tool result</h3>
+<div class="block-body">
+<pre><code>The file has been updated.</code></pre>
+<p class="related"><a href="#message-549b19b16fec12fed6a7091b45fa0650afc476ed1c7862ae271245775fb54f3c-block-0">Tool call</a></p>
+<section class="block block-child block-diff" id="message-60d3b19e0993aec8228d6467fc51977796a9c375aff2b504fcea1c07f5d2a281-block-0-child-0">
+<h3 class="diff-header">Diff</h3>
+<div class="block-body">
+<pre class="diff"><span class="diff-file">--- a/internal/conversation/README.md</span>
+<span class="diff-file">+++ b/internal/conversation/README.md</span>
+<span class="diff-hunk">@@ -1,1 +1,1 @@</span>
+<span class="diff-del">-old</span>
+<span class="diff-add">+new</span></pre>
+</div>
+</section>
+<section class="block block-child block-image" id="message-60d3b19e0993aec8228d6467fc51977796a9c375aff2b504fcea1c07f5d2a281-block-0-child-1">
+<h3 class="image-header">Image</h3>
+<div class="block-body">
+<p class="media-placeholder" data-media-id="message-60d3b19e0993aec8228d6467fc51977796a9c375aff2b504fcea1c07f5d2a281-block-0-child-1">Image — image/png</p>
+</div>
+</section>
 </div>
 </section>
 </section>

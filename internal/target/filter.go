@@ -49,6 +49,9 @@ func FilterEntries(entries []thinkt.Entry, filter ContentFilter) []thinkt.Entry 
 	}
 	var out []thinkt.Entry
 	for _, entry := range entries {
+		if entry.IsSecondary() && !filter.IncludeSystem {
+			continue
+		}
 		if !shouldIncludeEntry(entry.Role, filter) {
 			continue
 		}

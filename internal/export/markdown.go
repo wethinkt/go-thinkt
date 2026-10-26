@@ -68,6 +68,7 @@ func renderEntryMarkdown(entry *thinkt.Entry, toolResults map[string]*thinkt.Con
 					}
 					fmt.Fprintf(&b, "<details>\n<summary>%s</summary>\n\n```\n%s\n```\n\n</details>\n\n",
 						label, result.ToolResult)
+					writeToolResultChildren(&b, result)
 				}
 			case "tool_result":
 				if !inlined[block.ToolUseID] {
@@ -77,6 +78,7 @@ func renderEntryMarkdown(entry *thinkt.Entry, toolResults map[string]*thinkt.Con
 					}
 					fmt.Fprintf(&b, "<details>\n<summary>%s</summary>\n\n```\n%s\n```\n\n</details>\n\n",
 						label, block.ToolResult)
+					writeToolResultChildren(&b, &block)
 				}
 			case "image":
 				fmt.Fprintf(&b, "> Image: %s\n\n", block.MediaType)
@@ -93,6 +95,28 @@ func renderEntryMarkdown(entry *thinkt.Entry, toolResults map[string]*thinkt.Con
 	}
 
 	return b.String()
+}
+
+// writeToolResultChildren renders nested result parts: a diff as a diff
+// fence, text as text, media as a placeholder line.
+func writeToolResultChildren(b *strings.Builder, block *thinkt.ContentBlock) {
+	for _, child := range block.Children {
+		switch child.Type {
+		case thinkt.BlockTypeDiff:
+			fmt.Fprintf(b, "```diff\n%s```\n\n", child.Text)
+		case "text":
+			if child.Text != "" {
+				b.WriteString(child.Text)
+				b.WriteString("\n\n")
+			}
+		case "image", "document":
+			fmt.Fprintf(b, "> %s: %s\n\n", strings.ToUpper(child.Type[:1])+child.Type[1:], child.MediaType)
+		default:
+			if child.Text != "" {
+				fmt.Fprintf(b, "```\n%s\n```\n\n", child.Text)
+			}
+		}
+	}
 }
 
 func buildToolResultIndex(entries []thinkt.Entry) map[string]*thinkt.ContentBlock {

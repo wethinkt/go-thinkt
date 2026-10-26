@@ -31,6 +31,9 @@ type View struct {
 	HiddenKinds  map[string]bool
 	HiddenBlocks map[string]bool // block ID -> hidden, for role-specific filters
 	Collapsed    map[string]bool // block ID -> collapsed
+	// HiddenVisibility hides whole messages by their Visibility. WritePage
+	// defaults it to hide Secondary; WriteHTML with nil hides nothing.
+	HiddenVisibility map[thinkt.Visibility]bool
 }
 
 // WriteHTML writes an embeddable conversation fragment. Include Stylesheet in
@@ -53,7 +56,18 @@ func WriteHTML(w io.Writer, doc *Document, view View) error {
 		if !view.messageVisible(message) {
 			continue
 		}
-		fmt.Fprintf(&out, "<section class=\"entry role-%s\" id=\"%s\" data-session-id=\"%s\" data-entry-id=\"%s\" data-entry-index=\"%d\">\n", html.EscapeString(string(message.Role)), html.EscapeString(message.ID), html.EscapeString(message.Origin.SessionID), html.EscapeString(message.Origin.EntryUUID), message.Origin.EntryIndex)
+		class := "entry role-" + string(message.Role)
+		if message.Error != "" {
+			class += " is-error"
+		}
+		fmt.Fprintf(&out, "<section class=\"%s\" id=\"%s\" data-session-id=\"%s\" data-entry-id=\"%s\" data-entry-index=\"%d\"", html.EscapeString(class), html.EscapeString(message.ID), html.EscapeString(message.Origin.SessionID), html.EscapeString(message.Origin.EntryUUID), message.Origin.EntryIndex)
+		if message.TurnID != "" {
+			fmt.Fprintf(&out, " data-turn-id=\"%s\"", html.EscapeString(message.TurnID))
+		}
+		if message.Kind != "" {
+			fmt.Fprintf(&out, " data-kind=\"%s\"", html.EscapeString(string(message.Kind)))
+		}
+		out.WriteString(">\n")
 		fmt.Fprintf(&out, "<h2 class=\"entry-header\">%s</h2>\n", html.EscapeString(roleLabel(message.Role)))
 		var metadata []string
 		if !message.Timestamp.IsZero() {
@@ -65,6 +79,19 @@ func WriteHTML(w io.Writer, doc *Document, view View) error {
 		if message.Model != "" {
 			metadata = append(metadata, message.Model)
 		}
+		if a := message.Attribution; a != nil {
+			for _, part := range []string{a.Agent, a.Skill, a.Plugin, a.MCPServer} {
+				if part != "" {
+					metadata = append(metadata, part)
+				}
+			}
+		}
+		if message.StopReason == "refusal" {
+			metadata = append(metadata, "refusal")
+		}
+		if message.Error != "" {
+			metadata = append(metadata, "error: "+message.Error)
+		}
 		if len(metadata) > 0 {
 			fmt.Fprintf(&out, "<p class=\"metadata\">%s</p>\n", html.EscapeString(strings.Join(metadata, " · ")))
 		}
@@ -72,39 +99,9 @@ func WriteHTML(w io.Writer, doc *Document, view View) error {
 			if !view.blockVisible(block) {
 				continue
 			}
-			class := "block block-" + block.Kind
-			if block.IsError {
-				class += " is-error"
+			if err := writeBlock(&out, md, block, view, visible, false); err != nil {
+				return err
 			}
-			if view.Collapsed[block.ID] {
-				class += " is-collapsed"
-			}
-			fmt.Fprintf(&out, "<section class=\"%s\" id=\"%s\">\n", html.EscapeString(class), html.EscapeString(block.ID))
-			if block.Kind != "text" {
-				label := blockLabel(block)
-				if view.Collapsed[block.ID] {
-					label += " (collapsed)"
-				}
-				fmt.Fprintf(&out, "<h3 class=\"%s-header\">%s</h3>\n", html.EscapeString(block.Kind), html.EscapeString(label))
-			}
-			out.WriteString("<div class=\"block-body\">\n")
-			switch block.Kind {
-			case "text":
-				if err := md.Convert([]byte(block.Text), &out); err != nil {
-					return fmt.Errorf("conversation: Markdown: %w", err)
-				}
-			case "image", "document":
-				fmt.Fprintf(&out, "<p class=\"media-placeholder\" data-media-id=\"%s\">%s — %s</p>\n", html.EscapeString(block.ID), blockLabel(block), html.EscapeString(block.MediaType))
-			default:
-				fmt.Fprintf(&out, "<pre><code>%s</code></pre>\n", html.EscapeString(block.Text))
-			}
-			for _, related := range block.Related {
-				if !visible[related] {
-					continue
-				}
-				fmt.Fprintf(&out, "<p class=\"related\"><a href=\"#%s\">%s</a></p>\n", html.EscapeString(related), relatedLabel(block))
-			}
-			out.WriteString("</div>\n</section>\n")
 		}
 		out.WriteString("</section>\n")
 	}
@@ -113,12 +110,89 @@ func WriteHTML(w io.Writer, doc *Document, view View) error {
 	return err
 }
 
+// writeBlock renders one block and, nested inside its body, its children.
+func writeBlock(out *bytes.Buffer, md goldmark.Markdown, block Block, view View, visible map[string]bool, child bool) error {
+	class := "block"
+	if child {
+		class += " block-child"
+	}
+	class += " block-" + block.Kind
+	if block.IsError {
+		class += " is-error"
+	}
+	if view.Collapsed[block.ID] {
+		class += " is-collapsed"
+	}
+	fmt.Fprintf(out, "<section class=\"%s\" id=\"%s\">\n", html.EscapeString(class), html.EscapeString(block.ID))
+	if block.Kind != "text" {
+		label := blockLabel(block)
+		if view.Collapsed[block.ID] {
+			label += " (collapsed)"
+		}
+		fmt.Fprintf(out, "<h3 class=\"%s-header\">%s</h3>\n", html.EscapeString(block.Kind), html.EscapeString(label))
+	}
+	out.WriteString("<div class=\"block-body\">\n")
+	switch block.Kind {
+	case "text":
+		if err := md.Convert([]byte(block.Text), out); err != nil {
+			return fmt.Errorf("conversation: Markdown: %w", err)
+		}
+	case "image", "document":
+		fmt.Fprintf(out, "<p class=\"media-placeholder\" data-media-id=\"%s\">%s — %s</p>\n", html.EscapeString(block.ID), blockLabel(block), html.EscapeString(block.MediaType))
+	case thinkt.BlockTypeDiff:
+		writeDiff(out, block.Text)
+	default:
+		fmt.Fprintf(out, "<pre><code>%s</code></pre>\n", html.EscapeString(block.Text))
+	}
+	for _, related := range block.Related {
+		if !visible[related] {
+			continue
+		}
+		fmt.Fprintf(out, "<p class=\"related\"><a href=\"#%s\">%s</a></p>\n", html.EscapeString(related), relatedLabel(block))
+	}
+	for _, nested := range block.Children {
+		if !view.blockVisible(nested) {
+			continue
+		}
+		if err := writeBlock(out, md, nested, view, visible, true); err != nil {
+			return err
+		}
+	}
+	out.WriteString("</div>\n</section>\n")
+	return nil
+}
+
+// writeDiff renders unified diff text with one classed span per line. CSS
+// only; no scripting.
+func writeDiff(out *bytes.Buffer, text string) {
+	out.WriteString("<pre class=\"diff\">")
+	lines := strings.Split(strings.TrimSuffix(text, "\n"), "\n")
+	for i, line := range lines {
+		class := "diff-ctx"
+		switch {
+		case strings.HasPrefix(line, "@@"):
+			class = "diff-hunk"
+		case strings.HasPrefix(line, "+++"), strings.HasPrefix(line, "---"):
+			class = "diff-file"
+		case strings.HasPrefix(line, "+"):
+			class = "diff-add"
+		case strings.HasPrefix(line, "-"):
+			class = "diff-del"
+		}
+		if i > 0 {
+			out.WriteByte('\n')
+		}
+		fmt.Fprintf(out, "<span class=\"%s\">%s</span>", class, html.EscapeString(line))
+	}
+	out.WriteString("</pre>\n")
+}
+
 func (v View) blockVisible(block Block) bool {
 	return !v.HiddenKinds[block.Kind] && !v.HiddenBlocks[block.ID]
 }
 
 func (v View) messageVisible(message Message) bool {
-	if v.HiddenRoles[message.Role] {
+	if v.HiddenRoles[message.Role] || v.HiddenVisibility[message.Visibility] {
 		return false
 	}
 	if len(message.Blocks) == 0 {
@@ -135,6 +209,9 @@ func (v View) messageVisible(message Message) bool {
 // WritePage writes a self-contained page using the same fragment and stylesheet
 // a terminal host can pass to nthtml. Content is expanded unless View says otherwise.
 func WritePage(w io.Writer, doc *Document, view View) error {
+	if view.HiddenVisibility == nil {
+		view.HiddenVisibility = map[thinkt.Visibility]bool{thinkt.VisibilitySecondary: true}
+	}
 	var out bytes.Buffer
 	out.WriteString("<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n")
 	fmt.Fprintf(&out, "<title>%s</title>\n<style>%s</style></head><body class=\"thinkt-page\">\n<h1>%s</h1>\n", html.EscapeString(doc.Title), stylesheet, html.EscapeString(doc.Title))
@@ -182,6 +259,8 @@ func blockLabel(block Block) string {
 		return "Image"
 	case "document":
 		return "Document"
+	case thinkt.BlockTypeDiff:
+		return "Diff"
 	default:
 		return "Content: " + block.Kind
 	}

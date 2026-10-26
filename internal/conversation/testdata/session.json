@@ -13,10 +13,24 @@
     "model": "example-model",
     "timestamp": "2026-10-25T14:00:01Z",
     "content_blocks": [
-      {"type": "thinking", "thinking": "The conversation already has structure. I can preserve its roles and source anchors, then use one HTML document for both terminal and web."},
-      {"type": "text", "text": "### A shared conversation document\n\nWe can keep **content**, *presentation*, and `layout` separate.\n\n| Layer | Responsibility |\n| --- | --- |\n| thinkt | Conversation identity and roles |\n| HTML | Shared structure and styling |\n| nthtml | Terminal layout and display |\n\n```go\ndoc, err := conversation.Build(entries, opts)\nif err != nil {\n    return err\n}\n```"},
-      {"type": "tool_use", "tool_use_id": "read-1", "tool_name": "Read", "tool_input": {"file_path": "internal/tui/renderer_generic.go"}}
-    ]
+      {
+        "type": "thinking",
+        "thinking": "The conversation already has structure. I can preserve its roles and source anchors, then use one HTML document for both terminal and web."
+      },
+      {
+        "type": "text",
+        "text": "### A shared conversation document\n\nWe can keep **content**, *presentation*, and `layout` separate.\n\n| Layer | Responsibility |\n| --- | --- |\n| thinkt | Conversation identity and roles |\n| HTML | Shared structure and styling |\n| nthtml | Terminal layout and display |\n\n```go\ndoc, err := conversation.Build(entries, opts)\nif err != nil {\n    return err\n}\n```"
+      },
+      {
+        "type": "tool_use",
+        "tool_use_id": "read-1",
+        "tool_name": "Read",
+        "tool_input": {
+          "file_path": "internal/tui/renderer_generic.go"
+        }
+      }
+    ],
+    "turn_id": "msg_assistant-1"
   },
   {
     "uuid": "tool-1",
@@ -24,7 +38,12 @@
     "source": "claude",
     "timestamp": "2026-10-25T14:00:02Z",
     "content_blocks": [
-      {"type": "tool_result", "tool_use_id": "read-1", "tool_result": "Permission denied: the file could not be read.\nThe result stays here, in its original position.", "is_error": true}
+      {
+        "type": "tool_result",
+        "tool_use_id": "read-1",
+        "tool_result": "Permission denied: the file could not be read.\nThe result stays here, in its original position.",
+        "is_error": true
+      }
     ]
   },
   {
@@ -33,8 +52,79 @@
     "source": "claude",
     "timestamp": "2026-10-25T14:00:03Z",
     "content_blocks": [
-      {"type": "text", "text": "> The same semantic content should survive a change of rendering mode.\n\n- Preserve message anchors.\n- Preserve tool call/result links.\n- Reflow for the available width.\n\nSee [the renderer](https://nimbleterminal.dev/nthtml).\n\n![Layout sketch](https://example.invalid/layout.png)"},
-      {"type": "image", "media_type": "image/png", "media_data": "fixture-image-payload"}
+      {
+        "type": "text",
+        "text": "> The same semantic content should survive a change of rendering mode.\n\n- Preserve message anchors.\n- Preserve tool call/result links.\n- Reflow for the available width.\n\nSee [the renderer](https://nimbleterminal.dev/nthtml).\n\n![Layout sketch](https://example.invalid/layout.png)"
+      },
+      {
+        "type": "image",
+        "media_type": "image/png",
+        "media_data": "fixture-image-payload"
+      }
+    ],
+    "turn_id": "msg_assistant-2"
+  },
+  {
+    "uuid": "assistant-3",
+    "role": "assistant",
+    "source": "claude",
+    "model": "example-model",
+    "timestamp": "2026-10-25T14:00:04Z",
+    "turn_id": "msg_assistant-3",
+    "attribution": {
+      "agent": "general-purpose",
+      "skill": "test-driven-development"
+    },
+    "stop_reason": "tool_use",
+    "content_blocks": [
+      {
+        "type": "tool_use",
+        "tool_use_id": "edit-1",
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "internal/conversation/README.md",
+          "old_string": "old",
+          "new_string": "new"
+        }
+      }
     ]
+  },
+  {
+    "uuid": "tool-2",
+    "role": "user",
+    "source": "claude",
+    "timestamp": "2026-10-25T14:00:05Z",
+    "content_blocks": [
+      {
+        "type": "tool_result",
+        "tool_use_id": "edit-1",
+        "tool_result": "The file has been updated.",
+        "children": [
+          {
+            "type": "diff",
+            "text": "--- a/internal/conversation/README.md\n+++ b/internal/conversation/README.md\n@@ -1,1 +1,1 @@\n-old\n+new\n"
+          },
+          {
+            "type": "image",
+            "media_type": "image/png",
+            "media_data": "fixture-screenshot-payload"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "uuid": "system-1",
+    "role": "system",
+    "source": "claude",
+    "timestamp": "2026-10-25T14:00:06Z",
+    "kind": "turn_duration",
+    "subtype": "turn_duration",
+    "visibility": "secondary",
+    "text": "turn_duration",
+    "metadata": {
+      "duration_ms": 6000,
+      "message_count": 6
+    }
   }
 ]
