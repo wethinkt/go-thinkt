@@ -81,8 +81,8 @@ func TestMigrateRecordsVersion(t *testing.T) {
 	if err := db.QueryRow("SELECT max(version) FROM migrations").Scan(&version); err != nil {
 		t.Fatalf("query migration version: %v", err)
 	}
-	if version != 1 {
-		t.Fatalf("version = %d, want 1", version)
+	if version != SchemaVersion {
+		t.Fatalf("version = %d, want %d", version, SchemaVersion)
 	}
 }
 
@@ -139,5 +139,41 @@ func TestDefaultPath(t *testing.T) {
 	}
 	if !strings.HasSuffix(path, filepath.Join("dbs", "index.db")) {
 		t.Fatalf("unexpected path: %s", path)
+	}
+}
+
+func TestMigrateToVersion2AddsParserVersion(t *testing.T) {
+	dir := t.TempDir()
+	db, err := Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer db.Close()
+	if SchemaVersion < 2 {
+		t.Fatalf("SchemaVersion = %d, want >= 2", SchemaVersion)
+	}
+	rows, err := db.Query("PRAGMA table_info(sync_state)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	found := false
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notnull, pk int
+		var dflt any
+		if err := rows.Scan(&cid, &name, &typ, &notnull, &dflt, &pk); err != nil {
+			t.Fatal(err)
+		}
+		if name == "parser_version" {
+			found = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if !found {
+		t.Fatal("sync_state has no parser_version column")
 	}
 }

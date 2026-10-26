@@ -290,9 +290,9 @@ func (i *Ingester) writeSession(ctx context.Context, p parsedSession) error {
 
 	// Sync state — last_mod_time is Unix epoch (INTEGER).
 	if _, err := tx.ExecContext(ctx, `
-		INSERT OR REPLACE INTO sync_state (file_path, last_mod_time, file_size, lines_read, last_synced)
-		VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`,
-		p.meta.FullPath, p.meta.ModifiedAt.Unix(), p.meta.FileSize, len(p.entries),
+		INSERT OR REPLACE INTO sync_state (file_path, last_mod_time, file_size, lines_read, parser_version, last_synced)
+		VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`,
+		p.meta.FullPath, p.meta.ModifiedAt.Unix(), p.meta.FileSize, len(p.entries), thinkt.ParserVersion,
 	); err != nil {
 		return fmt.Errorf("update sync state: %w", err)
 	}
@@ -304,9 +304,10 @@ func (i *Ingester) writeSession(ctx context.Context, p parsedSession) error {
 func (i *Ingester) ShouldSyncSession(meta thinkt.SessionMeta) (bool, error) {
 	var lastModUnix int64
 	var lastSize int64
+	var parserVersion int
 
-	err := i.db.QueryRow(`SELECT last_mod_time, file_size FROM sync_state WHERE file_path = ?`,
-		meta.FullPath).Scan(&lastModUnix, &lastSize)
+	err := i.db.QueryRow(`SELECT last_mod_time, file_size, parser_version FROM sync_state WHERE file_path = ?`,
+		meta.FullPath).Scan(&lastModUnix, &lastSize, &parserVersion)
 	if err == db.ErrNoRows {
 		return true, nil
 	}
@@ -314,5 +315,6 @@ func (i *Ingester) ShouldSyncSession(meta thinkt.SessionMeta) (bool, error) {
 		return false, err
 	}
 
-	return meta.ModifiedAt.Unix() > lastModUnix || meta.FileSize != lastSize, nil
+	// A parser change makes every earlier ingestion stale; re-ingest lazily.
+	return meta.ModifiedAt.Unix() > lastModUnix || meta.FileSize != lastSize || parserVersion != thinkt.ParserVersion, nil
 }
