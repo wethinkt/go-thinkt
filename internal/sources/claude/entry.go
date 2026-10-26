@@ -54,24 +54,38 @@ type Entry struct {
 	Message     json.RawMessage `json:"message,omitempty"`
 
 	// User entry fields
-	ThinkingMetadata          *ThinkingMetadata `json:"thinkingMetadata,omitempty"`
-	Todos                     []any             `json:"todos,omitempty"`
-	PermissionMode            string            `json:"permissionMode,omitempty"`
-	ToolUseResult             json.RawMessage   `json:"toolUseResult,omitempty"` // string | []any | object
-	SourceToolAssistantUUID   string            `json:"sourceToolAssistantUUID,omitempty"`
-	ImagePasteIDs             []any             `json:"imagePasteIds,omitempty"`
-	IsMeta                    bool              `json:"isMeta,omitempty"`
-	IsVisibleInTranscriptOnly bool              `json:"isVisibleInTranscriptOnly,omitempty"`
-	IsCompactSummary          bool              `json:"isCompactSummary,omitempty"`
+	ThinkingMetadata          *ThinkingMetadata       `json:"thinkingMetadata,omitempty"`
+	Todos                     []any                   `json:"todos,omitempty"`
+	PermissionMode            string                  `json:"permissionMode,omitempty"`
+	ToolUseResult             json.RawMessage         `json:"toolUseResult,omitempty"` // string | []any | object
+	SourceToolAssistantUUID   string                  `json:"sourceToolAssistantUUID,omitempty"`
+	ImagePasteIDs             []any                   `json:"imagePasteIds,omitempty"`
+	IsMeta                    bool                    `json:"isMeta,omitempty"`
+	IsVisibleInTranscriptOnly bool                    `json:"isVisibleInTranscriptOnly,omitempty"`
+	IsCompactSummary          bool                    `json:"isCompactSummary,omitempty"`
+	PromptID                  string                  `json:"promptId,omitempty"`
+	PermissionDecision        *PermissionDecisionJSON `json:"permissionDecision,omitempty"`
+	ToolDenialKind            string                  `json:"toolDenialKind,omitempty"`
+	TurnOrigin                string                  `json:"turnOrigin,omitempty"`
+	PromptSource              string                  `json:"promptSource,omitempty"`
 
 	// Assistant entry fields
-	RequestID         string `json:"requestId,omitempty"`
-	Error             string `json:"error,omitempty"`
-	IsApiErrorMessage bool   `json:"isApiErrorMessage,omitempty"`
+	RequestID            string `json:"requestId,omitempty"`
+	Error                string `json:"error,omitempty"`
+	IsApiErrorMessage    bool   `json:"isApiErrorMessage,omitempty"`
+	Effort               string `json:"effort,omitempty"`
+	RequestedModel       string `json:"requestedModel,omitempty"`
+	ThinkingDurationMs   int    `json:"thinkingDurationMs,omitempty"`
+	AttributionAgent     string `json:"attributionAgent,omitempty"`
+	AttributionSkill     string `json:"attributionSkill,omitempty"`
+	AttributionPlugin    string `json:"attributionPlugin,omitempty"`
+	AttributionMcpServer string `json:"attributionMcpServer,omitempty"`
+	AttributionMcpTool   string `json:"attributionMcpTool,omitempty"`
 
 	// System entry fields
 	Subtype           string          `json:"subtype,omitempty"`
 	DurationMs        int             `json:"durationMs,omitempty"`
+	MessageCount      int             `json:"messageCount,omitempty"`
 	Level             string          `json:"level,omitempty"`
 	LogicalParentUUID string          `json:"logicalParentUuid,omitempty"`
 	CompactMetadata   json.RawMessage `json:"compactMetadata,omitempty"`
@@ -93,6 +107,13 @@ type Entry struct {
 
 	// Queue operation fields
 	Operation string `json:"operation,omitempty"`
+
+	// File history delta fields
+	TrackingPath string `json:"trackingPath,omitempty"`
+
+	// Raw holds the original line for record types the parser has never seen,
+	// so the entry can show it. Readers set it only for ClassUnknown lines.
+	Raw json.RawMessage `json:"-"`
 
 	// Parsed messages (lazily populated on first access via GetUserMessage/GetAssistantMessage)
 	userMessage      *UserMessage
@@ -240,6 +261,18 @@ type Usage struct {
 	CacheCreation            *CacheCreation `json:"cache_creation,omitempty"`
 	ServerToolUse            any            `json:"server_tool_use,omitempty"`
 	ServiceTier              string         `json:"service_tier,omitempty"`
+	Speed                    string         `json:"speed,omitempty"`
+	OutputTokensDetails      *struct {
+		ThinkingTokens int `json:"thinking_tokens,omitempty"`
+	} `json:"output_tokens_details,omitempty"`
+}
+
+// PermissionDecisionJSON is the permissionDecision object on user records.
+type PermissionDecisionJSON struct {
+	Decision   string `json:"decision,omitempty"`
+	Source     string `json:"source,omitempty"`
+	ReasonType string `json:"reasonType,omitempty"`
+	ReasonCode string `json:"reasonCode,omitempty"`
 }
 
 // CacheCreation contains cache creation token details.

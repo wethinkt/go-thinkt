@@ -555,9 +555,44 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 				entry.ContentBlocks = convertUserBlocks(msg.Content.Blocks)
 			}
 		}
+		entry.PromptID = e.PromptID
+		if e.IsCompactSummary {
+			entry.Kind = thinkt.KindCompactSummary
+		} else {
+			entry.Kind = detectUserKind(entry.Text, e.IsMeta)
+		}
+		entry.Visibility = userKindVisibility(entry.Kind)
+		if e.PermissionDecision != nil || e.ToolDenialKind != "" {
+			perm := &thinkt.PermissionDecision{DenialKind: e.ToolDenialKind}
+			if d := e.PermissionDecision; d != nil {
+				perm.Decision, perm.Source, perm.ReasonType, perm.ReasonCode = d.Decision, d.Source, d.ReasonType, d.ReasonCode
+			}
+			entry.Permission = perm
+		}
+		if e.TurnOrigin != "" {
+			entry.Metadata["turn_origin"] = e.TurnOrigin
+		}
+		if e.PromptSource != "" {
+			entry.Metadata["prompt_source"] = e.PromptSource
+		}
 	case EntryTypeAssistant:
+		entry.Effort = e.Effort
+		entry.RequestedModel = e.RequestedModel
+		entry.Attribution = attribution(e)
+		if e.ThinkingDurationMs > 0 {
+			entry.Metadata["thinking_duration_ms"] = e.ThinkingDurationMs
+		}
+		if e.IsApiErrorMessage || e.Error != "" {
+			entry.Error = e.Error
+			entry.Kind = thinkt.KindAPIError
+			entry.Visibility = thinkt.VisibilitySecondary
+		}
 		if msg := e.GetAssistantMessage(); msg != nil {
 			entry.Model = msg.Model
+			entry.TurnID = msg.ID
+			if msg.StopReason != nil {
+				entry.StopReason = *msg.StopReason
+			}
 			entry.ContentBlocks = convertAssistantBlocks(msg.Content)
 			// Text is the joined text blocks, so text-only consumers see the reply.
 			for _, cb := range entry.ContentBlocks {
@@ -574,13 +609,47 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 					OutputTokens:             msg.Usage.OutputTokens,
 					CacheCreationInputTokens: msg.Usage.CacheCreationInputTokens,
 					CacheReadInputTokens:     msg.Usage.CacheReadInputTokens,
+					ServiceTier:              msg.Usage.ServiceTier,
+					Speed:                    msg.Usage.Speed,
+				}
+				if d := msg.Usage.OutputTokensDetails; d != nil {
+					entry.Usage.ThinkingTokens = d.ThinkingTokens
 				}
 			}
 		}
+	case EntryTypeSystem:
+		entry.Subtype = e.Subtype
+		entry.Kind, entry.Visibility = systemKind(e.Subtype)
+		entry.Text = e.Content
+		if entry.Text == "" {
+			entry.Text = e.Subtype
+		}
+		switch e.Subtype {
+		case "compact_boundary":
+			entry.Compaction = compactionInfo(e.CompactMetadata, e.LogicalParentUUID)
+		case "turn_duration":
+			entry.Metadata["duration_ms"] = e.DurationMs
+			entry.Metadata["message_count"] = e.MessageCount
+		}
+	case EntryTypeQueueOperation:
+		entry.Kind = thinkt.KindQueueOperation
+		entry.Subtype = e.Operation
+		entry.Visibility = thinkt.VisibilitySecondary
+		entry.Text = e.Content
 	case EntryTypeFileHistorySnapshot:
 		entry.Text = fileHistorySnapshotText(e)
+	case EntryTypeFileHistoryDelta:
+		entry.Visibility = thinkt.VisibilitySecondary
+		entry.Text = "File History Delta: " + e.TrackingPath
 	case EntryTypeProgress:
 		entry.Text = progressText(e)
+	default:
+		if ClassifyType(e.Type, "") == ClassUnknown {
+			entry.Kind = thinkt.KindUnknown
+			entry.Subtype = string(e.Type)
+			entry.Visibility = thinkt.VisibilitySecondary
+			entry.Text = rawText(e.Raw)
+		}
 	}
 
 	// Copy agent ID for team/subagent correlation
@@ -611,7 +680,7 @@ func convertRole(t EntryType) thinkt.Role {
 		return thinkt.RoleSummary
 	case EntryTypeProgress:
 		return thinkt.RoleProgress
-	case EntryTypeFileHistorySnapshot:
+	case EntryTypeFileHistorySnapshot, EntryTypeFileHistoryDelta:
 		return thinkt.RoleCheckpoint
 	default:
 		return thinkt.RoleSystem
