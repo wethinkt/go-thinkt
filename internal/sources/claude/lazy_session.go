@@ -38,6 +38,16 @@ type LazySession struct {
 
 	// Background line count for progress estimation
 	totalEntries atomic.Int64 // 0 = unknown/scanning, >0 = known
+
+	unknown unknownTally // record types the classifier has never seen
+}
+
+// UnknownTypes returns how many records of each never-seen type were read
+// so far, or nil when every record had a known type.
+func (ls *LazySession) UnknownTypes() map[EntryType]int {
+	ls.mu.Lock()
+	defer ls.mu.Unlock()
+	return ls.unknown.snapshot()
 }
 
 // OpenLazySession opens a session file and preloads metadata.
@@ -118,6 +128,9 @@ func (ls *LazySession) readNextEntry() (*Entry, error) {
 	if decodeErr != nil || entry == nil {
 		// Malformed, bookkeeping, or session-state line: nothing to append.
 		return nil, nil
+	}
+	if class == ClassUnknown {
+		ls.unknown.note(entry.Type, "path", ls.Path, "offset", ls.bytesRead)
 	}
 	return entry, nil
 }

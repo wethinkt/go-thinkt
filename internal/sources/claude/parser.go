@@ -17,6 +17,7 @@ type Parser struct {
 	scanner *bufio.Scanner
 	lineNum int
 	errors  []error
+	unknown unknownTally
 }
 
 // NewParser creates a parser from an io.Reader.
@@ -51,13 +52,16 @@ func (p *Parser) NextEntry() (*Entry, error) {
 		}
 
 		// Bookkeeping and session-state records are not conversation entries.
-		entry, _, err := decodeRecord(line)
+		entry, class, err := decodeRecord(line)
 		if err != nil {
 			p.errors = append(p.errors, fmt.Errorf("line %d: %w", p.lineNum, err))
 			continue
 		}
 		if entry == nil {
 			continue
+		}
+		if class == ClassUnknown {
+			p.unknown.note(entry.Type, "line", p.lineNum)
 		}
 		return entry, nil
 	}
@@ -201,6 +205,12 @@ func (p *Parser) ReadAllPrompts() ([]Prompt, error) {
 // Errors returns all parse errors encountered.
 func (p *Parser) Errors() []error {
 	return p.errors
+}
+
+// UnknownTypes returns how many records of each never-seen type were read,
+// or nil when every record had a known type.
+func (p *Parser) UnknownTypes() map[EntryType]int {
+	return p.unknown.snapshot()
 }
 
 // LineNum returns the current line number.
