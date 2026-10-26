@@ -1,5 +1,12 @@
 # Claude Code Local Storage Structure
 
+> **Staleness note (2026-10-26):** this report predates Claude Code 2.1.3xx. The
+> `debug/`, `todos/`, `statsig/` directories and `sessions-index.json` are no
+> longer present; `subagents/`, `tool-results/`, `session-env/`, `sessions/`,
+> `memory/`, and many new transcript record types have been added. See
+> [CLAUDE_TRANSCRIPT_SCHEMA.md](./CLAUDE_TRANSCRIPT_SCHEMA.md) for the current
+> record and sidecar survey until this layout section is rewritten.
+
 ## Overview
 Claude Code stores configuration, session history, and supporting data locally across multiple locations. The architecture balances **local persistence with cloud integration**, storing complete conversation history locally while managing some state server-side.
 

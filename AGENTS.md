@@ -449,6 +449,7 @@ Persisted research reports are available in `etc/reports`.
 | [etc/reports/thinking-tracer.md](./etc/reports/thinking-tracer.md) | Architecture of the thinking-tracer visualization app |
 | [etc/reports/go-patterns.md](./etc/reports/go-patterns.md) | Go project conventions |
 | [etc/reports/CLAUDE_STRUCTURE.md](./etc/reports/CLAUDE_STRUCTURE.md) | Claude Code storage structure |
+| [etc/reports/CLAUDE_TRANSCRIPT_SCHEMA.md](./etc/reports/CLAUDE_TRANSCRIPT_SCHEMA.md) | Claude Code transcript record types and fields as observed in Oct 2026 (CLI 2.1.3xx) |
 | [etc/reports/KIMI_STRUCTURE.md](./etc/reports/KIMI_STRUCTURE.md) | Kimi Code storage structure |
 | [etc/reports/SESSION_STORAGE.md](./etc/reports/SESSION_STORAGE.md) | Session storage comparison |
 | [etc/reports/ONTOLOGY_ANALYSIS.md](./etc/reports/ONTOLOGY_ANALYSIS.md) | Data model ontology |
