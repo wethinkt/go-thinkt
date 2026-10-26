@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/index/db"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -267,6 +268,28 @@ func (i *Ingester) writeSession(ctx context.Context, p parsedSession) error {
 			idx+1,
 		); err != nil {
 			return fmt.Errorf("insert entry %s: %w", entry.UUID, err)
+		}
+	}
+
+	// Attachment entries, for quick access without full-text search. Rows are
+	// replaced per session so re-ingestion never duplicates them.
+	if _, err := tx.ExecContext(ctx, "DELETE FROM entry_attachments WHERE session_id = ?", p.meta.ID); err != nil {
+		return fmt.Errorf("clear old attachments: %w", err)
+	}
+	for idx, entry := range p.entries {
+		if entry.Kind != thinkt.KindAttachment {
+			continue
+		}
+		label, _, _ := strings.Cut(entry.Text, "\n")
+		if len(label) > 200 {
+			label = label[:200]
+		}
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO entry_attachments (session_id, entry_index, kind, label, timestamp)
+			VALUES (?, ?, ?, ?, ?)`,
+			p.meta.ID, idx, entry.Subtype, label, entry.Timestamp.UTC().Format(time.RFC3339Nano),
+		); err != nil {
+			return fmt.Errorf("insert attachment %s: %w", entry.UUID, err)
 		}
 	}
 
