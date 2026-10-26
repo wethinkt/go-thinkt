@@ -636,6 +636,25 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 		entry.Subtype = e.Operation
 		entry.Visibility = thinkt.VisibilitySecondary
 		entry.Text = e.Content
+	case EntryTypeAttachment:
+		var head struct {
+			Type string `json:"type"`
+		}
+		_ = json.Unmarshal(e.Attachment, &head)
+		attachmentType := head.Type
+		if e.RenderedRole == "user" {
+			entry.Role = thinkt.RoleUser
+		}
+		entry.Kind = thinkt.KindAttachment
+		entry.Subtype = attachmentType
+		entry.Visibility = thinkt.VisibilitySecondary
+		rendered := make([]string, 0, len(e.Rendered))
+		for _, r := range e.Rendered {
+			rendered = append(rendered, r.Content)
+		}
+		entry.Text = attachmentText(attachmentType, e.Attachment, rendered)
+		entry.ParentToolUseID = attachmentToolUseID(e.Attachment)
+		entry.Metadata["attachment_type"] = attachmentType
 	case EntryTypeFileHistorySnapshot:
 		entry.Text = fileHistorySnapshotText(e)
 	case EntryTypeFileHistoryDelta:

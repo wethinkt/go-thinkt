@@ -111,6 +111,11 @@ type Entry struct {
 	// File history delta fields
 	TrackingPath string `json:"trackingPath,omitempty"`
 
+	// Attachment fields
+	Attachment   json.RawMessage      `json:"attachment,omitempty"`
+	Rendered     []renderedAttachment `json:"rendered,omitempty"`
+	RenderedRole string               `json:"renderedRole,omitempty"`
+
 	// Raw holds the original line for record types the parser has never seen,
 	// so the entry can show it. Readers set it only for ClassUnknown lines.
 	Raw json.RawMessage `json:"-"`
