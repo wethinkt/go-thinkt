@@ -112,19 +112,5 @@
         ]
       }
     ]
-  },
-  {
-    "uuid": "system-1",
-    "role": "system",
-    "source": "claude",
-    "timestamp": "2026-10-25T14:00:06Z",
-    "kind": "turn_duration",
-    "subtype": "turn_duration",
-    "visibility": "secondary",
-    "text": "turn_duration",
-    "metadata": {
-      "duration_ms": 6000,
-      "message_count": 6
-    }
   }
 ]
