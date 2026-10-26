@@ -10,6 +10,41 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
+// Non-interactive listings (sessions list --json) cannot wait for the
+// background enrichment callback; WithEnrichSync scans stale sessions before
+// returning so titles and counts are present on a cold cache.
+func TestListSessionsEnrichSyncFillsTitlesOnColdCache(t *testing.T) {
+	base := t.TempDir()
+	projectDir := filepath.Join(base, "projects", "-home-dev-project")
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(modernFixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(projectDir, "11111111-1111-4111-8111-111111111111.jsonl"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store := NewStoreWithCacheDir(base, filepath.Join(base, "cache"))
+
+	plain, err := store.ListSessions(context.Background(), projectDir)
+	if err != nil || len(plain) != 1 {
+		t.Fatalf("plain list: %v %v", plain, err)
+	}
+	if plain[0].Title != "" {
+		t.Fatalf("precondition: cold cache must not have a title yet, got %q", plain[0].Title)
+	}
+
+	synced, err := store.ListSessions(context.Background(), projectDir, thinkt.WithEnrichSync())
+	if err != nil || len(synced) != 1 {
+		t.Fatalf("sync list: %v %v", synced, err)
+	}
+	if synced[0].Title != "Final title" || synced[0].EntryCount != modernFixtureEntries || synced[0].LastPrompt != "hello" {
+		t.Fatalf("sync enrichment missing: %+v", synced[0])
+	}
+}
+
 func TestStoreOpenSessionModernFixture(t *testing.T) {
 	base := t.TempDir()
 	projectDir := filepath.Join(base, "projects", "-home-dev-project")

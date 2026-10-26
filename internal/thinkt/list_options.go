@@ -11,6 +11,7 @@ type ListSessionsOption func(*ListSessionsConfig)
 // ListSessionsConfig holds resolved options for ListSessions.
 type ListSessionsConfig struct {
 	EnrichCallback func(projectID string, sessions []SessionMeta)
+	EnrichSync     bool
 }
 
 // ResolveListOptions applies option functions and returns the config.
@@ -32,6 +33,18 @@ func ResolveListOptions(opts []ListSessionsOption) ListSessionsConfig {
 func WithEnrich(cb func(projectID string, sessions []SessionMeta)) ListSessionsOption {
 	return func(cfg *ListSessionsConfig) {
 		cfg.EnrichCallback = cb
+	}
+}
+
+// WithEnrichSync asks the store to fill display metadata (title, prompt,
+// entry count) for every listed session before returning, scanning files
+// whose metadata is not cached. Non-interactive callers such as
+// `sessions list --json` use it because they cannot wait for the
+// WithEnrich callback. Stores that already populate metadata eagerly
+// ignore it.
+func WithEnrichSync() ListSessionsOption {
+	return func(cfg *ListSessionsConfig) {
+		cfg.EnrichSync = true
 	}
 }
 

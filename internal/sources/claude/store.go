@@ -192,6 +192,17 @@ func (s *Store) ListSessions(ctx context.Context, projectID string, opts ...thin
 		mc.MergeInto(&sessions[i])
 	}
 
+	// Synchronous enrichment: scan every uncached session now. enrichSessionMeta
+	// is a no-op for sessions the cache already covers.
+	if cfg.EnrichSync {
+		for i := range sessions {
+			if sessions[i].FullPath != "" {
+				s.enrichSessionMeta(&sessions[i])
+			}
+		}
+		s.cache.SetSessions(projectID, sessions, nil)
+	}
+
 	// If enrichment requested, scan stale sessions in background.
 	if cfg.EnrichCallback != nil {
 		s.startEnrichment(ctx, projectID, sessions, mc, cfg.EnrichCallback)

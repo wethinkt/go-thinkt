@@ -261,8 +261,14 @@ func runSessionsList(cmd *cobra.Command, args []string) error {
 
 	logSelectedProject()
 
-	// Get sessions for the selected project
-	sessions, err := registry.SessionsForProject(ctx, sessionProject, sessionSources)
+	// Get sessions for the selected project. JSON output is consumed by
+	// scripts that cannot wait for background enrichment, so fill titles
+	// and counts before returning.
+	var listOpts []thinkt.ListSessionsOption
+	if sessionJSON {
+		listOpts = append(listOpts, thinkt.WithEnrichSync())
+	}
+	sessions, err := registry.SessionsForProject(ctx, sessionProject, sessionSources, listOpts...)
 	if err != nil {
 		return err
 	}
