@@ -255,10 +255,11 @@ them explicitly when following a link.
 Additive fields on `Entry`:
 
 ```go
-Kind      string  // sub-classification within a role: "", "compact_summary", "meta",
-                  // "task_notification", "agent_message", "command_output", "attachment",
-                  // "turn_duration", "away_summary", "compact_boundary", "local_command", ...
+Kind      EntryKind // sub-classification within a role: "", KindCompactSummary, KindMeta,
+                    // KindTaskNotification, KindAgentMessage, KindCommandOutput, KindAttachment,
+                    // KindTurnDuration, KindAwaySummary, KindCompactBoundary, KindLocalCommand, ...
 Visibility Visibility // Normal (default), Secondary (hidden by default), Debug
+TurnID    string      // groups records that belong to one API response (Claude message.id)
 PromptID  string
 ParentToolUseID string
 ChildSessionID  string   // subagent transcript spawned by this entry
@@ -268,10 +269,17 @@ Permission  *PermissionDecision
 Compaction  *CompactionInfo       // trigger, pre tokens, preserved head/anchor/tail UUIDs
 ```
 
+`EntryKind` is a named string type with package constants, the same pattern
+as `Role` and `Source`: sources can emit a kind the core does not name yet,
+and the TUI still switches on constants. It is deliberately not a closed enum.
+(My call; Evan was undecided between string and enum.)
+
 `ContentBlock` gains `Children []ContentBlock` (for array tool results) and the
 new block type `diff`. `TokenUsage` gains `ThinkingTokens`, `ServiceTier`,
 `Speed`. `SessionMeta` gains `Title`, `LastPrompt`, `ParentSessionID`,
-`AgentID`, `AgentType`, `Description`, `PRLinks`, `Cost`, `Worktree`.
+`AgentID`, `AgentType`, `Description`, `PRLinks`, `Cost`, `Worktree`, and
+`SubagentCount`. `Project` gains `SubagentCount`; `SessionCount` continues to
+count main transcripts only (Evan's decision).
 
 `Visibility` replaces the ad-hoc "Other" bucket as the source-neutral hint:
 sources set `Secondary` on bookkeeping-ish events (turn durations, attachments,
@@ -363,9 +371,13 @@ disagree.
 - **Index re-ingestion is lazy.** The SQLite `sessions` table gains a
   `parser_version` column (migration bump). The freshness check treats a
   version mismatch like a changed file, so sessions are re-ingested as they
-  are next touched or listed rather than in one forced full scan. The
-  `Secondary` entries are excluded from FTS rows in the same change (see
-  question 1 below; this is the default if unanswered).
+  are next touched or listed rather than in one forced full scan. `Secondary`
+  entries are excluded from FTS rows in the same change (Evan's decision).
+  Attachments are still recorded for easy access: a small
+  `entry_attachments` table (session id, entry index, attachment kind,
+  timestamp, short label such as hook name or file path) with no text body,
+  so hook output, loaded instructions, invoked skills, and task status can be
+  listed and jumped to by anchor without searching them.
 - **No merging of per-block assistant records in this pass.** Claude writes
   one record per content block (shared `message.id`, increasing
   `apiBlockIndex`). Merging would change every anchor and count. The document
@@ -383,17 +395,13 @@ disagree.
 - How the TUI exposes subagent sessions in the session picker (proposal: not
   at all in this pass; only via links).
 
-## Open questions for Evan
+## Decisions from Evan (2026-10-26)
 
-1. Should `Secondary` entries be excluded from the indexer's full-text index,
-   or indexed but ranked lower? Excluding is simpler and matches "not a
-   conversation turn"; including lets you search hook output.
-2. Do you want subagent transcripts counted in project `SessionCount` and
-   `DirSize`? Today they are counted in size (they live under the project) but
-   not in count.
-3. Is a `Kind` string acceptable on `Entry`, or do you want a closed enum now?
-   A string keeps sources decoupled; an enum gives the TUI exhaustive switches.
-   This blocks the `Entry` definition in step 1.
-4. Does the rendering rework want one message per API response (merged
-   blocks) or one per record with a `TurnID` to group by? The default above is
-   the latter; step 1 is the only cheap moment to choose the former.
+1. `Secondary` entries stay out of the full-text index, but attachments are
+   noted in a lightweight table for easy access (see the re-ingestion call
+   above).
+2. Subagent transcripts are not counted in `SessionCount`; a separate
+   `SubagentCount` is kept on `Project` and `SessionMeta`.
+3. `Kind` type: undecided. Builder default is the named string type with
+   constants described in Layer B.
+4. One message per record, grouped by `TurnID`. No merging.
