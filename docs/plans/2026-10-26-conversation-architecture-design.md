@@ -42,7 +42,7 @@ Record types by line count, and what the parser does with each today:
 | `file-history-delta`, `api-request-shape` | 756 | unknown → `RoleSystem`, empty |
 | `summary` | **0** | handled, but no longer written |
 
-Measured on one real session (`gloss/0513b657…`, 2,154 lines): `thinkt export
+Measured on one real 2,154-line session: `thinkt export
 --system -f json` emits 2,138 entries, of which 1,555 (73%) are `system` entries
 with no blocks and no text. The 63 genuine system events in that file (turn
 durations, away summaries, compaction boundaries, local commands) are

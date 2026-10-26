@@ -27,10 +27,18 @@ Sessions are stored as JSONL trace files, read via the [`internal/jsonl`](../../
 ├── projects/
 │   └── {project-path}/
 │       ├── {session-uuid}.jsonl      # Session trace file
-│       └── sessions-index.json       # Optional metadata index
+│       ├── {session-uuid}/
+│       │   └── subagents/
+│       │       ├── agent-{id}.jsonl       # Subagent transcript
+│       │       └── agent-{id}.meta.json   # agentType, description, toolUseId
+│       └── sessions-index.json       # Legacy index (pre-2.1); read when present
 └── statsig/
     └── statsig.stable_id.{x}         # Workspace ID
 ```
+
+Title, last prompt, PR links, worktree, and cost live inside the transcript as
+session-state records (`ai-title`, `last-prompt`, `pr-link`, `worktree-state`,
+`cost-state`); `scanSessionFile` folds them into `SessionMeta`.
 
 Each line in a `.jsonl` file is an [`Entry`](entry.go) with one of these types:
 

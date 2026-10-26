@@ -838,7 +838,7 @@ Expected: `internal/server/docs/swagger.json` contains `"turn_id"` and `"visibil
 Run: `go build ./... && go vet ./internal/... && go test ./... 2>&1 | grep -v '^ok' | grep -v 'no test files'`
 Expected: only the two pre-existing `internal/cmd` apps failures.
 
-Run: `go build -o ./bin/thinkt ./cmd/thinkt && ./bin/thinkt export --system -f json -s /Users/evan/.claude/projects/-Users-evan-projects-gloss/0513b657-452e-48ad-ab73-c861a8bb7b01.jsonl -o /tmp/thinkt-export.json </dev/null && jq -r '.[] | select(.role=="system" and (.text//"")=="") | .role' /tmp/thinkt-export.json | wc -l`
+Run: `go build -o ./bin/thinkt ./cmd/thinkt && ./bin/thinkt export --system -f json -s <path/to/a/real/session.jsonl> -o /tmp/thinkt-export.json </dev/null && jq -r '.[] | select(.role=="system" and (.text//"")=="") | .role' /tmp/thinkt-export.json | wc -l`
 Expected: `0` (down from 1555); and `jq -r '[.[] | .role] | group_by(.) | map({(.[0]): length}) | add' /tmp/thinkt-export.json` shows a few hundred entries, not 2,138.
 
 - [ ] **Step 5: Commit**
