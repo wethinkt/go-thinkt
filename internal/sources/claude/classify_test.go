@@ -1,6 +1,27 @@
 package claude
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
+)
+
+// A queue-operation record without content (dequeue, remove, popAll) carries
+// only a timestamp; it is bookkeeping, not an event a reader can act on.
+func TestClassifyLineQueueOperationNeedsContent(t *testing.T) {
+	if _, _, class := ClassifyLine([]byte(`{"type":"queue-operation","operation":"dequeue","timestamp":"2026-10-26T13:35:08.790Z"}`)); class != ClassBookkeeping {
+		t.Fatalf("content-less dequeue must be bookkeeping, got %v", class)
+	}
+	if _, _, class := ClassifyLine([]byte(`{"type":"queue-operation","operation":"remove","content":""}`)); class != ClassBookkeeping {
+		t.Fatalf("empty-content remove must be bookkeeping, got %v", class)
+	}
+	if _, _, class := ClassifyLine([]byte(`{"type":"queue-operation","operation":"enqueue","content":"<cross-session-message>hi</cross-session-message>"}`)); class != ClassEvent {
+		t.Fatalf("enqueue with content must stay an event, got %v", class)
+	}
+	if thinkt.ParserVersion < 3 {
+		t.Fatalf("dropping content-less queue records changes emitted entries; ParserVersion must be bumped, got %d", thinkt.ParserVersion)
+	}
+}
 
 func TestClassifyType(t *testing.T) {
 	cases := []struct {

@@ -42,7 +42,7 @@ Each line in a `.jsonl` file is an [`Entry`](entry.go) with one of these types:
 | `summary` | — | Conversation summary (context compression). |
 | `progress` | — | Progress/status update. |
 | `file-history-snapshot` | — | Snapshot of file state. |
-| `queue-operation` | — | Queue management. |
+| `queue-operation` | — | Prompt queue. Only records with `content` (enqueue) become entries; dequeue/remove/popAll are bookkeeping. |
 
 The base directory defaults to `~/.claude` and can be overridden with `THINKT_CLAUDE_HOME`.
 
@@ -55,11 +55,11 @@ before any other parsing:
 | class | types | result |
 |---|---|---|
 | turn | `user`, `assistant` | entry |
-| event | `system`, `queue-operation`, `progress` | entry; `Text` from `content`, `Kind` from subtype |
+| event | `system`, `queue-operation` with `content`, `progress` | entry; `Text` from `content`, `Kind` from subtype |
 | context | `attachment` in `ContextAttachmentTypes` | entry, `Kind = attachment`, `Visibility = secondary` |
 | checkpoint | `file-history-snapshot`, `file-history-delta`, `summary` | entry (checkpoint role) |
 | session state | `ai-title`, `last-prompt`, `pr-link`, `relocated`, `worktree-state`, `cost-state` | folded into `SessionMeta` by `scanSessionFile`, never an entry |
-| bookkeeping | `api-request*`, `mode`, `permission-mode`, `atis-latch`, other attachments | dropped |
+| bookkeeping | `api-request*`, `mode`, `permission-mode`, `atis-latch`, content-less `queue-operation`, other attachments | dropped |
 | unknown | anything else | entry, `Kind = unknown`, `Visibility = secondary`, raw JSON as text |
 
 Every reader (`Parser.NextEntry`, `LazySession`, `LoadSessionWindow`) and the

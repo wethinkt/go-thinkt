@@ -24,7 +24,6 @@ func TestConvertSystemEvents(t *testing.T) {
 		{`{"type":"system","subtype":"local_command","uuid":"s5","content":"<command-name>/model</command-name>"}`, "<command-name>/model</command-name>", "local_command", thinkt.KindLocalCommand, thinkt.VisibilitySecondary},
 		{`{"type":"system","subtype":"something_new","uuid":"s3"}`, "something_new", "something_new", thinkt.KindUnknown, thinkt.VisibilitySecondary},
 		{`{"type":"queue-operation","operation":"enqueue","content":"<cross-session-message>hi</cross-session-message>"}`, "<cross-session-message>hi</cross-session-message>", "enqueue", thinkt.KindQueueOperation, thinkt.VisibilitySecondary},
-		{`{"type":"queue-operation","operation":"dequeue","timestamp":"2026-10-26T13:35:08.790Z"}`, "dequeue", "dequeue", thinkt.KindQueueOperation, thinkt.VisibilitySecondary},
 	}
 	for _, c := range cases {
 		e := convertLine(t, c.line)

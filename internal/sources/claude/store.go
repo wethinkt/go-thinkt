@@ -647,10 +647,8 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 		entry.Kind = thinkt.KindQueueOperation
 		entry.Subtype = e.Operation
 		entry.Visibility = thinkt.VisibilitySecondary
+		// Content-less queue records never reach here; see classifyHead.
 		entry.Text = e.Content
-		if entry.Text == "" {
-			entry.Text = e.Operation
-		}
 	case EntryTypeAttachment:
 		var head struct {
 			Type string `json:"type"`

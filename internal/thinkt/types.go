@@ -146,7 +146,7 @@ const (
 // ParserVersion identifies the entry classification and conversion rules.
 // Bump it whenever a source parser changes which entries it emits or how it
 // fills them, so metadata caches and the index recompute lazily.
-const ParserVersion = 2
+const ParserVersion = 3
 
 // EntryKind sub-classifies an entry within its Role. It is an open set:
 // sources may emit kinds the core does not name yet, and consumers switch on

@@ -26,7 +26,7 @@ rest is observed behavior and must be parsed defensively. Companion report:
 | `ai-title` | 7,276 | `{aiTitle}` generated session title | no |
 | `permission-mode` | 5,422 | `{permissionMode: "auto"\|…}` | no |
 | `system` | 2,062 | harness event; see subtypes | SDK, partially |
-| `queue-operation` | 1,816 | prompt queue enqueue/dequeue/remove/popAll | changelog 2.1.295 |
+| `queue-operation` | 1,816 | prompt queue enqueue/dequeue/remove/popAll; only enqueue carries `content`, the rest are timestamps and are classified bookkeeping | changelog 2.1.295 |
 | `pr-link` | 1,803 | `{prNumber, prUrl, prRepository, timestamp}` | no |
 | `file-history-snapshot` | 1,125 | checkpoint marker `{messageId, snapshot{trackedFileBackups}, isSnapshotUpdate}` | checkpointing docs |
 | `relocated` | 958 | `{relocatedCwd}` session moved (worktree) | changelog |

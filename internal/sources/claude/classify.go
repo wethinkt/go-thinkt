@@ -72,6 +72,7 @@ func ClassifyType(t EntryType, attachmentType string) RecordClass {
 	case EntryTypeUser, EntryTypeAssistant:
 		return ClassTurn
 	case EntryTypeSystem, EntryTypeQueueOperation, EntryTypeProgress:
+		// classifyHead demotes a queue-operation with no content to bookkeeping.
 		return ClassEvent
 	case EntryTypeAttachment:
 		if ContextAttachmentTypes[attachmentType] {
@@ -140,9 +141,22 @@ func classifyHead(line []byte) (EntryType, string, RecordClass, error) {
 		Attachment struct {
 			Type string `json:"type"`
 		} `json:"attachment"`
+		Content json.RawMessage `json:"content"`
 	}
 	if err := json.Unmarshal(line, &head); err != nil {
 		return "", "", ClassBookkeeping, err
 	}
-	return head.Type, head.Attachment.Type, ClassifyType(head.Type, head.Attachment.Type), nil
+	class := ClassifyType(head.Type, head.Attachment.Type)
+	// A queue-operation without content (dequeue, remove, popAll) is only a
+	// timestamp; it says nothing a reader can act on.
+	if head.Type == EntryTypeQueueOperation && !hasContent(head.Content) {
+		class = ClassBookkeeping
+	}
+	return head.Type, head.Attachment.Type, class, nil
+}
+
+// hasContent reports whether a raw content field holds a non-empty value.
+func hasContent(raw json.RawMessage) bool {
+	trimmed := string(raw)
+	return trimmed != "" && trimmed != `""` && trimmed != "null" && trimmed != "[]"
 }

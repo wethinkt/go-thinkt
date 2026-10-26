@@ -199,7 +199,7 @@ any `message` parsing:
 | class | types | fate |
 |---|---|---|
 | Turn | `user`, `assistant` | entry |
-| Event | `system` (all subtypes), `queue-operation` | entry with text from `content`, subtype kept |
+| Event | `system` (all subtypes), `queue-operation` with `content` | entry with text from `content`, subtype kept; content-less queue records (dequeue, remove, popAll) are bookkeeping |
 | Context | `attachment` with a reader-meaningful `attachment.type` | entry, role `system`, kind `attachment`, text from `rendered[].content` or the typed payload |
 | Bookkeeping | `attachment` of a noisy type, `atis-latch`, `api-request*`, `permission-mode`, `mode` | not an entry; `mode`/`permission-mode` fold into `SessionMeta` |
 | Session state | `ai-title`, `last-prompt`, `pr-link`, `relocated`, `worktree-state`, `cost-state` | not an entry; folded into `SessionMeta` |
