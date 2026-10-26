@@ -46,6 +46,30 @@ Each line in a `.jsonl` file is an [`Entry`](entry.go) with one of these types:
 
 The base directory defaults to `~/.claude` and can be overridden with `THINKT_CLAUDE_HOME`.
 
+## Record Classes
+
+Claude Code writes many record types per transcript, most of them harness
+bookkeeping. `classify.go` decides from the `type` field (and `attachment.type`)
+before any other parsing:
+
+| class | types | result |
+|---|---|---|
+| turn | `user`, `assistant` | entry |
+| event | `system`, `queue-operation`, `progress` | entry; `Text` from `content`, `Kind` from subtype |
+| context | `attachment` in `ContextAttachmentTypes` | entry, `Kind = attachment`, `Visibility = secondary` |
+| checkpoint | `file-history-snapshot`, `file-history-delta`, `summary` | entry (checkpoint role) |
+| session state | `ai-title`, `last-prompt`, `pr-link`, `relocated`, `worktree-state`, `cost-state` | folded into `SessionMeta` by `scanSessionFile`, never an entry |
+| bookkeeping | `api-request*`, `mode`, `permission-mode`, `atis-latch`, other attachments | dropped |
+| unknown | anything else | entry, `Kind = unknown`, `Visibility = secondary`, raw JSON as text |
+
+Every reader (`Parser.NextEntry`, `LazySession`, `LoadSessionWindow`) and the
+counter (`countConversationRecords`) apply the same classification, so
+`EntryCount` means "entries emitted". `thinkt.ParserVersion` is bumped when the
+classification changes; the metadata cache and the index re-scan on mismatch.
+Tool results decode array content into `ContentBlock.Children` and the typed
+`toolUseResult` into a `diff` child, stdout fallback, and `ChildSessionID`.
+See [etc/reports/CLAUDE_TRANSCRIPT_SCHEMA.md](../../../etc/reports/CLAUDE_TRANSCRIPT_SCHEMA.md).
+
 ## Key Types
 
 ### Discovery & Store

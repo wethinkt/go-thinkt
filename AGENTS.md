@@ -24,6 +24,8 @@ Sources are auto-discovered. Use `--source claude|kimi|gemini|copilot|codex|qwen
 
 **Source Enable/Disable:** Sources can be enabled/disabled via `thinkt sources enable/disable` (stored in `config.Sources` map). Disabled sources are invisible at the API boundary — the MCP/HTTP server validates against the `StoreRegistry` (which only registers enabled sources), and the indexer RPC server independently filters via `enabledSources` (derived from `config.EnabledSources()`, refreshed on `config_reload`). Both layers enforce filtering so neither can leak disabled source data.
 
+**Entry classification:** `thinkt.Entry` carries a source-neutral `Kind` (an open string type with constants) and a `Visibility` hint. Sources mark bookkeeping-adjacent entries (`turn_duration`, attachments, meta prompts) as `secondary`; the export filter, TUI "Other" toggle, and `conversation.WritePage` hide those by default while the REST API and MCP return every emitted entry. `thinkt.ParserVersion` must be bumped whenever a source changes which entries it emits; the metadata cache and the SQLite index recompute lazily on mismatch. The Claude parser drops request dumps and session-state records before parsing (see `internal/sources/claude/README.md`).
+
 ### Key Packages
 
 | Package | Purpose |
@@ -48,7 +50,7 @@ Sources are auto-discovered. Use `--source claude|kimi|gemini|copilot|codex|qwen
 | `internal/collect` | Trace collector: HTTP server, DuckDB store, agent registry, normalizer |
 | `internal/analytics` | Analytics |
 | `internal/export` | Session export (Markdown, HTML, JSON) with content filtering |
-| [`internal/conversation`](./internal/conversation/) | Semantic presentation adapter and shared terminal/web HTML/CSS; used by HTML export |
+| [`internal/conversation`](./internal/conversation/) | Semantic presentation adapter (kinds, visibility, nested tool-result blocks, diffs) and shared terminal/web HTML/CSS; used by HTML export |
 | `internal/prompt` | Prompt extraction and formatting |
 | `internal/config` | Configuration management, instance registry |
 | `internal/fingerprint` | Machine fingerprint generation |

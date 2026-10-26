@@ -64,6 +64,18 @@ The adapter operates on supplied batches and buffers each HTML output. A future
 viewer should keep those batches bounded and preserve source anchors while
 virtualizing layout; do not rasterize an entire unbounded session.
 
+## Kinds, visibility, and nested blocks
+
+`Message` carries the entry's `Kind`, `Visibility`, `TurnID`, `Attribution`,
+`StopReason`, `Error`, and `Compaction`; the HTML section exposes `data-turn-id`
+and `data-kind`, and the metadata line adds attribution, `refusal`, and errors.
+`View.HiddenVisibility` hides whole messages by visibility: `WritePage` defaults
+it to hide `secondary` (bookkeeping-adjacent entries), `WriteHTML` with a nil
+map hides nothing. `Block.Children` holds the nested parts of a tool result
+(text, media, `diff`) with IDs `<parent>-child-<k>` and the parent's origin;
+they render inside the parent block body, a `diff` as `<pre class="diff">` with
+one classed span per line.
+
 ## Verification and sample
 
 `testdata/session.json` is a representative exchange with Markdown, thinking,

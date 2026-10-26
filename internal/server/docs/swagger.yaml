@@ -467,8 +467,51 @@ definitions:
       source:
         $ref: '#/definitions/thinkt.Source'
     type: object
+  thinkt.Attribution:
+    properties:
+      agent:
+        type: string
+      mcp_server:
+        type: string
+      mcp_tool:
+        type: string
+      plugin:
+        type: string
+      skill:
+        type: string
+    type: object
+  thinkt.CompactionInfo:
+    properties:
+      anchor_uuid:
+        type: string
+      duration_ms:
+        type: integer
+      head_uuid:
+        type: string
+      logical_parent_uuid:
+        type: string
+      pre_tokens:
+        type: integer
+      tail_uuid:
+        type: string
+      trigger:
+        description: auto, manual
+        type: string
+    type: object
   thinkt.ContentBlock:
     properties:
+      child_session_id:
+        description: |-
+          ChildSessionID names the subagent session spawned by this tool call
+          (qualified as "<parentSessionID>/agent-<agentID>").
+        type: string
+      children:
+        description: |-
+          Children holds nested blocks of a tool result: text and image parts of
+          an array result, and a BlockTypeDiff built from a structured patch.
+        items:
+          $ref: '#/definitions/thinkt.ContentBlock'
+        type: array
       is_error:
         type: boolean
       media_data:
@@ -502,12 +545,25 @@ definitions:
       agent_id:
         description: Resolved agent name (e.g., "researcher")
         type: string
+      attribution:
+        $ref: '#/definitions/thinkt.Attribution'
+      child_session_id:
+        description: Subagent session spawned by this entry
+        type: string
+      compaction:
+        $ref: '#/definitions/thinkt.CompactionInfo'
       content_blocks:
         description: Content (one of these will be set)
         items:
           $ref: '#/definitions/thinkt.ContentBlock'
         type: array
       cwd:
+        type: string
+      effort:
+        description: Model turn metadata
+        type: string
+      error:
+        description: Claude error on API error records
         type: string
       git_branch:
         type: string
@@ -516,6 +572,10 @@ definitions:
       is_sidechain:
         description: For branched conversations
         type: boolean
+      kind:
+        allOf:
+        - $ref: '#/definitions/thinkt.EntryKind'
+        description: Classification (see EntryKind and Visibility)
       metadata:
         additionalProperties: {}
         description: Source-specific extras
@@ -523,8 +583,21 @@ definitions:
       model:
         description: Metadata
         type: string
+      parent_tool_use_id:
+        description: Tool call this entry reports on
+        type: string
       parent_uuid:
         description: For branching conversations
+        type: string
+      permission:
+        allOf:
+        - $ref: '#/definitions/thinkt.PermissionDecision'
+        description: Permissions and compaction
+      prompt_id:
+        description: Prompt this turn belongs to (Claude promptId)
+        type: string
+      requested_model:
+        description: Claude requestedModel (Model may be <synthetic>)
         type: string
       role:
         $ref: '#/definitions/thinkt.Role'
@@ -535,18 +608,122 @@ definitions:
       source_agent_id:
         description: Raw source identifier (e.g., "ab17e07")
         type: string
+      stop_reason:
+        description: end_turn, tool_use, refusal, ...
+        type: string
+      subtype:
+        description: Source-specific raw subtype (system subtype, attachment.type)
+        type: string
       text:
         description: Simple text shortcut
         type: string
       timestamp:
+        type: string
+      turn_id:
+        description: Turn structure
         type: string
       usage:
         $ref: '#/definitions/thinkt.TokenUsage'
       uuid:
         description: Core identification
         type: string
+      visibility:
+        $ref: '#/definitions/thinkt.Visibility'
       workspace_id:
         description: Which machine/host
+        type: string
+    type: object
+  thinkt.EntryKind:
+    enum:
+    - ""
+    - compact_summary
+    - meta
+    - task_notification
+    - agent_message
+    - command_output
+    - attachment
+    - turn_duration
+    - away_summary
+    - compact_boundary
+    - informational
+    - local_command
+    - queue_operation
+    - api_error
+    - unknown
+    type: string
+    x-enum-comments:
+      KindAPIError: assistant record flagged isApiErrorMessage
+      KindAgentMessage: <agent-message> relay from another agent
+      KindAttachment: Claude attachment record; Subtype holds attachment.type
+      KindAwaySummary: system/away_summary
+      KindCommandOutput: <local-command-stdout>, <bash-stdout>
+      KindCompactBoundary: system/compact_boundary
+      KindCompactSummary: user entry flagged isCompactSummary
+      KindInformational: system/informational
+      KindLocalCommand: system/local_command
+      KindMeta: harness-authored user turn (isMeta, <system-reminder>)
+      KindQueueOperation: queue-operation record
+      KindTaskNotification: <task-notification> user turn
+      KindTurnDuration: system/turn_duration
+      KindUnknown: record type the parser has never seen
+    x-enum-descriptions:
+    - ""
+    - user entry flagged isCompactSummary
+    - harness-authored user turn (isMeta, <system-reminder>)
+    - <task-notification> user turn
+    - <agent-message> relay from another agent
+    - <local-command-stdout>, <bash-stdout>
+    - Claude attachment record; Subtype holds attachment.type
+    - system/turn_duration
+    - system/away_summary
+    - system/compact_boundary
+    - system/informational
+    - system/local_command
+    - queue-operation record
+    - assistant record flagged isApiErrorMessage
+    - record type the parser has never seen
+    x-enum-varnames:
+    - KindNone
+    - KindCompactSummary
+    - KindMeta
+    - KindTaskNotification
+    - KindAgentMessage
+    - KindCommandOutput
+    - KindAttachment
+    - KindTurnDuration
+    - KindAwaySummary
+    - KindCompactBoundary
+    - KindInformational
+    - KindLocalCommand
+    - KindQueueOperation
+    - KindAPIError
+    - KindUnknown
+  thinkt.PRLink:
+    properties:
+      number:
+        type: integer
+      repository:
+        type: string
+      timestamp:
+        type: string
+      url:
+        type: string
+    type: object
+  thinkt.PermissionDecision:
+    properties:
+      decision:
+        description: accept, reject
+        type: string
+      denial_kind:
+        description: permission-rule, automode-blocked, user-rejected
+        type: string
+      reason_code:
+        type: string
+      reason_type:
+        description: classifier, mode, safetyCheck, other
+        type: string
+      source:
+        description: config, user_temporary
         type: string
     type: object
   thinkt.Project:
@@ -579,6 +756,9 @@ definitions:
       source_base_path:
         description: Root storage path for this source
         type: string
+      subagent_count:
+        description: Subagent transcripts across the project's sessions (not in SessionCount)
+        type: integer
       workspace_id:
         description: Which machine/host
         type: string
@@ -611,11 +791,28 @@ definitions:
     - RoleSummary
     - RoleProgress
     - RoleCheckpoint
+  thinkt.SessionCost:
+    properties:
+      api_duration_ms:
+        type: integer
+      duration_ms:
+        type: integer
+      lines_added:
+        type: integer
+      lines_removed:
+        type: integer
+      tool_duration_ms:
+        type: integer
+      total_usd:
+        type: number
+    type: object
   thinkt.SessionMeta:
     properties:
       chunk_count:
         description: 'Number of files: 0=unknown, 1=single, 2+=chunked'
         type: integer
+      cost:
+        $ref: '#/definitions/thinkt.SessionCost'
       created_at:
         type: string
       entry_count:
@@ -633,11 +830,20 @@ definitions:
         type: string
       id:
         type: string
+      last_prompt:
+        type: string
       model:
         description: First real (non-synthetic) assistant model
         type: string
       modified_at:
         type: string
+      parent_session_id:
+        description: Set on subagent sessions
+        type: string
+      pr_links:
+        items:
+          $ref: '#/definitions/thinkt.PRLink'
+        type: array
       project_path:
         description: Normalized project path
         type: string
@@ -645,11 +851,22 @@ definitions:
         allOf:
         - $ref: '#/definitions/thinkt.Source'
         description: Which tool (kimi, claude)
+      subagent_count:
+        description: Subagent transcripts under this session
+        type: integer
       summary:
+        type: string
+      title:
+        description: |-
+          Session state folded from the transcript (Claude ai-title, last-prompt,
+          pr-link, worktree-state, cost-state records). Summary mirrors Title when
+          no other summary exists.
         type: string
       workspace_id:
         description: Which machine/host
         type: string
+      worktree:
+        $ref: '#/definitions/thinkt.WorktreeInfo'
     type: object
   thinkt.Source:
     enum:
@@ -787,6 +1004,34 @@ definitions:
         type: integer
       output_tokens:
         type: integer
+      service_tier:
+        type: string
+      speed:
+        type: string
+      thinking_tokens:
+        description: Claude usage.output_tokens_details.thinking_tokens
+        type: integer
+    type: object
+  thinkt.Visibility:
+    enum:
+    - ""
+    - secondary
+    - debug
+    type: string
+    x-enum-varnames:
+    - VisibilityNormal
+    - VisibilitySecondary
+    - VisibilityDebug
+  thinkt.WorktreeInfo:
+    properties:
+      branch:
+        type: string
+      original_branch:
+        type: string
+      original_cwd:
+        type: string
+      path:
+        type: string
     type: object
 info:
   contact: {}

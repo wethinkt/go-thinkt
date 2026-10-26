@@ -641,6 +641,9 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 		entry.Subtype = e.Operation
 		entry.Visibility = thinkt.VisibilitySecondary
 		entry.Text = e.Content
+		if entry.Text == "" {
+			entry.Text = e.Operation
+		}
 	case EntryTypeAttachment:
 		var head struct {
 			Type string `json:"type"`

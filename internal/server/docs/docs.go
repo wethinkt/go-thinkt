@@ -1678,9 +1678,67 @@ const docTemplate = `{
                 }
             }
         },
+        "thinkt.Attribution": {
+            "type": "object",
+            "properties": {
+                "agent": {
+                    "type": "string"
+                },
+                "mcp_server": {
+                    "type": "string"
+                },
+                "mcp_tool": {
+                    "type": "string"
+                },
+                "plugin": {
+                    "type": "string"
+                },
+                "skill": {
+                    "type": "string"
+                }
+            }
+        },
+        "thinkt.CompactionInfo": {
+            "type": "object",
+            "properties": {
+                "anchor_uuid": {
+                    "type": "string"
+                },
+                "duration_ms": {
+                    "type": "integer"
+                },
+                "head_uuid": {
+                    "type": "string"
+                },
+                "logical_parent_uuid": {
+                    "type": "string"
+                },
+                "pre_tokens": {
+                    "type": "integer"
+                },
+                "tail_uuid": {
+                    "type": "string"
+                },
+                "trigger": {
+                    "description": "auto, manual",
+                    "type": "string"
+                }
+            }
+        },
         "thinkt.ContentBlock": {
             "type": "object",
             "properties": {
+                "child_session_id": {
+                    "description": "ChildSessionID names the subagent session spawned by this tool call\n(qualified as \"\u003cparentSessionID\u003e/agent-\u003cagentID\u003e\").",
+                    "type": "string"
+                },
+                "children": {
+                    "description": "Children holds nested blocks of a tool result: text and image parts of\nan array result, and a BlockTypeDiff built from a structured patch.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/thinkt.ContentBlock"
+                    }
+                },
                 "is_error": {
                     "type": "boolean"
                 },
@@ -1727,6 +1785,16 @@ const docTemplate = `{
                     "description": "Resolved agent name (e.g., \"researcher\")",
                     "type": "string"
                 },
+                "attribution": {
+                    "$ref": "#/definitions/thinkt.Attribution"
+                },
+                "child_session_id": {
+                    "description": "Subagent session spawned by this entry",
+                    "type": "string"
+                },
+                "compaction": {
+                    "$ref": "#/definitions/thinkt.CompactionInfo"
+                },
                 "content_blocks": {
                     "description": "Content (one of these will be set)",
                     "type": "array",
@@ -1735,6 +1803,14 @@ const docTemplate = `{
                     }
                 },
                 "cwd": {
+                    "type": "string"
+                },
+                "effort": {
+                    "description": "Model turn metadata",
+                    "type": "string"
+                },
+                "error": {
+                    "description": "Claude error on API error records",
                     "type": "string"
                 },
                 "git_branch": {
@@ -1747,6 +1823,14 @@ const docTemplate = `{
                     "description": "For branched conversations",
                     "type": "boolean"
                 },
+                "kind": {
+                    "description": "Classification (see EntryKind and Visibility)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/thinkt.EntryKind"
+                        }
+                    ]
+                },
                 "metadata": {
                     "description": "Source-specific extras",
                     "type": "object",
@@ -1756,8 +1840,28 @@ const docTemplate = `{
                     "description": "Metadata",
                     "type": "string"
                 },
+                "parent_tool_use_id": {
+                    "description": "Tool call this entry reports on",
+                    "type": "string"
+                },
                 "parent_uuid": {
                     "description": "For branching conversations",
+                    "type": "string"
+                },
+                "permission": {
+                    "description": "Permissions and compaction",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/thinkt.PermissionDecision"
+                        }
+                    ]
+                },
+                "prompt_id": {
+                    "description": "Prompt this turn belongs to (Claude promptId)",
+                    "type": "string"
+                },
+                "requested_model": {
+                    "description": "Claude requestedModel (Model may be \u003csynthetic\u003e)",
                     "type": "string"
                 },
                 "role": {
@@ -1775,11 +1879,23 @@ const docTemplate = `{
                     "description": "Raw source identifier (e.g., \"ab17e07\")",
                     "type": "string"
                 },
+                "stop_reason": {
+                    "description": "end_turn, tool_use, refusal, ...",
+                    "type": "string"
+                },
+                "subtype": {
+                    "description": "Source-specific raw subtype (system subtype, attachment.type)",
+                    "type": "string"
+                },
                 "text": {
                     "description": "Simple text shortcut",
                     "type": "string"
                 },
                 "timestamp": {
+                    "type": "string"
+                },
+                "turn_id": {
+                    "description": "Turn structure",
                     "type": "string"
                 },
                 "usage": {
@@ -1789,8 +1905,122 @@ const docTemplate = `{
                     "description": "Core identification",
                     "type": "string"
                 },
+                "visibility": {
+                    "$ref": "#/definitions/thinkt.Visibility"
+                },
                 "workspace_id": {
                     "description": "Which machine/host",
+                    "type": "string"
+                }
+            }
+        },
+        "thinkt.EntryKind": {
+            "type": "string",
+            "enum": [
+                "",
+                "compact_summary",
+                "meta",
+                "task_notification",
+                "agent_message",
+                "command_output",
+                "attachment",
+                "turn_duration",
+                "away_summary",
+                "compact_boundary",
+                "informational",
+                "local_command",
+                "queue_operation",
+                "api_error",
+                "unknown"
+            ],
+            "x-enum-comments": {
+                "KindAPIError": "assistant record flagged isApiErrorMessage",
+                "KindAgentMessage": "\u003cagent-message\u003e relay from another agent",
+                "KindAttachment": "Claude attachment record; Subtype holds attachment.type",
+                "KindAwaySummary": "system/away_summary",
+                "KindCommandOutput": "\u003clocal-command-stdout\u003e, \u003cbash-stdout\u003e",
+                "KindCompactBoundary": "system/compact_boundary",
+                "KindCompactSummary": "user entry flagged isCompactSummary",
+                "KindInformational": "system/informational",
+                "KindLocalCommand": "system/local_command",
+                "KindMeta": "harness-authored user turn (isMeta, \u003csystem-reminder\u003e)",
+                "KindQueueOperation": "queue-operation record",
+                "KindTaskNotification": "\u003ctask-notification\u003e user turn",
+                "KindTurnDuration": "system/turn_duration",
+                "KindUnknown": "record type the parser has never seen"
+            },
+            "x-enum-descriptions": [
+                "",
+                "user entry flagged isCompactSummary",
+                "harness-authored user turn (isMeta, \u003csystem-reminder\u003e)",
+                "\u003ctask-notification\u003e user turn",
+                "\u003cagent-message\u003e relay from another agent",
+                "\u003clocal-command-stdout\u003e, \u003cbash-stdout\u003e",
+                "Claude attachment record; Subtype holds attachment.type",
+                "system/turn_duration",
+                "system/away_summary",
+                "system/compact_boundary",
+                "system/informational",
+                "system/local_command",
+                "queue-operation record",
+                "assistant record flagged isApiErrorMessage",
+                "record type the parser has never seen"
+            ],
+            "x-enum-varnames": [
+                "KindNone",
+                "KindCompactSummary",
+                "KindMeta",
+                "KindTaskNotification",
+                "KindAgentMessage",
+                "KindCommandOutput",
+                "KindAttachment",
+                "KindTurnDuration",
+                "KindAwaySummary",
+                "KindCompactBoundary",
+                "KindInformational",
+                "KindLocalCommand",
+                "KindQueueOperation",
+                "KindAPIError",
+                "KindUnknown"
+            ]
+        },
+        "thinkt.PRLink": {
+            "type": "object",
+            "properties": {
+                "number": {
+                    "type": "integer"
+                },
+                "repository": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "thinkt.PermissionDecision": {
+            "type": "object",
+            "properties": {
+                "decision": {
+                    "description": "accept, reject",
+                    "type": "string"
+                },
+                "denial_kind": {
+                    "description": "permission-rule, automode-blocked, user-rejected",
+                    "type": "string"
+                },
+                "reason_code": {
+                    "type": "string"
+                },
+                "reason_type": {
+                    "description": "classifier, mode, safetyCheck, other",
+                    "type": "string"
+                },
+                "source": {
+                    "description": "config, user_temporary",
                     "type": "string"
                 }
             }
@@ -1839,6 +2069,10 @@ const docTemplate = `{
                     "description": "Root storage path for this source",
                     "type": "string"
                 },
+                "subagent_count": {
+                    "description": "Subagent transcripts across the project's sessions (not in SessionCount)",
+                    "type": "integer"
+                },
                 "workspace_id": {
                     "description": "Which machine/host",
                     "type": "string"
@@ -1878,12 +2112,38 @@ const docTemplate = `{
                 "RoleCheckpoint"
             ]
         },
+        "thinkt.SessionCost": {
+            "type": "object",
+            "properties": {
+                "api_duration_ms": {
+                    "type": "integer"
+                },
+                "duration_ms": {
+                    "type": "integer"
+                },
+                "lines_added": {
+                    "type": "integer"
+                },
+                "lines_removed": {
+                    "type": "integer"
+                },
+                "tool_duration_ms": {
+                    "type": "integer"
+                },
+                "total_usd": {
+                    "type": "number"
+                }
+            }
+        },
         "thinkt.SessionMeta": {
             "type": "object",
             "properties": {
                 "chunk_count": {
                     "description": "Number of files: 0=unknown, 1=single, 2+=chunked",
                     "type": "integer"
+                },
+                "cost": {
+                    "$ref": "#/definitions/thinkt.SessionCost"
                 },
                 "created_at": {
                     "type": "string"
@@ -1909,12 +2169,25 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "last_prompt": {
+                    "type": "string"
+                },
                 "model": {
                     "description": "First real (non-synthetic) assistant model",
                     "type": "string"
                 },
                 "modified_at": {
                     "type": "string"
+                },
+                "parent_session_id": {
+                    "description": "Set on subagent sessions",
+                    "type": "string"
+                },
+                "pr_links": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/thinkt.PRLink"
+                    }
                 },
                 "project_path": {
                     "description": "Normalized project path",
@@ -1928,12 +2201,23 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "subagent_count": {
+                    "description": "Subagent transcripts under this session",
+                    "type": "integer"
+                },
                 "summary": {
+                    "type": "string"
+                },
+                "title": {
+                    "description": "Session state folded from the transcript (Claude ai-title, last-prompt,\npr-link, worktree-state, cost-state records). Summary mirrors Title when\nno other summary exists.",
                     "type": "string"
                 },
                 "workspace_id": {
                     "description": "Which machine/host",
                     "type": "string"
+                },
+                "worktree": {
+                    "$ref": "#/definitions/thinkt.WorktreeInfo"
                 }
             }
         },
@@ -2122,6 +2406,46 @@ const docTemplate = `{
                 },
                 "output_tokens": {
                     "type": "integer"
+                },
+                "service_tier": {
+                    "type": "string"
+                },
+                "speed": {
+                    "type": "string"
+                },
+                "thinking_tokens": {
+                    "description": "Claude usage.output_tokens_details.thinking_tokens",
+                    "type": "integer"
+                }
+            }
+        },
+        "thinkt.Visibility": {
+            "type": "string",
+            "enum": [
+                "",
+                "secondary",
+                "debug"
+            ],
+            "x-enum-varnames": [
+                "VisibilityNormal",
+                "VisibilitySecondary",
+                "VisibilityDebug"
+            ]
+        },
+        "thinkt.WorktreeInfo": {
+            "type": "object",
+            "properties": {
+                "branch": {
+                    "type": "string"
+                },
+                "original_branch": {
+                    "type": "string"
+                },
+                "original_cwd": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
                 }
             }
         }
