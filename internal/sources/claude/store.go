@@ -559,6 +559,15 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 		if msg := e.GetAssistantMessage(); msg != nil {
 			entry.Model = msg.Model
 			entry.ContentBlocks = convertAssistantBlocks(msg.Content)
+			// Text is the joined text blocks, so text-only consumers see the reply.
+			for _, cb := range entry.ContentBlocks {
+				if cb.Type == "text" && cb.Text != "" {
+					if entry.Text != "" {
+						entry.Text += "\n"
+					}
+					entry.Text += cb.Text
+				}
+			}
 			if msg.Usage != nil {
 				entry.Usage = &thinkt.TokenUsage{
 					InputTokens:              msg.Usage.InputTokens,

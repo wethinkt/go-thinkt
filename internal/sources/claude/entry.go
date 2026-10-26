@@ -2,7 +2,6 @@ package claude
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
@@ -338,100 +337,9 @@ func (e *Entry) GetToolCalls() []ContentBlock {
 	return tools
 }
 
-// ToThinktEntry converts a Claude Entry to a thinkt.Entry.
+// ToThinktEntry converts a Claude Entry to a thinkt.Entry. It is the same
+// conversion the store readers use; Source is always SourceClaude and the
+// workspace is left for the caller to fill.
 func (e *Entry) ToThinktEntry() thinkt.Entry {
-	entry := thinkt.Entry{
-		UUID:          e.UUID,
-		Role:          convertEntryTypeToRole(e.Type),
-		Text:          e.GetPromptText(),
-		GitBranch:     e.GitBranch,
-		CWD:           e.CWD,
-		SourceAgentID: e.AgentID,
-		IsSidechain:   e.IsSidechain,
-	}
-
-	// Parse timestamp
-	if e.Timestamp != "" {
-		if t, err := time.Parse(time.RFC3339, e.Timestamp); err == nil {
-			entry.Timestamp = t
-		}
-	}
-
-	// Convert content blocks from user messages
-	if e.Type == EntryTypeUser {
-		msg := e.GetUserMessage()
-		if msg != nil && len(msg.Content.Blocks) > 0 {
-			entry.ContentBlocks = convertUserBlocks(msg.Content.Blocks)
-		}
-	}
-
-	// Convert content blocks from assistant messages
-	if e.Type == EntryTypeAssistant {
-		msg := e.GetAssistantMessage()
-		if msg != nil {
-			entry.Model = msg.Model
-			for _, cb := range msg.Content {
-				entry.ContentBlocks = append(entry.ContentBlocks, convertContentBlock(cb))
-			}
-			// If no text set from prompt, try to extract from content blocks
-			if entry.Text == "" {
-				for _, cb := range entry.ContentBlocks {
-					if cb.Type == "text" && cb.Text != "" {
-						if entry.Text != "" {
-							entry.Text += "\n"
-						}
-						entry.Text += cb.Text
-					}
-				}
-			}
-		}
-	}
-
-	// Set checkpoint flag and text for file history snapshot entries
-	if e.Type == EntryTypeFileHistorySnapshot {
-		entry.IsCheckpoint = true
-		entry.Text = fileHistorySnapshotText(e)
-	}
-
-	// Extract summary text for progress entries
-	if e.Type == EntryTypeProgress {
-		entry.Text = progressText(e)
-	}
-
-	return entry
-}
-
-// convertEntryTypeToRole converts a Claude EntryType to a thinkt.Role.
-func convertEntryTypeToRole(t EntryType) thinkt.Role {
-	switch t {
-	case EntryTypeUser:
-		return thinkt.RoleUser
-	case EntryTypeAssistant:
-		return thinkt.RoleAssistant
-	case EntryTypeSystem:
-		return thinkt.RoleSystem
-	case EntryTypeSummary:
-		return thinkt.RoleSummary
-	case EntryTypeProgress:
-		return thinkt.RoleProgress
-	case EntryTypeFileHistorySnapshot:
-		return thinkt.RoleCheckpoint
-	default:
-		return thinkt.RoleSystem
-	}
-}
-
-// convertContentBlock converts a Claude ContentBlock to a thinkt.ContentBlock.
-func convertContentBlock(cb ContentBlock) thinkt.ContentBlock {
-	return thinkt.ContentBlock{
-		Type:       cb.Type,
-		Text:       cb.Text,
-		Thinking:   cb.Thinking,
-		Signature:  cb.Signature,
-		ToolUseID:  cb.ToolUseID,
-		ToolName:   cb.Name,
-		ToolInput:  cb.Input,
-		ToolResult: string(cb.ToolContent),
-		IsError:    cb.IsError,
-	}
+	return *convertEntry(e, thinkt.SourceClaude, "")
 }
