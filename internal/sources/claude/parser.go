@@ -50,18 +50,16 @@ func (p *Parser) NextEntry() (*Entry, error) {
 			continue
 		}
 
-		var entry Entry
-		if err := json.Unmarshal(line, &entry); err != nil {
+		// Bookkeeping and session-state records are not conversation entries.
+		entry, _, err := decodeRecord(line)
+		if err != nil {
 			p.errors = append(p.errors, fmt.Errorf("line %d: %w", p.lineNum, err))
 			continue
 		}
-
-		// Parse the message based on entry type
-		if err := p.parseMessage(&entry); err != nil {
-			p.errors = append(p.errors, fmt.Errorf("line %d: %w", p.lineNum, err))
+		if entry == nil {
+			continue
 		}
-
-		return &entry, nil
+		return entry, nil
 	}
 
 	if err := p.scanner.Err(); err != nil {
@@ -269,36 +267,21 @@ func LoadSessionWindow(path string, startOffset int64, maxContentBytes int) (*Se
 	var contentBytes int
 
 	for {
-		var entry Entry
-		err := reader.ReadJSON(&entry)
-		if err == io.EOF {
+		line, err := reader.ReadLine()
+		if err != nil && err != io.EOF {
 			break
 		}
-		if err != nil {
-			// Skip malformed lines, continue reading
-			continue
-		}
-
-		// Parse the message based on entry type
-		if len(entry.Message) > 0 {
-			switch entry.Type {
-			case EntryTypeUser:
-				var msg UserMessage
-				if err := json.Unmarshal(entry.Message, &msg); err == nil {
-					entry.SetUserMessage(&msg)
-				}
-			case EntryTypeAssistant:
-				var msg AssistantMessage
-				if err := json.Unmarshal(entry.Message, &msg); err == nil {
-					entry.SetAssistantMessage(&msg)
-				}
+		atEOF := err == io.EOF
+		if len(line) > 0 {
+			// Malformed lines are skipped; bookkeeping lines are not entries.
+			if entry, _, decodeErr := decodeRecord(line); decodeErr == nil && entry != nil {
+				contentBytes += estimateEntryContentSize(entry)
+				entries = append(entries, *entry)
 			}
 		}
-
-		// Estimate content size for this entry
-		entryContentSize := estimateEntryContentSize(&entry)
-		contentBytes += entryContentSize
-		entries = append(entries, entry)
+		if atEOF {
+			break
+		}
 
 		// Stop if we've accumulated enough content
 		if maxContentBytes > 0 && contentBytes >= maxContentBytes {

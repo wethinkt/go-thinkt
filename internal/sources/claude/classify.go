@@ -89,6 +89,39 @@ func ClassifyType(t EntryType, attachmentType string) RecordClass {
 	}
 }
 
+// decodeRecord turns a raw line into an Entry when its class is emitted as an
+// entry. It returns (nil, class, nil) for lines that are skipped by design and
+// an error only for malformed lines of an entry class. User and assistant
+// messages are pre-parsed; unknown types keep their raw line.
+func decodeRecord(line []byte) (*Entry, RecordClass, error) {
+	_, _, class := ClassifyLine(line)
+	if !class.IsEntry() {
+		return nil, class, nil
+	}
+	var entry Entry
+	if err := json.Unmarshal(line, &entry); err != nil {
+		return nil, class, err
+	}
+	if class == ClassUnknown {
+		entry.Raw = append([]byte(nil), line...)
+	}
+	if len(entry.Message) > 0 {
+		switch entry.Type {
+		case EntryTypeUser:
+			var msg UserMessage
+			if err := json.Unmarshal(entry.Message, &msg); err == nil {
+				entry.SetUserMessage(&msg)
+			}
+		case EntryTypeAssistant:
+			var msg AssistantMessage
+			if err := json.Unmarshal(entry.Message, &msg); err == nil {
+				entry.SetAssistantMessage(&msg)
+			}
+		}
+	}
+	return &entry, class, nil
+}
+
 // ClassifyLine decodes only the type and attachment.type fields of a raw
 // line. A line that is not a JSON object classifies as bookkeeping.
 func ClassifyLine(line []byte) (EntryType, string, RecordClass) {

@@ -1,7 +1,6 @@
 package claude
 
 import (
-	"encoding/json"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -98,38 +97,33 @@ func (ls *LazySession) loadUntilBytes(maxBytes int) error {
 
 // readNextEntry reads and parses the next entry from the file.
 func (ls *LazySession) readNextEntry() (*Entry, error) {
-	var entry Entry
-	err := ls.reader.ReadJSON(&entry)
-	if err == io.EOF {
+	line, err := ls.reader.ReadLine()
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	if len(line) == 0 && err == io.EOF {
 		return nil, io.EOF
 	}
-	if err != nil {
-		// Skip malformed lines
+	ls.bytesRead = ls.reader.Position()
+	if len(line) == 0 {
 		return nil, nil
 	}
 
-	ls.bytesRead = ls.reader.Position()
-
-	// Parse the message based on entry type
-	// Note: Message is now lazily parsed via GetUserMessage/GetAssistantMessage
-	// We pre-parse here for metadata extraction, then set via setters
-	if len(entry.Message) > 0 {
-		switch entry.Type {
-		case EntryTypeUser:
-			var msg UserMessage
-			if err := json.Unmarshal(entry.Message, &msg); err == nil {
-				entry.SetUserMessage(&msg)
-			}
-		case EntryTypeAssistant:
-			var msg AssistantMessage
-			if err := json.Unmarshal(entry.Message, &msg); err == nil {
-				entry.SetAssistantMessage(&msg)
-			}
-		}
+	// Session-state records never become entries but still carry metadata.
+	entry, class, decodeErr := decodeRecord(line)
+	if class == ClassSessionState {
+		ls.onSessionState(line)
 	}
-
-	return &entry, nil
+	if decodeErr != nil || entry == nil {
+		// Malformed, bookkeeping, or session-state line: nothing to append.
+		return nil, nil
+	}
+	return entry, nil
 }
+
+// onSessionState records session-state lines (title, last prompt) that the
+// readers skip. It is replaced in Task 7 with the full fold into metadata.
+func (ls *LazySession) onSessionState(line []byte) {}
 
 // extractMetadata extracts session metadata from an entry.
 func (ls *LazySession) extractMetadata(entry *Entry) {

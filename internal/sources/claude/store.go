@@ -244,7 +244,7 @@ func (s *Store) startEnrichment(ctx context.Context, projectID string, sessions 
 				}
 			}
 			if sess.EntryCount == 0 {
-				sess.EntryCount = countFileLines(sess.FullPath)
+				sess.EntryCount = countConversationRecords(sess.FullPath)
 			}
 
 			// Update persistent cache.

@@ -282,7 +282,7 @@ func ListProjectSessionsBackfill(projectDir string) ([]SessionMeta, error) {
 		}
 		// Backfill message count by counting lines in the JSONL file.
 		if sessions[i].MessageCount == 0 && sessions[i].FullPath != "" {
-			sessions[i].MessageCount = countFileLines(sessions[i].FullPath)
+			sessions[i].MessageCount = countConversationRecords(sessions[i].FullPath)
 		}
 	}
 
@@ -401,9 +401,9 @@ func extractSessionHints(path string) (firstPrompt, model string) {
 	return firstPrompt, model
 }
 
-// countFileLines counts non-empty lines in a file. This is a cheap way to
-// approximate entry count for JSONL files without parsing JSON.
-func countFileLines(path string) int {
+// countConversationRecords counts the lines that become entries, classifying
+// each by type only. It is the EntryCount the readers will report.
+func countConversationRecords(path string) int {
 	f, err := os.Open(path)
 	if err != nil {
 		return 0
@@ -413,7 +413,11 @@ func countFileLines(path string) int {
 	count := 0
 	scanner := thinkt.NewScannerWithMaxCapacity(f)
 	for scanner.Scan() {
-		if len(scanner.Bytes()) > 0 {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		if _, _, class := ClassifyLine(line); class.IsEntry() {
 			count++
 		}
 	}
