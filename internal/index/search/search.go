@@ -323,12 +323,11 @@ func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch)
 					role = entry.Type
 				}
 			}
-			// Claude request dumps and bookkeeping attachments are not
-			// conversation content; a hit inside them is noise.
-			if entry.Type != "" {
-				if _, _, class := claude.ClassifyLine([]byte(text)); !class.IsEntry() {
-					continue
-				}
+			// Claude request dumps, bookkeeping attachments, and secondary
+			// entries (reminders, hook output, notices) are not conversation
+			// content; a hit inside them is noise.
+			if entry.Type != "" && !claude.IsSearchable([]byte(text)) {
+				continue
 			}
 
 			preview, matchStart, matchEnd := extractPreview(text, m)

@@ -1,6 +1,10 @@
 package claude
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
+)
 
 // RecordClass says what a transcript line is for, decided from its type alone.
 // Claude Code declares the on-disk format internal, so unknown types are
@@ -124,6 +128,19 @@ func decodeRecord(line []byte) (*Entry, RecordClass, error) {
 		}
 	}
 	return &entry, class, nil
+}
+
+// IsSearchable reports whether a full-text hit inside this raw line is
+// conversation content: the line must be an entry class and, once converted,
+// not secondary. Bookkeeping, session state, reminders, hook output, notices,
+// and command echoes all return false. It fully decodes the line, so call it
+// only after a cheap match.
+func IsSearchable(line []byte) bool {
+	entry, class, err := decodeRecord(line)
+	if err != nil || entry == nil || !class.IsEntry() {
+		return false
+	}
+	return !convertEntry(entry, thinkt.SourceClaude, "").IsSecondary()
 }
 
 // ClassifyLine decodes only the type and attachment.type fields of a raw
