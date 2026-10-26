@@ -305,19 +305,26 @@ func (s *Store) getSessionMetaByPath(sessionPath string) (*thinkt.SessionMeta, e
 					if modified.IsZero() && e.FileMtime > 0 {
 						modified = time.UnixMilli(e.FileMtime)
 					}
-					return &thinkt.SessionMeta{
+					meta := &thinkt.SessionMeta{
 						ID:          e.SessionID,
 						ProjectPath: projectDir,
 						FullPath:    fullPath,
 						FirstPrompt: e.FirstPrompt,
 						Summary:     e.Summary,
-						EntryCount:  e.MessageCount,
 						CreatedAt:   created,
 						ModifiedAt:  modified,
 						GitBranch:   e.GitBranch,
 						Source:      thinkt.SourceClaude,
 						WorkspaceID: ws.ID,
-					}, nil
+					}
+					// The legacy index predates titles and counts raw lines;
+					// the file scan is authoritative for both.
+					if info, err := os.Stat(fullPath); err == nil {
+						meta.FileSize = info.Size()
+						meta.ModifiedAt = info.ModTime()
+					}
+					s.enrichSessionMeta(meta)
+					return meta, nil
 				}
 			}
 		}

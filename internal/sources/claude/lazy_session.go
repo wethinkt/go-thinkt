@@ -62,11 +62,11 @@ func OpenLazySession(path string) (*LazySession, error) {
 		return nil, err
 	}
 
-	// Start background line count for accurate progress estimation
+	// Start a background count of emitted entries for progress estimation.
+	// Raw lines would overstate the total, since bookkeeping lines are dropped.
 	if !ls.fullyLoaded {
 		go func() {
-			n, err := thinkt.CountLines(path)
-			if err == nil && n > 0 {
+			if n := countConversationRecords(path); n > 0 {
 				ls.totalEntries.Store(int64(n))
 			}
 		}()

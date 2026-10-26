@@ -14,6 +14,9 @@ func renderHTML(w io.Writer, entries []thinkt.Entry, opts Options) error {
 	}
 	view := conversation.View{}
 	if opts.HTMLFilter != nil {
+		// WritePage hides secondary entries by default; --system reveals them,
+		// matching the Markdown and JSON exports.
+		view.HiddenVisibility = map[thinkt.Visibility]bool{thinkt.VisibilitySecondary: !opts.HTMLFilter.IncludeSystem}
 		view.HiddenRoles = make(map[thinkt.Role]bool)
 		view.HiddenKinds = make(map[string]bool)
 		for _, message := range doc.Messages {
