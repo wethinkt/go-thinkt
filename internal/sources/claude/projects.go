@@ -290,7 +290,7 @@ func ListProjectSessionsBackfill(projectDir string) ([]SessionMeta, error) {
 				sessions[i].MessageCount = scan.EntryCount
 			}
 			if sessions[i].Summary == "" {
-				sessions[i].Summary = scan.Title
+				sessions[i].Summary = scan.displayTitle()
 			}
 		}
 	}

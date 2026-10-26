@@ -151,6 +151,26 @@ func TestConvertUnknownType(t *testing.T) {
 	}
 }
 
+// Pre-2.1 transcripts open with a summary record whose text was the session
+// title; it must not emit an empty entry.
+func TestConvertLegacySummary(t *testing.T) {
+	e := convertLine(t, `{"type":"summary","summary":"Fix flaky login test","leafUuid":"leaf-1"}`)
+	if e.Role != thinkt.RoleSummary || e.Text != "Fix flaky login test" {
+		t.Fatalf("summary: %+v", e)
+	}
+	if e.Metadata["leaf_uuid"] != "leaf-1" {
+		t.Fatalf("leaf uuid: %v", e.Metadata)
+	}
+}
+
+// A system record with neither subtype nor content still needs display text.
+func TestConvertSystemWithoutSubtypeHasText(t *testing.T) {
+	e := convertLine(t, `{"type":"system","uuid":"s0"}`)
+	if e.Text == "" || e.Kind != thinkt.KindUnknown || e.Visibility != thinkt.VisibilitySecondary {
+		t.Fatalf("bare system: %+v", e)
+	}
+}
+
 func TestConvertFileHistoryDelta(t *testing.T) {
 	e := convertLine(t, `{"type":"file-history-delta","messageId":"m","trackingPath":"/p/a.md","backup":{"version":1}}`)
 	if e.Role != thinkt.RoleCheckpoint || e.Visibility != thinkt.VisibilitySecondary || e.Text != "File History Delta: /p/a.md" {

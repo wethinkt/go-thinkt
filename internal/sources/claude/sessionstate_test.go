@@ -32,6 +32,26 @@ func TestScanSessionFileModernFixture(t *testing.T) {
 	}
 }
 
+// Legacy summary records were the session title before ai-title existed.
+func TestScanSessionFileLegacySummaryIsTitleFallback(t *testing.T) {
+	path := writeTempSession(t, t.TempDir(), "s.jsonl",
+		`{"type":"summary","summary":"Legacy title","leafUuid":"l"}`+"\n"+
+			`{"type":"user","uuid":"u","message":{"role":"user","content":"hi"}}`+"\n")
+	var meta thinkt.SessionMeta
+	scanSessionFile(path).applyTo(&meta)
+	if meta.Title != "Legacy title" || meta.Summary != "Legacy title" {
+		t.Fatalf("legacy summary must back the title: %+v", meta)
+	}
+	withTitle := writeTempSession(t, t.TempDir(), "t.jsonl",
+		`{"type":"summary","summary":"Legacy title","leafUuid":"l"}`+"\n"+
+			`{"type":"ai-title","aiTitle":"Real title","sessionId":"s"}`+"\n")
+	var meta2 thinkt.SessionMeta
+	scanSessionFile(withTitle).applyTo(&meta2)
+	if meta2.Title != "Real title" {
+		t.Fatalf("ai-title must win over legacy summary: %+v", meta2)
+	}
+}
+
 func TestScanSessionFileEmptyTitleDoesNotBlank(t *testing.T) {
 	path := writeTempSession(t, t.TempDir(), "s.jsonl",
 		`{"type":"ai-title","aiTitle":"Keep","sessionId":"s"}`+"\n"+

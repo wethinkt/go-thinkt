@@ -636,6 +636,9 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 		if entry.Text == "" {
 			entry.Text = e.Subtype
 		}
+		if entry.Text == "" {
+			entry.Text = "system event"
+		}
 		switch e.Subtype {
 		case "compact_boundary":
 			entry.Compaction = compactionInfo(e.CompactMetadata, e.LogicalParentUUID)
@@ -668,6 +671,12 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 		entry.Text = attachmentText(attachmentType, e.Attachment, rendered)
 		entry.ParentToolUseID = attachmentToolUseID(e.Attachment)
 		entry.Metadata["attachment_type"] = attachmentType
+	case EntryTypeSummary:
+		// Pre-2.1 title record; the leaf is the message it summarized up to.
+		entry.Text = e.Summary
+		if e.LeafUUID != "" {
+			entry.Metadata["leaf_uuid"] = e.LeafUUID
+		}
 	case EntryTypeFileHistorySnapshot:
 		entry.Text = fileHistorySnapshotText(e)
 	case EntryTypeFileHistoryDelta:

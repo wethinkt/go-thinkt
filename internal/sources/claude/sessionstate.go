@@ -17,6 +17,7 @@ type sessionScan struct {
 	FirstPrompt string
 	Model       string
 	Title       string
+	Summary     string // legacy summary record; title fallback
 	LastPrompt  string
 	EntryCount  int
 	PRLinks     []thinkt.PRLink
@@ -81,9 +82,26 @@ func scanSessionFile(path string) sessionScan {
 			if class.IsEntry() {
 				s.EntryCount++
 			}
+			if typ == EntryTypeSummary {
+				var r struct {
+					Summary string `json:"summary"`
+				}
+				if json.Unmarshal(line, &r) == nil && strings.TrimSpace(r.Summary) != "" {
+					s.Summary = r.Summary
+				}
+			}
 		}
 	}
 	return s
+}
+
+// displayTitle is the ai-title, or the legacy summary when no title was
+// ever written.
+func (s sessionScan) displayTitle() string {
+	if s.Title != "" {
+		return s.Title
+	}
+	return s.Summary
 }
 
 // applyState folds one session-state record into the scan.
@@ -165,7 +183,7 @@ func (s sessionScan) applyTo(meta *thinkt.SessionMeta) {
 	}
 	meta.EntryCount = s.EntryCount
 	if meta.Title == "" {
-		meta.Title = s.Title
+		meta.Title = s.displayTitle()
 	}
 	if meta.Summary == "" {
 		meta.Summary = meta.Title
