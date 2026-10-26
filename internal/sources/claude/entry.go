@@ -18,6 +18,22 @@ const (
 	EntryTypeFileHistorySnapshot EntryType = "file-history-snapshot"
 	EntryTypeSummary             EntryType = "summary"
 	EntryTypeQueueOperation      EntryType = "queue-operation"
+
+	// Record types added by Claude Code 2.1.x. See etc/reports/CLAUDE_TRANSCRIPT_SCHEMA.md.
+	EntryTypeAttachment       EntryType = "attachment"
+	EntryTypeAPIRequest       EntryType = "api-request"
+	EntryTypeAPIRequestBlob   EntryType = "api-request-blob"
+	EntryTypeAPIRequestShape  EntryType = "api-request-shape"
+	EntryTypeLastPrompt       EntryType = "last-prompt"
+	EntryTypeAITitle          EntryType = "ai-title"
+	EntryTypeMode             EntryType = "mode"
+	EntryTypePermissionMode   EntryType = "permission-mode"
+	EntryTypeAtisLatch        EntryType = "atis-latch"
+	EntryTypePRLink           EntryType = "pr-link"
+	EntryTypeRelocated        EntryType = "relocated"
+	EntryTypeWorktreeState    EntryType = "worktree-state"
+	EntryTypeCostState        EntryType = "cost-state"
+	EntryTypeFileHistoryDelta EntryType = "file-history-delta"
 )
 
 // Entry represents a single line in a Claude Code JSONL trace file.
