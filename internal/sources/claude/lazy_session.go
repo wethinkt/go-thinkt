@@ -25,6 +25,7 @@ type LazySession struct {
 	CWD       string
 	StartTime time.Time
 	FileSize  int64
+	state     sessionScan // session-state records seen so far (title, last prompt, ...)
 
 	// Loaded entries
 	entries []Entry
@@ -121,9 +122,12 @@ func (ls *LazySession) readNextEntry() (*Entry, error) {
 	return entry, nil
 }
 
-// onSessionState records session-state lines (title, last prompt) that the
-// readers skip. It is replaced in Task 7 with the full fold into metadata.
-func (ls *LazySession) onSessionState(line []byte) {}
+// onSessionState folds a session-state line (title, last prompt, PR links,
+// worktree, cost) into the metadata the readers skip as entries.
+func (ls *LazySession) onSessionState(line []byte) {
+	typ, _, _ := ClassifyLine(line)
+	ls.state.applyState(typ, line)
+}
 
 // extractMetadata extracts session metadata from an entry.
 func (ls *LazySession) extractMetadata(entry *Entry) {
@@ -348,6 +352,12 @@ func (ls *LazySession) Metadata() thinkt.SessionMeta {
 		CreatedAt:  ls.StartTime,
 		ModifiedAt: ls.StartTime,
 		EntryCount: len(ls.entries),
+		Title:      ls.state.Title,
+		Summary:    ls.state.Title,
+		LastPrompt: ls.state.LastPrompt,
+		PRLinks:    ls.state.PRLinks,
+		Worktree:   ls.state.Worktree,
+		Cost:       ls.state.Cost,
 	}
 }
 

@@ -14,13 +14,14 @@ import (
 
 // Project represents a Claude Code project directory.
 type Project struct {
-	DirName      string    // Raw directory name (e.g., "-Users-evan-brainstm-foo")
-	DisplayName  string    // Human-readable name (e.g., "foo")
-	FullPath     string    // Decoded project path (e.g., "/Users/evan/brainstm/foo")
-	DirPath      string    // Absolute path to the project directory
-	SessionCount int       // Number of JSONL session files
-	LastModified time.Time // Most recent session modification time
-	DirSize      int64     // Total size of session files in bytes
+	DirName       string    // Raw directory name (e.g., "-Users-evan-brainstm-foo")
+	DisplayName   string    // Human-readable name (e.g., "foo")
+	FullPath      string    // Decoded project path (e.g., "/Users/evan/brainstm/foo")
+	DirPath       string    // Absolute path to the project directory
+	SessionCount  int       // Number of JSONL session files
+	LastModified  time.Time // Most recent session modification time
+	DirSize       int64     // Total size of session files in bytes
+	SubagentCount int       // Subagent transcripts under the project's sessions
 }
 
 // SessionMeta holds lightweight session metadata without loading the full JSONL.
@@ -165,6 +166,7 @@ func ListProjects(baseDir string) ([]Project, error) {
 
 		// Count JSONL files, track latest modification time, and sum sizes
 		sessionCount := 0
+		subagentCount := 0
 		var lastModified time.Time
 		var dirSize int64
 		dirEntries, err := os.ReadDir(dirPath)
@@ -172,6 +174,7 @@ func ListProjects(baseDir string) ([]Project, error) {
 			for _, de := range dirEntries {
 				if !de.IsDir() && strings.HasSuffix(de.Name(), ".jsonl") {
 					sessionCount++
+					subagentCount += countSubagents(filepath.Join(dirPath, de.Name()))
 					if info, err := de.Info(); err == nil {
 						dirSize += info.Size()
 						if info.ModTime().After(lastModified) {
@@ -187,13 +190,14 @@ func ListProjects(baseDir string) ([]Project, error) {
 		}
 
 		projects = append(projects, Project{
-			DirName:      entry.Name(),
-			DisplayName:  displayName,
-			FullPath:     fullPath,
-			DirPath:      dirPath,
-			SessionCount: sessionCount,
-			LastModified: lastModified,
-			DirSize:      dirSize,
+			DirName:       entry.Name(),
+			DisplayName:   displayName,
+			FullPath:      fullPath,
+			DirPath:       dirPath,
+			SessionCount:  sessionCount,
+			LastModified:  lastModified,
+			DirSize:       dirSize,
+			SubagentCount: subagentCount,
 		})
 	}
 
@@ -271,18 +275,23 @@ func ListProjectSessionsBackfill(projectDir string) ([]SessionMeta, error) {
 	}
 
 	for i := range sessions {
-		if sessions[i].FullPath != "" && (sessions[i].FirstPrompt == "" || !thinkt.IsRealModel(sessions[i].Model)) {
-			prompt, model := extractSessionHints(sessions[i].FullPath)
+		if sessions[i].FullPath == "" {
+			continue
+		}
+		if sessions[i].FirstPrompt == "" || !thinkt.IsRealModel(sessions[i].Model) || sessions[i].MessageCount == 0 || sessions[i].Summary == "" {
+			scan := scanSessionFile(sessions[i].FullPath)
 			if sessions[i].FirstPrompt == "" {
-				sessions[i].FirstPrompt = prompt
+				sessions[i].FirstPrompt = scan.FirstPrompt
 			}
 			if !thinkt.IsRealModel(sessions[i].Model) {
-				sessions[i].Model = model
+				sessions[i].Model = scan.Model
 			}
-		}
-		// Backfill message count by counting lines in the JSONL file.
-		if sessions[i].MessageCount == 0 && sessions[i].FullPath != "" {
-			sessions[i].MessageCount = countConversationRecords(sessions[i].FullPath)
+			if sessions[i].MessageCount == 0 {
+				sessions[i].MessageCount = scan.EntryCount
+			}
+			if sessions[i].Summary == "" {
+				sessions[i].Summary = scan.Title
+			}
 		}
 	}
 
@@ -341,64 +350,6 @@ func GetSessionFileInfo(path string) (size int64, err error) {
 		return 0, err
 	}
 	return info.Size(), nil
-}
-
-// extractSessionHints reads the first user message and first model from a
-// Claude JSONL session file. It scans at most the first 50 lines to keep the
-// operation lightweight.
-func extractSessionHints(path string) (firstPrompt, model string) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", ""
-	}
-	defer f.Close()
-
-	scanner := thinkt.NewScannerWithMaxCapacityCustom(f, 64*1024, 1*1024*1024)
-
-	for i := 0; i < 50 && scanner.Scan(); i++ {
-		line := scanner.Bytes()
-		if len(line) == 0 {
-			continue
-		}
-
-		lineStr := string(line)
-
-		// Extract first user prompt
-		if firstPrompt == "" && strings.Contains(lineStr, `"type":"user"`) {
-			var entry struct {
-				Type    string          `json:"type"`
-				Message json.RawMessage `json:"message"`
-			}
-			if json.Unmarshal(line, &entry) == nil && entry.Type == "user" {
-				var msg UserMessage
-				if json.Unmarshal(entry.Message, &msg) == nil {
-					firstPrompt = msg.Content.GetText()
-				}
-			}
-		}
-
-		// Extract first real model from assistant entry
-		if !thinkt.IsRealModel(model) && strings.Contains(lineStr, `"type":"assistant"`) {
-			var entry struct {
-				Type    string          `json:"type"`
-				Message json.RawMessage `json:"message"`
-			}
-			if json.Unmarshal(line, &entry) == nil && entry.Type == "assistant" {
-				var msg struct {
-					Model string `json:"model"`
-				}
-				if json.Unmarshal(entry.Message, &msg) == nil && thinkt.IsRealModel(msg.Model) {
-					model = msg.Model
-				}
-			}
-		}
-
-		if firstPrompt != "" && thinkt.IsRealModel(model) {
-			break
-		}
-	}
-
-	return firstPrompt, model
 }
 
 // countConversationRecords counts the lines that become entries, classifying

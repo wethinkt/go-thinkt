@@ -120,6 +120,7 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 				WorkspaceID:    ws.ID,
 				SourceBasePath: ws.BasePath,
 				DirSize:        p.DirSize,
+				SubagentCount:  p.SubagentCount,
 			}
 		}
 		return result, nil
@@ -213,7 +214,7 @@ func (s *Store) startEnrichment(ctx context.Context, projectID string, sessions 
 		if cached {
 			continue // already enriched from cache
 		}
-		if sess.FirstPrompt == "" || !thinkt.IsRealModel(sess.Model) || sess.EntryCount == 0 {
+		if sess.FirstPrompt == "" || !thinkt.IsRealModel(sess.Model) || sess.EntryCount == 0 || sess.Title == "" {
 			staleIdxs = append(staleIdxs, i)
 		}
 	}
@@ -233,31 +234,13 @@ func (s *Store) startEnrichment(ctx context.Context, projectID string, sessions 
 			}
 			sess := &enriched[idx]
 
-			// Use existing enrichment functions.
-			if sess.FirstPrompt == "" || !thinkt.IsRealModel(sess.Model) {
-				prompt, model := extractSessionHints(sess.FullPath)
-				if sess.FirstPrompt == "" {
-					sess.FirstPrompt = prompt
-				}
-				if !thinkt.IsRealModel(sess.Model) {
-					sess.Model = model
-				}
-			}
-			if sess.EntryCount == 0 {
-				sess.EntryCount = countConversationRecords(sess.FullPath)
-			}
+			// One pass yields prompt, model, entry count, and session state.
+			scan := scanSessionFile(sess.FullPath)
+			scan.applyTo(sess)
+			sess.SubagentCount = countSubagents(sess.FullPath)
 
 			// Update persistent cache.
-			mc.Set(sess.FullPath, thinkt.CachedSession{
-				FirstPrompt: sess.FirstPrompt,
-				Model:       sess.Model,
-				EntryCount:  sess.EntryCount,
-				GitBranch:   sess.GitBranch,
-				ProjectPath: sess.ProjectPath,
-				CreatedAt:   sess.CreatedAt,
-				ModifiedAt:  sess.ModifiedAt,
-				FileSize:    sess.FileSize,
-			})
+			mc.Set(sess.FullPath, scan.cached(*sess))
 			_ = mc.Save()
 
 			// Update the in-memory StoreCache.
@@ -346,14 +329,31 @@ func (s *Store) getSessionMetaByPath(sessionPath string) (*thinkt.SessionMeta, e
 		return nil, nil // not found
 	}
 	sessionID := strings.TrimSuffix(filepath.Base(sessionPath), ".jsonl")
-	return &thinkt.SessionMeta{
+	meta := &thinkt.SessionMeta{
 		ID:          sessionID,
 		ProjectPath: projectDir,
 		FullPath:    sessionPath,
 		ModifiedAt:  info.ModTime(),
+		FileSize:    info.Size(),
 		Source:      thinkt.SourceClaude,
 		WorkspaceID: ws.ID,
-	}, nil
+	}
+	s.enrichSessionMeta(meta)
+	return meta, nil
+}
+
+// enrichSessionMeta fills title, counts, and session state from the metadata
+// cache, scanning the file once when the cache is stale or missing.
+func (s *Store) enrichSessionMeta(meta *thinkt.SessionMeta) {
+	mc := s.metadataCache()
+	if mc.MergeInto(meta) {
+		return
+	}
+	scan := scanSessionFile(meta.FullPath)
+	scan.applyTo(meta)
+	meta.SubagentCount = countSubagents(meta.FullPath)
+	mc.Set(meta.FullPath, scan.cached(*meta))
+	_ = mc.Save()
 }
 
 // LoadSession loads a complete session.
