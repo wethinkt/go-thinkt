@@ -542,6 +542,11 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 		entry.ParentUUID = e.ParentUUID
 	}
 
+	// Session id is needed while converting blocks (subagent session ids).
+	if e.SessionID != "" {
+		entry.Metadata["session_id"] = e.SessionID
+	}
+
 	// Convert role/type
 	entry.Role = convertRole(e.Type)
 
@@ -552,7 +557,7 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 			entry.Text = msg.Content.GetText()
 			// Convert content blocks if present
 			if len(msg.Content.Blocks) > 0 {
-				entry.ContentBlocks = convertUserBlocks(msg.Content.Blocks)
+				entry.ContentBlocks = convertUserBlocks(msg.Content.Blocks, e.ToolUseResult, entry)
 			}
 		}
 		entry.PromptID = e.PromptID
@@ -677,9 +682,6 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 	}
 
 	// Store extra metadata
-	if e.SessionID != "" {
-		entry.Metadata["session_id"] = e.SessionID
-	}
 	if e.Version != "" {
 		entry.Metadata["version"] = e.Version
 	}
@@ -751,8 +753,9 @@ func progressText(e *Entry) string {
 	return "Progress"
 }
 
-func convertUserBlocks(blocks []ContentBlock) []thinkt.ContentBlock {
+func convertUserBlocks(blocks []ContentBlock, toolUseResultRaw json.RawMessage, entry *thinkt.Entry) []thinkt.ContentBlock {
 	result := make([]thinkt.ContentBlock, 0, len(blocks))
+	typed, hasTyped := parseToolUseResult(toolUseResultRaw)
 	for _, b := range blocks {
 		cb := thinkt.ContentBlock{Type: b.Type}
 		switch b.Type {
@@ -760,10 +763,13 @@ func convertUserBlocks(blocks []ContentBlock) []thinkt.ContentBlock {
 			cb.Text = b.Text
 		case "tool_result":
 			cb.ToolUseID = b.ToolUseID
-			if len(b.ToolContent) > 0 {
-				cb.ToolResult = string(b.ToolContent)
-			}
+			cb.ToolResult, cb.Children = convertToolResultContent(b.ToolContent)
 			cb.IsError = b.IsError
+			// The typed result describes the first tool_result of the turn.
+			if hasTyped {
+				applyToolUseResult(&cb, entry, typed)
+				hasTyped = false
+			}
 		case "image", "document":
 			if b.Source != nil {
 				cb.MediaType = b.Source.MediaType
