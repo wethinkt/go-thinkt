@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/wethinkt/go-thinkt/internal/index/db"
+	"github.com/wethinkt/go-thinkt/internal/sources/claude"
 )
 
 // maxRegexLen is the maximum allowed length for a user-supplied regex pattern.
@@ -320,6 +321,13 @@ func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch)
 					role = entry.Role
 				} else if entry.Type != "" {
 					role = entry.Type
+				}
+			}
+			// Claude request dumps and bookkeeping attachments are not
+			// conversation content; a hit inside them is noise.
+			if entry.Type != "" {
+				if _, _, class := claude.ClassifyLine([]byte(text)); !class.IsEntry() {
+					continue
 				}
 			}
 
