@@ -15,6 +15,9 @@ func TestClassifyLineQueueOperationNeedsContent(t *testing.T) {
 	if _, _, class := ClassifyLine([]byte(`{"type":"queue-operation","operation":"remove","content":""}`)); class != ClassBookkeeping {
 		t.Fatalf("empty-content remove must be bookkeeping, got %v", class)
 	}
+	if _, _, class := ClassifyLine([]byte(`{"type":"queue-operation","operation":"enqueue","content":"  \n "}`)); class != ClassBookkeeping {
+		t.Fatalf("whitespace-only content must be bookkeeping, got %v", class)
+	}
 	if _, _, class := ClassifyLine([]byte(`{"type":"queue-operation","operation":"enqueue","content":"<cross-session-message>hi</cross-session-message>"}`)); class != ClassEvent {
 		t.Fatalf("enqueue with content must stay an event, got %v", class)
 	}

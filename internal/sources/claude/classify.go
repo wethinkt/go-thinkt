@@ -2,6 +2,7 @@ package claude
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
@@ -173,7 +174,17 @@ func classifyHead(line []byte) (EntryType, string, RecordClass, error) {
 }
 
 // hasContent reports whether a raw content field holds a non-empty value.
+// A string is non-empty only when it has non-whitespace text.
 func hasContent(raw json.RawMessage) bool {
-	trimmed := string(raw)
-	return trimmed != "" && trimmed != `""` && trimmed != "null" && trimmed != "[]"
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "" || trimmed == "null" || trimmed == "[]" {
+		return false
+	}
+	if trimmed[0] == '"' {
+		var s string
+		if json.Unmarshal(raw, &s) == nil {
+			return strings.TrimSpace(s) != ""
+		}
+	}
+	return true
 }

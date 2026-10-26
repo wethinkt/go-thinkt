@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -34,6 +35,51 @@ func TestScanFileSkipsBookkeepingLines(t *testing.T) {
 	}
 	if len(lines) != 2 || lines[0] != 2 || lines[1] != 4 {
 		t.Fatalf("want matches on lines 2 and 4 only, got %v", lines)
+	}
+}
+
+// The Claude classifier must only run on Claude files: Codex and Copilot
+// lines also carry a top-level "type" and would classify as unknown.
+func TestScanFileKeepsOtherSourcesWithTypedLines(t *testing.T) {
+	dir := t.TempDir()
+	cases := map[string]string{
+		"codex":   `{"type":"event_msg","payload":{"type":"user_message","message":"needle in codex"}}` + "\n",
+		"copilot": `{"type":"user.message","data":{"content":"needle in copilot"}}` + "\n",
+	}
+	for source, content := range cases {
+		path := filepath.Join(dir, source+".jsonl")
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		m, _ := NewMatcher("needle", false, false)
+		out := make(chan RawMatch, 4)
+		scanFile(context.Background(), Candidate{Path: path, Source: source}, m, out)
+		close(out)
+		if n := len(out); n != 1 {
+			t.Errorf("%s: want 1 match, got %d", source, n)
+		}
+	}
+}
+
+// A line longer than bufio's default 64KB token must not end the scan.
+func TestScanFileSurvivesLongLines(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "s.jsonl")
+	long := `{"type":"user","uuid":"u1","message":{"role":"user","content":"` + strings.Repeat("x", 70*1024) + `"}}` + "\n"
+	content := long + `{"type":"user","uuid":"u2","message":{"role":"user","content":"needle after a long line"}}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m, _ := NewMatcher("needle", false, false)
+	out := make(chan RawMatch, 4)
+	scanFile(context.Background(), Candidate{Path: path, Source: "claude"}, m, out)
+	close(out)
+	var lines []int
+	for match := range out {
+		lines = append(lines, match.LineNum)
+	}
+	if len(lines) != 1 || lines[0] != 2 {
+		t.Fatalf("want a match on line 2, got %v", lines)
 	}
 }
 

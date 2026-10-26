@@ -192,13 +192,17 @@ func (s *Store) ListSessions(ctx context.Context, projectID string, opts ...thin
 		mc.MergeInto(&sessions[i])
 	}
 
-	// Synchronous enrichment: scan every uncached session now. enrichSessionMeta
-	// is a no-op for sessions the cache already covers.
+	// Synchronous enrichment: scan every uncached session now, then save the
+	// cache once rather than rewriting it per session.
 	if cfg.EnrichSync {
+		changed := false
 		for i := range sessions {
-			if sessions[i].FullPath != "" {
-				s.enrichSessionMeta(&sessions[i])
+			if sessions[i].FullPath != "" && s.enrichInto(mc, &sessions[i]) {
+				changed = true
 			}
+		}
+		if changed {
+			_ = mc.Save()
 		}
 		s.cache.SetSessions(projectID, sessions, nil)
 	}
@@ -363,15 +367,23 @@ func (s *Store) getSessionMetaByPath(sessionPath string) (*thinkt.SessionMeta, e
 // enrichSessionMeta fills title, counts, and session state from the metadata
 // cache, scanning the file once when the cache is stale or missing.
 func (s *Store) enrichSessionMeta(meta *thinkt.SessionMeta) {
-	mc := s.metadataCache()
+	if s.enrichInto(s.metadataCache(), meta) {
+		_ = s.metadataCache().Save()
+	}
+}
+
+// enrichInto fills meta from the cache, or from a file scan that it records
+// in the cache without saving. It reports whether the cache changed, so a
+// caller enriching many sessions can save once.
+func (s *Store) enrichInto(mc *thinkt.MetadataCache, meta *thinkt.SessionMeta) bool {
 	if mc.MergeInto(meta) {
-		return
+		return false
 	}
 	scan := scanSessionFile(meta.FullPath)
 	scan.applyTo(meta)
 	meta.SubagentCount = countSubagents(meta.FullPath)
 	mc.Set(meta.FullPath, scan.cached(*meta))
-	_ = mc.Save()
+	return true
 }
 
 // LoadSession loads a complete session.

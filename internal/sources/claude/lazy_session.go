@@ -2,6 +2,7 @@ package claude
 
 import (
 	"io"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -40,6 +41,16 @@ type LazySession struct {
 	totalEntries atomic.Int64 // 0 = unknown/scanning, >0 = known
 
 	unknown unknownTally // record types the classifier has never seen
+
+	legacySummary string // pre-2.1 summary record; title fallback
+}
+
+// title is the ai-title, or the legacy summary when no title was written.
+func (ls *LazySession) title() string {
+	if ls.state.Title != "" {
+		return ls.state.Title
+	}
+	return ls.legacySummary
 }
 
 // UnknownTypes returns how many records of each never-seen type were read
@@ -131,6 +142,9 @@ func (ls *LazySession) readNextEntry() (*Entry, error) {
 	}
 	if class == ClassUnknown {
 		ls.unknown.note(entry.Type, "path", ls.Path, "offset", ls.bytesRead)
+	}
+	if entry.Type == EntryTypeSummary && strings.TrimSpace(entry.Summary) != "" {
+		ls.legacySummary = entry.Summary
 	}
 	return entry, nil
 }
@@ -365,8 +379,8 @@ func (ls *LazySession) Metadata() thinkt.SessionMeta {
 		CreatedAt:  ls.StartTime,
 		ModifiedAt: ls.StartTime,
 		EntryCount: len(ls.entries),
-		Title:      ls.state.Title,
-		Summary:    ls.state.Title,
+		Title:      ls.title(),
+		Summary:    ls.title(),
 		LastPrompt: ls.state.LastPrompt,
 		PRLinks:    ls.state.PRLinks,
 		Worktree:   ls.state.Worktree,

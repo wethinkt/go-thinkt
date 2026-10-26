@@ -52,6 +52,21 @@ func TestScanSessionFileLegacySummaryIsTitleFallback(t *testing.T) {
 	}
 }
 
+// The lazy reader must apply the same legacy-summary fallback as the scan.
+func TestLazySessionMetadataLegacySummaryTitle(t *testing.T) {
+	path := writeTempSession(t, t.TempDir(), "s.jsonl",
+		`{"type":"summary","summary":"Legacy title","leafUuid":"l"}`+"\n"+
+			`{"type":"user","uuid":"u","sessionId":"s","message":{"role":"user","content":"hi"}}`+"\n")
+	ls, err := OpenLazySession(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ls.Close()
+	if meta := ls.Metadata(); meta.Title != "Legacy title" || meta.Summary != "Legacy title" {
+		t.Fatalf("lazy metadata: %+v", meta)
+	}
+}
+
 func TestScanSessionFileEmptyTitleDoesNotBlank(t *testing.T) {
 	path := writeTempSession(t, t.TempDir(), "s.jsonl",
 		`{"type":"ai-title","aiTitle":"Keep","sessionId":"s"}`+"\n"+
