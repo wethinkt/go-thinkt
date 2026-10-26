@@ -171,13 +171,15 @@ func runExportWizard(cmd *cobra.Command, registry *thinkt.StoreRegistry, flags t
 
 	entries := target.FilterEntries(result.Entries, wiz.result.Filter)
 	opts := export.Options{
-		Title: buildExportTitle(result.Meta),
+		Title:      buildExportTitle(result.Meta),
+		SessionID:  result.Meta.ID,
+		HTMLFilter: &wiz.result.Filter,
 	}
 
 	if exportView {
 		switch wiz.result.Format {
 		case "html":
-			if err := exportViewHTML(entries, opts); err != nil {
+			if err := exportViewHTML(result.Entries, opts); err != nil {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "exported %s to browser\n", formatDisplayName(wiz.result.Format))
@@ -215,7 +217,7 @@ func runExportWizard(cmd *cobra.Command, registry *thinkt.StoreRegistry, flags t
 	var exportErr error
 	switch wiz.result.Format {
 	case "html":
-		exportErr = export.ExportHTML(w, entries, opts)
+		exportErr = export.ExportHTML(w, result.Entries, opts)
 	case "json":
 		exportErr = export.ExportJSON(w, entries, opts)
 	default:
@@ -250,7 +252,7 @@ func runExportNonInteractive(cmd *cobra.Command, registry *thinkt.StoreRegistry,
 	}
 
 	entries := target.FilterEntries(result.Entries, filter)
-	opts := export.Options{Title: buildExportTitle(result.Meta)}
+	opts := export.Options{Title: buildExportTitle(result.Meta), SessionID: result.Meta.ID, HTMLFilter: &filter}
 
 	w := os.Stdout
 	if exportOutput != "" && exportOutput != "-" {
@@ -264,7 +266,7 @@ func runExportNonInteractive(cmd *cobra.Command, registry *thinkt.StoreRegistry,
 
 	switch exportFormat {
 	case "html":
-		return export.ExportHTML(w, entries, opts)
+		return export.ExportHTML(w, result.Entries, opts)
 	case "json":
 		return export.ExportJSON(w, entries, opts)
 	default:

@@ -352,7 +352,7 @@ func kittyTransmitSequence(img pendingImage) (string, error) {
 		Rows:             img.Rows,
 		VirtualPlacement: true,
 		Chunk:            true,
-		Quite:            1,
+		Quiet:            1,
 	})
 	if err != nil {
 		return "", fmt.Errorf("kitty encode: %w", err)

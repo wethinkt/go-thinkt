@@ -95,6 +95,14 @@ authorization. Project editor/terminal discovery still uses the platform lists i
 `internal/config/apps_*.go` (the OS source does not discover these for folders on
 macOS).
 
+Conversation presentation is being consolidated in
+[`internal/conversation`](./internal/conversation/README.md): source-neutral
+entries become a semantic document, then shared HTML/CSS for browser and terminal
+renderers. HTML export and the opt-in `THINKT_VIEWER=html` session viewer use this
+adapter. Run `sh etc/try-thinkt.sh` to exercise the embedded viewer against local,
+unpublished renderer commits. The default TUI and webapp viewers retain their
+existing renderers during migration.
+
 ## Building
 
 ```bash

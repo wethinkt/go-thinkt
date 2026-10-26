@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/wethinkt/go-thinkt/internal/conversation"
+	"github.com/wethinkt/go-thinkt/internal/target"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
@@ -95,6 +97,31 @@ func TestExportHTML(t *testing.T) {
 				t.Errorf("HTML missing %q", c.substr)
 			}
 		})
+	}
+}
+
+func TestExportHTMLFiltersAfterAnchoring(t *testing.T) {
+	entries := append([]thinkt.Entry{{UUID: "system-1", Role: thinkt.RoleSystem, Text: "private system instructions"}}, testEntries()...)
+	doc, err := conversation.Build(entries, conversation.BuildOptions{SessionID: "session-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	filter := target.DefaultFilter()
+	filter.IncludeThinking = false
+	filter.IncludeToolResults = false
+	var out bytes.Buffer
+	if err := ExportHTML(&out, entries, Options{SessionID: "session-1", HTMLFilter: &filter}); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{doc.Messages[1].ID, doc.Messages[2].Blocks[1].ID} {
+		if !strings.Contains(out.String(), `id="`+id+`"`) {
+			t.Errorf("filtered export changed source anchor %s", id)
+		}
+	}
+	for _, hidden := range []string{"private system instructions", "Let me analyze", "package main", `href="#` + doc.Messages[2].Blocks[3].ID + `"`} {
+		if strings.Contains(out.String(), hidden) {
+			t.Errorf("filtered content or dangling tool link emitted: %q", hidden)
+		}
 	}
 }
 

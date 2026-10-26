@@ -1,0 +1,40 @@
+[
+  {
+    "uuid": "user-1",
+    "role": "user",
+    "source": "claude",
+    "timestamp": "2026-10-25T14:00:00Z",
+    "text": "Can you make the session viewer easier to read? Keep tool results attached to their conversation."
+  },
+  {
+    "uuid": "assistant-1",
+    "role": "assistant",
+    "source": "claude",
+    "model": "example-model",
+    "timestamp": "2026-10-25T14:00:01Z",
+    "content_blocks": [
+      {"type": "thinking", "thinking": "The conversation already has structure. I can preserve its roles and source anchors, then use one HTML document for both terminal and web."},
+      {"type": "text", "text": "### A shared conversation document\n\nWe can keep **content**, *presentation*, and `layout` separate.\n\n| Layer | Responsibility |\n| --- | --- |\n| thinkt | Conversation identity and roles |\n| HTML | Shared structure and styling |\n| nthtml | Terminal layout and display |\n\n```go\ndoc, err := conversation.Build(entries, opts)\nif err != nil {\n    return err\n}\n```"},
+      {"type": "tool_use", "tool_use_id": "read-1", "tool_name": "Read", "tool_input": {"file_path": "internal/tui/renderer_generic.go"}}
+    ]
+  },
+  {
+    "uuid": "tool-1",
+    "role": "tool",
+    "source": "claude",
+    "timestamp": "2026-10-25T14:00:02Z",
+    "content_blocks": [
+      {"type": "tool_result", "tool_use_id": "read-1", "tool_result": "Permission denied: the file could not be read.\nThe result stays here, in its original position.", "is_error": true}
+    ]
+  },
+  {
+    "uuid": "assistant-2",
+    "role": "assistant",
+    "source": "claude",
+    "timestamp": "2026-10-25T14:00:03Z",
+    "content_blocks": [
+      {"type": "text", "text": "> The same semantic content should survive a change of rendering mode.\n\n- Preserve message anchors.\n- Preserve tool call/result links.\n- Reflow for the available width.\n\nSee [the renderer](https://nimbleterminal.dev/nthtml).\n\n![Layout sketch](https://example.invalid/layout.png)"},
+      {"type": "image", "media_type": "image/png", "media_data": "fixture-image-payload"}
+    ]
+  }
+]

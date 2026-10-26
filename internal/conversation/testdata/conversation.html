@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A conversation, in terminal and web</title>
+<style>/* Shared browser/nthtml baseline. Keep selectors scoped and layout block-based. */
+body.thinkt-page { margin: 0; padding: 24px; background: #10141c; color: #e3e8f0; font-family: sans-serif; font-size: 16px; line-height: 1.5; }
+.thinkt-page > h1 { font-size: 28px; margin: 0 0 20px; }
+.thinkt-conversation { color: #e3e8f0; font-family: sans-serif; font-size: 16px; line-height: 1.5; }
+.thinkt-conversation .entry { margin: 0 0 20px; padding: 16px; background: #19212d; border: 1px solid #344155; }
+.thinkt-conversation .entry-header { font-size: 20px; margin: 0 0 8px; color: #c6d2e1; }
+.thinkt-conversation .role-user { border-left: 4px solid #90b4fa; }
+.thinkt-conversation .role-assistant { border-left: 4px solid #eda879; }
+.thinkt-conversation .role-tool { border-left: 4px solid #70d6b4; }
+.thinkt-conversation .block { margin: 12px 0 0; }
+.thinkt-conversation h3 { font-size: 16px; margin: 0 0 8px; }
+.thinkt-conversation p { margin: 8px 0; }
+.thinkt-conversation .block-thinking { padding: 12px; background: #24283c; border-left: 3px solid #b6a5f5; }
+.thinkt-conversation .block-tool_use, .thinkt-conversation .block-tool_result { padding: 12px; background: #142c2b; border-left: 3px solid #70d6b4; }
+.thinkt-conversation .is-error { border-left: 3px solid #fa9494; }
+.thinkt-conversation .is-collapsed .block-body { display: none; }
+.thinkt-conversation pre { margin: 8px 0; padding: 12px; background: #101820; white-space: pre-wrap; overflow-wrap: anywhere; }
+.thinkt-conversation code { font-family: monospace; }
+.thinkt-conversation a { color: #9fc3ff; }
+.thinkt-conversation blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid #75879d; }
+.thinkt-conversation table { border-collapse: collapse; width: 100%; }
+.thinkt-conversation th, .thinkt-conversation td { border: 1px solid #52637a; padding: 6px; text-align: left; }
+.thinkt-page .metadata, .thinkt-conversation .metadata, .thinkt-conversation .related, .thinkt-conversation .media-placeholder { color: #aab9cc; font-size: 13px; }
+</style></head><body class="thinkt-page">
+<h1>A conversation, in terminal and web</h1>
+<article class="thinkt-conversation">
+<section class="entry role-user" id="message-b01b3950f03136c3f98f0ae0919eafd87c7816f161f43a30522dc567d10186ec" data-session-id="demo-session" data-entry-id="user-1" data-entry-index="0">
+<h2 class="entry-header">User</h2>
+<p class="metadata">2026-10-25T14:00:00Z · claude</p>
+<section class="block block-text" id="message-b01b3950f03136c3f98f0ae0919eafd87c7816f161f43a30522dc567d10186ec-text">
+<div class="block-body">
+<p>Can you make the session viewer easier to read? Keep tool results attached to their conversation.</p>
+</div>
+</section>
+</section>
+<section class="entry role-assistant" id="message-b900f53d84bd8b50dbde3216cdca342ae60fabcc71e0e07b8ddf4b3736a0d562" data-session-id="demo-session" data-entry-id="assistant-1" data-entry-index="1">
+<h2 class="entry-header">Assistant</h2>
+<p class="metadata">2026-10-25T14:00:01Z · claude · example-model</p>
+<section class="block block-thinking" id="message-b900f53d84bd8b50dbde3216cdca342ae60fabcc71e0e07b8ddf4b3736a0d562-block-0">
+<h3 class="thinking-header">Thinking</h3>
+<div class="block-body">
+<pre><code>The conversation already has structure. I can preserve its roles and source anchors, then use one HTML document for both terminal and web.</code></pre>
+</div>
+</section>
+<section class="block block-text" id="message-b900f53d84bd8b50dbde3216cdca342ae60fabcc71e0e07b8ddf4b3736a0d562-block-1">
+<div class="block-body">
+<h3>A shared conversation document</h3>
+<p>We can keep <strong>content</strong>, <em>presentation</em>, and <code>layout</code> separate.</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>thinkt</td>
+<td>Conversation identity and roles</td>
+</tr>
+<tr>
+<td>HTML</td>
+<td>Shared structure and styling</td>
+</tr>
+<tr>
+<td>nthtml</td>
+<td>Terminal layout and display</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-go">doc, err := conversation.Build(entries, opts)
+if err != nil {
+    return err
+}
+</code></pre>
+</div>
+</section>
+<section class="block block-tool_use" id="message-b900f53d84bd8b50dbde3216cdca342ae60fabcc71e0e07b8ddf4b3736a0d562-block-2">
+<h3 class="tool_use-header">Tool: Read</h3>
+<div class="block-body">
+<pre><code>{
+  &#34;file_path&#34;: &#34;internal/tui/renderer_generic.go&#34;
+}</code></pre>
+<p class="related"><a href="#message-cf2c37fa1fb4776b86b368e42628dfc63b4cd90d5a215ac93adeb1904366bf8e-block-0">Tool result</a></p>
+</div>
+</section>
+</section>
+<section class="entry role-tool" id="message-cf2c37fa1fb4776b86b368e42628dfc63b4cd90d5a215ac93adeb1904366bf8e" data-session-id="demo-session" data-entry-id="tool-1" data-entry-index="2">
+<h2 class="entry-header">Tool</h2>
+<p class="metadata">2026-10-25T14:00:02Z · claude</p>
+<section class="block block-tool_result is-error" id="message-cf2c37fa1fb4776b86b368e42628dfc63b4cd90d5a215ac93adeb1904366bf8e-block-0">
+<h3 class="tool_result-header">Tool error</h3>
+<div class="block-body">
+<pre><code>Permission denied: the file could not be read.
+The result stays here, in its original position.</code></pre>
+<p class="related"><a href="#message-b900f53d84bd8b50dbde3216cdca342ae60fabcc71e0e07b8ddf4b3736a0d562-block-2">Tool call</a></p>
+</div>
+</section>
+</section>
+<section class="entry role-assistant" id="message-771a67992209bf967787755a6af2477abb0e29beef1bfb0abf4e1571340cf177" data-session-id="demo-session" data-entry-id="assistant-2" data-entry-index="3">
+<h2 class="entry-header">Assistant</h2>
+<p class="metadata">2026-10-25T14:00:03Z · claude</p>
+<section class="block block-text" id="message-771a67992209bf967787755a6af2477abb0e29beef1bfb0abf4e1571340cf177-block-0">
+<div class="block-body">
+<blockquote>
+<p>The same semantic content should survive a change of rendering mode.</p>
+</blockquote>
+<ul>
+<li>Preserve message anchors.</li>
+<li>Preserve tool call/result links.</li>
+<li>Reflow for the available width.</li>
+</ul>
+<p>See <a href="https://nimbleterminal.dev/nthtml">the renderer</a>.</p>
+<p><span class="media-placeholder">[Image: Layout sketch]</span></p>
+</div>
+</section>
+<section class="block block-image" id="message-771a67992209bf967787755a6af2477abb0e29beef1bfb0abf4e1571340cf177-block-1">
+<h3 class="image-header">Image</h3>
+<div class="block-body">
+<p class="media-placeholder" data-media-id="message-771a67992209bf967787755a6af2477abb0e29beef1bfb0abf4e1571340cf177-block-1">Image — image/png</p>
+</div>
+</section>
+</section>
+</article>
+<p class="metadata">Exported from thinkt</p>
+</body></html>

@@ -4,12 +4,17 @@ import (
 	"encoding/json"
 	"io"
 
+	"github.com/wethinkt/go-thinkt/internal/target"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 // Options controls export rendering.
 type Options struct {
-	Title string
+	Title     string
+	SessionID string // Namespaces conversation anchors in HTML output.
+	// HTMLFilter selects HTML content after building source anchors. Supply
+	// unfiltered entries so links remain stable across export filter changes.
+	HTMLFilter *target.ContentFilter
 }
 
 // ExportMarkdown writes entries as Markdown to w.

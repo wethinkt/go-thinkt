@@ -48,6 +48,7 @@ Sources are auto-discovered. Use `--source claude|kimi|gemini|copilot|codex|qwen
 | `internal/collect` | Trace collector: HTTP server, DuckDB store, agent registry, normalizer |
 | `internal/analytics` | Analytics |
 | `internal/export` | Session export (Markdown, HTML, JSON) with content filtering |
+| [`internal/conversation`](./internal/conversation/) | Semantic presentation adapter and shared terminal/web HTML/CSS; used by HTML export |
 | `internal/prompt` | Prompt extraction and formatting |
 | `internal/config` | Configuration management, instance registry |
 | `internal/fingerprint` | Machine fingerprint generation |
@@ -152,6 +153,7 @@ The TUI uses a `Shell` with a `NavStack` that manages page navigation:
 - **ProjectPickerModel** (`project_picker.go`) — Tree or flat project list with source filtering and sorting
 - **SessionPickerModel** (`session_picker.go`) — Session list with source filtering, color-coded source badges
 - **MultiViewerModel** (`multi_viewer.go`) — Lazy-loading session viewer with viewport scrolling
+- **ConversationViewerModel** (`conversation_viewer.go`) — Opt-in HTML/nthtml viewer (`THINKT_VIEWER=html`) with bounded message groups, source-anchor navigation, and lazy readers; exercise via `sh etc/try-thinkt.sh` while renderer commits are unpublished
 - **SourcePickerModel** (`source_picker.go`) — Overlay for filtering by source (used within pickers)
 - **ThemeBuilderModel** (`theme_builder.go`) — Standalone theme editor with color picker
 - **CollectorPageModel** (`collector_page.go`) — Live collector status view (fetches REST API, auto-refreshes)
@@ -251,6 +253,7 @@ The fingerprint is normalized to a consistent UUID format (lowercase, 8-4-4-4-12
 | `THINKT_QWEN_HOME` | Qwen Code data directory | `~/.qwen` |
 | `THINKT_LANG` | Override UI language (BCP 47 tag) | auto-detected |
 | `THINKT_LOG_FILE` | Write debug logs to this file path | (disabled) |
+| `THINKT_VIEWER` | Set `html` for the opt-in shared HTML/nthtml session viewer | existing viewer |
 | `THINKT_API_TOKEN` | Bearer token for API server authentication | (none) |
 | `THINKT_MCP_TOKEN` | Bearer token for MCP server authentication | (none) |
 | `THINKT_MCP_ALLOW_TOOLS` | Comma-separated list of allowed MCP tools | (all) |
