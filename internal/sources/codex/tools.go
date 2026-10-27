@@ -36,7 +36,7 @@ func (c *converter) convertWireCall(h recordHead) []thinkt.Entry {
 	if callID != "" {
 		c.calls[callID] = name
 	}
-	id := "wire:" + callID
+	id := c.wireID(h, callID)
 	e := c.newEntry(thinkt.RoleAssistant, h, id)
 	e.Kind, e.Visibility = wireVisibility(name)
 	e.ContentBlocks = []thinkt.ContentBlock{{
@@ -60,7 +60,7 @@ func (c *converter) convertWireOutput(h recordHead) []thinkt.Entry {
 	if callID == "" && output == "" {
 		return nil
 	}
-	id := "wire:" + callID
+	id := c.wireID(h, callID)
 	e := c.newEntry(thinkt.RoleUser, h, id+":result")
 	e.Kind, e.Visibility = wireVisibility(c.calls[callID])
 	e.ContentBlocks = []thinkt.ContentBlock{{
@@ -72,6 +72,16 @@ func (c *converter) convertWireOutput(h recordHead) []thinkt.Entry {
 		e.Metadata["exit_code"] = code
 	}
 	return []thinkt.Entry{e}
+}
+
+// wireID is the UUID stem and ToolUseID of a wire tool pair: "wire:<call_id>",
+// or a line-based id when the record carries no call_id so two such lines
+// never share a UUID.
+func (c *converter) wireID(h recordHead, callID string) string {
+	if callID == "" {
+		return "wire:" + composeUUID(c.sessionID, c.lineNo, h.Key(), "")
+	}
+	return "wire:" + callID
 }
 
 // toolPair builds the assistant tool_use entry and the user tool_result
@@ -131,11 +141,13 @@ func wrapDiff(path, body string) string {
 	return "--- a/" + path + "\n+++ b/" + path + "\n" + body
 }
 
-// diffLineCounts counts added and removed lines, skipping the file header.
+// diffLineCounts counts added and removed lines. Only the two-line file
+// header is skipped, so body lines that happen to start with "--" or "++"
+// (SQL comments, YAML documents) still count.
 func diffLineCounts(diff string) (added, removed int) {
-	for _, line := range strings.Split(diff, "\n") {
+	for i, line := range strings.Split(diff, "\n") {
 		switch {
-		case strings.HasPrefix(line, "+++"), strings.HasPrefix(line, "---"):
+		case i < 2 && (strings.HasPrefix(line, "+++") || strings.HasPrefix(line, "---")):
 		case strings.HasPrefix(line, "+"):
 			added++
 		case strings.HasPrefix(line, "-"):
@@ -201,7 +213,7 @@ func (c *converter) commandExecution(h recordHead) []thinkt.Entry {
 	if item.ExitCode != nil {
 		exitCode = *item.ExitCode
 	}
-	result.IsError = exitCode != 0
+	result.IsError = exitCode != 0 || item.Status == "failed"
 	entries := c.toolPair(h, item.ID, call, result, "", thinkt.KindNone)
 	res := &entries[1]
 	res.Metadata["exit_code"] = exitCode
@@ -323,7 +335,11 @@ func (c *converter) mcpToolCall(h recordHead) []thinkt.Entry {
 				texts = append(texts, part.Text)
 				continue
 			}
-			result.Children = append(result.Children, thinkt.ContentBlock{Type: part.Type, Text: string(raw)})
+			childType := part.Type
+			if childType == "" {
+				childType = "text" // untyped or undecodable content: keep its raw JSON readable
+			}
+			result.Children = append(result.Children, thinkt.ContentBlock{Type: childType, Text: string(raw)})
 		}
 		result.ToolResult = strings.Join(texts, "\n")
 	}

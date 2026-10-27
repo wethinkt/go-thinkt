@@ -115,7 +115,11 @@ func (p *Parser) step(line []byte) {
 	if len(entries) == 0 {
 		return
 	}
-	if isDedupeCandidate(head) && p.isItemTwin(head, entries[0]) {
+	// The dedupe memory covers only the item's adjacent twin: whatever
+	// producing line comes next, twin or not, clears it.
+	twin := isDedupeCandidate(head) && p.isItemTwin(head, entries[0])
+	p.lastAgentText, p.lastReasoningText = "", ""
+	if twin {
 		return
 	}
 

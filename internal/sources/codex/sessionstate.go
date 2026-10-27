@@ -80,6 +80,8 @@ func scanSessionFile(path string) sessionScan {
 
 	var cost thinkt.SessionCost
 	var settingsModel, providerModel string
+	var legacyKey, legacyText string            // the legacy event awaiting its wire twin
+	var lastAgentText, lastReasoningText string // the harness item a wire record may twin
 	scanner := thinkt.NewScannerWithMaxCapacityCustom(f, 64*1024, thinkt.MaxScannerCapacity)
 	for scanner.Scan() {
 		line := bytes.TrimSpace(scanner.Bytes())
@@ -87,7 +89,37 @@ func scanSessionFile(path string) sessionScan {
 			continue
 		}
 		h, class := ClassifyLine(line)
-		s.EntryCount += entryWeight(h, class)
+		weight := entryWeight(h, class)
+		if class.IsEntry() && isDedupeCandidate(h) && h.LeadText != "" {
+			// Same rule as the parser: a wire assistant message or reasoning
+			// record is dropped only when it repeats the item just before it.
+			twin := (h.PayloadType == "message" && h.LeadText == lastAgentText) ||
+				(h.PayloadType == "reasoning" && h.LeadText == lastReasoningText)
+			if !twin {
+				weight = 1
+			}
+		}
+		if weight > 0 || (class.IsEntry() && isDedupeCandidate(h)) {
+			lastAgentText, lastReasoningText = "", ""
+			switch h.Key() {
+			case "item/AgentMessage":
+				lastAgentText = h.LeadText
+			case "item/Reasoning":
+				lastReasoningText = h.LeadText
+			}
+		}
+		if weight > 0 && legacyKey != "" {
+			// A legacy event and the wire record that repeats it are one
+			// entry, as the parser emits them.
+			if isLegacyTwin(legacyKey, legacyText, h) {
+				weight = 0
+			}
+			legacyKey, legacyText = "", ""
+		}
+		s.EntryCount += weight
+		if weight > 0 && isLegacyEvent(h) {
+			legacyKey, legacyText = h.Key(), legacyEventText(h.Payload)
+		}
 		switch h.Key() {
 		case "session_meta":
 			var r sessionMetaRecord
@@ -179,6 +211,22 @@ func scanSessionFile(path string) sessionScan {
 		s.Cost = &cost
 	}
 	return s
+}
+
+// legacyEventText returns the trimmed text of a legacy event_msg
+// user_message / agent_message (message) or agent_reasoning (text).
+func legacyEventText(payload json.RawMessage) string {
+	var p struct {
+		Message string `json:"message"`
+		Text    string `json:"text"`
+	}
+	if json.Unmarshal(payload, &p) != nil {
+		return ""
+	}
+	if t := strings.TrimSpace(p.Message); t != "" {
+		return t
+	}
+	return strings.TrimSpace(p.Text)
 }
 
 // userPromptText joins the input_text parts of a wire user message.

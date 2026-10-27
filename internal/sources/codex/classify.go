@@ -66,7 +66,8 @@ type recordHead struct {
 	Role        string
 	Name        string
 	Kinds       []string
-	LeadText    string
+	LeadText    string // first non-empty text part of a wire message or reasoning record, trimmed
+	HasContent  bool   // a wire message carries text or an input_image
 	HasSummary  bool
 	Payload     json.RawMessage
 }
@@ -135,6 +136,7 @@ type payloadHead struct {
 	Item    struct {
 		Type        string          `json:"type"`
 		Kind        string          `json:"kind"`
+		Content     json.RawMessage `json:"content"`
 		SummaryText json.RawMessage `json:"summary_text"`
 	} `json:"item"`
 	Passthrough struct {
@@ -162,6 +164,9 @@ func anyText(raw json.RawMessage) bool {
 	return false
 }
 
+// leadText joins the non-empty text parts of a content array, trimmed, the
+// way the converter joins them, so the scan and the parser compare the same
+// text when deciding whether a wire record twins a harness item.
 func leadText(raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return ""
@@ -170,12 +175,13 @@ func leadText(raw json.RawMessage) string {
 	if err := json.Unmarshal(raw, &parts); err != nil {
 		return ""
 	}
+	var out []string
 	for _, p := range parts {
-		if t := strings.TrimSpace(p.Text); t != "" {
-			return t
+		if p.Text != "" {
+			out = append(out, p.Text)
 		}
 	}
-	return ""
+	return strings.TrimSpace(strings.Join(out, "\n"))
 }
 
 // ClassifyLine decodes the head of one rollout line and classifies it. A line
@@ -203,19 +209,65 @@ func ClassifyLine(line []byte) (recordHead, RecordClass) {
 		if ph.Type == "item_completed" {
 			h.ItemType = ph.Item.Type
 			h.ItemKind = ph.Item.Kind
-			if ph.Item.Type == "Reasoning" {
+			switch ph.Item.Type {
+			case "Reasoning":
 				h.HasSummary = anyText(ph.Item.SummaryText)
+				h.LeadText = leadText(ph.Item.SummaryText)
+			case "AgentMessage":
+				h.LeadText = leadText(ph.Item.Content)
 			}
 		}
 	case "response_item":
 		switch ph.Type {
-		case "message":
+		case "message", "agent_message":
 			h.LeadText = leadText(ph.Content)
+			h.HasContent = h.LeadText != "" || hasImage(ph.Content)
 		case "reasoning":
 			h.HasSummary = anyText(ph.Summary) || strings.TrimSpace(ph.Text) != ""
+			h.LeadText = leadText(ph.Summary)
+			if h.LeadText == "" {
+				h.LeadText = strings.TrimSpace(ph.Text)
+			}
 		}
 	}
 	return h, classify(h)
+}
+
+func hasImage(raw json.RawMessage) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	var parts []struct {
+		Type     string `json:"type"`
+		ImageURL string `json:"image_url"`
+	}
+	if err := json.Unmarshal(raw, &parts); err != nil {
+		return false
+	}
+	for _, p := range parts {
+		if p.Type == "input_image" && p.ImageURL != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// isLegacyTwin reports whether wire line h repeats the legacy event
+// (event_msg user_message / agent_message / agent_reasoning) that preceded
+// it, so the pair yields one entry.
+func isLegacyTwin(legacyKey, legacyText string, h recordHead) bool {
+	if h.Type != "response_item" || legacyText == "" || h.LeadText != legacyText {
+		return false
+	}
+	switch legacyKey {
+	case "event_msg/user_message":
+		return h.PayloadType == "message" && h.Role == "user"
+	case "event_msg/agent_message":
+		return h.PayloadType == "message" && h.Role == "assistant"
+	case "event_msg/agent_reasoning":
+		return h.PayloadType == "reasoning"
+	}
+	return false
 }
 
 func classify(h recordHead) RecordClass {
@@ -350,6 +402,11 @@ func entryWeight(h recordHead, class RecordClass) int {
 		return 0
 	}
 	switch h.Key() {
+	case "response_item/message", "response_item/agent_message":
+		if !h.HasContent {
+			return 0
+		}
+		return 1
 	case "item/CommandExecution", "item/FileChange", "item/McpToolCall", "item/WebSearch", "item/ImageView":
 		return 2
 	case "item/Extension":
