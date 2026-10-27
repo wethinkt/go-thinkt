@@ -33,6 +33,17 @@ type CachedSession struct {
 	CreatedAt   time.Time `json:"created_at,omitzero"`
 	ModifiedAt  time.Time `json:"modified_at"`
 	FileSize    int64     `json:"file_size"`
+
+	// ParserVersion is the ParserVersion that computed this entry. Set stamps
+	// it; Lookup and MergeInto treat any other value as stale.
+	ParserVersion int `json:"parser_version,omitempty"`
+
+	Title         string        `json:"title,omitempty"`
+	LastPrompt    string        `json:"last_prompt,omitempty"`
+	SubagentCount int           `json:"subagent_count,omitempty"`
+	PRLinks       []PRLink      `json:"pr_links,omitempty"`
+	Worktree      *WorktreeInfo `json:"worktree,omitempty"`
+	Cost          *SessionCost  `json:"cost,omitempty"`
 }
 
 // metadataCacheJSON is the on-disk representation without the mutex.
@@ -92,16 +103,18 @@ func (mc *MetadataCache) Lookup(fullPath string, modTime time.Time, fileSize int
 	if !ok {
 		return CachedSession{}, false
 	}
-	if !entry.ModifiedAt.Equal(modTime) || entry.FileSize != fileSize {
+	if !entry.ModifiedAt.Equal(modTime) || entry.FileSize != fileSize || entry.ParserVersion != ParserVersion {
 		return CachedSession{}, false
 	}
 	return entry, true
 }
 
-// Set upserts a cache entry for the given session path.
+// Set upserts a cache entry for the given session path, stamping the current
+// ParserVersion so entries computed by an older parser go stale on upgrade.
 func (mc *MetadataCache) Set(fullPath string, entry CachedSession) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
+	entry.ParserVersion = ParserVersion
 	mc.Sessions[fullPath] = entry
 }
 
@@ -186,10 +199,31 @@ func (mc *MetadataCache) MergeInto(meta *SessionMeta) bool {
 	if !ok {
 		return false
 	}
-	if !entry.ModifiedAt.Equal(meta.ModifiedAt) || entry.FileSize != meta.FileSize {
+	if !entry.ModifiedAt.Equal(meta.ModifiedAt) || entry.FileSize != meta.FileSize || entry.ParserVersion != ParserVersion {
 		return false
 	}
 
+	if meta.Title == "" {
+		meta.Title = entry.Title
+	}
+	if meta.Summary == "" {
+		meta.Summary = entry.Title
+	}
+	if meta.LastPrompt == "" {
+		meta.LastPrompt = entry.LastPrompt
+	}
+	if meta.SubagentCount == 0 {
+		meta.SubagentCount = entry.SubagentCount
+	}
+	if meta.PRLinks == nil {
+		meta.PRLinks = entry.PRLinks
+	}
+	if meta.Worktree == nil {
+		meta.Worktree = entry.Worktree
+	}
+	if meta.Cost == nil {
+		meta.Cost = entry.Cost
+	}
 	if meta.FirstPrompt == "" {
 		meta.FirstPrompt = entry.FirstPrompt
 	}

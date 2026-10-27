@@ -24,6 +24,8 @@ Sources are auto-discovered. Use `--source claude|kimi|gemini|copilot|codex|qwen
 
 **Source Enable/Disable:** Sources can be enabled/disabled via `thinkt sources enable/disable` (stored in `config.Sources` map). Disabled sources are invisible at the API boundary — the MCP/HTTP server validates against the `StoreRegistry` (which only registers enabled sources), and the indexer RPC server independently filters via `enabledSources` (derived from `config.EnabledSources()`, refreshed on `config_reload`). Both layers enforce filtering so neither can leak disabled source data.
 
+**Entry classification:** `thinkt.Entry` carries a source-neutral `Kind` (an open string type with constants) and a `Visibility` hint. Sources mark bookkeeping-adjacent entries (`turn_duration`, attachments, meta prompts) as `secondary`; the export filter, TUI "Other" toggle, and `conversation.WritePage` hide those by default while the REST API and MCP return every emitted entry. `thinkt.ParserVersion` must be bumped whenever a source changes which entries it emits; the metadata cache and the SQLite index recompute lazily on mismatch. The Claude parser drops request dumps and session-state records before parsing (see `internal/sources/claude/README.md`).
+
 ### Key Packages
 
 | Package | Purpose |
@@ -48,6 +50,7 @@ Sources are auto-discovered. Use `--source claude|kimi|gemini|copilot|codex|qwen
 | `internal/collect` | Trace collector: HTTP server, DuckDB store, agent registry, normalizer |
 | `internal/analytics` | Analytics |
 | `internal/export` | Session export (Markdown, HTML, JSON) with content filtering |
+| [`internal/conversation`](./internal/conversation/) | Semantic presentation adapter (kinds, visibility, nested tool-result blocks, diffs) and shared terminal/web HTML/CSS; used by HTML export |
 | `internal/prompt` | Prompt extraction and formatting |
 | `internal/config` | Configuration management, instance registry |
 | `internal/fingerprint` | Machine fingerprint generation |
@@ -152,6 +155,7 @@ The TUI uses a `Shell` with a `NavStack` that manages page navigation:
 - **ProjectPickerModel** (`project_picker.go`) — Tree or flat project list with source filtering and sorting
 - **SessionPickerModel** (`session_picker.go`) — Session list with source filtering, color-coded source badges
 - **MultiViewerModel** (`multi_viewer.go`) — Lazy-loading session viewer with viewport scrolling
+- **ConversationViewerModel** (`conversation_viewer.go`) — Opt-in HTML/nthtml viewer (`THINKT_VIEWER=html`) with bounded message groups, source-anchor navigation, and lazy readers; exercise via `sh etc/try-thinkt.sh` while renderer commits are unpublished
 - **SourcePickerModel** (`source_picker.go`) — Overlay for filtering by source (used within pickers)
 - **ThemeBuilderModel** (`theme_builder.go`) — Standalone theme editor with color picker
 - **CollectorPageModel** (`collector_page.go`) — Live collector status view (fetches REST API, auto-refreshes)
@@ -251,6 +255,7 @@ The fingerprint is normalized to a consistent UUID format (lowercase, 8-4-4-4-12
 | `THINKT_QWEN_HOME` | Qwen Code data directory | `~/.qwen` |
 | `THINKT_LANG` | Override UI language (BCP 47 tag) | auto-detected |
 | `THINKT_LOG_FILE` | Write debug logs to this file path | (disabled) |
+| `THINKT_VIEWER` | Set `html` for the opt-in shared HTML/nthtml session viewer | existing viewer |
 | `THINKT_API_TOKEN` | Bearer token for API server authentication | (none) |
 | `THINKT_MCP_TOKEN` | Bearer token for MCP server authentication | (none) |
 | `THINKT_MCP_ALLOW_TOOLS` | Comma-separated list of allowed MCP tools | (all) |
@@ -446,6 +451,8 @@ Persisted research reports are available in `etc/reports`.
 | [etc/reports/thinking-tracer.md](./etc/reports/thinking-tracer.md) | Architecture of the thinking-tracer visualization app |
 | [etc/reports/go-patterns.md](./etc/reports/go-patterns.md) | Go project conventions |
 | [etc/reports/CLAUDE_STRUCTURE.md](./etc/reports/CLAUDE_STRUCTURE.md) | Claude Code storage structure |
+| [etc/reports/CLAUDE_TRANSCRIPT_SCHEMA.md](./etc/reports/CLAUDE_TRANSCRIPT_SCHEMA.md) | Claude Code transcript record types and fields as observed in Oct 2026 (CLI 2.1.3xx) |
+| [etc/reports/SOURCE_FORMATS_2026-10.md](./etc/reports/SOURCE_FORMATS_2026-10.md) | Codex, Antigravity, and Kimi Code on-disk formats vs what thinkt reads (Oct 2026), with mappings onto the Entry model |
 | [etc/reports/KIMI_STRUCTURE.md](./etc/reports/KIMI_STRUCTURE.md) | Kimi Code storage structure |
 | [etc/reports/SESSION_STORAGE.md](./etc/reports/SESSION_STORAGE.md) | Session storage comparison |
 | [etc/reports/ONTOLOGY_ANALYSIS.md](./etc/reports/ONTOLOGY_ANALYSIS.md) | Data model ontology |

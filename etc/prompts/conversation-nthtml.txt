@@ -1,0 +1,23 @@
+Work in /Users/evan/projects/nthtml. Read this repo's AGENTS.md and relevant instructions before changing code.
+
+Goal: preserve styled structure and source anchors when the same HTML document is used in native raster, TTY, and nttypeset-backed rendering. Keep nthtml generic: it must not know about thinkt roles or session formats.
+
+Context:
+- go-thinkt has a conversation presentation adapter: Entry/ContentBlock -> conversation.Document -> shared HTML/CSS.
+- Read /Users/evan/projects/go-thinkt/internal/conversation/README.md, conversation.css, and testdata/conversation.html. Treat those as external inputs; do not edit that repo. The HTML fixture contains Markdown-derived paragraphs/tables/code, thinking, a tool call/error result, linked anchors, and media placeholders.
+- The same fixture currently works with document.Parse -> Document.TTY and document.Render. It also converts through typeset.Build -> nttypeset.Layout.Raster, but that bridge loses section backgrounds, borders, and some sizing.
+- Inspect document/typeset.go and typeset/typeset.go. StyledBlock extraction and bridge conversion both flatten structural information. Existing native raster, fragment navigation, search, and TTY behavior should remain usable.
+
+A companion nttypeset task is introducing generic support for styled groups and opaque source anchors. Coordinate the needed API; do not implement a parallel shaping/layout engine here or modify nttypeset in this task. If that prerequisite is unavailable, finish any independent extraction/identity improvements and clearly identify the remaining dependency.
+
+Requirements:
+1. Preserve the supported computed section styles and hierarchy through extraction and conversion to nttypeset. Cover the fixture's nested block sections, padding, borders/backgrounds, and resolved text sizing/colors. Do not silently replace explicit CSS with hardcoded generic heading sizes or a different palette. Document styles that remain unsupported.
+2. Carry HTML element IDs through the bridge and expose a generic source mapping usable by hosts for anchor navigation and hit/selection identity. Keep IDs stable across resize and TTY/raster mode changes. Reuse existing anchor/search/selection facilities where possible; inspect them before adding new APIs. Parent ID/range mappings may be useful for section-level navigation.
+3. Honor display:none consistently in every route. A host must be able to rebuild a collapsed document while retaining an existing message anchor. Do not interpret thinkt-specific classes or data attributes as built-in behavior.
+4. Extend a CLI or example so a developer can open an arbitrary HTML file interactively, switch TTY/styled modes, and compare native and bridged output. Reuse the widget's focus, mouse, copy, link, and cleanup lifecycle. The host owns external link activation and quit.
+5. Add a generic representative fixture and tests comparing text/order, visibility, link/anchor mapping, and the supported style subset across renderers. Include visual artifacts at wide/narrow widths and viewport clipping checks. Keep work bounded and preserve explicit asset allowlists with no implicit network or filesystem access.
+6. Correct any README claims that the typeset adapter does not exist; there is already a typeset package in this checkout. Explain what it preserves and what it cannot yet preserve.
+
+Do not require whole-session rasterization. Keep this a bounded document/viewport component suitable for hosts that virtualize long conversations. Do not add temporary sibling-directory replacements to committed module files.
+
+Run this repo's required native and WASM checks. Report the API/dependency changes, exact commands to view the arbitrary HTML fixture, differences that remain between renderers, and a stable version/commit for downstream consumers.

@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/index/db"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -270,6 +271,28 @@ func (i *Ingester) writeSession(ctx context.Context, p parsedSession) error {
 		}
 	}
 
+	// Attachment entries, for quick access without full-text search. Rows are
+	// replaced per session so re-ingestion never duplicates them.
+	if _, err := tx.ExecContext(ctx, "DELETE FROM entry_attachments WHERE session_id = ?", p.meta.ID); err != nil {
+		return fmt.Errorf("clear old attachments: %w", err)
+	}
+	for idx, entry := range p.entries {
+		if entry.Kind != thinkt.KindAttachment {
+			continue
+		}
+		label, _, _ := strings.Cut(entry.Text, "\n")
+		if len(label) > 200 {
+			label = label[:200]
+		}
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO entry_attachments (session_id, entry_index, kind, label, timestamp)
+			VALUES (?, ?, ?, ?, ?)`,
+			p.meta.ID, idx, entry.Subtype, label, entry.Timestamp.UTC().Format(time.RFC3339Nano),
+		); err != nil {
+			return fmt.Errorf("insert attachment %s: %w", entry.UUID, err)
+		}
+	}
+
 	// Session metadata.
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO sessions (id, project_id, path, model, first_prompt, entry_count, created_at, updated_at)
@@ -290,9 +313,9 @@ func (i *Ingester) writeSession(ctx context.Context, p parsedSession) error {
 
 	// Sync state — last_mod_time is Unix epoch (INTEGER).
 	if _, err := tx.ExecContext(ctx, `
-		INSERT OR REPLACE INTO sync_state (file_path, last_mod_time, file_size, lines_read, last_synced)
-		VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`,
-		p.meta.FullPath, p.meta.ModifiedAt.Unix(), p.meta.FileSize, len(p.entries),
+		INSERT OR REPLACE INTO sync_state (file_path, last_mod_time, file_size, lines_read, parser_version, last_synced)
+		VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`,
+		p.meta.FullPath, p.meta.ModifiedAt.Unix(), p.meta.FileSize, len(p.entries), thinkt.ParserVersion,
 	); err != nil {
 		return fmt.Errorf("update sync state: %w", err)
 	}
@@ -304,9 +327,10 @@ func (i *Ingester) writeSession(ctx context.Context, p parsedSession) error {
 func (i *Ingester) ShouldSyncSession(meta thinkt.SessionMeta) (bool, error) {
 	var lastModUnix int64
 	var lastSize int64
+	var parserVersion int
 
-	err := i.db.QueryRow(`SELECT last_mod_time, file_size FROM sync_state WHERE file_path = ?`,
-		meta.FullPath).Scan(&lastModUnix, &lastSize)
+	err := i.db.QueryRow(`SELECT last_mod_time, file_size, parser_version FROM sync_state WHERE file_path = ?`,
+		meta.FullPath).Scan(&lastModUnix, &lastSize, &parserVersion)
 	if err == db.ErrNoRows {
 		return true, nil
 	}
@@ -314,5 +338,6 @@ func (i *Ingester) ShouldSyncSession(meta thinkt.SessionMeta) (bool, error) {
 		return false, err
 	}
 
-	return meta.ModifiedAt.Unix() > lastModUnix || meta.FileSize != lastSize, nil
+	// A parser change makes every earlier ingestion stale; re-ingest lazily.
+	return meta.ModifiedAt.Unix() > lastModUnix || meta.FileSize != lastSize || parserVersion != thinkt.ParserVersion, nil
 }

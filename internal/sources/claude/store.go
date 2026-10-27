@@ -120,6 +120,7 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 				WorkspaceID:    ws.ID,
 				SourceBasePath: ws.BasePath,
 				DirSize:        p.DirSize,
+				SubagentCount:  p.SubagentCount,
 			}
 		}
 		return result, nil
@@ -191,6 +192,21 @@ func (s *Store) ListSessions(ctx context.Context, projectID string, opts ...thin
 		mc.MergeInto(&sessions[i])
 	}
 
+	// Synchronous enrichment: scan every uncached session now, then save the
+	// cache once rather than rewriting it per session.
+	if cfg.EnrichSync {
+		changed := false
+		for i := range sessions {
+			if sessions[i].FullPath != "" && s.enrichInto(mc, &sessions[i]) {
+				changed = true
+			}
+		}
+		if changed {
+			_ = mc.Save()
+		}
+		s.cache.SetSessions(projectID, sessions, nil)
+	}
+
 	// If enrichment requested, scan stale sessions in background.
 	if cfg.EnrichCallback != nil {
 		s.startEnrichment(ctx, projectID, sessions, mc, cfg.EnrichCallback)
@@ -213,7 +229,7 @@ func (s *Store) startEnrichment(ctx context.Context, projectID string, sessions 
 		if cached {
 			continue // already enriched from cache
 		}
-		if sess.FirstPrompt == "" || !thinkt.IsRealModel(sess.Model) || sess.EntryCount == 0 {
+		if sess.FirstPrompt == "" || !thinkt.IsRealModel(sess.Model) || sess.EntryCount == 0 || sess.Title == "" {
 			staleIdxs = append(staleIdxs, i)
 		}
 	}
@@ -233,31 +249,13 @@ func (s *Store) startEnrichment(ctx context.Context, projectID string, sessions 
 			}
 			sess := &enriched[idx]
 
-			// Use existing enrichment functions.
-			if sess.FirstPrompt == "" || !thinkt.IsRealModel(sess.Model) {
-				prompt, model := extractSessionHints(sess.FullPath)
-				if sess.FirstPrompt == "" {
-					sess.FirstPrompt = prompt
-				}
-				if !thinkt.IsRealModel(sess.Model) {
-					sess.Model = model
-				}
-			}
-			if sess.EntryCount == 0 {
-				sess.EntryCount = countFileLines(sess.FullPath)
-			}
+			// One pass yields prompt, model, entry count, and session state.
+			scan := scanSessionFile(sess.FullPath)
+			scan.applyTo(sess)
+			sess.SubagentCount = countSubagents(sess.FullPath)
 
 			// Update persistent cache.
-			mc.Set(sess.FullPath, thinkt.CachedSession{
-				FirstPrompt: sess.FirstPrompt,
-				Model:       sess.Model,
-				EntryCount:  sess.EntryCount,
-				GitBranch:   sess.GitBranch,
-				ProjectPath: sess.ProjectPath,
-				CreatedAt:   sess.CreatedAt,
-				ModifiedAt:  sess.ModifiedAt,
-				FileSize:    sess.FileSize,
-			})
+			mc.Set(sess.FullPath, scan.cached(*sess))
 			_ = mc.Save()
 
 			// Update the in-memory StoreCache.
@@ -322,19 +320,26 @@ func (s *Store) getSessionMetaByPath(sessionPath string) (*thinkt.SessionMeta, e
 					if modified.IsZero() && e.FileMtime > 0 {
 						modified = time.UnixMilli(e.FileMtime)
 					}
-					return &thinkt.SessionMeta{
+					meta := &thinkt.SessionMeta{
 						ID:          e.SessionID,
 						ProjectPath: projectDir,
 						FullPath:    fullPath,
 						FirstPrompt: e.FirstPrompt,
 						Summary:     e.Summary,
-						EntryCount:  e.MessageCount,
 						CreatedAt:   created,
 						ModifiedAt:  modified,
 						GitBranch:   e.GitBranch,
 						Source:      thinkt.SourceClaude,
 						WorkspaceID: ws.ID,
-					}, nil
+					}
+					// The legacy index predates titles and counts raw lines;
+					// the file scan is authoritative for both.
+					if info, err := os.Stat(fullPath); err == nil {
+						meta.FileSize = info.Size()
+						meta.ModifiedAt = info.ModTime()
+					}
+					s.enrichSessionMeta(meta)
+					return meta, nil
 				}
 			}
 		}
@@ -346,14 +351,39 @@ func (s *Store) getSessionMetaByPath(sessionPath string) (*thinkt.SessionMeta, e
 		return nil, nil // not found
 	}
 	sessionID := strings.TrimSuffix(filepath.Base(sessionPath), ".jsonl")
-	return &thinkt.SessionMeta{
+	meta := &thinkt.SessionMeta{
 		ID:          sessionID,
 		ProjectPath: projectDir,
 		FullPath:    sessionPath,
 		ModifiedAt:  info.ModTime(),
+		FileSize:    info.Size(),
 		Source:      thinkt.SourceClaude,
 		WorkspaceID: ws.ID,
-	}, nil
+	}
+	s.enrichSessionMeta(meta)
+	return meta, nil
+}
+
+// enrichSessionMeta fills title, counts, and session state from the metadata
+// cache, scanning the file once when the cache is stale or missing.
+func (s *Store) enrichSessionMeta(meta *thinkt.SessionMeta) {
+	if s.enrichInto(s.metadataCache(), meta) {
+		_ = s.metadataCache().Save()
+	}
+}
+
+// enrichInto fills meta from the cache, or from a file scan that it records
+// in the cache without saving. It reports whether the cache changed, so a
+// caller enriching many sessions can save once.
+func (s *Store) enrichInto(mc *thinkt.MetadataCache, meta *thinkt.SessionMeta) bool {
+	if mc.MergeInto(meta) {
+		return false
+	}
+	scan := scanSessionFile(meta.FullPath)
+	scan.applyTo(meta)
+	meta.SubagentCount = countSubagents(meta.FullPath)
+	mc.Set(meta.FullPath, scan.cached(*meta))
+	return true
 }
 
 // LoadSession loads a complete session.
@@ -542,6 +572,11 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 		entry.ParentUUID = e.ParentUUID
 	}
 
+	// Session id is needed while converting blocks (subagent session ids).
+	if e.SessionID != "" {
+		entry.Metadata["session_id"] = e.SessionID
+	}
+
 	// Convert role/type
 	entry.Role = convertRole(e.Type)
 
@@ -552,26 +587,133 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 			entry.Text = msg.Content.GetText()
 			// Convert content blocks if present
 			if len(msg.Content.Blocks) > 0 {
-				entry.ContentBlocks = convertUserBlocks(msg.Content.Blocks)
+				entry.ContentBlocks = convertUserBlocks(msg.Content.Blocks, e.ToolUseResult, entry)
 			}
 		}
+		entry.PromptID = e.PromptID
+		if e.IsCompactSummary {
+			entry.Kind = thinkt.KindCompactSummary
+		} else {
+			entry.Kind = detectUserKind(entry.Text, e.IsMeta)
+		}
+		entry.Visibility = userKindVisibility(entry.Kind)
+		if e.PermissionDecision != nil || e.ToolDenialKind != "" {
+			perm := &thinkt.PermissionDecision{DenialKind: e.ToolDenialKind}
+			if d := e.PermissionDecision; d != nil {
+				perm.Decision, perm.Source, perm.ReasonType, perm.ReasonCode = d.Decision, d.Source, d.ReasonType, d.ReasonCode
+			}
+			entry.Permission = perm
+		}
+		if e.TurnOrigin != "" {
+			entry.Metadata["turn_origin"] = e.TurnOrigin
+		}
+		if e.PromptSource != "" {
+			entry.Metadata["prompt_source"] = e.PromptSource
+		}
 	case EntryTypeAssistant:
+		entry.Effort = e.Effort
+		entry.RequestedModel = e.RequestedModel
+		entry.Attribution = attribution(e)
+		if e.ThinkingDurationMs > 0 {
+			entry.Metadata["thinking_duration_ms"] = e.ThinkingDurationMs
+		}
+		if e.IsApiErrorMessage || e.Error != "" {
+			entry.Error = e.Error
+			entry.Kind = thinkt.KindAPIError
+			entry.Visibility = thinkt.VisibilitySecondary
+		}
 		if msg := e.GetAssistantMessage(); msg != nil {
 			entry.Model = msg.Model
+			entry.TurnID = msg.ID
+			if msg.StopReason != nil {
+				entry.StopReason = *msg.StopReason
+			}
 			entry.ContentBlocks = convertAssistantBlocks(msg.Content)
+			// Text is the joined text blocks, so text-only consumers see the reply.
+			for _, cb := range entry.ContentBlocks {
+				if cb.Type == "text" && cb.Text != "" {
+					if entry.Text != "" {
+						entry.Text += "\n"
+					}
+					entry.Text += cb.Text
+				}
+			}
 			if msg.Usage != nil {
 				entry.Usage = &thinkt.TokenUsage{
 					InputTokens:              msg.Usage.InputTokens,
 					OutputTokens:             msg.Usage.OutputTokens,
 					CacheCreationInputTokens: msg.Usage.CacheCreationInputTokens,
 					CacheReadInputTokens:     msg.Usage.CacheReadInputTokens,
+					ServiceTier:              msg.Usage.ServiceTier,
+					Speed:                    msg.Usage.Speed,
+				}
+				if d := msg.Usage.OutputTokensDetails; d != nil {
+					entry.Usage.ThinkingTokens = d.ThinkingTokens
 				}
 			}
 		}
+	case EntryTypeSystem:
+		entry.Subtype = e.Subtype
+		entry.Kind, entry.Visibility = systemKind(e.Subtype)
+		entry.Text = e.Content
+		if entry.Text == "" {
+			entry.Text = e.Subtype
+		}
+		if entry.Text == "" {
+			entry.Text = "system event"
+		}
+		switch e.Subtype {
+		case "compact_boundary":
+			entry.Compaction = compactionInfo(e.CompactMetadata, e.LogicalParentUUID)
+		case "turn_duration":
+			entry.Metadata["duration_ms"] = e.DurationMs
+			entry.Metadata["message_count"] = e.MessageCount
+		}
+	case EntryTypeQueueOperation:
+		entry.Kind = thinkt.KindQueueOperation
+		entry.Subtype = e.Operation
+		entry.Visibility = thinkt.VisibilitySecondary
+		// Content-less queue records never reach here; see classifyHead.
+		entry.Text = e.Content
+	case EntryTypeAttachment:
+		var head struct {
+			Type string `json:"type"`
+		}
+		_ = json.Unmarshal(e.Attachment, &head)
+		attachmentType := head.Type
+		if e.RenderedRole == "user" {
+			entry.Role = thinkt.RoleUser
+		}
+		entry.Kind = thinkt.KindAttachment
+		entry.Subtype = attachmentType
+		entry.Visibility = thinkt.VisibilitySecondary
+		rendered := make([]string, 0, len(e.Rendered))
+		for _, r := range e.Rendered {
+			rendered = append(rendered, r.Content)
+		}
+		entry.Text = attachmentText(attachmentType, e.Attachment, rendered)
+		entry.ParentToolUseID = attachmentToolUseID(e.Attachment)
+		entry.Metadata["attachment_type"] = attachmentType
+	case EntryTypeSummary:
+		// Pre-2.1 title record; the leaf is the message it summarized up to.
+		entry.Text = e.Summary
+		if e.LeafUUID != "" {
+			entry.Metadata["leaf_uuid"] = e.LeafUUID
+		}
 	case EntryTypeFileHistorySnapshot:
 		entry.Text = fileHistorySnapshotText(e)
+	case EntryTypeFileHistoryDelta:
+		entry.Visibility = thinkt.VisibilitySecondary
+		entry.Text = "File History Delta: " + e.TrackingPath
 	case EntryTypeProgress:
 		entry.Text = progressText(e)
+	default:
+		if ClassifyType(e.Type, "") == ClassUnknown {
+			entry.Kind = thinkt.KindUnknown
+			entry.Subtype = string(e.Type)
+			entry.Visibility = thinkt.VisibilitySecondary
+			entry.Text = rawText(e.Raw)
+		}
 	}
 
 	// Copy agent ID for team/subagent correlation
@@ -580,9 +722,6 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 	}
 
 	// Store extra metadata
-	if e.SessionID != "" {
-		entry.Metadata["session_id"] = e.SessionID
-	}
 	if e.Version != "" {
 		entry.Metadata["version"] = e.Version
 	}
@@ -602,7 +741,7 @@ func convertRole(t EntryType) thinkt.Role {
 		return thinkt.RoleSummary
 	case EntryTypeProgress:
 		return thinkt.RoleProgress
-	case EntryTypeFileHistorySnapshot:
+	case EntryTypeFileHistorySnapshot, EntryTypeFileHistoryDelta:
 		return thinkt.RoleCheckpoint
 	default:
 		return thinkt.RoleSystem
@@ -654,8 +793,9 @@ func progressText(e *Entry) string {
 	return "Progress"
 }
 
-func convertUserBlocks(blocks []ContentBlock) []thinkt.ContentBlock {
+func convertUserBlocks(blocks []ContentBlock, toolUseResultRaw json.RawMessage, entry *thinkt.Entry) []thinkt.ContentBlock {
 	result := make([]thinkt.ContentBlock, 0, len(blocks))
+	typed, hasTyped := parseToolUseResult(toolUseResultRaw)
 	for _, b := range blocks {
 		cb := thinkt.ContentBlock{Type: b.Type}
 		switch b.Type {
@@ -663,10 +803,13 @@ func convertUserBlocks(blocks []ContentBlock) []thinkt.ContentBlock {
 			cb.Text = b.Text
 		case "tool_result":
 			cb.ToolUseID = b.ToolUseID
-			if len(b.ToolContent) > 0 {
-				cb.ToolResult = string(b.ToolContent)
-			}
+			cb.ToolResult, cb.Children = convertToolResultContent(b.ToolContent)
 			cb.IsError = b.IsError
+			// The typed result describes the first tool_result of the turn.
+			if hasTyped {
+				applyToolUseResult(&cb, entry, typed)
+				hasTyped = false
+			}
 		case "image", "document":
 			if b.Source != nil {
 				cb.MediaType = b.Source.MediaType

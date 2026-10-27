@@ -42,14 +42,16 @@ func RunViewer(sessionPath string) (ViewerResult, error) {
 
 // RunViewerWithRegistry runs a single-session viewer with source-aware session loading.
 func RunViewerWithRegistry(sessionPath string, registry *thinkt.StoreRegistry) (ViewerResult, error) {
-	model := NewMultiViewerModelWithRegistry([]string{sessionPath}, registry)
-	model.standalone = true
+	model := newSessionViewer([]string{sessionPath}, registry, true)
+	if viewer, ok := model.(*ConversationViewerModel); ok {
+		defer viewer.shutdown()
+	}
 	p := tea.NewProgram(model, TermSizeOpts()...)
 	finalModel, err := p.Run()
 	if err != nil {
 		return ViewerResult{}, err
 	}
-	return ViewerResult{Back: finalModel.(MultiViewerModel).BackRequested()}, nil
+	return ViewerResult{Back: finalModel.(interface{ BackRequested() bool }).BackRequested()}, nil
 }
 
 // RunMultiViewer runs a multi-session viewer TUI.
@@ -59,14 +61,16 @@ func RunMultiViewer(sessionPaths []string) (ViewerResult, error) {
 
 // RunMultiViewerWithRegistry runs a multi-session viewer with source-aware session loading.
 func RunMultiViewerWithRegistry(sessionPaths []string, registry *thinkt.StoreRegistry) (ViewerResult, error) {
-	model := NewMultiViewerModelWithRegistry(sessionPaths, registry)
-	model.standalone = true
+	model := newSessionViewer(sessionPaths, registry, true)
+	if viewer, ok := model.(*ConversationViewerModel); ok {
+		defer viewer.shutdown()
+	}
 	p := tea.NewProgram(model, TermSizeOpts()...)
 	finalModel, err := p.Run()
 	if err != nil {
 		return ViewerResult{}, err
 	}
-	return ViewerResult{Back: finalModel.(MultiViewerModel).BackRequested()}, nil
+	return ViewerResult{Back: finalModel.(interface{ BackRequested() bool }).BackRequested()}, nil
 }
 
 // RunSessionBrowser runs a session picker with back-navigable viewer.
@@ -79,6 +83,7 @@ func RunSessionBrowser(sessions []thinkt.SessionMeta) error {
 // projectName is shown in the header breadcrumb; pass "" to auto-detect from session metadata.
 func RunSessionBrowserWithRegistry(sessions []thinkt.SessionMeta, registry *thinkt.StoreRegistry, projectName string) error {
 	shell := NewShellWithSessionsAndRegistry(sessions, registry, projectName)
+	defer shell.Close()
 	p := tea.NewProgram(shell, TermSizeOpts()...)
 	_, err := p.Run()
 	return err

@@ -27,10 +27,18 @@ Sessions are stored as JSONL trace files, read via the [`internal/jsonl`](../../
 ├── projects/
 │   └── {project-path}/
 │       ├── {session-uuid}.jsonl      # Session trace file
-│       └── sessions-index.json       # Optional metadata index
+│       ├── {session-uuid}/
+│       │   └── subagents/
+│       │       ├── agent-{id}.jsonl       # Subagent transcript
+│       │       └── agent-{id}.meta.json   # agentType, description, toolUseId
+│       └── sessions-index.json       # Legacy index (pre-2.1); read when present
 └── statsig/
     └── statsig.stable_id.{x}         # Workspace ID
 ```
+
+Title, last prompt, PR links, worktree, and cost live inside the transcript as
+session-state records (`ai-title`, `last-prompt`, `pr-link`, `worktree-state`,
+`cost-state`); `scanSessionFile` folds them into `SessionMeta`.
 
 Each line in a `.jsonl` file is an [`Entry`](entry.go) with one of these types:
 
@@ -42,9 +50,33 @@ Each line in a `.jsonl` file is an [`Entry`](entry.go) with one of these types:
 | `summary` | — | Conversation summary (context compression). |
 | `progress` | — | Progress/status update. |
 | `file-history-snapshot` | — | Snapshot of file state. |
-| `queue-operation` | — | Queue management. |
+| `queue-operation` | — | Prompt queue. Only records with `content` (enqueue) become entries; dequeue/remove/popAll are bookkeeping. |
 
 The base directory defaults to `~/.claude` and can be overridden with `THINKT_CLAUDE_HOME`.
+
+## Record Classes
+
+Claude Code writes many record types per transcript, most of them harness
+bookkeeping. `classify.go` decides from the `type` field (and `attachment.type`)
+before any other parsing:
+
+| class | types | result |
+|---|---|---|
+| turn | `user`, `assistant` | entry |
+| event | `system`, `queue-operation` with `content`, `progress` | entry; `Text` from `content`, `Kind` from subtype |
+| context | `attachment` in `ContextAttachmentTypes` | entry, `Kind = attachment`, `Visibility = secondary` |
+| checkpoint | `file-history-snapshot`, `file-history-delta`, `summary` | entry (checkpoint role) |
+| session state | `ai-title`, `last-prompt`, `pr-link`, `relocated`, `worktree-state`, `cost-state` | folded into `SessionMeta` by `scanSessionFile`, never an entry |
+| bookkeeping | `api-request*`, `mode`, `permission-mode`, `atis-latch`, content-less `queue-operation`, other attachments | dropped |
+| unknown | anything else | entry, `Kind = unknown`, `Visibility = secondary`, raw JSON as text |
+
+Every reader (`Parser.NextEntry`, `LazySession`, `LoadSessionWindow`) and the
+counter (`countConversationRecords`) apply the same classification, so
+`EntryCount` means "entries emitted". `thinkt.ParserVersion` is bumped when the
+classification changes; the metadata cache and the index re-scan on mismatch.
+Tool results decode array content into `ContentBlock.Children` and the typed
+`toolUseResult` into a `diff` child, stdout fallback, and `ChildSessionID`.
+See [etc/reports/CLAUDE_TRANSCRIPT_SCHEMA.md](../../../etc/reports/CLAUDE_TRANSCRIPT_SCHEMA.md).
 
 ## Key Types
 

@@ -50,6 +50,16 @@ func NewNavStack() *NavStack {
 	return &NavStack{items: make([]NavItem, 0)}
 }
 
+// Close releases conversation readers if the program exits outside normal page
+// navigation (including a terminal or renderer error).
+func (s *Shell) Close() {
+	for _, item := range s.stack.items {
+		if viewer, ok := item.Model.(*ConversationViewerModel); ok {
+			viewer.shutdown()
+		}
+	}
+}
+
 func (ns *NavStack) Push(item NavItem, width, height int) tea.Cmd {
 	ns.items = append(ns.items, item)
 	initCmd := item.Model.Init()
@@ -258,6 +268,9 @@ func (s *Shell) renderHeader() string {
 		if fs := m.FilterStatus(); fs != "" {
 			detail += "  " + fs
 		}
+	case *ConversationViewerModel:
+		context = "session"
+		detail = current.Title + "  " + m.FilterStatus()
 
 	case SearchInputModel:
 		context = "search"
@@ -532,7 +545,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Selected != nil {
 			tuilog.Log.Info("Shell.Update: session selected", "sessionID", msg.Selected.ID, "path", msg.Selected.FullPath)
 			// Use multi-viewer with single session for now
-			viewer := NewMultiViewerModelWithRegistry([]string{msg.Selected.FullPath}, s.registry)
+			viewer := newSessionViewer([]string{msg.Selected.FullPath}, s.registry, false)
 			cmd := s.stack.Push(NavItem{
 				Title: shortenID(msg.Selected.ID),
 				Model: viewer,
@@ -639,7 +652,7 @@ func (s *Shell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Selected != nil {
 			tuilog.Log.Info("Shell.Update: search result selected", "sessionID", msg.Selected.SessionID, "path", msg.Selected.Path)
 			// Open the selected session in the viewer
-			viewer := NewMultiViewerModelWithRegistry([]string{msg.Selected.Path}, s.registry)
+			viewer := newSessionViewer([]string{msg.Selected.Path}, s.registry, false)
 			cmd := s.stack.Push(NavItem{
 				Title: shortenID(msg.Selected.SessionID),
 				Model: viewer,

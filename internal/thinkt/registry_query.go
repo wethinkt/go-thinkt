@@ -45,7 +45,7 @@ func (r *StoreRegistry) ProjectsFromSources(ctx context.Context, sources []strin
 // If sources is empty, searches all registered sources.
 // projectID can be a store-specific ID or a filesystem path; both are tried.
 // Results are returned in no guaranteed order; callers that need sorting should sort themselves.
-func (r *StoreRegistry) SessionsForProject(ctx context.Context, projectID string, sources []string) ([]SessionMeta, error) {
+func (r *StoreRegistry) SessionsForProject(ctx context.Context, projectID string, sources []string, opts ...ListSessionsOption) ([]SessionMeta, error) {
 	// Determine which stores to search.
 	var stores []Store
 	if len(sources) == 0 {
@@ -85,7 +85,7 @@ func (r *StoreRegistry) SessionsForProject(ctx context.Context, projectID string
 	var allSessions []SessionMeta
 	for _, store := range stores {
 		// Try the projectID directly first.
-		sessions, err := store.ListSessions(ctx, projectID)
+		sessions, err := store.ListSessions(ctx, projectID, opts...)
 		if err == nil && len(sessions) > 0 {
 			allSessions = append(allSessions, sessions...)
 			continue
@@ -98,7 +98,7 @@ func (r *StoreRegistry) SessionsForProject(ctx context.Context, projectID string
 		}
 		for _, p := range projects {
 			if p.Path == resolvedPath {
-				sessions, err := store.ListSessions(ctx, p.ID)
+				sessions, err := store.ListSessions(ctx, p.ID, opts...)
 				if err == nil && len(sessions) > 0 {
 					allSessions = append(allSessions, sessions...)
 				}

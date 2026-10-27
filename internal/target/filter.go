@@ -15,6 +15,16 @@ type ContentFilter struct {
 	IncludeSystem      bool
 }
 
+// IncludesRole reports whether a role belongs in the exported content.
+func (f ContentFilter) IncludesRole(role thinkt.Role) bool {
+	return shouldIncludeEntry(role, f)
+}
+
+// IncludesBlockType reports whether a block type belongs in exported content.
+func (f ContentFilter) IncludesBlockType(kind string) bool {
+	return shouldIncludeBlock(thinkt.ContentBlock{Type: kind}, f)
+}
+
 // DefaultFilter returns a filter with everything enabled except system entries.
 func DefaultFilter() ContentFilter {
 	return ContentFilter{
@@ -39,6 +49,9 @@ func FilterEntries(entries []thinkt.Entry, filter ContentFilter) []thinkt.Entry 
 	}
 	var out []thinkt.Entry
 	for _, entry := range entries {
+		if entry.IsSecondary() && !filter.IncludeSystem {
+			continue
+		}
 		if !shouldIncludeEntry(entry.Role, filter) {
 			continue
 		}

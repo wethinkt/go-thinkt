@@ -1,8 +1,8 @@
 package claude
 
 import (
-	"encoding/json"
 	"io"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -26,6 +26,7 @@ type LazySession struct {
 	CWD       string
 	StartTime time.Time
 	FileSize  int64
+	state     sessionScan // session-state records seen so far (title, last prompt, ...)
 
 	// Loaded entries
 	entries []Entry
@@ -38,6 +39,26 @@ type LazySession struct {
 
 	// Background line count for progress estimation
 	totalEntries atomic.Int64 // 0 = unknown/scanning, >0 = known
+
+	unknown unknownTally // record types the classifier has never seen
+
+	legacySummary string // pre-2.1 summary record; title fallback
+}
+
+// title is the ai-title, or the legacy summary when no title was written.
+func (ls *LazySession) title() string {
+	if ls.state.Title != "" {
+		return ls.state.Title
+	}
+	return ls.legacySummary
+}
+
+// UnknownTypes returns how many records of each never-seen type were read
+// so far, or nil when every record had a known type.
+func (ls *LazySession) UnknownTypes() map[EntryType]int {
+	ls.mu.Lock()
+	defer ls.mu.Unlock()
+	return ls.unknown.snapshot()
 }
 
 // OpenLazySession opens a session file and preloads metadata.
@@ -62,11 +83,11 @@ func OpenLazySession(path string) (*LazySession, error) {
 		return nil, err
 	}
 
-	// Start background line count for accurate progress estimation
+	// Start a background count of emitted entries for progress estimation.
+	// Raw lines would overstate the total, since bookkeeping lines are dropped.
 	if !ls.fullyLoaded {
 		go func() {
-			n, err := thinkt.CountLines(path)
-			if err == nil && n > 0 {
+			if n := countConversationRecords(path); n > 0 {
 				ls.totalEntries.Store(int64(n))
 			}
 		}()
@@ -98,37 +119,41 @@ func (ls *LazySession) loadUntilBytes(maxBytes int) error {
 
 // readNextEntry reads and parses the next entry from the file.
 func (ls *LazySession) readNextEntry() (*Entry, error) {
-	var entry Entry
-	err := ls.reader.ReadJSON(&entry)
-	if err == io.EOF {
+	line, err := ls.reader.ReadLine()
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	if len(line) == 0 && err == io.EOF {
 		return nil, io.EOF
 	}
-	if err != nil {
-		// Skip malformed lines
+	ls.bytesRead = ls.reader.Position()
+	if len(line) == 0 {
 		return nil, nil
 	}
 
-	ls.bytesRead = ls.reader.Position()
-
-	// Parse the message based on entry type
-	// Note: Message is now lazily parsed via GetUserMessage/GetAssistantMessage
-	// We pre-parse here for metadata extraction, then set via setters
-	if len(entry.Message) > 0 {
-		switch entry.Type {
-		case EntryTypeUser:
-			var msg UserMessage
-			if err := json.Unmarshal(entry.Message, &msg); err == nil {
-				entry.SetUserMessage(&msg)
-			}
-		case EntryTypeAssistant:
-			var msg AssistantMessage
-			if err := json.Unmarshal(entry.Message, &msg); err == nil {
-				entry.SetAssistantMessage(&msg)
-			}
-		}
+	// Session-state records never become entries but still carry metadata.
+	entry, class, decodeErr := decodeRecord(line)
+	if class == ClassSessionState {
+		ls.onSessionState(line)
 	}
+	if decodeErr != nil || entry == nil {
+		// Malformed, bookkeeping, or session-state line: nothing to append.
+		return nil, nil
+	}
+	if class == ClassUnknown {
+		ls.unknown.note(entry.Type, "path", ls.Path, "offset", ls.bytesRead)
+	}
+	if entry.Type == EntryTypeSummary && strings.TrimSpace(entry.Summary) != "" {
+		ls.legacySummary = entry.Summary
+	}
+	return entry, nil
+}
 
-	return &entry, nil
+// onSessionState folds a session-state line (title, last prompt, PR links,
+// worktree, cost) into the metadata the readers skip as entries.
+func (ls *LazySession) onSessionState(line []byte) {
+	typ, _, _ := ClassifyLine(line)
+	ls.state.applyState(typ, line)
 }
 
 // extractMetadata extracts session metadata from an entry.
@@ -354,6 +379,12 @@ func (ls *LazySession) Metadata() thinkt.SessionMeta {
 		CreatedAt:  ls.StartTime,
 		ModifiedAt: ls.StartTime,
 		EntryCount: len(ls.entries),
+		Title:      ls.title(),
+		Summary:    ls.title(),
+		LastPrompt: ls.state.LastPrompt,
+		PRLinks:    ls.state.PRLinks,
+		Worktree:   ls.state.Worktree,
+		Cost:       ls.state.Cost,
 	}
 }
 

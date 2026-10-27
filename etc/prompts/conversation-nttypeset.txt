@@ -1,0 +1,23 @@
+Work in /Users/evan/projects/nttypeset. Read this repo's AGENTS.md and relevant instructions before changing code.
+
+Goal: extend the generic typesetting model so an HTML adapter can preserve styled document sections and stable source identity. This supports go-thinkt's conversation viewer, but the library must remain independent of thinkt, HTML, and Bubble Tea.
+
+Context:
+- go-thinkt now builds conversation.Document from source-neutral Entry/ContentBlock data, then emits shared HTML/CSS.
+- Representative inputs are in /Users/evan/projects/go-thinkt/internal/conversation/testdata/conversation.html and session.json. Read these as external fixtures; do not edit that repo. Copy a small, generic, attributed fixture into this repo if useful.
+- Its HTML has message sections and nested thinking/tool sections, with padding, backgrounds, borders, typography, and stable element IDs. Filters/collapse are owned by the host.
+- nthtml's native renderer preserves these cards. nthtml/typeset.Build preserves their reading-order content, but loses container backgrounds/borders and some CSS sizing. This was reproduced with the current local checkouts.
+- The current nttypeset.Document is a flat list of Block values. Layout is incremental and already supports logical text selection, hit areas, links, and bounded caches. Preserve those properties.
+
+Implement the smallest additive, generic API that can represent nested section decoration and opaque source anchors while preserving existing callers. Inspect the actual implementation before choosing between groups, scoped block ranges, or another representation. Avoid introducing a general CSS/browser engine.
+
+Requirements:
+1. Support section background, padding, and border decoration for bounded groups of content blocks, including nested sections. Establish explicit behavior for groups crossing a raster viewport and for clipped edges. Preserve incremental layout; do not force complete-document layout to paint the current viewport.
+2. Allow the nthtml bridge to express resolved typography and spacing needed by the fixture without replacing them with hardcoded heading sizes or generic palette values. Document the supported subset and any deliberate approximations. Keep existing defaults for callers that do not provide these values.
+3. Preserve caller-supplied opaque source IDs through layout. Expose a practical way to resolve an ID to laid-out bounds and map hit/selection positions back to the source identity. Reflow must preserve logical identity while geometry changes. Define behavior for unlaid, hidden, duplicate, and absent anchors; do not invent thinkt-specific message types.
+4. Keep the library free of HTML parsing, terminal I/O, implicit file/network access, and conversation-specific logic. Preserve resource ceilings, cancellation, font/cache bounds, and existing selection behavior. Zero-value additions must preserve current output.
+5. Add focused regression coverage for nested decorations, viewport clipping, reflow/anchor identity, and existing callers. Include a native/WASM-safe example and a rendered before/after artifact showing the new capability.
+
+Coordinate the public API with the separate nthtml bridge task. Do not edit nthtml or other repos. If their work is not available yet, finish and test the generic API independently, and document exactly how a bridge should use it. Do not add temporary sibling-directory replacements to committed module files.
+
+Run this repo's required checks. Report the final public API, compatibility behavior, supported styling limits, test results, and the exact dependency/version or commit the nthtml task should use. Do not claim full browser pixel parity.

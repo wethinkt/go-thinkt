@@ -65,6 +65,7 @@ func runTUI(cmd *cobra.Command, args []string) error {
 
 	// Use new Shell with NavStack for multi-source support
 	shell := tui.NewShell(tui.InitialPageAuto)
+	defer shell.Close()
 	p := tea.NewProgram(shell, opts...)
 	_, err := p.Run()
 

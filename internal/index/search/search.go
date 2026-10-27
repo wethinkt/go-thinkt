@@ -2,7 +2,6 @@
 package search
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,6 +12,8 @@ import (
 	"sync"
 
 	"github.com/wethinkt/go-thinkt/internal/index/db"
+	"github.com/wethinkt/go-thinkt/internal/sources/claude"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 // maxRegexLen is the maximum allowed length for a user-supplied regex pattern.
@@ -298,8 +299,11 @@ func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch)
 	}
 	defer f.Close()
 
-	scanner := bufio.NewScanner(f)
+	// Tool results and pasted files routinely exceed bufio's 64KB default;
+	// a short token limit would silently end the scan at the first one.
+	scanner := thinkt.NewScannerWithMaxCapacity(f)
 	lineNum := 0
+	isClaude := c.Source == string(thinkt.SourceClaude)
 
 	for scanner.Scan() {
 		if ctx.Err() != nil {
@@ -321,6 +325,13 @@ func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch)
 				} else if entry.Type != "" {
 					role = entry.Type
 				}
+			}
+			// Claude request dumps, bookkeeping attachments, and secondary
+			// entries (reminders, hook output, notices) are not conversation
+			// content; a hit inside them is noise. Other sources also write a
+			// top-level "type", so the Claude classifier runs only on Claude files.
+			if isClaude && entry.Type != "" && !claude.IsSearchable([]byte(text)) {
+				continue
 			}
 
 			preview, matchStart, matchEnd := extractPreview(text, m)

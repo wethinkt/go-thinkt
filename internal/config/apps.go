@@ -1,10 +1,14 @@
 package config
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+
+	"nimbleterminal.dev/ntopenwith"
+	"nimbleterminal.dev/ntopenwith/system"
 )
 
 // AppConfig defines a launchable application for the open-in feature.
@@ -71,24 +75,48 @@ func (a AppConfig) BuildCommand(path string) (string, []string) {
 
 // Launch executes the application with the specified validated path.
 // It returns an error if the command fails to start.
-// The command is started in the background; caller does not wait for it to exit.
+// ntopenwith starts and reaps GUI apps in the background, detached from this
+// terminal. Path authorization remains the caller's responsibility.
 func (a AppConfig) Launch(validatedPath string) error {
-	cmdName, args := a.BuildCommand(validatedPath)
-	if cmdName == "" {
-		return os.ErrInvalid
-	}
+	return a.launch(validatedPath, system.System(), ntopenwith.Start)
+}
 
-	cmd := exec.Command(cmdName, args...)
-	if err := cmd.Start(); err != nil {
+func (a AppConfig) launch(validatedPath string, source ntopenwith.Source, start func([]string) error) error {
+	info, err := os.Stat(validatedPath)
+	if err != nil {
+		return err
+	}
+	path, err := ntopenwith.CheckPath(validatedPath, info.IsDir())
+	if err != nil {
 		return err
 	}
 
-	// Don't wait for the command to finish - it's opening an external app
-	// Run Wait in background to reap the zombie process, ignore errors
-	go func() {
-		_ = cmd.Wait()
-	}()
-	return nil
+	// Preserve the existing file-manager IDs and enabled preferences, while
+	// letting the OS choose its handler instead of maintaining opener commands.
+	if a.isSystemFileManager() {
+		_, err := source.Launch(context.Background(), ntopenwith.Target{
+			Path: path, Directory: info.IsDir(),
+		}, ntopenwith.Open, ntopenwith.App{ID: ntopenwith.SystemID})
+		return err
+	}
+
+	cmdName, args := a.BuildCommand(path)
+	if cmdName == "" {
+		return os.ErrInvalid
+	}
+	return start(append([]string{cmdName}, args...))
+}
+
+func (a AppConfig) isSystemFileManager() bool {
+	switch runtime.GOOS {
+	case "darwin":
+		return a.ID == "finder"
+	case "windows":
+		return a.ID == "explorer"
+	case "linux", "freebsd":
+		return a.ID == "files"
+	}
+	return false
 }
 
 // BuildRunCommand returns the command and args for running a shell command in this app.
@@ -130,15 +158,7 @@ func (a AppConfig) LaunchCommand(shellCmd string) error {
 		return os.ErrInvalid
 	}
 
-	cmd := exec.Command(cmdName, args...)
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	go func() {
-		_ = cmd.Wait()
-	}()
-	return nil
+	return ntopenwith.Start(append([]string{cmdName}, args...))
 }
 
 // filterAvailable returns only apps that were probed as available (Enabled == true).

@@ -1,0 +1,28 @@
+/* Shared browser/nthtml baseline. Keep selectors scoped and layout block-based. */
+body.thinkt-page { margin: 0; padding: 24px; background: #10141c; color: #e3e8f0; font-family: sans-serif; font-size: 16px; line-height: 1.5; }
+.thinkt-page > h1 { font-size: 28px; margin: 0 0 20px; }
+.thinkt-conversation { color: #e3e8f0; font-family: sans-serif; font-size: 16px; line-height: 1.5; }
+.thinkt-conversation .entry { margin: 0 0 20px; padding: 16px; background: #19212d; border: 1px solid #344155; }
+.thinkt-conversation .entry-header { font-size: 20px; margin: 0 0 8px; color: #c6d2e1; }
+.thinkt-conversation .role-user { border-left: 4px solid #90b4fa; }
+.thinkt-conversation .role-assistant { border-left: 4px solid #eda879; }
+.thinkt-conversation .role-tool { border-left: 4px solid #70d6b4; }
+.thinkt-conversation .block { margin: 12px 0 0; }
+.thinkt-conversation h3 { font-size: 16px; margin: 0 0 8px; }
+.thinkt-conversation p { margin: 8px 0; }
+.thinkt-conversation .block-thinking { padding: 12px; background: #24283c; border-left: 3px solid #b6a5f5; }
+.thinkt-conversation .block-tool_use, .thinkt-conversation .block-tool_result { padding: 12px; background: #142c2b; border-left: 3px solid #70d6b4; }
+.thinkt-conversation .is-error { border-left: 3px solid #fa9494; }
+.thinkt-conversation .is-collapsed .block-body { display: none; }
+.thinkt-conversation pre { margin: 8px 0; padding: 12px; background: #101820; white-space: pre-wrap; overflow-wrap: anywhere; }
+.thinkt-conversation code { font-family: monospace; }
+.thinkt-conversation a { color: #9fc3ff; }
+.thinkt-conversation blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid #75879d; }
+.thinkt-conversation table { border-collapse: collapse; width: 100%; }
+.thinkt-conversation th, .thinkt-conversation td { border: 1px solid #52637a; padding: 6px; text-align: left; }
+.thinkt-page .metadata, .thinkt-conversation .metadata, .thinkt-conversation .related, .thinkt-conversation .media-placeholder { color: #aab9cc; font-size: 13px; }
+.thinkt-conversation .block-child { margin-left: 1rem; }
+.thinkt-conversation pre.diff .diff-add { color: #9ae6b4; }
+.thinkt-conversation pre.diff .diff-del { color: #fa9494; }
+.thinkt-conversation pre.diff .diff-hunk { color: #9fc3ff; }
+.thinkt-conversation pre.diff .diff-file { color: #aab9cc; }

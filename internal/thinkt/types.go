@@ -143,6 +143,109 @@ const (
 	RoleCheckpoint Role = "checkpoint" // State recovery markers (Kimi _checkpoint, Claude file-history-snapshot)
 )
 
+// ParserVersion identifies the entry classification and conversion rules.
+// Bump it whenever a source parser changes which entries it emits or how it
+// fills them, so metadata caches and the index recompute lazily.
+const ParserVersion = 3
+
+// EntryKind sub-classifies an entry within its Role. It is an open set:
+// sources may emit kinds the core does not name yet, and consumers switch on
+// the constants they know. Kinds come from Claude Code record subtypes,
+// attachment types, and harness wrappers in user prompts.
+type EntryKind string
+
+const (
+	KindNone             EntryKind = ""
+	KindCompactSummary   EntryKind = "compact_summary"   // user entry flagged isCompactSummary
+	KindMeta             EntryKind = "meta"              // harness-authored user turn (isMeta, <system-reminder>)
+	KindTaskNotification EntryKind = "task_notification" // <task-notification> user turn
+	KindAgentMessage     EntryKind = "agent_message"     // <agent-message> relay from another agent
+	KindCommandOutput    EntryKind = "command_output"    // <local-command-stdout>, <bash-stdout>
+	KindAttachment       EntryKind = "attachment"        // Claude attachment record; Subtype holds attachment.type
+	KindTurnDuration     EntryKind = "turn_duration"     // system/turn_duration
+	KindAwaySummary      EntryKind = "away_summary"      // system/away_summary
+	KindCompactBoundary  EntryKind = "compact_boundary"  // system/compact_boundary
+	KindInformational    EntryKind = "informational"     // system/informational
+	KindLocalCommand     EntryKind = "local_command"     // system/local_command
+	KindQueueOperation   EntryKind = "queue_operation"   // queue-operation record
+	KindAPIError         EntryKind = "api_error"         // assistant record flagged isApiErrorMessage
+	KindUnknown          EntryKind = "unknown"           // record type the parser has never seen
+)
+
+// Visibility is a presentation hint set by the source: Secondary entries are
+// bookkeeping-adjacent and hidden by default; Debug entries are for
+// diagnostics only. Role is unchanged by Visibility.
+type Visibility string
+
+const (
+	VisibilityNormal    Visibility = ""
+	VisibilitySecondary Visibility = "secondary"
+	VisibilityDebug     Visibility = "debug"
+)
+
+// BlockTypeDiff is a ContentBlock type carrying a unified diff in Text,
+// built from a Claude toolUseResult.structuredPatch.
+const BlockTypeDiff = "diff"
+
+// Attribution records which agent type, skill, plugin, or MCP server produced
+// an assistant turn (Claude attributionAgent/Skill/Plugin/McpServer/McpTool).
+type Attribution struct {
+	Agent     string `json:"agent,omitempty"`
+	Skill     string `json:"skill,omitempty"`
+	Plugin    string `json:"plugin,omitempty"`
+	MCPServer string `json:"mcp_server,omitempty"`
+	MCPTool   string `json:"mcp_tool,omitempty"`
+}
+
+// PermissionDecision records how a tool call was permitted or denied
+// (Claude permissionDecision and toolDenialKind on the tool result turn).
+type PermissionDecision struct {
+	Decision   string `json:"decision,omitempty"`    // accept, reject
+	Source     string `json:"source,omitempty"`      // config, user_temporary
+	ReasonType string `json:"reason_type,omitempty"` // classifier, mode, safetyCheck, other
+	ReasonCode string `json:"reason_code,omitempty"`
+	DenialKind string `json:"denial_kind,omitempty"` // permission-rule, automode-blocked, user-rejected
+}
+
+// CompactionInfo describes a context compaction boundary
+// (Claude system/compact_boundary compactMetadata and logicalParentUuid).
+type CompactionInfo struct {
+	Trigger           string `json:"trigger,omitempty"` // auto, manual
+	PreTokens         int    `json:"pre_tokens,omitempty"`
+	DurationMs        int    `json:"duration_ms,omitempty"`
+	HeadUUID          string `json:"head_uuid,omitempty"`
+	AnchorUUID        string `json:"anchor_uuid,omitempty"`
+	TailUUID          string `json:"tail_uuid,omitempty"`
+	LogicalParentUUID string `json:"logical_parent_uuid,omitempty"`
+}
+
+// PRLink is a pull request associated with a session (Claude pr-link record).
+type PRLink struct {
+	Number     int       `json:"number,omitempty"`
+	URL        string    `json:"url,omitempty"`
+	Repository string    `json:"repository,omitempty"`
+	Timestamp  time.Time `json:"timestamp,omitzero"`
+}
+
+// WorktreeInfo records a session that moved into a git worktree
+// (Claude worktree-state and relocated records).
+type WorktreeInfo struct {
+	Path           string `json:"path,omitempty"`
+	Branch         string `json:"branch,omitempty"`
+	OriginalCwd    string `json:"original_cwd,omitempty"`
+	OriginalBranch string `json:"original_branch,omitempty"`
+}
+
+// SessionCost summarizes a session's cost and edit volume (Claude cost-state).
+type SessionCost struct {
+	TotalUSD       float64 `json:"total_usd,omitempty"`
+	DurationMs     int64   `json:"duration_ms,omitempty"`
+	APIDurationMs  int64   `json:"api_duration_ms,omitempty"`
+	ToolDurationMs int64   `json:"tool_duration_ms,omitempty"`
+	LinesAdded     int     `json:"lines_added,omitempty"`
+	LinesRemoved   int     `json:"lines_removed,omitempty"`
+}
+
 // ContentBlock represents a piece of content within a message.
 // Different block types populate different fields.
 type ContentBlock struct {
@@ -167,6 +270,13 @@ type ContentBlock struct {
 	// Image/document block
 	MediaType string `json:"media_type,omitempty"`
 	MediaData string `json:"media_data,omitempty"`
+
+	// Children holds nested blocks of a tool result: text and image parts of
+	// an array result, and a BlockTypeDiff built from a structured patch.
+	Children []ContentBlock `json:"children,omitempty"`
+	// ChildSessionID names the subagent session spawned by this tool call
+	// (qualified as "<parentSessionID>/agent-<agentID>").
+	ChildSessionID string `json:"child_session_id,omitempty"`
 }
 
 // Entry represents a single turn in a conversation.
@@ -195,7 +305,32 @@ type Entry struct {
 	CWD          string         `json:"cwd,omitempty"`
 	IsCheckpoint bool           `json:"is_checkpoint,omitempty"`
 	IsSidechain  bool           `json:"is_sidechain,omitempty"` // For branched conversations
+
+	// Classification (see EntryKind and Visibility)
+	Kind       EntryKind  `json:"kind,omitempty"`
+	Subtype    string     `json:"subtype,omitempty"` // Source-specific raw subtype (system subtype, attachment.type)
+	Visibility Visibility `json:"visibility,omitempty"`
+
+	// Turn structure
+	TurnID          string `json:"turn_id,omitempty"`            // Groups records of one API response (Claude message.id)
+	PromptID        string `json:"prompt_id,omitempty"`          // Prompt this turn belongs to (Claude promptId)
+	ParentToolUseID string `json:"parent_tool_use_id,omitempty"` // Tool call this entry reports on
+	ChildSessionID  string `json:"child_session_id,omitempty"`   // Subagent session spawned by this entry
+
+	// Model turn metadata
+	Effort         string       `json:"effort,omitempty"`          // Claude effort
+	RequestedModel string       `json:"requested_model,omitempty"` // Claude requestedModel (Model may be <synthetic>)
+	StopReason     string       `json:"stop_reason,omitempty"`     // end_turn, tool_use, refusal, ...
+	Error          string       `json:"error,omitempty"`           // Claude error on API error records
+	Attribution    *Attribution `json:"attribution,omitempty"`
+
+	// Permissions and compaction
+	Permission *PermissionDecision `json:"permission,omitempty"`
+	Compaction *CompactionInfo     `json:"compaction,omitempty"`
 }
+
+// IsSecondary reports whether the entry is hidden by default.
+func (e Entry) IsSecondary() bool { return e.Visibility == VisibilitySecondary }
 
 // TokenUsage represents token consumption for an entry.
 type TokenUsage struct {
@@ -203,6 +338,10 @@ type TokenUsage struct {
 	OutputTokens             int `json:"output_tokens,omitempty"`
 	CacheCreationInputTokens int `json:"cache_creation_input_tokens,omitempty"`
 	CacheReadInputTokens     int `json:"cache_read_input_tokens,omitempty"`
+
+	ThinkingTokens int    `json:"thinking_tokens,omitempty"` // Claude usage.output_tokens_details.thinking_tokens
+	ServiceTier    string `json:"service_tier,omitempty"`
+	Speed          string `json:"speed,omitempty"`
 }
 
 // SessionMeta contains metadata about a session without loading full content.
@@ -221,6 +360,17 @@ type SessionMeta struct {
 	Source      Source    `json:"source"`          // Which tool (kimi, claude)
 	WorkspaceID string    `json:"workspace_id"`    // Which machine/host
 	ChunkCount  int       `json:"chunk_count"`     // Number of files: 0=unknown, 1=single, 2+=chunked
+
+	// Session state folded from the transcript (Claude ai-title, last-prompt,
+	// pr-link, worktree-state, cost-state records). Summary mirrors Title when
+	// no other summary exists.
+	Title           string        `json:"title,omitempty"`
+	LastPrompt      string        `json:"last_prompt,omitempty"`
+	SubagentCount   int           `json:"subagent_count,omitempty"`    // Subagent transcripts under this session
+	ParentSessionID string        `json:"parent_session_id,omitempty"` // Set on subagent sessions
+	PRLinks         []PRLink      `json:"pr_links,omitempty"`
+	Worktree        *WorktreeInfo `json:"worktree,omitempty"`
+	Cost            *SessionCost  `json:"cost,omitempty"`
 }
 
 // Session represents a complete conversation session.
@@ -243,6 +393,7 @@ type Project struct {
 	SourceBasePath string    `json:"source_base_path,omitempty"` // Root storage path for this source
 	PathExists     bool      `json:"path_exists"`                // Whether the project directory still exists on disk
 	DirSize        int64     `json:"dir_size"`                   // Total size of session files in bytes
+	SubagentCount  int       `json:"subagent_count,omitempty"`   // Subagent transcripts across the project's sessions (not in SessionCount)
 }
 
 // WatchConfig controls which subdirectories the relay watches for session

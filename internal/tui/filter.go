@@ -27,6 +27,10 @@ func NewRoleFilterSet() RoleFilterSet {
 // EntryVisible returns whether an entry should be rendered at all based on its role.
 // For assistant entries, individual blocks are filtered separately via BlockVisible.
 func (f *RoleFilterSet) EntryVisible(entry *thinkt.Entry) bool {
+	// Secondary entries are bookkeeping-adjacent regardless of role.
+	if entry.IsSecondary() {
+		return f.Other
+	}
 	switch entry.Role {
 	case thinkt.RoleUser:
 		return f.User

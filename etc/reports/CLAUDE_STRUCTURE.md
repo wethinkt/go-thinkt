@@ -1,55 +1,62 @@
 # Claude Code Local Storage Structure
 
+> Updated 2026-10-26 against Claude Code 2.1.3xx. Record-level detail lives in
+> [CLAUDE_TRANSCRIPT_SCHEMA.md](./CLAUDE_TRANSCRIPT_SCHEMA.md). Sections below
+> the directory layout describe older file formats and may lag.
+
 ## Overview
 Claude Code stores configuration, session history, and supporting data locally across multiple locations. The architecture balances **local persistence with cloud integration**, storing complete conversation history locally while managing some state server-side.
 
 ## Directory Layout
 
+Observed on macOS with Claude Code 2.1.310. Entries marked (docs) are described
+at https://code.claude.com/docs/en/claude-directory; the rest are observed.
+
 ```
 ~/.claude.json                      # Main configuration file
 ~/.claude/                          # Supporting data directory
-├── cache/
-│   └── changelog.md                # Cached changelog
-├── debug/                          # Debug logs (one per session)
-│   ├── {session_uuid}.txt
-│   └── latest -> ...               # Symlink to current session
-├── downloads/                      # Downloaded files
-├── file-history/
-│   └── {session_uuid}/
-│       └── {file_hash}@v1          # File backup versions
-├── history.jsonl                   # Command history (global)
-├── plans/                          # Saved plans
-├── plugins/                        # Plugin marketplace
-│   ├── known_marketplaces.json
-│   └── marketplaces/
-│       └── claude-plugins-official/
-│           ├── .claude-plugin/
-│           ├── .git/               # Full git repo
-│           ├── plugins/            # Official plugins
-│           └── external_plugins/
-├── projects/                       # Session storage per project
-│   └── {escaped-project-path}/     # Project path escaped
-│       ├── sessions-index.json     # Session metadata index
-│       ├── {session_id}.jsonl      # Full conversation
-│       └── {session_id}/
-│           └── tool-results/       # Cached tool outputs
-├── session-env/                    # Per-session environment
+├── backups/                        # Settings backups
+├── cache/                          # Changelog and misc caches
+├── daemon.*, daemon/               # Background daemon state, lock, log
+├── downloads/
+├── feedback/
+├── file-history/                   # Pre-edit snapshots for checkpoint restore (docs)
 │   └── {session_id}/
+│       └── {file_hash}@v{n}
+├── history.jsonl                   # Prompt history: display, pastedContents, timestamp, project, sessionId (docs)
+├── ide/                            # IDE integration lock files
+├── jobs/
+├── paste-cache/                    # Pasted content by hash (docs)
+├── plugins/                        # Plugin marketplaces and cache
+├── projects/                       # Session storage per project (docs)
+│   └── {escaped-project-path}/     # "/" and non-alphanumerics replaced by "-"
+│       ├── {session_id}.jsonl      # Main transcript
+│       ├── {session_id}/
+│       │   ├── subagents/          # Subagent transcripts (docs)
+│       │   │   ├── agent-{agentId}.jsonl
+│       │   │   └── agent-{agentId}.meta.json   # agentType, description, toolUseId, spawnDepth
+│       │   └── tool-results/       # Spilled tool output and full-size MCP images (docs)
+│       │       └── {id}.txt
+│       └── memory/                 # Auto memory notes (docs)
+│           ├── MEMORY.md
+│           └── {slug}.md
+├── session-env/                    # Per-session environment metadata, usually empty (docs)
+│   └── {session_id}/
+├── sessions/                       # One small file per running session (docs)
+│   ├── {pid}.json                  # pid, sessionId, cwd, version, name, status, messagingSocketPath
+│   └── {pid}.{hash}.key
+├── settings.json
 ├── shell-snapshots/                # Shell state snapshots
-│   └── snapshot-{shell}-{ts}.sh
-├── statsig/                        # Analytics & feature flags
-│   ├── statsig.cached.evaluations.{id}
-│   ├── statsig.failed_logs.{id}
-│   ├── statsig.last_modified_time.evaluations
-│   ├── statsig.session_id.{id}
-│   └── statsig.stable_id.{id}
-└── todos/                          # Todo lists per session
-    └── {session_id}-agent-{id}.json
-
-~/.local/share/claude/
-└── versions/
-    └── 2.1.20                      # Installed binary
+├── skills/                         # User skills
+├── state/
+├── stats-cache.json
+└── telemetry/
 ```
+
+No longer present in this layout: `debug/`, `todos/`, `statsig/`, and the
+per-project `sessions-index.json` (its role is taken by `ai-title` and
+`last-prompt` records inside the transcript). thinkt still reads
+`sessions-index.json` when an older install has one.
 
 ## File Formats
 

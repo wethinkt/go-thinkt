@@ -71,8 +71,8 @@ func TestShouldSyncSession(t *testing.T) {
 	}
 
 	// Insert sync_state to simulate a previously synced session.
-	_, err = database.Exec(`INSERT INTO sync_state (file_path, last_mod_time, file_size, lines_read) VALUES (?, ?, ?, ?)`,
-		meta.FullPath, meta.ModifiedAt.Unix(), meta.FileSize, 10)
+	_, err = database.Exec(`INSERT INTO sync_state (file_path, last_mod_time, file_size, lines_read, parser_version) VALUES (?, ?, ?, ?, ?)`,
+		meta.FullPath, meta.ModifiedAt.Unix(), meta.FileSize, 10, thinkt.ParserVersion)
 	if err != nil {
 		t.Fatalf("insert sync_state: %v", err)
 	}

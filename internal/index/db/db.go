@@ -82,6 +82,23 @@ func (d *DB) GetPath() string {
 	return d.path
 }
 
+// SchemaVersion is the migration level Open brings a database to.
+const SchemaVersion = 3
+
+// attachmentsSchema is applied by migration 3 and is idempotent, so init.sql
+// does not need to carry it as well.
+const attachmentsSchema = `
+CREATE TABLE IF NOT EXISTS entry_attachments (
+    session_id  TEXT NOT NULL,
+    entry_index INTEGER NOT NULL,
+    kind        TEXT NOT NULL,
+    label       TEXT,
+    timestamp   TEXT,
+    PRIMARY KEY (session_id, entry_index)
+);
+CREATE INDEX IF NOT EXISTS idx_entry_attachments_kind ON entry_attachments(kind);
+`
+
 // migrate runs necessary schema updates.
 func migrate(db *sql.DB) error {
 	var currentVersion int
@@ -97,8 +114,26 @@ func migrate(db *sql.DB) error {
 		}
 	}
 
-	// Future migrations go here:
-	// if currentVersion < 2 { ... }
+	// Version 2: sync_state remembers which parser version ingested a file,
+	// so a parser change re-ingests sessions lazily instead of all at once.
+	if currentVersion < 2 {
+		if _, err := db.Exec(`ALTER TABLE sync_state ADD COLUMN parser_version INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return err
+		}
+		if _, err := db.Exec(`INSERT INTO migrations (version) VALUES (2)`); err != nil {
+			return err
+		}
+	}
+
+	// Version 3: attachment entries recorded for quick access (no text body).
+	if currentVersion < 3 {
+		if _, err := db.Exec(attachmentsSchema); err != nil {
+			return err
+		}
+		if _, err := db.Exec(`INSERT INTO migrations (version) VALUES (3)`); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

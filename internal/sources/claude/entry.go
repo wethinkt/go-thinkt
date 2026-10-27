@@ -2,7 +2,6 @@ package claude
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
@@ -18,6 +17,22 @@ const (
 	EntryTypeFileHistorySnapshot EntryType = "file-history-snapshot"
 	EntryTypeSummary             EntryType = "summary"
 	EntryTypeQueueOperation      EntryType = "queue-operation"
+
+	// Record types added by Claude Code 2.1.x. See etc/reports/CLAUDE_TRANSCRIPT_SCHEMA.md.
+	EntryTypeAttachment       EntryType = "attachment"
+	EntryTypeAPIRequest       EntryType = "api-request"
+	EntryTypeAPIRequestBlob   EntryType = "api-request-blob"
+	EntryTypeAPIRequestShape  EntryType = "api-request-shape"
+	EntryTypeLastPrompt       EntryType = "last-prompt"
+	EntryTypeAITitle          EntryType = "ai-title"
+	EntryTypeMode             EntryType = "mode"
+	EntryTypePermissionMode   EntryType = "permission-mode"
+	EntryTypeAtisLatch        EntryType = "atis-latch"
+	EntryTypePRLink           EntryType = "pr-link"
+	EntryTypeRelocated        EntryType = "relocated"
+	EntryTypeWorktreeState    EntryType = "worktree-state"
+	EntryTypeCostState        EntryType = "cost-state"
+	EntryTypeFileHistoryDelta EntryType = "file-history-delta"
 )
 
 // Entry represents a single line in a Claude Code JSONL trace file.
@@ -39,24 +54,38 @@ type Entry struct {
 	Message     json.RawMessage `json:"message,omitempty"`
 
 	// User entry fields
-	ThinkingMetadata          *ThinkingMetadata `json:"thinkingMetadata,omitempty"`
-	Todos                     []any             `json:"todos,omitempty"`
-	PermissionMode            string            `json:"permissionMode,omitempty"`
-	ToolUseResult             json.RawMessage   `json:"toolUseResult,omitempty"` // string | []any | object
-	SourceToolAssistantUUID   string            `json:"sourceToolAssistantUUID,omitempty"`
-	ImagePasteIDs             []any             `json:"imagePasteIds,omitempty"`
-	IsMeta                    bool              `json:"isMeta,omitempty"`
-	IsVisibleInTranscriptOnly bool              `json:"isVisibleInTranscriptOnly,omitempty"`
-	IsCompactSummary          bool              `json:"isCompactSummary,omitempty"`
+	ThinkingMetadata          *ThinkingMetadata       `json:"thinkingMetadata,omitempty"`
+	Todos                     []any                   `json:"todos,omitempty"`
+	PermissionMode            string                  `json:"permissionMode,omitempty"`
+	ToolUseResult             json.RawMessage         `json:"toolUseResult,omitempty"` // string | []any | object
+	SourceToolAssistantUUID   string                  `json:"sourceToolAssistantUUID,omitempty"`
+	ImagePasteIDs             []any                   `json:"imagePasteIds,omitempty"`
+	IsMeta                    bool                    `json:"isMeta,omitempty"`
+	IsVisibleInTranscriptOnly bool                    `json:"isVisibleInTranscriptOnly,omitempty"`
+	IsCompactSummary          bool                    `json:"isCompactSummary,omitempty"`
+	PromptID                  string                  `json:"promptId,omitempty"`
+	PermissionDecision        *PermissionDecisionJSON `json:"permissionDecision,omitempty"`
+	ToolDenialKind            string                  `json:"toolDenialKind,omitempty"`
+	TurnOrigin                string                  `json:"turnOrigin,omitempty"`
+	PromptSource              string                  `json:"promptSource,omitempty"`
 
 	// Assistant entry fields
-	RequestID         string `json:"requestId,omitempty"`
-	Error             string `json:"error,omitempty"`
-	IsApiErrorMessage bool   `json:"isApiErrorMessage,omitempty"`
+	RequestID            string `json:"requestId,omitempty"`
+	Error                string `json:"error,omitempty"`
+	IsApiErrorMessage    bool   `json:"isApiErrorMessage,omitempty"`
+	Effort               string `json:"effort,omitempty"`
+	RequestedModel       string `json:"requestedModel,omitempty"`
+	ThinkingDurationMs   int    `json:"thinkingDurationMs,omitempty"`
+	AttributionAgent     string `json:"attributionAgent,omitempty"`
+	AttributionSkill     string `json:"attributionSkill,omitempty"`
+	AttributionPlugin    string `json:"attributionPlugin,omitempty"`
+	AttributionMcpServer string `json:"attributionMcpServer,omitempty"`
+	AttributionMcpTool   string `json:"attributionMcpTool,omitempty"`
 
 	// System entry fields
 	Subtype           string          `json:"subtype,omitempty"`
 	DurationMs        int             `json:"durationMs,omitempty"`
+	MessageCount      int             `json:"messageCount,omitempty"`
 	Level             string          `json:"level,omitempty"`
 	LogicalParentUUID string          `json:"logicalParentUuid,omitempty"`
 	CompactMetadata   json.RawMessage `json:"compactMetadata,omitempty"`
@@ -78,6 +107,18 @@ type Entry struct {
 
 	// Queue operation fields
 	Operation string `json:"operation,omitempty"`
+
+	// File history delta fields
+	TrackingPath string `json:"trackingPath,omitempty"`
+
+	// Attachment fields
+	Attachment   json.RawMessage      `json:"attachment,omitempty"`
+	Rendered     []renderedAttachment `json:"rendered,omitempty"`
+	RenderedRole string               `json:"renderedRole,omitempty"`
+
+	// Raw holds the original line for record types the parser has never seen,
+	// so the entry can show it. Readers set it only for ClassUnknown lines.
+	Raw json.RawMessage `json:"-"`
 
 	// Parsed messages (lazily populated on first access via GetUserMessage/GetAssistantMessage)
 	userMessage      *UserMessage
@@ -225,6 +266,18 @@ type Usage struct {
 	CacheCreation            *CacheCreation `json:"cache_creation,omitempty"`
 	ServerToolUse            any            `json:"server_tool_use,omitempty"`
 	ServiceTier              string         `json:"service_tier,omitempty"`
+	Speed                    string         `json:"speed,omitempty"`
+	OutputTokensDetails      *struct {
+		ThinkingTokens int `json:"thinking_tokens,omitempty"`
+	} `json:"output_tokens_details,omitempty"`
+}
+
+// PermissionDecisionJSON is the permissionDecision object on user records.
+type PermissionDecisionJSON struct {
+	Decision   string `json:"decision,omitempty"`
+	Source     string `json:"source,omitempty"`
+	ReasonType string `json:"reasonType,omitempty"`
+	ReasonCode string `json:"reasonCode,omitempty"`
 }
 
 // CacheCreation contains cache creation token details.
@@ -322,100 +375,9 @@ func (e *Entry) GetToolCalls() []ContentBlock {
 	return tools
 }
 
-// ToThinktEntry converts a Claude Entry to a thinkt.Entry.
+// ToThinktEntry converts a Claude Entry to a thinkt.Entry. It is the same
+// conversion the store readers use; Source is always SourceClaude and the
+// workspace is left for the caller to fill.
 func (e *Entry) ToThinktEntry() thinkt.Entry {
-	entry := thinkt.Entry{
-		UUID:          e.UUID,
-		Role:          convertEntryTypeToRole(e.Type),
-		Text:          e.GetPromptText(),
-		GitBranch:     e.GitBranch,
-		CWD:           e.CWD,
-		SourceAgentID: e.AgentID,
-		IsSidechain:   e.IsSidechain,
-	}
-
-	// Parse timestamp
-	if e.Timestamp != "" {
-		if t, err := time.Parse(time.RFC3339, e.Timestamp); err == nil {
-			entry.Timestamp = t
-		}
-	}
-
-	// Convert content blocks from user messages
-	if e.Type == EntryTypeUser {
-		msg := e.GetUserMessage()
-		if msg != nil && len(msg.Content.Blocks) > 0 {
-			entry.ContentBlocks = convertUserBlocks(msg.Content.Blocks)
-		}
-	}
-
-	// Convert content blocks from assistant messages
-	if e.Type == EntryTypeAssistant {
-		msg := e.GetAssistantMessage()
-		if msg != nil {
-			entry.Model = msg.Model
-			for _, cb := range msg.Content {
-				entry.ContentBlocks = append(entry.ContentBlocks, convertContentBlock(cb))
-			}
-			// If no text set from prompt, try to extract from content blocks
-			if entry.Text == "" {
-				for _, cb := range entry.ContentBlocks {
-					if cb.Type == "text" && cb.Text != "" {
-						if entry.Text != "" {
-							entry.Text += "\n"
-						}
-						entry.Text += cb.Text
-					}
-				}
-			}
-		}
-	}
-
-	// Set checkpoint flag and text for file history snapshot entries
-	if e.Type == EntryTypeFileHistorySnapshot {
-		entry.IsCheckpoint = true
-		entry.Text = fileHistorySnapshotText(e)
-	}
-
-	// Extract summary text for progress entries
-	if e.Type == EntryTypeProgress {
-		entry.Text = progressText(e)
-	}
-
-	return entry
-}
-
-// convertEntryTypeToRole converts a Claude EntryType to a thinkt.Role.
-func convertEntryTypeToRole(t EntryType) thinkt.Role {
-	switch t {
-	case EntryTypeUser:
-		return thinkt.RoleUser
-	case EntryTypeAssistant:
-		return thinkt.RoleAssistant
-	case EntryTypeSystem:
-		return thinkt.RoleSystem
-	case EntryTypeSummary:
-		return thinkt.RoleSummary
-	case EntryTypeProgress:
-		return thinkt.RoleProgress
-	case EntryTypeFileHistorySnapshot:
-		return thinkt.RoleCheckpoint
-	default:
-		return thinkt.RoleSystem
-	}
-}
-
-// convertContentBlock converts a Claude ContentBlock to a thinkt.ContentBlock.
-func convertContentBlock(cb ContentBlock) thinkt.ContentBlock {
-	return thinkt.ContentBlock{
-		Type:       cb.Type,
-		Text:       cb.Text,
-		Thinking:   cb.Thinking,
-		Signature:  cb.Signature,
-		ToolUseID:  cb.ToolUseID,
-		ToolName:   cb.Name,
-		ToolInput:  cb.Input,
-		ToolResult: string(cb.ToolContent),
-		IsError:    cb.IsError,
-	}
+	return *convertEntry(e, thinkt.SourceClaude, "")
 }

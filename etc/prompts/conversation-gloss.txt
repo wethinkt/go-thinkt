@@ -1,0 +1,22 @@
+Work in /Users/evan/projects/gloss. Read this repo's AGENTS.md and relevant skills/instructions before changing code.
+
+Goal: let gloss view a constrained HTML/CSS document with its structure and styling intact, so thinkt can hand conversation presentations to gloss without losing their visual design.
+
+Context:
+- go-thinkt now has an adapter that builds a semantic conversation document and emits shared HTML/CSS, preserving roles, message/block anchors, tool links, and media placeholders.
+- Read /Users/evan/projects/go-thinkt/internal/conversation/README.md and testdata/conversation.html as external references. Do not edit that repo.
+- Current gloss internal/document/html.go ReadHTML converts HTML into Markdown and drops styles. That remains useful for text extraction, but it cannot preserve the shared conversation presentation.
+- nthtml already exposes bounded document.Parse/Render, a Bubble Tea viewer, TTY/raster modes, search/selection/copy, and explicit asset handling. Its native raster preserves this fixture's cards. Its typeset bridge currently loses container styling, with separate nthtml/nttypeset improvements planned.
+
+Inspect gloss's loading, rendering, and lifecycle conventions, then implement an explicit styled-HTML viewing path using nthtml. Pick the smallest compatible CLI/UI surface and document it. Keep existing text/Markdown extraction behavior; viewing an HTML document must not require converting it to Markdown and back.
+
+Requirements:
+1. Consume the same supplied HTML/CSS as a browser or thinkt terminal host. Do not add thinkt session parsing or role-specific rendering to gloss.
+2. Use nthtml's native rendering path until the bridge can preserve required styling; document the backend choice. Preserve reflow, fragment links, text search, selection/copy, focus, and correct terminal graphics cleanup as supported by the component.
+3. Handle local HTML files and use the host's existing explicit asset resolver policy. No implicit remote fetches or arbitrary local file reads from HTML; no JavaScript execution.
+4. Define how the host handles external links and unsupported capabilities. Preserve the existing HTML-to-Markdown route for --text/extraction and existing callers; do not silently change structured extraction output.
+5. Add focused loading, lifecycle, and CLI coverage plus a visual fixture demonstrating nested section styling and a link between sections. Include explicit commands for opening the thinkt sample and comparing TTY/raster views. Verify native and applicable WASM behavior under this repo's required workflow.
+
+Do not edit sibling repos or introduce permanent local-path dependency replacements. If a dependency needs a release, report the exact version/commit required and the remaining integration step.
+
+Deliver a working styled HTML viewing flow, usage examples, validation results, and documented limitations. Do not claim that styling is preserved by the current HTML-to-Markdown conversion.
