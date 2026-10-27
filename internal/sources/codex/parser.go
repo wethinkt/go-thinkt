@@ -2,6 +2,7 @@ package codex
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,250 +12,198 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
-// Parser reads Codex session JSONL entries from an io.Reader.
+// Parser reads Codex rollout JSONL and yields thinkt entries in file order.
+//
+// It holds the entries of the most recent producing line in pending so a
+// trailing token_usage_record can attach to the assistant entry it belongs
+// to, and so a wire twin of a harness item (assistant message, reasoning)
+// can be dropped by comparing text with the item that preceded it. Legacy
+// pre-item rollouts pair event_msg user/agent/reasoning events with the wire
+// record that follows them; the wire record wins.
 type Parser struct {
-	scanner      *bufio.Scanner
-	sessionID    string
-	lineNo       int
-	pendingEvent *parsedEntry
-	queued       *parsedEntry
-}
+	scanner   *bufio.Scanner
+	sessionID string
+	lineNo    int
+	conv      converter
+	turn      turnState
 
-type logLine struct {
-	Timestamp string          `json:"timestamp"`
-	Type      string          `json:"type"`
-	Payload   json.RawMessage `json:"payload"`
-}
+	out         []thinkt.Entry
+	pending     []thinkt.Entry
+	usageTarget int
 
-type parsedEntry struct {
-	entry     *thinkt.Entry
-	kind      string
-	fromEvent bool
+	lastAgentText     string
+	lastReasoningText string
+
+	legacy    *thinkt.Entry
+	legacyKey string
+
+	unknown unknownTally
+	errors  []error
+	done    bool
 }
 
 // NewParser creates a new Codex parser.
 func NewParser(r io.Reader, sessionID string) *Parser {
-	scanner := thinkt.NewScannerWithMaxCapacityCustom(r, 64*1024, thinkt.MaxScannerCapacity)
-	return &Parser{
-		scanner:   scanner,
-		sessionID: sessionID,
+	p := &Parser{
+		scanner:     thinkt.NewScannerWithMaxCapacityCustom(r, 64*1024, thinkt.MaxScannerCapacity),
+		sessionID:   sessionID,
+		usageTarget: -1,
 	}
+	p.conv = converter{sessionID: sessionID, turn: &p.turn, calls: map[string]string{}}
+	return p
 }
 
-// NextEntry reads the next convertible entry from the JSONL stream.
+// UnknownTypes returns the record keys the parser did not recognise and how
+// often each appeared.
+func (p *Parser) UnknownTypes() map[string]int {
+	return p.unknown.snapshot()
+}
+
+// NextEntry returns the next entry, or io.EOF at the end of the stream.
 func (p *Parser) NextEntry() (*thinkt.Entry, error) {
-	if p.queued != nil {
-		out := p.queued.entry
-		p.queued = nil
-		return out, nil
-	}
-
-	for p.scanner.Scan() {
-		p.lineNo++
-		line := strings.TrimSpace(p.scanner.Text())
-		if line == "" {
-			continue
+	for {
+		if len(p.out) > 0 {
+			e := p.out[0]
+			p.out = p.out[1:]
+			return &e, nil
 		}
-
-		parsed := p.convertLine([]byte(line))
-		if parsed == nil || parsed.entry == nil {
-			continue
+		if p.done {
+			return nil, io.EOF
 		}
-
-		if p.pendingEvent == nil {
-			if isEventMessageCandidate(parsed) {
-				p.pendingEvent = parsed
-				continue
+		if !p.scanner.Scan() {
+			p.done = true
+			if err := p.scanner.Err(); err != nil {
+				return nil, err
 			}
-			return parsed.entry, nil
+			p.flushPending()
+			if p.legacy != nil {
+				p.out = append(p.out, *p.legacy)
+				p.legacy = nil
+			}
+			continue
 		}
-
-		if isDuplicateEventResponsePair(p.pendingEvent, parsed) {
-			p.pendingEvent = nil
-			return parsed.entry, nil
+		p.lineNo++
+		line := bytes.TrimSpace(p.scanner.Bytes())
+		if len(line) == 0 {
+			continue
 		}
+		p.step(line)
+	}
+}
 
-		out := p.pendingEvent.entry
-		p.pendingEvent = nil
-		if isEventMessageCandidate(parsed) {
-			p.pendingEvent = parsed
+// flushPending moves the held entries to the output queue.
+func (p *Parser) flushPending() {
+	p.out = append(p.out, p.pending...)
+	p.pending = nil
+	p.usageTarget = -1
+}
+
+// step processes one non-empty line.
+func (p *Parser) step(line []byte) {
+	head, class := ClassifyLine(line)
+	p.conv.lineNo = p.lineNo
+	p.turn.apply(head)
+	if class == ClassUnknown {
+		p.unknown.note(head.Key(), "line", p.lineNo)
+	}
+	key := head.Key()
+	if key == "token_usage_record" {
+		p.attachUsage(head)
+		return
+	}
+
+	entries := p.conv.convert(head, class, line)
+	if len(entries) == 0 {
+		return
+	}
+	if isDedupeCandidate(head) && p.isItemTwin(head, entries[0]) {
+		return
+	}
+
+	if p.legacy != nil {
+		if isWireTwin(p.legacyKey, p.legacy, head, &entries[0]) {
+			p.legacy = nil
 		} else {
-			p.queued = parsed
+			p.out = append(p.out, *p.legacy)
+			p.legacy = nil
 		}
-		return out, nil
+	}
+	if isLegacyEvent(head) {
+		p.flushPending()
+		p.legacy = &entries[0]
+		p.legacyKey = head.PayloadType
+		return
 	}
 
-	if p.pendingEvent != nil {
-		out := p.pendingEvent.entry
-		p.pendingEvent = nil
-		return out, nil
+	p.flushPending()
+	p.pending = entries
+	for i := len(p.pending) - 1; i >= 0; i-- {
+		if p.pending[i].Role == thinkt.RoleAssistant {
+			p.usageTarget = i
+			break
+		}
 	}
-
-	if err := p.scanner.Err(); err != nil {
-		return nil, err
-	}
-	return nil, io.EOF
-}
-
-func (p *Parser) convertLine(line []byte) *parsedEntry {
-	var l logLine
-	if err := json.Unmarshal(line, &l); err != nil {
-		return nil
-	}
-
-	timestamp := parseTimestamp(l.Timestamp)
-	switch l.Type {
-	case "event_msg":
-		return p.convertEventMsg(l.Payload, timestamp)
-	case "response_item":
-		return p.convertResponseItem(l.Payload, timestamp)
-	default:
-		return nil
+	switch key {
+	case "item/AgentMessage":
+		p.lastAgentText = strings.TrimSpace(entries[0].Text)
+	case "item/Reasoning":
+		p.lastReasoningText = thinkingText(&entries[0])
 	}
 }
 
-func (p *Parser) convertEventMsg(raw json.RawMessage, timestamp time.Time) *parsedEntry {
-	var payload map[string]any
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return nil
-	}
+// attachUsage is filled in by the usage task; until then usage records only
+// hold the pending buffer in place.
+func (p *Parser) attachUsage(head recordHead) {}
 
-	eventType := readString(payload, "type")
-	switch eventType {
-	case "user_message":
-		text := readString(payload, "message")
-		if text == "" {
-			return nil
-		}
-		return &parsedEntry{
-			entry:     p.newEntry(thinkt.RoleUser, timestamp, eventType, text),
-			kind:      eventType,
-			fromEvent: true,
-		}
-	case "agent_message":
-		text := readString(payload, "message")
-		if text == "" {
-			return nil
-		}
-		return &parsedEntry{
-			entry:     p.newEntry(thinkt.RoleAssistant, timestamp, eventType, text),
-			kind:      eventType,
-			fromEvent: true,
-		}
-	case "agent_reasoning":
-		thinking := readString(payload, "text")
-		if thinking == "" {
-			return nil
-		}
-		e := p.newEntry(thinkt.RoleAssistant, timestamp, eventType, "")
-		e.ContentBlocks = []thinkt.ContentBlock{{Type: "thinking", Thinking: thinking}}
-		return &parsedEntry{entry: e, kind: eventType, fromEvent: true}
-	default:
-		return nil
-	}
-}
-
-func (p *Parser) convertResponseItem(raw json.RawMessage, timestamp time.Time) *parsedEntry {
-	var payload map[string]any
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return nil
-	}
-
-	itemType := readString(payload, "type")
-	switch itemType {
+// isItemTwin reports whether a wire assistant message or reasoning record
+// repeats the harness item that preceded it.
+func (p *Parser) isItemTwin(head recordHead, e thinkt.Entry) bool {
+	switch head.PayloadType {
 	case "message":
-		role := mapMessageRole(readString(payload, "role"))
-		text := extractMessageText(payload["content"])
-		if text == "" {
-			return nil
-		}
-		return &parsedEntry{
-			entry:     p.newEntry(role, timestamp, itemType, text),
-			kind:      itemType,
-			fromEvent: false,
-		}
-
+		return p.lastAgentText != "" && strings.TrimSpace(e.Text) == p.lastAgentText
 	case "reasoning":
-		thinking := extractReasoningText(payload)
-		if thinking == "" {
-			return nil
-		}
-		e := p.newEntry(thinkt.RoleAssistant, timestamp, itemType, "")
-		e.ContentBlocks = []thinkt.ContentBlock{{Type: "thinking", Thinking: thinking}}
-		return &parsedEntry{entry: e, kind: itemType, fromEvent: false}
-
-	case "function_call", "custom_tool_call":
-		callID := readString(payload, "call_id")
-		toolName := readString(payload, "name")
-		if callID == "" && toolName == "" {
-			return nil
-		}
-		e := p.newEntry(thinkt.RoleAssistant, timestamp, itemType, "")
-		e.UUID = composeUUID(p.sessionID, p.lineNo, itemType, callID)
-		e.ContentBlocks = []thinkt.ContentBlock{{
-			Type:      "tool_use",
-			ToolUseID: callID,
-			ToolName:  toolName,
-			ToolInput: parseToolInput(payload),
-		}}
-		return &parsedEntry{entry: e, kind: itemType, fromEvent: false}
-
-	case "function_call_output", "custom_tool_call_output":
-		callID := readString(payload, "call_id")
-		output := normalizeToolOutput(payload["output"])
-		if callID == "" && output == "" {
-			return nil
-		}
-		e := p.newEntry(thinkt.RoleTool, timestamp, itemType, "")
-		e.UUID = composeUUID(p.sessionID, p.lineNo, itemType, callID)
-		e.ContentBlocks = []thinkt.ContentBlock{{
-			Type:       "tool_result",
-			ToolUseID:  callID,
-			ToolResult: output,
-		}}
-		return &parsedEntry{entry: e, kind: itemType, fromEvent: false}
-
-	default:
-		return nil
+		return p.lastReasoningText != "" && thinkingText(&e) == p.lastReasoningText
 	}
+	return false
 }
 
-func isEventMessageCandidate(p *parsedEntry) bool {
-	if p == nil || !p.fromEvent || p.entry == nil {
+func isLegacyEvent(h recordHead) bool {
+	if h.Type != "event_msg" {
 		return false
 	}
-	switch p.kind {
+	switch h.PayloadType {
 	case "user_message", "agent_message", "agent_reasoning":
-		return comparableEntryText(p.entry) != ""
-	default:
-		return false
+		return true
 	}
+	return false
 }
 
-func isDuplicateEventResponsePair(event, current *parsedEntry) bool {
-	if !isEventMessageCandidate(event) || current == nil || current.entry == nil {
+// isWireTwin reports whether the wire record that follows a legacy event
+// carries the same content (same role, same trimmed text, matching kind).
+func isWireTwin(legacyKey string, legacy *thinkt.Entry, h recordHead, cur *thinkt.Entry) bool {
+	if h.Type != "response_item" || legacy.Role != cur.Role {
 		return false
 	}
-	if current.fromEvent {
+	a, b := comparableEntryText(legacy), comparableEntryText(cur)
+	if a == "" || a != b {
 		return false
 	}
-	if event.entry.Role != current.entry.Role {
-		return false
-	}
-	eventText := comparableEntryText(event.entry)
-	currentText := comparableEntryText(current.entry)
-	if eventText == "" || currentText == "" || eventText != currentText {
-		return false
-	}
-
-	switch event.kind {
+	switch legacyKey {
 	case "user_message", "agent_message":
-		return current.kind == "message"
+		return h.PayloadType == "message"
 	case "agent_reasoning":
-		return current.kind == "reasoning"
-	default:
-		return false
+		return h.PayloadType == "reasoning"
 	}
+	return false
+}
+
+func thinkingText(e *thinkt.Entry) string {
+	for _, b := range e.ContentBlocks {
+		if b.Type == "thinking" {
+			return strings.TrimSpace(b.Thinking)
+		}
+	}
+	return ""
 }
 
 func comparableEntryText(entry *thinkt.Entry) string {
@@ -264,24 +213,7 @@ func comparableEntryText(entry *thinkt.Entry) string {
 	if text := strings.TrimSpace(entry.Text); text != "" {
 		return text
 	}
-	for _, block := range entry.ContentBlocks {
-		if block.Type == "thinking" {
-			if text := strings.TrimSpace(block.Thinking); text != "" {
-				return text
-			}
-		}
-	}
-	return ""
-}
-
-func (p *Parser) newEntry(role thinkt.Role, timestamp time.Time, kind, text string) *thinkt.Entry {
-	return &thinkt.Entry{
-		UUID:      composeUUID(p.sessionID, p.lineNo, kind, ""),
-		Role:      role,
-		Timestamp: timestamp,
-		Source:    thinkt.SourceCodex,
-		Text:      text,
-	}
+	return thinkingText(entry)
 }
 
 func parseTimestamp(v string) time.Time {
@@ -422,4 +354,11 @@ func normalizeToolOutput(v any) string {
 		}
 		return string(b)
 	}
+}
+
+// logLine is the envelope of one rollout line.
+type logLine struct {
+	Timestamp string          `json:"timestamp"`
+	Type      string          `json:"type"`
+	Payload   json.RawMessage `json:"payload"`
 }

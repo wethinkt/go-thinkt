@@ -50,7 +50,7 @@ func TestParser_NextEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fourth entry: %v", err)
 	}
-	if e4.Role != thinkt.RoleTool || len(e4.ContentBlocks) != 1 || e4.ContentBlocks[0].ToolResult != "ok" {
+	if e4.Role != thinkt.RoleUser || len(e4.ContentBlocks) != 1 || e4.ContentBlocks[0].ToolResult != "ok" {
 		t.Fatalf("unexpected fourth entry: %+v", e4)
 	}
 }
