@@ -38,12 +38,15 @@ type CachedSession struct {
 	// it; Lookup and MergeInto treat any other value as stale.
 	ParserVersion int `json:"parser_version,omitempty"`
 
-	Title         string        `json:"title,omitempty"`
-	LastPrompt    string        `json:"last_prompt,omitempty"`
-	SubagentCount int           `json:"subagent_count,omitempty"`
-	PRLinks       []PRLink      `json:"pr_links,omitempty"`
-	Worktree      *WorktreeInfo `json:"worktree,omitempty"`
-	Cost          *SessionCost  `json:"cost,omitempty"`
+	Title         string `json:"title,omitempty"`
+	LastPrompt    string `json:"last_prompt,omitempty"`
+	SubagentCount int    `json:"subagent_count,omitempty"`
+	// ParentSessionID links a subagent session to the session that spawned
+	// it (Codex subagent rollouts). Empty for top-level sessions.
+	ParentSessionID string        `json:"parent_session_id,omitempty"`
+	PRLinks         []PRLink      `json:"pr_links,omitempty"`
+	Worktree        *WorktreeInfo `json:"worktree,omitempty"`
+	Cost            *SessionCost  `json:"cost,omitempty"`
 }
 
 // metadataCacheJSON is the on-disk representation without the mutex.
@@ -214,6 +217,9 @@ func (mc *MetadataCache) MergeInto(meta *SessionMeta) bool {
 	}
 	if meta.SubagentCount == 0 {
 		meta.SubagentCount = entry.SubagentCount
+	}
+	if meta.ParentSessionID == "" {
+		meta.ParentSessionID = entry.ParentSessionID
 	}
 	if meta.PRLinks == nil {
 		meta.PRLinks = entry.PRLinks

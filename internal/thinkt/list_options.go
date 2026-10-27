@@ -10,8 +10,9 @@ type ListSessionsOption func(*ListSessionsConfig)
 
 // ListSessionsConfig holds resolved options for ListSessions.
 type ListSessionsConfig struct {
-	EnrichCallback func(projectID string, sessions []SessionMeta)
-	EnrichSync     bool
+	EnrichCallback   func(projectID string, sessions []SessionMeta)
+	EnrichSync       bool
+	IncludeSubagents bool
 }
 
 // ResolveListOptions applies option functions and returns the config.
@@ -45,6 +46,15 @@ func WithEnrich(cb func(projectID string, sessions []SessionMeta)) ListSessionsO
 func WithEnrichSync() ListSessionsOption {
 	return func(cfg *ListSessionsConfig) {
 		cfg.EnrichSync = true
+	}
+}
+
+// WithSubagents includes subagent sessions in the listing. By default a
+// store hides every session that has a ParentSessionID; the parent's
+// SubagentCount still counts them.
+func WithSubagents() ListSessionsOption {
+	return func(cfg *ListSessionsConfig) {
+		cfg.IncludeSubagents = true
 	}
 }
 

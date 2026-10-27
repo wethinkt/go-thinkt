@@ -146,7 +146,9 @@ const (
 // ParserVersion identifies the entry classification and conversion rules.
 // Bump it whenever a source parser changes which entries it emits or how it
 // fills them, so metadata caches and the index recompute lazily.
-const ParserVersion = 3
+//
+// 4: Codex item stream, tool pairs, usage, subagent rollouts
+const ParserVersion = 4
 
 // EntryKind sub-classifies an entry within its Role. It is an open set:
 // sources may emit kinds the core does not name yet, and consumers switch on
@@ -169,6 +171,7 @@ const (
 	KindLocalCommand     EntryKind = "local_command"     // system/local_command
 	KindQueueOperation   EntryKind = "queue_operation"   // queue-operation record
 	KindAPIError         EntryKind = "api_error"         // assistant record flagged isApiErrorMessage
+	KindToolWire         EntryKind = "tool_wire"         // the raw tool call the model emitted, superseded by a structured harness item; secondary
 	KindUnknown          EntryKind = "unknown"           // record type the parser has never seen
 )
 
@@ -244,6 +247,12 @@ type SessionCost struct {
 	ToolDurationMs int64   `json:"tool_duration_ms,omitempty"`
 	LinesAdded     int     `json:"lines_added,omitempty"`
 	LinesRemoved   int     `json:"lines_removed,omitempty"`
+
+	// Token totals summed over the session's usage records (Codex
+	// token_usage_record). Zero when the source does not report them.
+	InputTokens       int `json:"input_tokens,omitempty"`
+	OutputTokens      int `json:"output_tokens,omitempty"`
+	CachedInputTokens int `json:"cached_input_tokens,omitempty"`
 }
 
 // ContentBlock represents a piece of content within a message.

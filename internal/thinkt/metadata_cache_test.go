@@ -370,3 +370,22 @@ func TestMetadataCache_SaveCreatesDir(t *testing.T) {
 		t.Fatalf("invalid JSON written: %v", err)
 	}
 }
+
+func TestMergeIntoCopiesParentSessionID(t *testing.T) {
+	mc := &MetadataCache{Sessions: map[string]CachedSession{}}
+	mod := time.Unix(100, 0)
+	mc.Set("/p/child.jsonl", CachedSession{ModifiedAt: mod, FileSize: 7, ParentSessionID: "parent-1"})
+	meta := SessionMeta{FullPath: "/p/child.jsonl", ModifiedAt: mod, FileSize: 7}
+	if !mc.MergeInto(&meta) {
+		t.Fatal("expected cache hit")
+	}
+	if meta.ParentSessionID != "parent-1" {
+		t.Fatalf("ParentSessionID = %q", meta.ParentSessionID)
+	}
+}
+
+func TestParserVersionIsFour(t *testing.T) {
+	if ParserVersion != 4 {
+		t.Fatalf("ParserVersion = %d", ParserVersion)
+	}
+}
