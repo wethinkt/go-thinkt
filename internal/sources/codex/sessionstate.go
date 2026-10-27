@@ -75,7 +75,7 @@ func scanSessionFile(path string) sessionScan {
 	if err != nil {
 		return s
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var cost thinkt.SessionCost
 	var settingsModel, providerModel string
@@ -247,7 +247,7 @@ func loadSessionIndex(baseDir string) map[string]string {
 	if err != nil {
 		return titles
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 64*1024), 1<<20)
 	for scanner.Scan() {

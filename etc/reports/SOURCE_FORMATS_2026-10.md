@@ -14,7 +14,7 @@ on 2026-10-26. Survey scripts: `codex_survey.py`, `codex_items.py`,
 
 | source | files | what thinkt reads | biggest gaps |
 |---|---|---|---|
-| Codex | 205 rollouts, 24 of them subagents | `event_msg` user/agent messages, `response_item` message/reasoning/tool calls | titles (`session_index.jsonl`), `turn_id`, token usage, compaction, subagent links, `FileChange` diffs; 51k `item_completed` and 25k `token_count` events are parsed as unknown |
+| Codex | 205 rollouts, 24 of them subagents | after the Codex pass: `item_completed` items for agent output and tools, wire messages for user/developer input, `token_usage_record` per assistant entry, `compacted`, `task_complete`/`turn_aborted`, titles from `session_index.jsonl`, subagent rollouts linked by `ParentSessionID` and hidden unless `WithSubagents()` | `token_count` rate limits, `thread_settings_applied`, `turn_context` policy fields, inter-agent `encrypted_content`; subagent rollouts are not indexed |
 | Antigravity | 111 brain dirs, 104 with `transcript.jsonl`, 109 summary rows | nothing: the gemini source reads `~/.gemini/tmp/*/chats` | an entirely new source: step-indexed transcript, titles and workspaces in a SQLite summary db, nested conversations |
 | Kimi Code | 42 sessions, 64 wire files (22 subagents) | nothing: the kimi source reads `~/.kimi/sessions/*/*/context.jsonl` | new layout under `~/.kimi-code`, `state.json` with title and last prompt, `session_index.jsonl`, per-agent `wire.jsonl` with turn and usage events |
 
@@ -36,25 +36,25 @@ lines sometimes add `metadata`. CLI versions seen: 0.130 to 0.164.
 
 ### Record types (205 files, 185k lines)
 
-| type / payload.type | count | meaning | thinkt today |
+| type / payload.type | count | meaning | thinkt after the Codex pass |
 |---|---|---|---|
-| `event_msg/item_completed` | 51,082 | semantic item stream: `item.type` is `CommandExecution` 20,635, `Reasoning` 15,639, `AgentMessage` 7,976, `UserMessage` 2,461, `FileChange` 2,090, `McpToolCall` 906, `Extension` 673, `ImageView` 321, `SubAgentActivity` 126, `ContextCompaction` 115, `WebSearch` 92, `CollabAgentToolCall` 65, `Plan` 1 | dropped as unknown event |
-| `event_msg/token_count` | 25,320 | cumulative usage + rate limits after each response | dropped |
-| `token_usage_record` | 21,649 | per-response usage with `turn_id`, `response_id` | dropped |
-| `response_item/custom_tool_call` + `_output` | 17,609 / 17,608 | `exec` JavaScript orchestration calls and chunked output | tool_use / tool_result |
-| `response_item/reasoning` | 17,540 | `summary[]` plus `encrypted_content`; `content` on 1,907 | thinking (summary only) |
-| `response_item/message` | 11,607 | roles user 2,924 / assistant 7,881 / developer 804; `phase` commentary 5,726 or final_answer 2,155 | user/assistant turn; developer becomes system |
-| `response_item/function_call` + `_output` | 6,326 each | `wait`, MCP, and legacy tools | tool_use / tool_result |
-| `event_msg/task_started` / `task_complete` / `turn_aborted` | 2,417 / 2,296 / 120 | turn brackets: `turn_id`, `root_turn_id`, `duration_ms`, `time_to_first_token_ms`, `last_agent_message`, `turn_attribution{turn_trigger, parent_turn_id, initiating_agent_path}` | dropped |
-| `turn_context` | 2,388 | per-turn model, effort, cwd, approval and sandbox policy, collaboration mode | dropped |
-| `event_msg/thread_settings_applied` | 2,166 | model, service tier, permission profile, reasoning effort | dropped |
-| `world_state` | 472 | hashes of instructions, skills, environment | dropped |
-| `session_meta` | 205 | `session_id`, `cwd`, `cli_version`, `source` (`"vscode"`, `"cli"`, or `{subagent:{thread_spawn:{parent_thread_id, depth, agent_path, agent_nickname}}}`), `base_instructions` | cwd and model only |
-| `compacted` | 114 | compaction with `replacement_history`, `retained_context`, window ids, `latest_token_usage_record` | dropped |
-| `inter_agent_communication_metadata` | 122 | `{trigger_turn}` marker before an `agent_message` | dropped |
-| `response_item/agent_message` | 122 | inter-agent message with `author`, `recipient`, `encrypted_content` | assistant text (empty) |
-| `response_item/web_search_call` | 86 | search action with queries | dropped |
-| `response_item/additional_tools` | 12 | tool namespace catalog (large) | dropped |
+| `event_msg/item_completed` | 51,082 | semantic item stream: `item.type` is `CommandExecution` 20,635, `Reasoning` 15,639, `AgentMessage` 7,976, `UserMessage` 2,461, `FileChange` 2,090, `McpToolCall` 906, `Extension` 673, `ImageView` 321, `SubAgentActivity` 126, `ContextCompaction` 115, `WebSearch` 92, `CollabAgentToolCall` 65, `Plan` 1 | the entry source for agent output and tools: `AgentMessage`/`Reasoning`/`Plan` are assistant entries, tool items become tool_use + tool_result pairs, `SubAgentActivity`/`CollabAgentToolCall` are `KindAgentMessage` events, `UserMessage`/`ContextCompaction` are bookkeeping |
+| `event_msg/token_count` | 25,320 | cumulative usage + rate limits after each response | bookkeeping |
+| `token_usage_record` | 21,649 | per-response usage with `turn_id`, `response_id` | `Usage` on the held assistant entry; summed into `SessionCost` token totals |
+| `response_item/custom_tool_call` + `_output` | 17,609 / 17,608 | `exec` JavaScript orchestration calls and chunked output | secondary `KindToolWire` entries (`wire:<call_id>`) when the name is an orchestration tool; normal tool entries otherwise |
+| `response_item/reasoning` | 17,540 | `summary[]` plus `encrypted_content`; `content` on 1,907 | dropped when it twins the preceding `Reasoning` item; thinking block when wire-only; bookkeeping when encrypted only |
+| `response_item/message` | 11,607 | roles user 2,924 / assistant 7,881 / developer 804; `phase` commentary 5,726 or final_answer 2,155 | user: turn, `KindCommandOutput`, or `KindMeta` by content item kinds; developer: secondary `KindMeta`; assistant: dropped when it twins the preceding `AgentMessage` item |
+| `response_item/function_call` + `_output` | 6,326 each | `wait`, MCP, and legacy tools | as `custom_tool_call` |
+| `event_msg/task_started` / `task_complete` / `turn_aborted` | 2,417 / 2,296 / 120 | turn brackets: `turn_id`, `root_turn_id`, `duration_ms`, `time_to_first_token_ms`, `last_agent_message`, `turn_attribution{turn_trigger, parent_turn_id, initiating_agent_path}` | `task_started` stamps `TurnID`; `task_complete`/`turn_aborted` are secondary `KindTurnDuration` entries with `duration_ms` and `Error` |
+| `turn_context` | 2,388 | per-turn model, effort, cwd, approval and sandbox policy, collaboration mode | session state: `TurnID`, `Model`, `Effort` on every later entry; `SessionMeta.Model` |
+| `event_msg/thread_settings_applied` | 2,166 | model, service tier, permission profile, reasoning effort | bookkeeping; model fallback for `SessionMeta.Model` |
+| `world_state` | 472 | hashes of instructions, skills, environment | bookkeeping |
+| `session_meta` | 205 | `session_id`, `cwd`, `cli_version`, `source` (`"vscode"`, `"cli"`, or `{subagent:{thread_spawn:{parent_thread_id, depth, agent_path, agent_nickname}}}`), `base_instructions` | `ID` (from `id`), cwd, branch, created, `ParentSessionID`, subagent title fallback |
+| `compacted` | 114 | compaction with `replacement_history`, `retained_context`, window ids, `latest_token_usage_record` | `KindCompactBoundary` with `PreTokens` |
+| `inter_agent_communication_metadata` | 122 | `{trigger_turn}` marker before an `agent_message` | bookkeeping |
+| `response_item/agent_message` | 122 | inter-agent message with `author`, `recipient`, `encrypted_content` | user `KindAgentMessage` with author/recipient metadata |
+| `response_item/web_search_call` | 86 | search action with queries | bookkeeping (the `WebSearch`/`Extension` item carries the query and results) |
+| `response_item/additional_tools` | 12 | tool namespace catalog (large) | bookkeeping |
 
 ### What `item_completed` adds
 

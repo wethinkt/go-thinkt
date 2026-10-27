@@ -38,7 +38,6 @@ type Parser struct {
 	legacyKey string
 
 	unknown unknownTally
-	errors  []error
 	done    bool
 }
 
@@ -242,19 +241,6 @@ func composeUUID(sessionID string, lineNo int, kind, suffix string) string {
 	return base
 }
 
-func mapMessageRole(role string) thinkt.Role {
-	switch role {
-	case "user":
-		return thinkt.RoleUser
-	case "assistant":
-		return thinkt.RoleAssistant
-	case "system", "developer":
-		return thinkt.RoleSystem
-	default:
-		return thinkt.RoleSystem
-	}
-}
-
 func readString(m map[string]any, key string) string {
 	if m == nil {
 		return ""
@@ -265,35 +251,6 @@ func readString(m map[string]any, key string) string {
 	}
 	s, _ := v.(string)
 	return s
-}
-
-func extractMessageText(v any) string {
-	items, ok := v.([]any)
-	if !ok {
-		return ""
-	}
-
-	parts := make([]string, 0, len(items))
-	for _, item := range items {
-		m, ok := item.(map[string]any)
-		if !ok {
-			continue
-		}
-
-		// Most message blocks use "text" while some input variants use
-		// explicit input/output text fields.
-		text := readString(m, "text")
-		if text == "" {
-			text = readString(m, "input_text")
-		}
-		if text == "" {
-			text = readString(m, "output_text")
-		}
-		if text != "" {
-			parts = append(parts, text)
-		}
-	}
-	return strings.TrimSpace(strings.Join(parts, "\n"))
 }
 
 func extractReasoningText(payload map[string]any) string {
@@ -362,11 +319,4 @@ func normalizeToolOutput(v any) string {
 		}
 		return string(b)
 	}
-}
-
-// logLine is the envelope of one rollout line.
-type logLine struct {
-	Timestamp string          `json:"timestamp"`
-	Type      string          `json:"type"`
-	Payload   json.RawMessage `json:"payload"`
 }
