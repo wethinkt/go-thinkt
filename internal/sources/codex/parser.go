@@ -151,9 +151,17 @@ func (p *Parser) step(line []byte) {
 	}
 }
 
-// attachUsage is filled in by the usage task; until then usage records only
-// hold the pending buffer in place.
-func (p *Parser) attachUsage(head recordHead) {}
+// attachUsage stores a token_usage_record on the assistant entry held in
+// pending. A second record for the same hold overwrites the first; a record
+// with no assistant entry pending is dropped (the session scan still sums it).
+func (p *Parser) attachUsage(head recordHead) {
+	if p.usageTarget < 0 || p.usageTarget >= len(p.pending) {
+		return
+	}
+	if u := decodeUsage(head.Payload); u != nil {
+		p.pending[p.usageTarget].Usage = u
+	}
+}
 
 // isItemTwin reports whether a wire assistant message or reasoning record
 // repeats the harness item that preceded it.
