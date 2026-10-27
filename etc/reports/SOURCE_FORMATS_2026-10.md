@@ -61,8 +61,8 @@ lines sometimes add `metadata`. CLI versions seen: 0.130 to 0.164.
 The `response_item` stream is the model wire; `item_completed` is the
 harness's own view and carries what the wire lacks:
 
-- `FileChange.changes[path] = {type: update|create|delete, unified_diff, move_path}` with apply `stdout`/`stderr`. This is the Codex equivalent of Claude's `structuredPatch` and maps onto the `diff` child block.
-- `CommandExecution` has the parsed command, `cwd`, `exit_code`, `duration`, `aggregated_output`, and separate `stdout`/`stderr` on 6,778.
+- `FileChange.changes[path] = {type: add|update|delete, unified_diff, move_path}` with apply `stdout`/`stderr`. This is the Codex equivalent of Claude's `structuredPatch` and maps onto the `diff` child block.
+- `CommandExecution` has the parsed command, `cwd`, `exit_code`, `duration` (`{secs, nanos}`), `aggregated_output`, and separate `stdout`/`stderr` on 6,778.
 - `McpToolCall` has `server`, `tool`, `arguments`, `result{content[], isError}`, `duration`.
 - `AgentMessage.phase` separates commentary from the final answer; `questions` on 96 marks `ask_user` prompts.
 - `SubAgentActivity{kind, agent_thread_id, agent_path, model, reasoning_effort}` and `CollabAgentToolCall{sender_thread_id, receiver_thread_ids}` are the parent-side subagent events.
