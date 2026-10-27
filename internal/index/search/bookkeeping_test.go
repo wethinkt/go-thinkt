@@ -113,3 +113,28 @@ func TestScanFileSkipsSecondaryEntries(t *testing.T) {
 		t.Fatalf("want matches on lines 5 and 6 only, got %v", lines)
 	}
 }
+
+// A Codex AgentMessage item and its wire twin both carry the reply; only the
+// item line is a hit.
+func TestScanFileCodexSkipsWireAssistantTwin(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "codex.jsonl")
+	content := `{"timestamp":"2026-10-01T10:00:14Z","type":"event_msg","payload":{"type":"item_completed","turn_id":"turn-1","item":{"type":"AgentMessage","id":"msg-a2","content":[{"type":"Text","text":"needle fixed."}],"phase":"final_answer"}}}
+{"timestamp":"2026-10-01T10:00:14Z","type":"response_item","payload":{"type":"message","id":"msg-a2","role":"assistant","content":[{"type":"output_text","text":"needle fixed."}],"phase":"final_answer"}}
+{"timestamp":"2026-10-01T10:00:00Z","type":"response_item","payload":{"type":"message","role":"developer","content":[{"type":"input_text","text":"needle in developer prompt"}]}}
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m, _ := NewMatcher("needle", false, false)
+	out := make(chan RawMatch, 8)
+	scanFile(context.Background(), Candidate{Path: path, Source: "codex"}, m, out)
+	close(out)
+	var lines []int
+	for match := range out {
+		lines = append(lines, match.LineNum)
+	}
+	if len(lines) != 1 || lines[0] != 1 {
+		t.Fatalf("want one match on line 1, got %v", lines)
+	}
+}

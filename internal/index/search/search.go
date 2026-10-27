@@ -13,6 +13,7 @@ import (
 
 	"github.com/wethinkt/go-thinkt/internal/index/db"
 	"github.com/wethinkt/go-thinkt/internal/sources/claude"
+	"github.com/wethinkt/go-thinkt/internal/sources/codex"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
@@ -292,6 +293,14 @@ func (s *Service) Search(opts SearchOptions) ([]SessionResult, int, error) {
 	return finalResults, totalMatches, nil
 }
 
+// searchable maps a source name to the function that decides whether a hit
+// inside one raw line of that source's session file is conversation content.
+// Sources without an entry keep every matching line.
+var searchable = map[string]func([]byte) bool{
+	string(thinkt.SourceClaude): claude.IsSearchable,
+	string(thinkt.SourceCodex):  codex.IsSearchable,
+}
+
 func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch) {
 	f, err := os.Open(c.Path)
 	if err != nil {
@@ -303,7 +312,7 @@ func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch)
 	// a short token limit would silently end the scan at the first one.
 	scanner := thinkt.NewScannerWithMaxCapacity(f)
 	lineNum := 0
-	isClaude := c.Source == string(thinkt.SourceClaude)
+	isSearchable := searchable[c.Source]
 
 	for scanner.Scan() {
 		if ctx.Err() != nil {
@@ -326,11 +335,11 @@ func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch)
 					role = entry.Type
 				}
 			}
-			// Claude request dumps, bookkeeping attachments, and secondary
-			// entries (reminders, hook output, notices) are not conversation
-			// content; a hit inside them is noise. Other sources also write a
-			// top-level "type", so the Claude classifier runs only on Claude files.
-			if isClaude && entry.Type != "" && !claude.IsSearchable([]byte(text)) {
+			// Request dumps, bookkeeping records, wire twins of harness items,
+			// and secondary entries (reminders, hook output, notices) are not
+			// conversation content; a hit inside them is noise. Each source's
+			// classifier runs only on that source's files.
+			if isSearchable != nil && entry.Type != "" && !isSearchable([]byte(text)) {
 				continue
 			}
 

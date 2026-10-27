@@ -359,3 +359,21 @@ func entryWeight(h recordHead, class RecordClass) int {
 	}
 	return 1
 }
+
+// IsSearchable reports whether a hit inside this line is conversation
+// content: false for non-entry classes and for wire twins of harness items
+// (assistant messages, reasoning); otherwise true when the line yields at
+// least one entry that is not secondary.
+func IsSearchable(line []byte) bool {
+	h, class := ClassifyLine(line)
+	if !class.IsEntry() || isDedupeCandidate(h) {
+		return false
+	}
+	c := &converter{turn: &turnState{}, calls: map[string]string{}}
+	for _, e := range c.convert(h, class, line) {
+		if !e.IsSecondary() {
+			return true
+		}
+	}
+	return false
+}
