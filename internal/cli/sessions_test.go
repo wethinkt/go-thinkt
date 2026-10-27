@@ -17,6 +17,9 @@ type testSessionStore struct {
 	projectID string
 	project   thinkt.Project
 	sessions  []thinkt.SessionMeta
+	// hidden sessions resolve through GetSessionMeta only, like subagent
+	// rollouts that ListSessions leaves out.
+	hidden []thinkt.SessionMeta
 }
 
 func (s *testSessionStore) Source() thinkt.Source { return thinkt.SourceClaude }
@@ -40,13 +43,30 @@ func (s *testSessionStore) ListSessions(ctx context.Context, projectID string, _
 	return nil, nil
 }
 func (s *testSessionStore) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.SessionMeta, error) {
-	for _, meta := range s.sessions {
+	for _, meta := range append(append([]thinkt.SessionMeta{}, s.sessions...), s.hidden...) {
 		if meta.ID == sessionID || meta.FullPath == sessionID {
 			m := meta
 			return &m, nil
 		}
 	}
 	return nil, nil
+}
+
+func TestResolveSessionFallsBackToStoreByID(t *testing.T) {
+	registry := thinkt.NewRegistry()
+	registry.Register(&testSessionStore{
+		projectID: "/proj",
+		project:   thinkt.Project{ID: "/proj", Path: "/proj", Name: "proj", Source: thinkt.SourceClaude},
+		sessions:  []thinkt.SessionMeta{{ID: "parent", FullPath: "/proj/parent.jsonl"}},
+		hidden:    []thinkt.SessionMeta{{ID: "child", FullPath: "/proj/child.jsonl", ParentSessionID: "parent"}},
+	})
+	meta, err := ResolveSession(registry, "/proj", "child")
+	if err != nil || meta == nil || meta.FullPath != "/proj/child.jsonl" {
+		t.Fatalf("meta = %+v err = %v", meta, err)
+	}
+	if _, err := ResolveSession(registry, "/proj", "nobody"); err == nil {
+		t.Fatal("unknown id must still fail")
+	}
 }
 func (s *testSessionStore) LoadSession(ctx context.Context, sessionID string) (*thinkt.Session, error) {
 	return nil, nil

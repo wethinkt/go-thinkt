@@ -212,15 +212,49 @@ func (c *converter) commandExecution(h recordHead) []thinkt.Entry {
 	return entries
 }
 
+// fileChangeEntry is one change of a FileChange item. Updates carry a
+// unified_diff; adds and deletes carry the whole file in content instead.
+type fileChangeEntry struct {
+	Type        string `json:"type"`
+	UnifiedDiff string `json:"unified_diff"`
+	Content     string `json:"content"`
+	MovePath    string `json:"move_path"`
+}
+
+// changeDiff returns the unified diff for one change with a file header:
+// the item's own diff when present, else a diff synthesized from content
+// (all lines added for an add, all removed for a delete), else "".
+func changeDiff(path string, ch fileChangeEntry) string {
+	if ch.UnifiedDiff != "" {
+		return wrapDiff(path, ch.UnifiedDiff)
+	}
+	if ch.Content == "" {
+		return ""
+	}
+	lines := strings.Split(strings.TrimSuffix(ch.Content, "\n"), "\n")
+	var b strings.Builder
+	switch ch.Type {
+	case "add":
+		fmt.Fprintf(&b, "--- /dev/null\n+++ b/%s\n@@ -0,0 +1,%d @@\n", path, len(lines))
+		for _, l := range lines {
+			b.WriteString("+" + l + "\n")
+		}
+	case "delete":
+		fmt.Fprintf(&b, "--- a/%s\n+++ /dev/null\n@@ -1,%d +0,0 @@\n", path, len(lines))
+		for _, l := range lines {
+			b.WriteString("-" + l + "\n")
+		}
+	default:
+		return ""
+	}
+	return b.String()
+}
+
 func (c *converter) fileChange(h recordHead) []thinkt.Entry {
 	var item struct {
-		ID      string `json:"id"`
-		Status  string `json:"status"`
-		Changes map[string]struct {
-			Type        string `json:"type"`
-			UnifiedDiff string `json:"unified_diff"`
-			MovePath    string `json:"move_path"`
-		} `json:"changes"`
+		ID      string                     `json:"id"`
+		Status  string                     `json:"status"`
+		Changes map[string]fileChangeEntry `json:"changes"`
 	}
 	if !decodeItem(h, &item) {
 		return nil
@@ -242,8 +276,8 @@ func (c *converter) fileChange(h recordHead) []thinkt.Entry {
 			input[p] = kind
 		}
 		lines = append(lines, strings.TrimSpace(kind+" "+p))
-		if ch.UnifiedDiff != "" {
-			children = append(children, thinkt.ContentBlock{Type: thinkt.BlockTypeDiff, Text: wrapDiff(p, ch.UnifiedDiff)})
+		if diff := changeDiff(p, ch); diff != "" {
+			children = append(children, thinkt.ContentBlock{Type: thinkt.BlockTypeDiff, Text: diff})
 		}
 	}
 	call := thinkt.ContentBlock{ToolName: "apply_patch", ToolInput: input}

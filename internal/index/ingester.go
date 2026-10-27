@@ -78,12 +78,19 @@ func (i *Ingester) IngestProject(ctx context.Context, project thinkt.Project, pI
 		return fmt.Errorf("list sessions for %s: %w", project.ID, err)
 	}
 
+	projectID := db.ScopedProjectID(project.Source, project.ID)
+
+	// Rows for files the store no longer lists (deleted rollouts, or
+	// sessions a parser change now classifies as subagents) would otherwise
+	// stay in the index forever at their old parser version.
+	if err := i.pruneUnlisted(ctx, projectID, sessions); err != nil {
+		fmt.Fprintf(os.Stderr, "\nError pruning stale sessions for %s: %v\n", project.Name, err)
+	}
+
 	if len(sessions) == 0 {
 		i.reportProgress(pIdx, pTotal, 0, 0, fmt.Sprintf("Project %s (no sessions)", project.Name))
 		return nil
 	}
-
-	projectID := db.ScopedProjectID(project.Source, project.ID)
 
 	// Filter to sessions needing sync.
 	var toSync []thinkt.SessionMeta
@@ -320,6 +327,57 @@ func (i *Ingester) writeSession(ctx context.Context, p parsedSession) error {
 		return fmt.Errorf("update sync state: %w", err)
 	}
 
+	return tx.Commit()
+}
+
+// pruneUnlisted deletes the index rows of sessions recorded under projectID
+// whose file path the store no longer lists.
+func (i *Ingester) pruneUnlisted(ctx context.Context, projectID string, listed []thinkt.SessionMeta) error {
+	keep := make(map[string]bool, len(listed))
+	for _, s := range listed {
+		keep[s.FullPath] = true
+	}
+	rows, err := i.db.QueryContext(ctx, `SELECT id, path FROM sessions WHERE project_id = ?`, projectID)
+	if err != nil {
+		return err
+	}
+	type stale struct{ id, path string }
+	var stales []stale
+	for rows.Next() {
+		var s stale
+		if err := rows.Scan(&s.id, &s.path); err != nil {
+			rows.Close()
+			return err
+		}
+		if !keep[s.path] {
+			stales = append(stales, s)
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil || len(stales) == 0 {
+		return err
+	}
+
+	tx, err := i.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	for _, s := range stales {
+		for _, q := range []struct {
+			sql string
+			arg string
+		}{
+			{"DELETE FROM entries WHERE session_id = ?", s.id},
+			{"DELETE FROM entry_attachments WHERE session_id = ?", s.id},
+			{"DELETE FROM sessions WHERE id = ?", s.id},
+			{"DELETE FROM sync_state WHERE file_path = ?", s.path},
+		} {
+			if _, err := tx.ExecContext(ctx, q.sql, q.arg); err != nil {
+				return fmt.Errorf("prune %s: %w", s.id, err)
+			}
+		}
+	}
 	return tx.Commit()
 }
 

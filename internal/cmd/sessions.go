@@ -506,6 +506,13 @@ func runSessionsView(cmd *cobra.Command, args []string) error {
 				}
 			}
 			if !found {
+				// Listings hide subagent sessions; a store still resolves one by id.
+				if _, meta := registry.SessionByID(ctx, sessionArg); meta != nil {
+					sessionPath = meta.FullPath
+					found = true
+				}
+			}
+			if !found {
 				return fmt.Errorf("session not found: %s\n\nUse 'thinkt sessions list -p %s' to see available sessions", sessionArg, sessionProject)
 			}
 		}

@@ -91,7 +91,7 @@ func TestCommandExecutionStderrChild(t *testing.T) {
 	}
 }
 
-func TestFileChangeDiffChildrenOnlyForNonEmptyDiffs(t *testing.T) {
+func TestFileChangeDiffChildrenForUpdateAndAdd(t *testing.T) {
 	use, call, _, result := pairOf(t, convertLine(t, fixtureLine(t, 19)))
 	if call.ToolName != "apply_patch" || use.UUID != "call-patch-1" {
 		t.Fatalf("tool_use = %+v", use)
@@ -105,7 +105,7 @@ func TestFileChangeDiffChildrenOnlyForNonEmptyDiffs(t *testing.T) {
 			t.Fatalf("ToolResult %q lacks %q", result.ToolResult, want)
 		}
 	}
-	if len(result.Children) != 1 || result.Children[0].Type != thinkt.BlockTypeDiff || !strings.HasPrefix(result.Children[0].Text, "--- a//work/proj/main.go\n+++ b//work/proj/main.go\n@@") {
+	if len(result.Children) != 2 || result.Children[0].Type != thinkt.BlockTypeDiff || !strings.HasPrefix(result.Children[0].Text, "--- a//work/proj/main.go\n+++ b//work/proj/main.go\n@@") || result.Children[1].Text != "--- /dev/null\n+++ b//work/proj/new.go\n@@ -0,0 +1,1 @@\n+package main\n" {
 		t.Fatalf("children = %+v", result.Children)
 	}
 	if result.IsError {
@@ -239,5 +239,13 @@ func TestDiffHelpers(t *testing.T) {
 	}
 	if _, ok := parseExitCode("no code here"); ok {
 		t.Fatal("parseExitCode false positive")
+	}
+}
+
+func TestFileChangeDeleteWithContentYieldsRemovedLines(t *testing.T) {
+	line := `{"timestamp":"2026-10-01T10:00:06Z","type":"event_msg","payload":{"type":"item_completed","turn_id":"turn-1","item":{"type":"FileChange","id":"fc-3","changes":{"/gone.go":{"type":"delete","content":"a\nb\n"}},"status":"completed","stdout":""}}}`
+	_, _, _, result := pairOf(t, convertLine(t, line))
+	if len(result.Children) != 1 || result.Children[0].Type != thinkt.BlockTypeDiff || result.Children[0].Text != "--- a//gone.go\n+++ /dev/null\n@@ -1,2 +0,0 @@\n-a\n-b\n" {
+		t.Fatalf("children = %+v", result.Children)
 	}
 }

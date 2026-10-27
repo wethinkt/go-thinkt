@@ -69,7 +69,10 @@ Tool items become a `tool_use` entry (assistant, UUID `<item id>`) and a
 `user_shell`), carries `exit_code`, `duration_ms` (from `{secs, nanos}`), and
 `status` in the result's metadata, and marks a non-zero exit as an error.
 `FileChange` lists one `"<type> <path>"` line per change and adds a `diff` child
-for every non-empty `unified_diff`. Wire calls use `wire:<call_id>` for both the
+per change: the item's `unified_diff` for updates, or a diff synthesized from
+`content` for adds (all lines added) and deletes (all lines removed), so a
+created file is visible without opening the secondary wire `apply_patch`
+call. Wire calls use `wire:<call_id>` for both the
 UUID stem and `ToolUseID`, so they never collide with item pairs.
 
 ## Parser

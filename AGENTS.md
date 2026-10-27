@@ -17,7 +17,7 @@ The tool supports multiple AI coding assistants via a `Store` interface:
 - **Kimi Code** (`~/.kimi`)
 - **Gemini CLI** (`~/.gemini`)
 - **GitHub Copilot** (`~/.copilot`)
-- **Codex CLI** (`~/.codex`)
+- **Codex CLI** (`~/.codex`; rollouts under `sessions/`, titles in `session_index.jsonl`, subagent rollouts linked by `ParentSessionID`)
 - **Qwen Code** (`~/.qwen`)
 
 Sources are auto-discovered. Use `--source claude|kimi|gemini|copilot|codex|qwen` flags to filter.

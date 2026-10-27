@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -149,18 +150,15 @@ func scanSessionFile(path string) sessionScan {
 			}
 		case "item/FileChange":
 			var item struct {
-				Changes map[string]struct {
-					UnifiedDiff string `json:"unified_diff"`
-				} `json:"changes"`
+				Changes map[string]fileChangeEntry `json:"changes"`
 			}
 			if decodeItem(h, &item) {
-				for _, ch := range item.Changes {
-					if ch.UnifiedDiff == "" {
-						continue
+				for path, ch := range item.Changes {
+					if diff := changeDiff(path, ch); diff != "" {
+						added, removed := diffLineCounts(diff)
+						cost.LinesAdded += added
+						cost.LinesRemoved += removed
 					}
-					added, removed := diffLineCounts(ch.UnifiedDiff)
-					cost.LinesAdded += added
-					cost.LinesRemoved += removed
 				}
 			}
 		case "token_usage_record":
@@ -236,6 +234,20 @@ func (s sessionScan) cached(meta thinkt.SessionMeta) thinkt.CachedSession {
 		ParentSessionID: meta.ParentSessionID,
 		Cost:            meta.Cost,
 	}
+}
+
+// rolloutIDRE matches the session id that ends every rollout file name
+// (rollout-<timestamp>-<uuid>.jsonl).
+var rolloutIDRE = regexp.MustCompile(`([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\.jsonl$`)
+
+// rolloutIDFromPath returns the session id a rollout file name ends with, or
+// "" when the name does not carry one.
+func rolloutIDFromPath(path string) string {
+	m := rolloutIDRE.FindStringSubmatch(filepath.Base(path))
+	if m == nil {
+		return ""
+	}
+	return m[1]
 }
 
 // loadSessionIndex reads <baseDir>/session_index.jsonl and returns thread

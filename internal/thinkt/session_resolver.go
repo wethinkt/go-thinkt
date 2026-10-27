@@ -8,6 +8,24 @@ import (
 
 // ResolveSessionByPath finds the store and session metadata for an absolute
 // session file path across all registered sources.
+// SessionByID asks every store for a session by id. Stores resolve ids
+// their listings leave out (subagent sessions), so this reaches sessions
+// that SessionsForProject does not return. It returns nil, nil when no
+// store knows the id.
+func (r *StoreRegistry) SessionByID(ctx context.Context, sessionID string) (Store, *SessionMeta) {
+	if sessionID == "" {
+		return nil, nil
+	}
+	for _, store := range r.All() {
+		meta, err := store.GetSessionMeta(ctx, sessionID)
+		if err != nil || meta == nil {
+			continue
+		}
+		return store, meta
+	}
+	return nil, nil
+}
+
 func (r *StoreRegistry) ResolveSessionByPath(ctx context.Context, sessionPath string) (Store, *SessionMeta, error) {
 	if sessionPath == "" {
 		return nil, nil, fmt.Errorf("session path is required")

@@ -71,6 +71,10 @@ func ResolveSession(registry *thinkt.StoreRegistry, projectID, query string) (*t
 
 	switch len(matches) {
 	case 0:
+		// Listings hide subagent sessions; a store still resolves one by id.
+		if _, meta := registry.SessionByID(ctx, query); meta != nil {
+			return meta, nil
+		}
 		return nil, fmt.Errorf(thinktI18n.T("cli.sessions.notFound", "session not found: %s"), query)
 	case 1:
 		return &matches[0], nil

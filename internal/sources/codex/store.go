@@ -437,9 +437,13 @@ func (s *Store) scanSessions() ([]thinkt.SessionMeta, error) {
 		}
 
 		if cached, ok := mc.Lookup(path, info.ModTime(), info.Size()); ok {
-			// The cache has no field for the rollout's own id, so a hit
-			// reads it from the session_meta line at the head of the file.
-			sessionID := cachedSessionID(path)
+			// The cache has no field for the rollout's own id. Every
+			// Codex rollout name ends with it; a file named otherwise is
+			// read for its session_meta line.
+			sessionID := rolloutIDFromPath(path)
+			if sessionID == "" {
+				sessionID = cachedSessionID(path)
+			}
 			if sessionID == "" {
 				sessionID = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 			}

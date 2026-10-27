@@ -23,7 +23,7 @@ func TestScanSessionFileFixture(t *testing.T) {
 		t.Fatalf("scan = %+v", s)
 	}
 	c := s.Cost
-	if c == nil || c.DurationMs != 14000 || c.LinesAdded != 1 || c.LinesRemoved != 1 || c.InputTokens != 600 || c.OutputTokens != 60 || c.CachedInputTokens != 140 {
+	if c == nil || c.DurationMs != 14000 || c.LinesAdded != 2 || c.LinesRemoved != 1 || c.InputTokens != 600 || c.OutputTokens != 60 || c.CachedInputTokens != 140 {
 		t.Fatalf("cost = %+v", c)
 	}
 	if s.ParentSessionID != "" || s.Title != "" {
@@ -107,5 +107,14 @@ func TestLoadSessionIndexSkipsBadLines(t *testing.T) {
 	}
 	if got := loadSessionIndex(filepath.Join(base, "missing")); len(got) != 0 {
 		t.Fatalf("missing file → %v", got)
+	}
+}
+
+func TestRolloutIDFromPath(t *testing.T) {
+	if got := rolloutIDFromPath("/x/sessions/2026/09/11/rollout-2026-09-11T13-11-34-01a09174-02e7-7eb1-bc34-eca0ffbd2890.jsonl"); got != "01a09174-02e7-7eb1-bc34-eca0ffbd2890" {
+		t.Fatalf("got %q", got)
+	}
+	if got := rolloutIDFromPath("/x/sessions/2026/10/01/rollout-p.jsonl"); got != "" {
+		t.Fatalf("non-uuid name must yield empty, got %q", got)
 	}
 }
