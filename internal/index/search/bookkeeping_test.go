@@ -138,3 +138,28 @@ func TestScanFileCodexSkipsWireAssistantTwin(t *testing.T) {
 		t.Fatalf("want one match on line 1, got %v", lines)
 	}
 }
+
+// A Kimi prompt appears as an appended input record, its context twin, and
+// in the batched assistant record; only the appended input line is a hit.
+func TestScanFileKimiSkipsContextTwinAndBatch(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wire.jsonl")
+	content := `{"message":{"message":{"role":"user","content":[{"type":"text","text":"needle prompt"}]},"meta":{"source":"input","origin":{"kind":"user"},"userMessageId":"m1"}},"type":"agent.message.appended","time":1}
+{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"needle prompt"}],"toolCalls":[],"origin":{"kind":"user"},"id":"m1"},"time":2}
+{"message":{"message":{"role":"assistant","content":[{"type":"text","text":"needle reply"}],"toolCalls":[]},"meta":{"source":"llm","messageId":"c1"}},"type":"agent.message.appended","time":3}
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m, _ := NewMatcher("needle", false, false)
+	out := make(chan RawMatch, 8)
+	scanFile(context.Background(), Candidate{Path: path, Source: "kimi"}, m, out)
+	close(out)
+	var lines []int
+	for match := range out {
+		lines = append(lines, match.LineNum)
+	}
+	if len(lines) != 1 || lines[0] != 1 {
+		t.Fatalf("want one match on line 1, got %v", lines)
+	}
+}

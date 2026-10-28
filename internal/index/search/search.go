@@ -14,6 +14,7 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/index/db"
 	"github.com/wethinkt/go-thinkt/internal/sources/claude"
 	"github.com/wethinkt/go-thinkt/internal/sources/codex"
+	"github.com/wethinkt/go-thinkt/internal/sources/kimi"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
@@ -299,6 +300,7 @@ func (s *Service) Search(opts SearchOptions) ([]SessionResult, int, error) {
 var searchable = map[string]func([]byte) bool{
 	string(thinkt.SourceClaude): claude.IsSearchable,
 	string(thinkt.SourceCodex):  codex.IsSearchable,
+	string(thinkt.SourceKimi):   kimi.IsSearchable,
 }
 
 func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch) {

@@ -162,34 +162,18 @@ func openClaudeLazySession(path string) (thinkt.LazySession, error) {
 	return claude.OpenLazySession(path)
 }
 
-// openKimiLazySession opens a Kimi session and wraps it in a lazy loader.
+// openKimiLazySession opens a Kimi Code wire file
+// (<base>/sessions/<wd>/<session>/agents/<agent>/wire.jsonl) through the
+// store rooted at the path's base directory.
 func openKimiLazySession(path string) (thinkt.LazySession, error) {
-	// Extract the session ID from the path
-	// Path format: ~/.kimi/sessions/{hash}/{uuid}/context.jsonl
-	sessionDir := filepath.Dir(path)
-	uuid := filepath.Base(sessionDir)
-	hashDir := filepath.Dir(sessionDir)
-	hash := filepath.Base(hashDir)
-	sessionID := hash + "/" + uuid
-
-	// Find the Kimi base directory
-	kimiBase := findKimiBaseDir(path)
-	if kimiBase == "" {
-		// Fallback: try to get from environment or default
-		kimiBase, _ = kimi.DefaultDir()
+	base := kimi.BaseDirForPath(path)
+	if base == "" {
+		base, _ = kimi.DefaultDir()
 	}
-
-	// Create a Kimi store
-	store := kimi.NewStore(kimiBase)
-
-	// Open the session reader
-	ctx := context.Background()
-	reader, err := store.OpenSession(ctx, sessionID)
+	reader, err := kimi.NewStore(base).OpenSession(context.Background(), path)
 	if err != nil {
 		return nil, fmt.Errorf("open kimi session: %w", err)
 	}
-
-	// Wrap in a lazy session
 	return thinkt.NewLazySession(reader)
 }
 
@@ -238,31 +222,6 @@ func openCodexLazySession(path string) (thinkt.LazySession, error) {
 		return nil, fmt.Errorf("open codex session: %w", err)
 	}
 	return thinkt.NewLazySession(reader)
-}
-
-// findKimiBaseDir finds the Kimi base directory from a session path.
-// Path format: ~/.kimi/sessions/{hash}/{uuid}/context.jsonl
-func findKimiBaseDir(sessionPath string) string {
-	// Walk up looking for "sessions" directory inside .kimi
-	dir := filepath.Dir(sessionPath)
-	for {
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break // Reached root
-		}
-		if filepath.Base(dir) == "sessions" {
-			// Check if parent is .kimi
-			if filepath.Base(parent) == ".kimi" {
-				return parent
-			}
-			// Also check for kimi (without dot) - some configs may use this
-			if filepath.Base(parent) == "kimi" {
-				return parent
-			}
-		}
-		dir = parent
-	}
-	return ""
 }
 
 // findCopilotBaseDir finds the Copilot base directory from a session path.
