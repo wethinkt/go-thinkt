@@ -1,5 +1,7 @@
 # Kimi Code Local Storage Structure
 
+> This describes the legacy `~/.kimi` tree of the Python Kimi CLI; thinkt reads `~/.kimi-code` (see `internal/sources/kimi/README.md`).
+
 ## Overview
 Kimi Code stores all session data, configuration, and history locally in `~/.kimi/`. The architecture follows a **local-first, transparent** design philosophy where users have full access to their data in open formats.
 

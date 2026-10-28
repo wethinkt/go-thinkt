@@ -47,7 +47,7 @@ A built-in SQLite index powers fast `thinkt search` and `thinkt stats` queries; 
 ## Features
 
 - **Interactive TUI**: Navigate projects, sessions, and conversation content with a keyboard-driven terminal interface
-- **Multi-Source Support**: Works with Claude Code (`~/.claude`), Kimi Code (`~/.kimi`), Gemini CLI (`~/.gemini`), Copilot CLI (`~/.copilot`), Codex CLI (`~/.codex`), and Qwen Code (`~/.qwen`) — sessions from all sources are shown together
+- **Multi-Source Support**: Works with Claude Code (`~/.claude`), Kimi Code (`~/.kimi-code`), Gemini CLI (`~/.gemini`), Copilot CLI (`~/.copilot`), Codex CLI (`~/.codex`), and Qwen Code (`~/.qwen`) — sessions from all sources are shown together
 - **Tree View**: Browse projects in a collapsible tree grouped by directory, or switch to a flat list
 - **Agent Teams**: Inspect multi-agent teams (Claude Code), including members, tasks, and messages
 - **Analytics**: Token usage, tool frequency, word analysis, activity timelines via `thinkt stats`
@@ -99,7 +99,7 @@ The container user's home directory is `/data`, so default paths like `~/.claude
 # Run the HTTP server
 docker run -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
-  -v ~/.kimi:/data/.kimi:ro \
+  -v ~/.kimi-code:/data/.kimi-code:ro \
   -v ~/.codex:/data/.codex:ro \
   ghcr.io/wethinkt/thinkt:latest server --host 0.0.0.0
 
@@ -548,7 +548,7 @@ Contents of `THINKT_HOME`:
 |----------|-------------|---------|
 | `THINKT_HOME` | thinkt config and data directory | `~/.thinkt` |
 | `THINKT_CLAUDE_HOME` | Claude Code data directory | `~/.claude` |
-| `THINKT_KIMI_HOME` | Kimi Code data directory | `~/.kimi` |
+| `THINKT_KIMI_HOME` | Kimi Code data directory | `~/.kimi-code` |
 | `THINKT_GEMINI_HOME` | Gemini CLI data directory | `~/.gemini` |
 | `THINKT_COPILOT_HOME` | Copilot data directory | `~/.copilot` |
 | `THINKT_CODEX_HOME` | Codex CLI data directory | `~/.codex` |

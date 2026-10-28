@@ -49,7 +49,7 @@ var envGroups = []envGroup{
 	}},
 	{"Source Directories", []envVar{
 		{"THINKT_CLAUDE_HOME", "~/.claude", "Override Claude session directory"},
-		{"THINKT_KIMI_HOME", "~/.kimi", "Override Kimi session directory"},
+		{"THINKT_KIMI_HOME", "~/.kimi-code", "Override Kimi Code session directory"},
 		{"THINKT_GEMINI_HOME", "~/.gemini", "Override Gemini session directory"},
 		{"THINKT_CODEX_HOME", "", "Override Codex session directory"},
 		{"THINKT_COPILOT_HOME", "", "Override Copilot session directory"},

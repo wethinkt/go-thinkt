@@ -53,7 +53,7 @@ go-thinkt/
 │   │   └── web-lite/            # ← thinkt-web-lite submodule
 │   ├── sources/                 # Per-source implementations
 │   │   ├── claude/              # Claude Code (~/.claude)
-│   │   ├── kimi/                # Kimi Code (~/.kimi)
+│   │   ├── kimi/                # Kimi Code (~/.kimi-code)
 │   │   ├── gemini/              # Gemini CLI (~/.gemini)
 │   │   ├── copilot/             # Copilot CLI (~/.copilot)
 │   │   ├── codex/               # Codex CLI (~/.codex)

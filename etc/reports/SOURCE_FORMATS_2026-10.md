@@ -16,7 +16,7 @@ on 2026-10-26. Survey scripts: `codex_survey.py`, `codex_items.py`,
 |---|---|---|---|
 | Codex | 205 rollouts, 24 of them subagents | after the Codex pass: `item_completed` items for agent output and tools, wire messages for user/developer input, `token_usage_record` per assistant entry, `compacted`, `task_complete`/`turn_aborted`, titles from `session_index.jsonl`, subagent rollouts linked by `ParentSessionID` and hidden unless `WithSubagents()` | `token_count` rate limits, `thread_settings_applied`, `turn_context` policy fields, inter-agent `encrypted_content`; subagent rollouts are not indexed |
 | Antigravity | 111 brain dirs, 104 with `transcript.jsonl`, 109 summary rows | nothing: the gemini source reads `~/.gemini/tmp/*/chats` | an entirely new source: step-indexed transcript, titles and workspaces in a SQLite summary db, nested conversations |
-| Kimi Code | 42 sessions, 64 wire files (22 subagents) | nothing: the kimi source reads `~/.kimi/sessions/*/*/context.jsonl` | new layout under `~/.kimi-code`, `state.json` with title and last prompt, `session_index.jsonl`, per-agent `wire.jsonl` with turn and usage events |
+| Kimi Code | 42 sessions, 64 wire files (22 subagents) | after the Kimi pass: `~/.kimi-code` — loop steps as assistant entries with usage, tool results with approvals, user input from the first of its twin records, `state.json` titles and prompts, subagent wires as hidden sessions linked by `ParentSessionID` | plan file contents, `blobref:` images, `file_history` versions; the legacy `~/.kimi` tree is not read |
 
 ## Codex (`~/.codex`)
 
@@ -180,9 +180,10 @@ preferred when present since `transcript.jsonl` truncates content.
 ## Kimi Code (`~/.kimi-code`)
 
 Kimi CLI migrated to Kimi Code in July 2026 (`~/.kimi/.migrated-to-kimi-code`).
-The kimi source still reads the old `~/.kimi/sessions/<hash>/<id>/context.jsonl`
+Before the Kimi pass the kimi source read the old `~/.kimi/sessions/<hash>/<id>/context.jsonl`
 layout; 13 of the 42 new sessions are imports of those, the other 29 exist
-only in the new layout.
+only in the new layout. After the pass thinkt reads `~/.kimi-code` only
+(see `internal/sources/kimi/README.md`).
 
 ### Layout
 
@@ -222,11 +223,12 @@ Message roles: user 393, assistant 757, tool 801; content parts `text`,
 
 | Kimi Code | thinkt |
 |---|---|
-| `context.append_message` / `agent.message.appended` | user, assistant, tool entries; `think` to thinking block, `toolCalls` to tool_use, role tool to tool_result |
-| `turn.*`, `agent.turn.*` | `TurnID`; `outcome: aborted` sets `Error` |
-| `usage.record` | `Usage` on the preceding assistant entry |
-| `interaction.*`, `permission.record_approval_result` | `PermissionDecision` on the tool result |
-| `subagent.*` | `ChildSessionID` = `<session>/agents/<agentId>` |
+| `context.append_loop_event` | one assistant entry per step (thinking, text, tool_use blocks, usage from `step.end`); `tool.result` to a tool_result entry |
+| `context.append_message` / `agent.message.appended` | user entries (the appended input record leads, the context twin is dropped); protocol 1.0 assistant and tool messages; batched appended assistant and tool records dropped when the loop covered them |
+| `turn.*`, `agent.turn.*` | `TurnID`; `turn.ended` to a secondary `KindTurnDuration`, `Error` on `reason: failed`; `turn.step.interrupted` sets `Error` on its step |
+| `step.end.usage` | `Usage` on the step's assistant entry (`usage.record` is bookkeeping) |
+| `permission.record_approval_result` | `PermissionDecision` on the tool result (`approved` / `rejected`); `interaction.*` is bookkeeping |
+| `subagent.*` | `ChildSessionID` = `<sessionID>/<agentId>` on the event, the `Agent` tool_use and tool_result blocks, and the result entry |
 | `plan.revision` | attachment entry pointing at the plan file |
 | `state.json` | `Title`, `LastPrompt`, `CreatedAt`, `ParentSessionID` for sub agents |
 | everything else | bookkeeping |

@@ -45,7 +45,7 @@ var sourcesListCmd = &cobra.Command{
 Shows which sources have session data available on this machine.
 
 Sources include:
-  - Kimi Code (~/.kimi)
+  - Kimi Code (~/.kimi-code)
   - Claude Code (~/.claude)
   - Gemini CLI (~/.gemini)
   - GitHub Copilot (~/.copilot)
@@ -133,7 +133,7 @@ func runSourcesList(cmd *cobra.Command, args []string) error {
 	if len(srcs) == 0 {
 		fmt.Println(thinktI18n.T("cmd.sources.noSources", "No sources found."))
 		fmt.Println(thinktI18n.T("cmd.sources.expectedSources", "\nExpected sources:"))
-		fmt.Println("  - Kimi Code: ~/.kimi/")
+		fmt.Println("  - Kimi Code: ~/.kimi-code/")
 		fmt.Println("  - Claude Code: ~/.claude/")
 		fmt.Println("  - Gemini CLI: ~/.gemini/")
 		fmt.Println("  - Copilot CLI: ~/.copilot/")

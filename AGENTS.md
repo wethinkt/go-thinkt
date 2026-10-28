@@ -14,7 +14,7 @@ Released under the MIT license, see [LICENSE.txt](./LICENSE.txt).
 
 The tool supports multiple AI coding assistants via a `Store` interface:
 - **Claude Code** (`~/.claude`)
-- **Kimi Code** (`~/.kimi`)
+- **Kimi Code** (`~/.kimi-code`; the legacy `~/.kimi` tree is not read)
 - **Gemini CLI** (`~/.gemini`)
 - **GitHub Copilot** (`~/.copilot`)
 - **Codex CLI** (`~/.codex`; rollouts under `sessions/`, titles in `session_index.jsonl`, subagent rollouts linked by `ParentSessionID`)
@@ -248,7 +248,7 @@ The fingerprint is normalized to a consistent UUID format (lowercase, 8-4-4-4-12
 |----------|-------------|---------|
 | `THINKT_HOME` | thinkt config and data directory | `~/.thinkt` |
 | `THINKT_CLAUDE_HOME` | Claude Code data directory | `~/.claude` |
-| `THINKT_KIMI_HOME` | Kimi Code data directory | `~/.kimi` |
+| `THINKT_KIMI_HOME` | Kimi Code data directory | `~/.kimi-code` |
 | `THINKT_GEMINI_HOME` | Gemini CLI data directory | `~/.gemini` |
 | `THINKT_COPILOT_HOME` | Copilot data directory | `~/.copilot` |
 | `THINKT_CODEX_HOME` | Codex CLI data directory | `~/.codex` |
@@ -488,7 +488,7 @@ Both use `debian:trixie-slim` runtime.
 # Bind-mount session directories (paths resolve automatically via $HOME=/data)
 docker run -p 8784:8784 \
   -v ~/.claude:/data/.claude:ro \
-  -v ~/.kimi:/data/.kimi:ro \
+  -v ~/.kimi-code:/data/.kimi-code:ro \
   -v ~/.codex:/data/.codex:ro \
   ghcr.io/wethinkt/thinkt:latest server --host 0.0.0.0
 ```
