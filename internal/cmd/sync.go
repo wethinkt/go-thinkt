@@ -45,6 +45,9 @@ func runSync(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("list projects: %w", err)
 	}
+	if err := ingester.PruneUnlistedProjects(ctx, projects); err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Error pruning stale projects: %v\n", err)
+	}
 
 	if len(projects) == 0 {
 		if !syncQuiet {

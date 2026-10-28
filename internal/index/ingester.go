@@ -381,6 +381,51 @@ func (i *Ingester) pruneUnlisted(ctx context.Context, projectID string, listed [
 	return tx.Commit()
 }
 
+// PruneUnlistedProjects deletes the index rows of projects that a registered
+// source no longer lists: the project row and its sessions, entries,
+// attachments, and sync state. Sources the registry does not hold (disabled
+// ones) are left untouched, and a nil registry prunes nothing.
+func (i *Ingester) PruneUnlistedProjects(ctx context.Context, listed []thinkt.Project) error {
+	if i.registry == nil {
+		return nil
+	}
+	keep := make(map[string]bool, len(listed))
+	for _, p := range listed {
+		keep[db.ScopedProjectID(p.Source, p.ID)] = true
+	}
+	for _, store := range i.registry.All() {
+		source := string(store.Source())
+		rows, err := i.db.QueryContext(ctx, `SELECT id FROM projects WHERE source = ?`, source)
+		if err != nil {
+			return err
+		}
+		var stale []string
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				return err
+			}
+			if !keep[id] {
+				stale = append(stale, id)
+			}
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		for _, id := range stale {
+			if err := i.pruneUnlisted(ctx, id, nil); err != nil {
+				return err
+			}
+			if _, err := i.db.ExecContext(ctx, `DELETE FROM projects WHERE id = ?`, id); err != nil {
+				return fmt.Errorf("prune project %s: %w", id, err)
+			}
+		}
+	}
+	return nil
+}
+
 // ShouldSyncSession checks whether a session needs re-indexing.
 func (i *Ingester) ShouldSyncSession(meta thinkt.SessionMeta) (bool, error) {
 	var lastModUnix int64

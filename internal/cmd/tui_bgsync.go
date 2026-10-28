@@ -46,6 +46,9 @@ func startBackgroundSync(ctx context.Context, cfg config.Config) func() {
 			tuilog.Log.Warn("bgsync: list projects failed", "error", err)
 			return
 		}
+		if err := ingester.PruneUnlistedProjects(ctx, projects); err != nil {
+			tuilog.Log.Warn("bgsync: prune stale projects failed", "error", err)
+		}
 		total := len(projects)
 		for i, p := range projects {
 			if ctx.Err() != nil {

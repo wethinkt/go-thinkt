@@ -148,7 +148,8 @@ const (
 // fills them, so metadata caches and the index recompute lazily.
 //
 // 4: Codex item stream, tool pairs, usage, subagent rollouts
-const ParserVersion = 4
+// 5: Kimi Code tree, loop steps, subagent wires
+const ParserVersion = 5
 
 // EntryKind sub-classifies an entry within its Role. It is an open set:
 // sources may emit kinds the core does not name yet, and consumers switch on
