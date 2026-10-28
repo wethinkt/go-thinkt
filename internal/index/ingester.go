@@ -383,17 +383,23 @@ func (i *Ingester) pruneUnlisted(ctx context.Context, projectID string, listed [
 
 // PruneUnlistedProjects deletes the index rows of projects that a registered
 // source no longer lists: the project row and its sessions, entries,
-// attachments, and sync state. Sources the registry does not hold (disabled
-// ones) are left untouched, and a nil registry prunes nothing.
-func (i *Ingester) PruneUnlistedProjects(ctx context.Context, listed []thinkt.Project) error {
+// attachments, and sync state. Each source is listed on its own, and a
+// source whose listing fails is skipped, so a transient error never empties
+// its index. Sources the registry does not hold (disabled ones) are left
+// untouched, and a nil registry prunes nothing.
+func (i *Ingester) PruneUnlistedProjects(ctx context.Context) error {
 	if i.registry == nil {
 		return nil
 	}
-	keep := make(map[string]bool, len(listed))
-	for _, p := range listed {
-		keep[db.ScopedProjectID(p.Source, p.ID)] = true
-	}
 	for _, store := range i.registry.All() {
+		listed, err := store.ListProjects(ctx)
+		if err != nil {
+			continue
+		}
+		keep := make(map[string]bool, len(listed))
+		for _, p := range listed {
+			keep[db.ScopedProjectID(store.Source(), p.ID)] = true
+		}
 		source := string(store.Source())
 		rows, err := i.db.QueryContext(ctx, `SELECT id FROM projects WHERE source = ?`, source)
 		if err != nil {

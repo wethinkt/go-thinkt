@@ -130,8 +130,18 @@ func (p *Parser) process(line []byte) {
 	}
 	// A step closed by an error or interruption waits one line for the
 	// turn.step.interrupted that carries its message.
-	if p.step != nil && p.step.closed && head.Type != "turn.step.interrupted" {
-		p.flush()
+	if p.step != nil && p.step.closed {
+		switch head.Type {
+		case "turn.step.interrupted":
+			// handled below
+		case "turn.step.retrying":
+			// The retry record carries the readable error of the step that
+			// just failed; keep holding in case an interruption follows.
+			p.takeRetryError(head)
+			return
+		default:
+			p.flush()
+		}
 	}
 
 	switch head.Key {
@@ -381,6 +391,26 @@ func (p *Parser) closeStep(head recordHead) {
 	}
 	if r.Event.FinishReason != "error" && r.Event.FinishReason != "interrupted" {
 		p.flush()
+	}
+}
+
+// takeRetryError records "<errorName>: <errorMessage>" from a
+// turn.step.retrying record on the held failed step.
+func (p *Parser) takeRetryError(head recordHead) {
+	var r struct {
+		ErrorName    string `json:"errorName"`
+		ErrorMessage string `json:"errorMessage"`
+	}
+	if json.Unmarshal(head.Payload, &r) != nil || p.step.errMsg != "" {
+		return
+	}
+	switch {
+	case r.ErrorName != "" && r.ErrorMessage != "":
+		p.step.errMsg = r.ErrorName + ": " + r.ErrorMessage
+	case r.ErrorMessage != "":
+		p.step.errMsg = r.ErrorMessage
+	default:
+		p.step.errMsg = r.ErrorName
 	}
 }
 

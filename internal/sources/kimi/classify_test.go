@@ -131,7 +131,8 @@ func TestUserClass(t *testing.T) {
 func TestIsSearchableKimi(t *testing.T) {
 	cases := map[string]bool{
 		`{"type":"agent.message.appended","message":{"message":{"role":"user","content":[{"type":"text","text":"needle"}]},"meta":{"source":"input","origin":{"kind":"user"},"userMessageId":"m"}}}`: true,
-		`{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"needle"}],"origin":{"kind":"user"},"id":"m"}}`:                                                  false,
+		`{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"needle"}],"origin":{"kind":"user"},"id":"m"}}`:                                                  true,
+		`{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"!needle"}],"origin":{"kind":"shell_command"}}}`:                                                 false,
 		`{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"needle"}]}}`:                                                                                    true,
 		`{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"<system-reminder>needle"}],"origin":{"kind":"injection"}}}`:                                     false,
 		`{"type":"context.append_loop_event","event":{"type":"content.part","part":{"type":"text","text":"needle"}}}`:                                                                                true,
@@ -150,6 +151,20 @@ func TestIsSearchableKimi(t *testing.T) {
 		if got := IsSearchable([]byte(line)); got != want {
 			t.Errorf("IsSearchable(%s) = %v, want %v", line, got, want)
 		}
+	}
+}
+
+// The per-file filter keeps whichever of a prompt's two records comes first.
+func TestNewSearchFilterKeepsFirstOfTwins(t *testing.T) {
+	appended := []byte(`{"type":"agent.message.appended","message":{"message":{"role":"user","content":[{"type":"text","text":"needle"}]},"meta":{"source":"input","origin":{"kind":"user"},"userMessageId":"m"}}}`)
+	ctx := []byte(`{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"needle"}],"origin":{"kind":"user"},"id":"m"}}`)
+	f := NewSearchFilter()
+	if !f(appended) || f(ctx) {
+		t.Fatal("appended first: appended kept, context twin dropped")
+	}
+	g := NewSearchFilter()
+	if !g(ctx) || g(appended) {
+		t.Fatal("context first: context kept, appended twin dropped")
 	}
 }
 

@@ -338,6 +338,23 @@ func TestParserAppendedFallbackKeepsItsToolResult(t *testing.T) {
 	}
 }
 
+// A failed step is usually followed by turn.step.retrying, which carries the
+// readable error; a turn.step.interrupted after it still wins.
+func TestParserErrorStepTakesRetryingMessage(t *testing.T) {
+	entries := parseLines(t,
+		`{"type":"context.append_loop_event","event":{"type":"step.begin","uuid":"s1","turnId":"0","step":1},"time":1}`,
+		`{"type":"context.append_loop_event","event":{"type":"step.end","uuid":"s1","turnId":"0","step":1,"finishReason":"error"},"time":2}`,
+		`{"type":"turn.step.retrying","agentId":"main","turnId":0,"step":1,"failedAttempt":1,"nextAttempt":2,"errorName":"APIConnectionError","errorMessage":"Connection error.","time":3}`,
+		`{"type":"context.append_loop_event","event":{"type":"step.begin","uuid":"s2","turnId":"0","step":1},"time":4}`,
+		`{"type":"context.append_loop_event","event":{"type":"step.end","uuid":"s2","turnId":"0","step":1,"finishReason":"error"},"time":5}`,
+		`{"type":"turn.step.retrying","agentId":"main","turnId":0,"step":1,"errorName":"APIConnectionError","errorMessage":"Connection error.","time":6}`,
+		`{"type":"turn.step.interrupted","agentId":"main","turnId":0,"step":1,"reason":"error","message":"gave up","time":7}`,
+	)
+	if len(entries) != 2 || entries[0].Error != "APIConnectionError: Connection error." || entries[1].Error != "gave up" {
+		t.Fatalf("entries = %+v", entries)
+	}
+}
+
 func TestParserUnknownTypes(t *testing.T) {
 	f, err := os.Open("testdata/wire-1.5.jsonl")
 	if err != nil {

@@ -300,7 +300,14 @@ func (s *Service) Search(opts SearchOptions) ([]SessionResult, int, error) {
 var searchable = map[string]func([]byte) bool{
 	string(thinkt.SourceClaude): claude.IsSearchable,
 	string(thinkt.SourceCodex):  codex.IsSearchable,
-	string(thinkt.SourceKimi):   kimi.IsSearchable,
+}
+
+// searchFilters maps a source name to a factory for a per-file predicate.
+// The predicate sees every line of one file in order, so it can tell a
+// record from a twin an earlier line already carried. It takes precedence
+// over searchable for its source.
+var searchFilters = map[string]func() func([]byte) bool{
+	string(thinkt.SourceKimi): kimi.NewSearchFilter,
 }
 
 func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch) {
@@ -315,6 +322,10 @@ func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch)
 	scanner := thinkt.NewScannerWithMaxCapacity(f)
 	lineNum := 0
 	isSearchable := searchable[c.Source]
+	var lineFilter func([]byte) bool
+	if factory := searchFilters[c.Source]; factory != nil {
+		lineFilter = factory()
+	}
 
 	for scanner.Scan() {
 		if ctx.Err() != nil {
@@ -323,6 +334,10 @@ func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch)
 
 		lineNum++
 		text := scanner.Text()
+		keep := true
+		if lineFilter != nil {
+			keep = lineFilter(scanner.Bytes())
+		}
 
 		if m.Match(text) {
 			role := "unknown"
@@ -341,7 +356,7 @@ func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch)
 			// and secondary entries (reminders, hook output, notices) are not
 			// conversation content; a hit inside them is noise. Each source's
 			// classifier runs only on that source's files.
-			if isSearchable != nil && entry.Type != "" && !isSearchable([]byte(text)) {
+			if !keep || (lineFilter == nil && isSearchable != nil && entry.Type != "" && !isSearchable([]byte(text))) {
 				continue
 			}
 

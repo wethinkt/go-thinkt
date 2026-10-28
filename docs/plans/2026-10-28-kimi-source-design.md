@@ -478,6 +478,20 @@ checked against the code and the 66 wire files and held.
   record; token totals map `inputOther` and `inputCacheRead` only; event
   entries are `RoleSystem`.
 
+## Corrections from the final review (2026-10-28)
+
+- Some protocol 1.5 writers emit no `agent.message.appended` records (4 of
+  52 files here), and steered messages are written context-first. Search
+  therefore uses a per-file filter (`kimi.NewSearchFilter`) that applies the
+  parser's rule — the first of a prompt's two records is the prompt — rather
+  than a line-by-line test that assumed the appended record came first.
+- `turn.step.retrying` (after a failed step) carries `errorName` and
+  `errorMessage`; the held step takes them as `Error`, and a following
+  `turn.step.interrupted` still overrides. The record itself stays
+  bookkeeping.
+- The project prune lists each source itself and skips a source whose
+  listing fails, so a transient error cannot empty its index.
+
 ## Calls I made
 
 - Loop stream leads, appended records are twins: the loop is live and

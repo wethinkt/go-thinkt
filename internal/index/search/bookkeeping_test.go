@@ -139,6 +139,45 @@ func TestScanFileCodexSkipsWireAssistantTwin(t *testing.T) {
 	}
 }
 
+func kimiMatches(t *testing.T, content string) []int {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "wire.jsonl")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m, _ := NewMatcher("needle", false, false)
+	out := make(chan RawMatch, 8)
+	scanFile(context.Background(), Candidate{Path: path, Source: "kimi"}, m, out)
+	close(out)
+	var lines []int
+	for match := range out {
+		lines = append(lines, match.LineNum)
+	}
+	return lines
+}
+
+// Some protocol 1.5 writers emit no appended records: the context message
+// with an id is then the prompt and must be found.
+func TestScanFileKimiFindsPromptWithoutAppendedTwin(t *testing.T) {
+	lines := kimiMatches(t, `{"type":"metadata","protocol_version":"1.5"}
+{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"needle prompt"}],"toolCalls":[],"origin":{"kind":"user"},"id":"m1"},"time":2}
+`)
+	if len(lines) != 1 || lines[0] != 2 {
+		t.Fatalf("want one match on line 2, got %v", lines)
+	}
+}
+
+// A steered message is written context-first, then appended with the same
+// id: the hit belongs on the context line, which is the one the parser keeps.
+func TestScanFileKimiSteeredPromptHitsContextLine(t *testing.T) {
+	lines := kimiMatches(t, `{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"needle steer"}],"toolCalls":[],"origin":{"kind":"user"},"id":"s1"},"time":1}
+{"message":{"message":{"role":"user","content":[{"type":"text","text":"needle steer"}]},"meta":{"source":"input","origin":{"kind":"user"},"userMessageId":"s1"}},"type":"agent.message.appended","time":2}
+`)
+	if len(lines) != 1 || lines[0] != 1 {
+		t.Fatalf("want one match on line 1, got %v", lines)
+	}
+}
+
 // A Kimi prompt appears as an appended input record, its context twin, and
 // in the batched assistant record; only the appended input line is a hit.
 func TestScanFileKimiSkipsContextTwinAndBatch(t *testing.T) {

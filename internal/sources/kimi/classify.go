@@ -337,30 +337,42 @@ func userClass(h recordHead) (RecordClass, thinkt.EntryKind, string) {
 	return ClassTurn, thinkt.KindNone, ""
 }
 
-// IsSearchable reports whether a hit inside this line is conversation
-// content, deciding from the same classifier as the parser: the appended
-// input record is the prompt, a context message with an id is its twin, and
-// lines that would become secondary entries are excluded.
-func IsSearchable(line []byte) bool {
-	h, class := ClassifyLine(line)
-	if !class.IsEntry() {
+// NewSearchFilter returns a per-file predicate for the search scanner. It
+// must see every line of one wire file in order, and reports whether a hit
+// in that line is conversation content. It applies the parser's user-message
+// rule: whichever of an appended input record and its context twin comes
+// first is the prompt, the later one is a twin. Lines that would become
+// secondary entries are not searchable.
+func NewSearchFilter() func(line []byte) bool {
+	seenUserIDs := map[string]bool{}
+	return func(line []byte) bool {
+		h, class := ClassifyLine(line)
+		if !class.IsEntry() {
+			return false
+		}
+		switch h.Key {
+		case "appended/user", "ctx/user":
+			if h.Key == "appended/user" && h.Source != "input" {
+				return false
+			}
+			if h.ID != "" {
+				if seenUserIDs[h.ID] {
+					return false
+				}
+				seenUserIDs[h.ID] = true
+			}
+			c, kind, _ := userClass(h)
+			return c == ClassTurn && kind == thinkt.KindNone
+		case "loop/content.part", "loop/tool.call", "loop/tool.result", "ctx/assistant", "ctx/tool":
+			return true
+		}
 		return false
 	}
-	switch h.Key {
-	case "appended/user":
-		if h.Source != "input" {
-			return false
-		}
-		c, _, _ := userClass(h)
-		return c == ClassTurn
-	case "ctx/user":
-		if h.ID != "" {
-			return false
-		}
-		c, _, _ := userClass(h)
-		return c == ClassTurn
-	case "loop/content.part", "loop/tool.call", "loop/tool.result", "ctx/assistant", "ctx/tool":
-		return true
-	}
-	return false
+}
+
+// IsSearchable reports whether a hit inside this line, read on its own, is
+// conversation content. The search scanner uses NewSearchFilter instead,
+// which also knows which user messages earlier lines already carried.
+func IsSearchable(line []byte) bool {
+	return NewSearchFilter()(line)
 }

@@ -2,6 +2,7 @@ package index
 
 import (
 	"context"
+	"errors"
 	"io"
 	"path/filepath"
 	"testing"
@@ -91,6 +92,35 @@ func TestIngestProjectPrunesUnlistedSessions(t *testing.T) {
 	}
 }
 
+// failingStore is a registered source whose listing fails.
+type failingStore struct{ listOnlyStore }
+
+func (s *failingStore) Source() thinkt.Source { return thinkt.SourceClaude }
+func (s *failingStore) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
+	return nil, errors.New("transient I/O error")
+}
+
+func TestPruneUnlistedProjectsSkipsSourceWhoseListingFailed(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	claudeProject := db.ScopedProjectID(thinkt.SourceClaude, "/c")
+	if _, err := database.Exec(`INSERT INTO projects (id, path, name, source) VALUES (?, ?, ?, ?)`, claudeProject, "/c", "c", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	registry := thinkt.NewRegistry()
+	registry.Register(&failingStore{})
+	if err := NewIngester(database, registry).PruneUnlistedProjects(context.Background()); err != nil {
+		t.Fatalf("PruneUnlistedProjects: %v", err)
+	}
+	var n int
+	if err := database.QueryRow(`SELECT count(*) FROM projects WHERE id = ?`, claudeProject).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("project of a source whose listing failed was pruned (n=%d err=%v)", n, err)
+	}
+}
+
 func TestPruneUnlistedProjectsRemovesStaleProjectsOfRegisteredSources(t *testing.T) {
 	database, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
@@ -124,7 +154,7 @@ func TestPruneUnlistedProjectsRemovesStaleProjectsOfRegisteredSources(t *testing
 	registry := thinkt.NewRegistry()
 	registry.Register(&listOnlyStore{project: project})
 	ing := NewIngester(database, registry)
-	if err := ing.PruneUnlistedProjects(ctx, []thinkt.Project{project}); err != nil {
+	if err := ing.PruneUnlistedProjects(ctx); err != nil {
 		t.Fatalf("PruneUnlistedProjects: %v", err)
 	}
 
