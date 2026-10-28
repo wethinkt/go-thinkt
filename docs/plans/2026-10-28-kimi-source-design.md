@@ -163,7 +163,8 @@ stringified), `StepUUID`, `Time` (epoch ms, zero when absent), `LeadText`
 | `loop/step.end` | event (closes the hold: usage, finish reason, message id) |
 | `turn.step.interrupted` | event (arrives after the step's `step.end`; supplies `Error` = `message` to the step entry still held, see C) |
 | user message (`appended/user` with `meta.source: input`, or `ctx/user`) origin `user`, or no origin and no harness tag | turn, `KindNone` |
-| user message origin `system_trigger` | turn, `KindNone`, `Subtype: system_trigger` (it is the prompt that drove the turn; in a subagent session it is the task) |
+| user message origin `system_trigger` whose text starts `<git-context` or `Working directory:` or equals `continue` | context, `KindMeta`, secondary, `Subtype: system_trigger` (harness preamble or nudge) |
+| other user message origin `system_trigger` | turn, `KindNone`, `Subtype: system_trigger` (the task prompt that drove a subagent's turn) |
 | user message origin `injection`, or no origin and `<system-reminder>` lead, or no origin and another `<system>` lead | context, `KindMeta`, secondary |
 | user message with no origin and `<system>Previous context has been compacted` lead (1.0 carry-over) | context, `KindCompactSummary`, secondary |
 | user message origin `task`, `background_task`; `turn.steer`; `appended/user` with `meta.source: notify` | context, `KindTaskNotification`, secondary |
@@ -171,7 +172,10 @@ stringified), `StepUUID`, `Time` (epoch ms, zero when absent), `LeadText`
 | user message origin `shell_command` | turn, `KindCommandOutput`, secondary |
 | `ctx/assistant`, `ctx/tool` | turn (protocol 1.0 content; absent in 1.4/1.5 files) |
 | `appended/assistant`, `appended/tool` | turn, dedupe candidate (dropped when the loop already emitted the message or call) |
-| `appended/user`, `ctx/user`, `turn.steer` | turn or context per the user rows above, dedupe candidates against each other (see C) |
+| `appended/user` with `meta.source: input` | the user entry, per the user rows above |
+| `ctx/user` with an `id` already emitted (every 1.5 prompt: the appended record came first) | bookkeeping twin |
+| `ctx/user` without an `id`, or with an unseen id (1.0 and 1.4 files, injections, notifications) | the user entry, per the user rows above |
+| `turn.steer`; `appended/user` with `meta.source: notify` whose text was not seen this turn | context, `KindTaskNotification`, secondary (see C for the text dedupe) |
 | `turn.prompt`, `prompt.*`, `agent.turn.*` | bookkeeping (`agent.turn.started.turnId` updates turn state) |
 | `turn.ended` | event, `KindTurnDuration`, secondary; `Error` = `error.message` when `reason` is `failed` |
 | `subagent.spawned` | event, `KindAgentMessage`, `ChildSessionID` = child id, visible |
@@ -200,12 +204,15 @@ stringified), `StepUUID`, `Time` (epoch ms, zero when absent), `LeadText`
   `StopReason` = `finishReason`; `Metadata.message_id`. A step that ends
   with `finishReason: error` or `interrupted` carries no usage and no error
   text of its own; the `turn.step.interrupted{reason, message}` record that
-  follows it does. Such a step yields an assistant entry even when it has
-  no parts and no calls: `Kind: KindAPIError`, secondary, `StopReason` =
-  the finish reason, `Error` = the interrupted record's `message` (else the
-  finish reason), so the failure ("[provider.auth_error] 403 …", "Timed
-  out") is visible in the conversation. A step that ends `tool_use` or
-  `end_turn` with no parts and no calls yields nothing.
+  follows it does. A step with parts or calls that ends this way stays a
+  normal, visible assistant entry and gains `StopReason` = the finish
+  reason and `Error` = the interrupted record's `message` (else the finish
+  reason); 12 of the 16 interrupted steps on this machine have content. An
+  empty step that ends this way (all 37 error steps) yields a secondary
+  `Kind: KindAPIError` assistant entry with the same `StopReason` and
+  `Error`, so the failure ("[provider.auth_error] 403 …", "Timed out") is
+  visible in the conversation. A step that ends `tool_use` or `end_turn`
+  with no parts and no calls yields nothing.
 - **Model and effort** are stamped when the step closes, from the latest
   `llm.request`, which arrives after `step.begin` inside the step.
 - **Mid-step events** (`subagent.spawned`, `task.started`, …) that arrive
@@ -217,10 +224,14 @@ stringified), `StepUUID`, `Time` (epoch ms, zero when absent), `LeadText`
   joined text parts, `image_url` parts with `data:` URLs as image children
   (`MediaType`, `MediaData`), other URLs (`blobref:`) as text children;
   `IsError` from `result.isError`; `note` as a text child; `Metadata.duration_ms`;
-  `Permission = &PermissionDecision{Decision: approved|denied, Source:
-  "user"}` when a `permission.record_approval_result` was recorded for the
-  call id; `ChildSessionID` when a `subagent.spawned` named this call as
-  `parentToolCallId`.
+  `Permission = &PermissionDecision{Decision: result.decision ("approved"
+  or "rejected"), Source: "user"}` when a `permission.record_approval_result`
+  was recorded for the call id, with `scope`, `selectedLabel`, and
+  `feedback` kept in `Metadata` when present. `ChildSessionID` is set on
+  the entry **and on its tool_result block**, and on the matching tool_use
+  block of the step entry, when a `subagent.spawned` named this call as
+  `parentToolCallId`: `conversation.Build` copies the field from blocks
+  only (`internal/conversation/document.go`), as the Claude source does.
 - **Protocol 1.0 messages** (`ctx/assistant`, `ctx/tool`): the assistant
   message becomes one entry (think, text, tool_use blocks from `toolCalls`,
   `function.arguments` parsed as JSON), UUID composed from the line; the
@@ -233,7 +244,14 @@ stringified), `StepUUID`, `Time` (epoch ms, zero when absent), `LeadText`
   `appended/user` with `meta.source: notify` (no id, no origin: a task
   notification), per the table; `Text` = joined text parts; UUID = the
   message id when present, else composed from the line.
-- **Events**: as the table says; `turn.ended` `Metadata.duration_ms`.
+- **Events**: as the table says, all `RoleSystem` (`turn.ended`,
+  `subagent.*`, `task.*`, `plan.revision`, unknown lines), the role Codex
+  uses for the same kinds; `turn.ended` `Metadata.duration_ms`. Tool
+  results and user lines are `RoleUser`; step entries are `RoleAssistant`.
+- **Token totals**: `SessionCost.InputTokens` = Σ `inputOther` (the
+  uncached input), `CachedInputTokens` = Σ `inputCacheRead`,
+  `OutputTokens` = Σ `output`; `inputCacheCreation` stays on the entry's
+  `TokenUsage` only, since `SessionCost` has no field for it.
 - Child session id: `<sessionID>/<agentId>` (for example
   `session_eb0b625e-…/agent-0`).
 
@@ -246,6 +264,11 @@ ids emitted by the loop), `seenMessages` (`step.end.messageId` values),
 `seenUserIDs` and `turnUserTexts` (user message ids and trimmed texts seen
 since the last `agent.turn.started`), approvals by call id, spawned
 children by call id, an output queue, and the unknown tally.
+
+Approvals and spawns are recorded the moment their line is read, whatever
+the step state: every `permission.record_approval_result` precedes its
+`tool.call` (670 of 670), and `subagent.spawned` arrives while the step is
+open. Both are looked up when the tool result is queued.
 
 Rules:
 
@@ -303,18 +326,45 @@ Rules:
 - Metadata cache, `enrichInto`, `startEnrichment`, `GetSessionMeta` by id
   (subagent ids resolve) and by path (`…/agents/<id>/wire.jsonl` maps back
   to its session directory): same shapes as the Codex store.
-- `IsSessionPath`: a path under `sessions/` ending in `/wire.jsonl`.
+- **Project ids** are the work-dir path (`ProjectPath`), as in Codex, not
+  the `wd_` hash the old package used. The index therefore sees new
+  project ids: the sync deletes `projects` rows of a source whose id is no
+  longer listed, with their sessions, entries, attachments, and sync state
+  (a project-level counterpart of the Codex pass's `pruneUnlisted`,
+  exposed as an `Ingester` method and called by both sync loops,
+  `internal/cmd/sync.go` and `internal/cmd/tui_bgsync.go`, after they list
+  a source's projects), so the old `kimi::<hash>` rows do not outlive the
+  change.
+- **Open by path**: the base directory is the parent of the `sessions/`
+  component of the path; the main wire's id is its session directory
+  name; any other `agents/<id>/wire.jsonl` is `<sessionDir>/<id>`.
+  `GetSessionMeta`, `LoadSession`, and `OpenSession` accept both the id
+  and the absolute wire path. `internal/tui/session_loader.go`
+  (`openKimiLazySession`, `findKimiBaseDir`) follows this rule instead of
+  the legacy `hash/uuid` from a `context.jsonl` path and a parent named
+  `.kimi`.
+- **Resume**: `kimi --session <id>` run from `ProjectPath`; a subagent id
+  (`<session>/<agent>`) resumes its parent session. The MD5 work-dir
+  lookup in `resume.go` goes away with the hash project ids.
+- `IsSessionPath`: a path under `sessions/` ending in `/agents/<id>/wire.jsonl`.
 - `WatchConfig`: `sessions`, depth 5.
 - Discovery: `~/.kimi-code` or `THINKT_KIMI_HOME`; the source is present
   when `sessions/` exists.
 
 ### E. Search
 
-`kimi.IsSearchable(line)`: false for non-entry classes, `appended/*`, and
-`turn.prompt`; true when the line is a `ctx/user` turn, a `loop/content.part`
-text or think part, a `loop/tool.call`, a `loop/tool.result`, or a 1.0
-`ctx/assistant` / `ctx/tool`. Registered in `internal/index/search`'s
-`searchable` map.
+`kimi.IsSearchable(line)` decides from the same classifier as the parser,
+line by line, so a hit never lands on a line the parser drops. True for:
+an `appended/user` with `meta.source: input` (the user entry); a `ctx/user`
+with no `id` (1.0 and 1.4 prompts, injections, notifications: the parser
+emits these; secondary ones are then excluded like any secondary entry); a
+`loop/content.part`, `loop/tool.call`, or `loop/tool.result`; a 1.0
+`ctx/assistant` or `ctx/tool`. False for everything else, in particular a
+`ctx/user` with an `id` (on this machine every such line has an appended
+twin that came first), `appended/assistant`, `appended/tool`,
+`appended/user` with `meta.source: notify`, and `turn.prompt`. A line that
+would convert to a secondary entry is not searchable, as in Codex.
+Registered in `internal/index/search`'s `searchable` map.
 
 ### F. Documentation
 
@@ -323,16 +373,25 @@ table; every mention of `~/.kimi` as the Kimi directory changes to
 `~/.kimi-code`: `AGENTS.md` (source list, environment table, Docker
 example), `README.md`, `DEVELOP.md`, `internal/cmd/sources.go`,
 `internal/cmd/help_env.go`; the format report's Kimi column becomes "thinkt
-after the Kimi pass"; `etc/reports/KIMI_STRUCTURE.md` gets a note that it
-describes the legacy tree. `internal/tui/session_loader.go`, which derives
+after the Kimi pass" and its mapping row for `subagent.*` says the child
+id is `<sessionID>/<agentId>` (not `<session>/agents/<agentId>`);
+`etc/reports/KIMI_STRUCTURE.md` gets a note that it describes the legacy
+tree. `internal/tui/session_loader.go`, which derives
 the old `hash/uuid` id from a `context.jsonl` path, follows the new
 `IsSessionPath` and id scheme.
 
 ## Rollout order
 
 1. Discovery and listing (`~/.kimi-code`, state.json, subagents, titles).
-2. Classifier and fixture (one synthetic 1.5 wire file with a step, two
-   results, an approval, an appended batch, a subagent spawn; one 1.0 file).
+2. Classifier and fixtures: a synthetic 1.5 wire with a normal step (two
+   calls, two results, an approval that precedes its call, a mid-step
+   `subagent.spawned`, the appended batch at turn end), an interrupted step
+   that already has parts, an empty error step followed by
+   `turn.step.interrupted`, a `<git-context>` system_trigger prompt, a
+   `turn.steer` with its `notify` twin, an unclosed step at EOF, and a
+   `salvaged` appended assistant; a 1.0 wire with a compaction carry-over
+   and a `<system>ERROR` tool result; a 1.4 wire (loop plus context user
+   lines, no appended records).
 3. Converter and parser (step hold, dedupe, usage).
 4. Session scan, cache, enrichment, `GetSessionMeta`.
 5. Search registration, `ParserVersion` 5.
@@ -386,6 +445,38 @@ settled here rather than asked.
   duplicate step uuids or call ids, every session has `state.json` and a
   main wire, the largest wire is 4.1 MB; REST routes already unescape ids
   with slashes.
+
+## Calls made after the second review
+
+Evan pasted an external review of the committed design; every claim was
+checked against the code and the 66 wire files and held.
+
+- `system_trigger` is three things: `<git-context>` preambles (15, also
+  the `Working directory:` form), `continue` nudges (4), and subagent task
+  prompts. Only the task prompts stay visible.
+- An interrupted step that already has parts or calls stays a normal
+  visible entry with `Error`; only empty error steps become secondary
+  `KindAPIError` entries.
+- `IsSearchable` mirrors the parser: the appended `input` record is the
+  searchable prompt, a `ctx/user` with an `id` is its twin, one without an
+  id is the entry (1.0 and 1.4 prompts, injections, notifications).
+- `ChildSessionID` goes on the tool_use and tool_result blocks as well as
+  the entry, because the conversation builder reads it from blocks only.
+- Approvals are stored the moment their line is read (all 670 precede
+  their call); the decision values are `approved` and `rejected`; `scope`,
+  `selectedLabel`, and `feedback` are kept.
+- Open-by-path is a rule, not a file: base = parent of `sessions/`, main
+  wire id = session directory name, other wires `<sessionDir>/<id>`;
+  `session_loader.go` and `findKimiBaseDir` follow it.
+- Project ids become the work-dir path; the sync prunes `projects` rows a
+  source no longer lists so the old `kimi::<hash>` rows disappear.
+- Resume is `kimi --session <id>` from `ProjectPath`; a subagent id resumes
+  its parent; the MD5 work-dir lookup goes.
+- The class table now states the twin rule for `ctx/user` explicitly; the
+  fixture list covers 1.4, unclosed and interrupted steps, the preceding
+  approval, the `<git-context>` prompt, the `notify` twin, and the salvaged
+  record; token totals map `inputOther` and `inputCacheRead` only; event
+  entries are `RoleSystem`.
 
 ## Calls I made
 
