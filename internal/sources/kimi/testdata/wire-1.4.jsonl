@@ -1,0 +1,9 @@
+{"type":"metadata","protocol_version":"1.4","created_at":1780000000000}
+{"type":"turn.prompt","input":[{"type":"text","text":"hi 1.4"}],"origin":{"kind":"user"},"time":1780000001000}
+{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"hi 1.4"}],"toolCalls":[],"origin":{"kind":"user"}},"time":1780000001001}
+{"type":"context.append_loop_event","event":{"type":"step.begin","uuid":"s14-1","turnId":"0","step":1},"time":1780000001002}
+{"type":"llm.request","kind":"loop","provider":"openai","model":"k2","thinkingEffort":"medium","messageCount":1,"turnStep":"0.1","time":1780000001003}
+{"type":"context.append_loop_event","event":{"type":"content.part","uuid":"q1","turnId":"0","step":1,"stepUuid":"s14-1","part":{"type":"text","text":"hello"}},"time":1780000001004}
+{"type":"context.append_loop_event","event":{"type":"tool.call","uuid":"tool_x","turnId":"0","step":1,"stepUuid":"s14-1","toolCallId":"tool_x","name":"Read","args":{"path":"a"}},"time":1780000001005}
+{"type":"context.append_loop_event","event":{"type":"tool.result","parentUuid":"tool_x","toolCallId":"tool_x","result":{"output":"contents"}},"time":1780000001006}
+{"type":"context.append_loop_event","event":{"type":"step.end","uuid":"s14-1","turnId":"0","step":1,"finishReason":"end_turn","usage":{"inputOther":7,"output":3,"inputCacheRead":0,"inputCacheCreation":0},"messageId":"chatcmpl-14"},"time":1780000001007}
