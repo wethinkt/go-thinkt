@@ -39,12 +39,12 @@ func convertLineWith(t *testing.T, line, sessionID string) []thinkt.Entry {
 	t.Helper()
 	h, class := ClassifyLine([]byte(line))
 	c := &converter{sessionID: sessionID, lineNo: 1, turn: &turnState{}}
-	switch {
-	case h.Key == "appended/user", h.Key == "ctx/user", h.Key == "turn.steer":
+	switch h.Key {
+	case "appended/user", "ctx/user", "turn.steer":
 		return c.convertUser(h)
-	case h.Key == "ctx/assistant", h.Key == "appended/assistant":
+	case "ctx/assistant", "appended/assistant":
 		return c.convertLegacyAssistant(h)
-	case h.Key == "ctx/tool", h.Key == "appended/tool":
+	case "ctx/tool", "appended/tool":
 		return c.convertLegacyTool(h)
 	default:
 		return c.convertEvent(h, class, []byte(line))
