@@ -83,6 +83,17 @@ func TestConvertSystemTriggerVariants(t *testing.T) {
 	}
 }
 
+func TestConvertGitContextWithTaskIsVisibleTask(t *testing.T) {
+	line := `{"message":{"message":{"role":"user","content":[{"type":"text","text":"<git-context>\nWorking directory: /w\nBranch: main\n</git-context>\n\nYou are reviewing the Go project. Report issues."}]},"meta":{"source":"input","origin":{"kind":"system_trigger","name":"subagent"},"userMessageId":"msg_t1"}},"type":"agent.message.appended","time":1}`
+	e := convertLine(t, line)[0]
+	if e.Kind != thinkt.KindNone || e.IsSecondary() || e.Subtype != "system_trigger" || e.Text != "You are reviewing the Go project. Report issues." {
+		t.Fatalf("entry = %+v", e)
+	}
+	if gc, _ := e.Metadata["git_context"].(string); !strings.Contains(gc, "Branch: main") {
+		t.Fatalf("git_context = %#v", e.Metadata["git_context"])
+	}
+}
+
 func TestConvertTurnSteerIsTaskNotification(t *testing.T) {
 	e := convertLine(t, fixtureLine(t, "wire-1.5.jsonl", 35))
 	if len(e) != 1 || e[0].Role != thinkt.RoleUser || e[0].Kind != thinkt.KindTaskNotification || !e[0].IsSecondary() || e[0].Subtype != "background_task" || !strings.Contains(e[0].Text, "bash-1") {

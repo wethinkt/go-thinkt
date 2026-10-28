@@ -108,6 +108,14 @@ func (c *converter) convertUser(h recordHead) []thinkt.Entry {
 	e.Text = text
 	e.Kind = kind
 	e.Subtype = subtype
+	// A subagent task prompt shows the task; the git context it opens with
+	// is kept in metadata.
+	if subtype == "system_trigger" && class == ClassTurn {
+		if block, rest := splitGitContext(text); block != "" {
+			e.Text = rest
+			e.Metadata["git_context"] = block
+		}
+	}
 	if class == ClassContext || kind == thinkt.KindCommandOutput {
 		e.Visibility = thinkt.VisibilitySecondary
 	}

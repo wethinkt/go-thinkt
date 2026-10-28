@@ -283,6 +283,22 @@ func isBookkeepingType(t string) bool {
 	return false
 }
 
+// splitGitContext separates a leading <git-context …>…</git-context> block
+// from the text that follows it. Text without such a block is returned as
+// the remainder unchanged; an unterminated block leaves no remainder.
+func splitGitContext(text string) (block, rest string) {
+	text = strings.TrimSpace(text)
+	if !strings.HasPrefix(text, "<git-context") {
+		return "", text
+	}
+	const closing = "</git-context>"
+	i := strings.Index(text, closing)
+	if i < 0 {
+		return text, ""
+	}
+	return text[:i+len(closing)], strings.TrimSpace(text[i+len(closing):])
+}
+
 // userClass decides a user message (appended input, context message, steer,
 // or appended notify) from its origin and lead text: class, kind, subtype.
 func userClass(h recordHead) (RecordClass, thinkt.EntryKind, string) {
@@ -291,7 +307,10 @@ func userClass(h recordHead) (RecordClass, thinkt.EntryKind, string) {
 	case "injection":
 		return ClassContext, thinkt.KindMeta, "injection"
 	case "system_trigger":
-		if strings.HasPrefix(text, "<git-context") || strings.HasPrefix(text, "Working directory:") || text == "continue" {
+		// A subagent's task usually follows a <git-context> block in the
+		// same message; only a bare preamble or a nudge is harness text.
+		_, task := splitGitContext(text)
+		if task == "" || task == "continue" || strings.HasPrefix(task, "Working directory:") {
 			return ClassContext, thinkt.KindMeta, "system_trigger"
 		}
 		return ClassTurn, thinkt.KindNone, "system_trigger"

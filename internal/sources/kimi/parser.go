@@ -46,7 +46,8 @@ type Parser struct {
 	approvals map[string]approval
 	spawns    map[string]string // parent tool call id → child session id
 
-	seenCalls    map[string]bool
+	seenCalls    map[string]bool // tool call ids the loop emitted
+	seenResults  map[string]bool // tool call ids whose result the loop emitted
 	seenMessages map[string]bool
 	seenUserIDs  map[string]bool
 	turnTexts    map[string]bool
@@ -65,6 +66,7 @@ func NewParser(r io.Reader, sessionID string) *Parser {
 		approvals:    map[string]approval{},
 		spawns:       map[string]string{},
 		seenCalls:    map[string]bool{},
+		seenResults:  map[string]bool{},
 		seenMessages: map[string]bool{},
 		seenUserIDs:  map[string]bool{},
 		turnTexts:    map[string]bool{},
@@ -146,6 +148,9 @@ func (p *Parser) process(line []byte) {
 	case "loop/tool.call":
 		p.appendCall(head)
 	case "loop/tool.result":
+		if head.ToolCallID != "" {
+			p.seenResults[head.ToolCallID] = true
+		}
 		p.emit([]thinkt.Entry{p.resultEntry(head)})
 	case "loop/step.end":
 		p.closeStep(head)
@@ -157,16 +162,19 @@ func (p *Parser) process(line []byte) {
 		if p.seenMessages[head.ID] || p.anyCallSeen(head) {
 			return
 		}
-		entries := p.conv.convertLegacyAssistant(head)
-		p.markCalls(entries)
-		p.emit(entries)
+		p.emit(p.conv.convertLegacyAssistant(head))
 	case "appended/tool":
-		if p.seenCalls[head.ToolCallID] {
+		if p.seenResults[head.ToolCallID] {
 			return
 		}
 		p.emit(p.conv.convertLegacyTool(head))
 	case "appended/user":
+		// Typed prompts arrive here before their context twin; steered
+		// in-turn messages arrive here after it, carrying the same id.
 		text := strings.TrimSpace(head.LeadText)
+		if head.ID != "" && p.seenUserIDs[head.ID] {
+			return
+		}
 		if head.Source == "notify" && p.turnTexts[text] {
 			return
 		}
@@ -177,11 +185,13 @@ func (p *Parser) process(line []byte) {
 		}
 		p.emitUser(head)
 	case "turn.steer":
+		// A steer repeats the in-turn context message written just before it.
+		if p.turnTexts[strings.TrimSpace(head.LeadText)] {
+			return
+		}
 		p.emitUser(head)
 	case "ctx/assistant":
-		entries := p.conv.convertLegacyAssistant(head)
-		p.markCalls(entries)
-		p.emit(entries)
+		p.emit(p.conv.convertLegacyAssistant(head))
 	case "ctx/tool":
 		p.emit(p.conv.convertLegacyTool(head))
 	default:
@@ -201,16 +211,6 @@ func (p *Parser) emitUser(head recordHead) {
 	}
 	p.turnTexts[strings.TrimSpace(head.LeadText)] = true
 	p.emit(entries)
-}
-
-func (p *Parser) markCalls(entries []thinkt.Entry) {
-	for _, e := range entries {
-		for _, b := range e.ContentBlocks {
-			if b.Type == "tool_use" && b.ToolUseID != "" {
-				p.seenCalls[b.ToolUseID] = true
-			}
-		}
-	}
 }
 
 // anyCallSeen reports whether an appended assistant record repeats a tool

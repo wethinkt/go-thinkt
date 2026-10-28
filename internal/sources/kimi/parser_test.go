@@ -311,6 +311,33 @@ func TestParserTimestamps(t *testing.T) {
 	}
 }
 
+// An in-turn (steered) message is written as the context message first, then
+// turn.steer with the same text, then the appended input record with the
+// same id at turn end: one entry.
+func TestParserSteeredPromptAppearsOnce(t *testing.T) {
+	entries := parseLines(t,
+		`{"turnId":0,"type":"agent.turn.started","time":1,"kind":"event"}`,
+		`{"type":"context.append_message","message":{"role":"user","content":[{"type":"text","text":"also check the docs"}],"toolCalls":[],"origin":{"kind":"user","inTurn":true},"id":"msg_s1"},"time":2}`,
+		`{"type":"turn.steer","input":[{"type":"text","text":"also check the docs"}],"origin":{"kind":"user","inTurn":true},"time":3}`,
+		`{"message":{"message":{"role":"user","content":[{"type":"text","text":"also check the docs"}]},"meta":{"source":"input","origin":{"kind":"user","inTurn":true},"userMessageId":"msg_s1"}},"type":"agent.message.appended","time":4,"kind":"event"}`,
+	)
+	if len(entries) != 1 || entries[0].UUID != "msg_s1" {
+		t.Fatalf("entries = %+v", entries)
+	}
+}
+
+// A batched assistant record the loop never covered is emitted, and so is
+// the batched tool result for its call.
+func TestParserAppendedFallbackKeepsItsToolResult(t *testing.T) {
+	entries := parseLines(t,
+		`{"message":{"message":{"role":"assistant","content":[{"type":"text","text":"checking"}],"toolCalls":[{"type":"function","id":"tool_f1","name":"Bash","arguments":"{\"command\":\"ls\"}"}]},"meta":{"source":"llm","messageId":"chatcmpl-f1"}},"type":"agent.message.appended","time":1,"kind":"event"}`,
+		`{"message":{"message":{"role":"tool","content":[{"type":"text","text":"a b c"}],"toolCallId":"tool_f1"},"meta":{"source":"tool"}},"type":"agent.message.appended","time":1,"kind":"event"}`,
+	)
+	if len(entries) != 2 || entries[1].UUID != "tool_f1:result" || entries[1].ContentBlocks[0].ToolResult != "a b c" {
+		t.Fatalf("entries = %+v", entries)
+	}
+}
+
 func TestParserUnknownTypes(t *testing.T) {
 	f, err := os.Open("testdata/wire-1.5.jsonl")
 	if err != nil {
