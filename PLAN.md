@@ -479,6 +479,9 @@ project_id      text NOT NULL FK(project.id CASCADE)
   - Antigravity keeps them in `brain/<conversation-id>/` (`implementation_plan.md`, `walkthrough.md`, `task.md`, …) with `*.metadata.json` (type, summary, `updatedAt`); Kimi Code keeps plan files under `agents/main/plans/` announced by `plan.revision`
   - Rebuild each version from the tool calls that wrote or edited it, show the final file, and link versions to the steps that produced them
   - Render them typeset (nthtml) next to the conversation
+- [ ] **Related folders for every source** - `SessionMeta.RelatedPaths` (added with the Antigravity source) records the other repos a session touched: extra workspace folders, edits, commands, reads
+  - Fill it for Claude, Codex and Kimi from their tool calls (bump `ParserVersion` when a source starts filling it)
+  - A project view of sessions from elsewhere that touched this folder (TUI, web, `projects` CLI)
 
 ### Long Term
 

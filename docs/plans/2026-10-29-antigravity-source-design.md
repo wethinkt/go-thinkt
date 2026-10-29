@@ -130,7 +130,11 @@ committed). Format unchanged from the 2026-10-26 survey in
   truncated task result.
 - Refreshing the Gemini CLI source's format (7 sessions, all from May).
   Only its path boundary changes here.
-- New `thinkt` types or kinds.
+- New `thinkt` kinds. One new session-level type, `RelatedPath` (section
+  H), is in scope; nothing else changes in the model.
+- Filling `RelatedPaths` for Claude, Codex and Kimi, and a project view of
+  "sessions from elsewhere that touched this folder". Both go on the
+  `PLAN.md` roadmap.
 
 ## Anti-goals
 
@@ -290,12 +294,50 @@ lines are searchable; harness, checkpoint, error and unknown lines are not.
 Only one of the two transcript files is a session file, so search never
 scans both.
 
+### H. Related folders (new in the object model)
+
+A session belongs to the one folder it started in, but agents work across
+repos: a conversation started in `ds4dg` may edit `ds4-go`. Evan wants that
+linkage in the object model (2026-10-29), not only in Antigravity's
+metadata.
+
+- `thinkt.SessionMeta.RelatedPaths []RelatedPath`
+  (`json:"related_paths,omitempty"`), carried through `CachedSession` so
+  listings and the API return it without reparsing.
+- `RelatedPath{Path string; Reasons []string; Count int}`: `Path` is a
+  folder other than the session's project path; `Reasons` is the set of
+  how it was related, from `workspace` (a declared workspace folder),
+  `edited` (a file was written or changed there), `command` (a shell
+  command ran there), `read` (a file was read or listed there); `Count`
+  is the number of tool calls that touched it. Sorted by `Count`
+  descending, ties by path.
+- Folding a path to a folder: walk up from the touched path to the
+  nearest directory containing `.git` (file or dir); if none is found on
+  disk, the path is not recorded. Paths inside the project folder, inside
+  the Antigravity home, and inside the system temp directory are not
+  recorded.
+- Antigravity fills it from: workspace folders after the first
+  (`workspace`); `run_command` `Cwd` (`command`); the file path arguments
+  of edit/write tools (`replace_file_content`, `multi_replace_file_content`,
+  `write_to_file`, `edit_file`, `write_file`) and the path named in a
+  `CODE_ACTION` result (`edited`); `view_file`, `read_file`, `list_dir`,
+  `grep_search` path arguments (`read`). Computed in the same parser scan
+  that fills entry counts and token totals.
+- Other sources leave it empty in this pass, so no `ParserVersion` bump:
+  no existing source emits anything different. Filling it for a source
+  later bumps the version then.
+- Shown where session metadata is already shown: the REST API and MCP
+  return it as part of `SessionMeta`; `thinkt sessions summary` prints a
+  "Related folders" line. The TUI and web views are not changed here.
+
 ### G. Documentation
 
 Package `README.md`; `AGENTS.md` (source list, env var, package table);
 `README.md`; `DEVELOP.md` where sources are listed; `help_env.go`;
 `etc/reports/SOURCE_FORMATS_2026-10.md` (Antigravity row: "after the
-Antigravity pass"); `PLAN.md` gains the agent-documents roadmap item.
+Antigravity pass"); `PLAN.md` gains the agent-documents roadmap item and a
+related-folders item (fill `RelatedPaths` for Claude, Codex and Kimi; a
+project view of sessions from elsewhere that touched it).
 
 ## Rollout order
 
@@ -305,7 +347,8 @@ Antigravity pass"); `PLAN.md` gains the agent-documents roadmap item.
    type, a subagent parent and child pair, a conversation without a
    workspace).
 3. Conversion and the parser.
-4. Session state, listing, discovery, resume.
+4. Session state, listing, discovery, resume, and `RelatedPaths` (the
+   model field, its cache field, the Antigravity fill, the summary line).
 5. Search filter, TUI opener, active detection.
 6. Measurement on the real tree (every transcript parses, no empty
    entries, no duplicate UUIDs, every result paired, subagents linked),
@@ -333,6 +376,13 @@ Antigravity pass"); `PLAN.md` gains the agent-documents roadmap item.
 - No fallback through sibling conversations sharing an Antigravity
   `project_id`: those ids mix unrelated repos. Cost if wrong: a couple
   more conversations in the no-workspace project.
+
+- `RelatedPaths` records repo roots (nearest `.git`), not raw
+  directories, and drops paths it cannot resolve on disk. Cost if wrong:
+  work in a non-git folder, or a repo since deleted, is not recorded.
+- Reads count as a relation (`read`), marked so a view can filter them
+  out. Cost if wrong: noisy lists for conversations that read many
+  upstream repos.
 
 ## Calls made after the builder check
 
