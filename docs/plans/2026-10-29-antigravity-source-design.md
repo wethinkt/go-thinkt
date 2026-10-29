@@ -229,7 +229,10 @@ carries `step_type` and `status`.
 
 Reads one transcript file line by line, holding the queue of unanswered
 tool-use ids, the current turn id, and the current model. No look-ahead and
-no buffering beyond that queue. A partial last line (the file is written
+no buffering beyond that queue and the current model turn, which is held
+until its calls are answered or the next model turn, user input or EOF
+arrives, so a later `invoke_subagent` result can set `ChildSessionID` on its
+tool_use block. A partial last line (the file is written
 live) is skipped, not fatal.
 
 ### D. Session scan and state (`sessionstate.go`, `store.go`, `discovery.go`)

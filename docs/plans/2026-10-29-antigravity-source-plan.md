@@ -14,20 +14,21 @@
 
 - Source id `antigravity` (`thinkt.SourceAntigravity`), display name "Antigravity CLI", env `THINKT_ANTIGRAVITY_HOME`, default `~/.gemini/antigravity-cli`.
 - `thinkt.ParserVersion` stays 5.
-- The only `thinkt` type added is `RelatedPath`; the only fields added are `SessionMeta.RelatedPaths` and `CachedSession.RelatedPaths`.
+- The only `thinkt` type added is `RelatedPath`; the only fields added are `SessionMeta.RelatedPaths`, `CachedSession.RelatedPaths`, and `WatchConfig.HiddenDirs` (Task 7, so the relay can reach `.system_generated/logs`).
 - Classification lives in one function (`ClassifyLine`) used by the parser and the search filter.
 - Entry UUID is `<conversation-id>:<step_index>`; tool-use ids are `<step_index>.<n>`; tool pair halves never share a UUID because each is its own step.
 - No entry is emitted with empty `Text` and no `ContentBlocks`.
-- The summaries db is opened read-only (`file:<path>?mode=ro&_busy_timeout=200`); thinkt never writes to Antigravity's tree.
+- The summaries db is opened with `file:<path>?immutable=1` (it is `journal_mode=delete`; `mode=ro` would take a shared lock that stalls Antigravity's writer). thinkt never writes to Antigravity's tree. A torn read is a query error, handled like a missing db.
 - Session file is `transcript_full.jsonl`, or `transcript.jsonl` when there is no full file; never both; never anything under `logs/chunks/`.
-- Projects are folders keyed by path: first `workspace_uris` entry; else most common unquoted `run_command` `Cwd`; else `cache/last_conversations.json`; else the no-workspace project. Antigravity `project_id` is never used.
+- Projects are folders keyed by path: first `workspace_uris` entry; else most common unquoted `run_command` `Cwd`; else `cache/last_conversations.json`; else the no-workspace project (id `no-workspace`, path `""`, name `(no workspace)`; the id is non-empty because the HTTP API rejects an empty project id). Antigravity `project_id` is never used.
+- Extra `workspace_uris` entries (after the first) become `RelatedPaths` with reason `workspace` (design H).
 
 ## Review Focus
 
 1. A transcript being written while it is read: the last line is a partial JSON object. The parser skips it and returns `io.EOF`, no error. Pinned in Task 4 (`TestParserSkipsPartialLastLine`).
 2. `conversation_summaries.db` missing or locked: listing still returns every conversation with a transcript, titles from the first prompt. Pinned in Task 6 (`TestListSessionsWithoutSummaryDB`).
 3. A `PLANNER_RESPONSE` whose calls are superseded by the next one, then results for the new calls: each result pairs with the new response's calls, not the stale ones. Pinned in Task 4 (`TestParserNewResponseDropsStaleCalls`).
-4. A touched path that does not exist on disk any more, or lives in `/tmp` or the Antigravity home: not recorded in `RelatedPaths`, no error. Pinned in Task 5 (`TestRelatedFolderSkipsMissingTempAndHome`).
+4. A touched path that does not exist on disk any more, or lives in `/tmp` or the Antigravity home: not recorded in `RelatedPaths`, no error. Pinned in Task 5 (`TestRelatedFolderSkipsMissingTempAndHome`, whose temp case is a real repo under `os.TempDir()` so only the prefix check can drop it).
 5. A `Cwd` argument stored JSON-quoted (`"\"/repo\""`): unquoted for both workspace fallback and related paths. Pinned in Task 5 (`TestUnquotePath`) and Task 6 (`TestWorkspaceFallsBackToCwd`).
 
 ---
@@ -114,7 +115,7 @@ Expected: FAIL to compile (`undefined: SourceAntigravity`, `RelatedPath`).
 - Test: `internal/sources/antigravity/classify_test.go`
 
 **Interfaces:**
-- Produces: `type RecordClass int` with `ClassUserInput, ClassModelTurn, ClassToolResult, ClassSystemMessage, ClassHarness, ClassCheckpoint, ClassAPIError, ClassUnknown, ClassInvalid` (invalid = not JSON); `type stepHead struct { Index int; Source, Type, Status, Error string; CreatedAt time.Time; Content string; Raw []byte }` (Content decoded only for classes whose conversion needs it is fine); `func ClassifyLine(line []byte) (stepHead, RecordClass)`; `func NewSearchFilter() func(line []byte) bool`.
+- Produces: `type RecordClass int` with `ClassUserInput, ClassModelTurn, ClassToolResult, ClassSystemMessage, ClassHarness, ClassCheckpoint, ClassAPIError, ClassUnknown, ClassInvalid` (invalid = not JSON); `type stepHead struct { Index int; Source, Type, Status, Error string; CreatedAt time.Time; Content string; Media []mediaRef; Raw []byte }` with `type mediaRef struct { MimeType, URI string }` (JSON keys `mime_type`, `uri`) (Content decoded only for classes whose conversion needs it is fine); `func ClassifyLine(line []byte) (stepHead, RecordClass)`; `func NewSearchFilter() func(line []byte) bool`.
 
 Fixtures (hand-written, one JSON object per line, field names exactly as in the evidence section). `main.jsonl` (conversation `11111111-aaaa`, workspace `/w/ds4dg`), in order:
 
@@ -137,7 +138,7 @@ Fixtures (hand-written, one JSON object per line, field names exactly as in the 
 | 14 | PLANNER_RESPONSE | content `"Done."` only |
 | 15 | MYSTERY_STEP | unknown type |
 
-`<repoB>` is a placeholder the tests replace with a temp-dir repo (write the fixture with the literal `__REPO_B__`; tests substitute before parsing). `child.jsonl` (`22222222-bbbb`): idx 0 SYSTEM_MESSAGE from sender `11111111-aaaa` (task prompt), idx 1 PLANNER_RESPONSE content `"Found it."`. `noworkspace.jsonl`: one USER_INPUT, one PLANNER_RESPONSE with `run_command` `Cwd` `"/w/old"` twice and `"/w/other"` once.
+`<repoB>` is a placeholder the tests replace with a temp-dir repo (write the fixture with the literal `__REPO_B__`; tests substitute before parsing). `child.jsonl` (`22222222-bbbb`): idx 0 SYSTEM_MESSAGE from sender `11111111-aaaa` whose message body is `Examine the build scripts and report what fails.` (the task prompt), idx 1 PLANNER_RESPONSE content `"Found it."`. Step 3 of `main.jsonl` (the result paired with call 2.0) also carries `"media":[{"mime_type":"image/png","uri":"/w/shot.png"}]`. `noworkspace.jsonl`: one USER_INPUT, one PLANNER_RESPONSE with `run_command` `Cwd` `"/w/old"` twice and `"/w/other"` once.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -260,11 +261,11 @@ func TestConvertKindsAndVisibility(t *testing.T) {
 	}{
 		{0, thinkt.KindNone, false, true},
 		{1, "", false, false}, // empty history
-		{5, thinkt.KindTaskNotification, kimiVisibility(thinkt.KindTaskNotification), true},
+		{5, thinkt.KindTaskNotification, true, true},  // as Kimi
 		{7, thinkt.KindAPIError, true, true},
-		{10, thinkt.KindAgentMessage, kimiVisibility(thinkt.KindAgentMessage), true},
+		{10, thinkt.KindAgentMessage, true, true},     // subagent report = Kimi's completion case, secondary
 		{11, thinkt.KindMeta, true, true},
-		{12, thinkt.KindCompactSummary, claudeCompactSecondary, true},
+		{12, thinkt.KindCompactSummary, false, true},  // as Claude: VisibilityNormal
 		{15, thinkt.KindUnknown, true, true},
 	}
 	// for each: h, class := ClassifyLine(line); e, ok := c.convert(h, class); check ok, Kind, IsSecondary()
@@ -280,10 +281,36 @@ func TestChildTaskPromptIsVisibleUserEntry(t *testing.T) {
 }
 ```
 
-Before writing `TestConvertKindsAndVisibility`, read what the Kimi converter gives `KindTaskNotification` and `KindAgentMessage`, and what Claude gives `KindCompactSummary`; write those literal booleans into the table (the names `kimiVisibility`/`claudeCompactSecondary` above stand for the values you read, not helpers). Likewise read the Kimi subagent task-prompt kind and assert the same kind in `TestChildTaskPromptIsVisibleUserEntry`. The child fixture's message content must contain `Examine`.
+The child task prompt is `KindNone`, visible.
 
-- [ ] **Step 2: Run** `go test ./internal/sources/antigravity -run 'Split|ModelTurn|ResultEntry|SubagentIDs|ConvertKinds|ChildTask'` — Expected: FAIL to compile.
-- [ ] **Step 3: Implement** per design section B. Entry fields common to all: `UUID`, `Timestamp` (`created_at`), `TurnID` (the converter's), `Source`, `Metadata["step_type"]`, `Metadata["status"]`. `ERROR_MESSAGE` text is `error`. A `USER_INPUT` sets `c.turnID` to its index and, when the settings change names a model, `c.model`.
+```go
+func TestChildTurnIDBeforeAnyUserInput(t *testing.T) {
+	// design B: steps before the first USER_INPUT take the first step's index
+	c := &converter{conversationID: "22222222-bbbb", parentID: "11111111-aaaa"}
+	for _, line := range fixtureLines(t, "child.jsonl") {
+		h, class := ClassifyLine(line)
+		var e thinkt.Entry
+		if class == ClassModelTurn {
+			e, _, _ = c.modelTurn(h)
+		} else {
+			e, _ = c.convert(h, class)
+		}
+		if e.TurnID != "0" {
+			t.Fatalf("step %d turn %q", h.Index, e.TurnID)
+		}
+	}
+}
+
+func TestMediaBecomesTextReference(t *testing.T) {
+	e := (&converter{conversationID: "c"}).resultEntry(fixtureStep(t, "main.jsonl", 3), "2.0")
+	if !strings.Contains(e.ContentBlocks[0].ToolResult, "[image/png: /w/shot.png]") {
+		t.Fatalf("%+v", e)
+	}
+}
+```
+
+- [ ] **Step 2: Run** `go test ./internal/sources/antigravity -run 'Split|ModelTurn|ResultEntry|SubagentIDs|ConvertKinds|ChildTask|ChildTurnID|Media'` — Expected: FAIL to compile.
+- [ ] **Step 3: Implement** per design section B. Entry fields common to all: `UUID`, `Timestamp` (`created_at`), `TurnID` (the converter's), `Source`, `Metadata["step_type"]`, `Metadata["status"]`. `ERROR_MESSAGE` text is `error`. A `USER_INPUT` sets `c.turnID` to its index and, when the settings change names a model, `c.model`; before any `USER_INPUT`, `c.turnID` is the first step's index. Each `media` item `{mime_type, uri}` appends a line `[<mime_type>: <uri>]` to the entry's text (or tool result); the file is not read (it lives in `.tempmediaStorage` and may be gone).
 - [ ] **Step 4: Run** the same command — Expected: PASS.
 - [ ] **Step 5: Commit** `feat(antigravity): step conversion`
 
@@ -377,7 +404,7 @@ func TestParserCountsUnknownTypes(t *testing.T) {
 }
 ```
 
-The `ChildSessionID` goes on the `invoke_subagent` tool_use block of the step-8 entry, which the parser has already emitted when step 9 arrives. Hold each model-turn entry until its calls are answered or the next model turn / user input / EOF arrives, then emit it; results are emitted after it. This is the only buffering the parser does.
+The `ChildSessionID` goes on the `invoke_subagent` tool_use block of the step-8 entry, which the parser has already emitted when step 9 arrives. Hold each model-turn entry until its calls are answered or the next model turn / user input / EOF arrives, then emit it; results are emitted after it. This is the only buffering the parser does; design C now says so.
 
 - [ ] **Step 2: Run** `go test ./internal/sources/antigravity -run Parser` — Expected: FAIL to compile.
 - [ ] **Step 3: Implement** with `thinkt.NewScannerWithMaxCapacityCustom`; skip `ClassInvalid` lines.
@@ -386,15 +413,15 @@ The `ChildSessionID` goes on the `invoke_subagent` tool_use block of the step-8 
 
 ---
 
-### Task 5: Discovery, related folders, resume, gemini boundary
+### Task 5: Discovery, related folders, gemini boundary
 
 **Files:**
-- Create: `internal/sources/antigravity/discovery.go`, `related.go`, `resume.go`
+- Create: `internal/sources/antigravity/discovery.go`, `related.go`
 - Modify: `internal/sources/antigravity/parser.go` (feed the tracker), `internal/sources/gemini/discovery.go`
-- Test: `internal/sources/antigravity/discovery_test.go`, `related_test.go`, `resume_test.go`, `internal/sources/gemini/discovery_test.go`
+- Test: `internal/sources/antigravity/discovery_test.go`, `related_test.go`, `internal/sources/gemini/discovery_test.go`
 
 **Interfaces:**
-- Produces: `func DefaultDir() (string, error)` (`THINKT_ANTIGRAVITY_HOME`, else `~/.gemini/antigravity-cli`); `func IsSessionPath(path string) bool`; `func BaseDirForPath(path string) string`; `func SessionIDForPath(path string) string`; `func sessionFile(baseDir, id string) string` (full, else plain, else `""`); `Discoverer`, `Factory()`; `func unquotePath(s string) string`; `type relatedTracker struct{…}`; `func newRelatedTracker(projectPath string, exclude []string) *relatedTracker`; `func (r *relatedTracker) call(name string, args map[string]any)`; `func (r *relatedTracker) workspace(path string)`; `func (r *relatedTracker) paths() []thinkt.RelatedPath`; `func repoRoot(path string) string` (nearest ancestor dir containing `.git`, `""` if none); `func (s *Store) ResumeCommand(thinkt.SessionMeta) (*thinkt.ResumeInfo, error)` (Store from Task 7; write the test now against a zero `Store{}`).
+- Produces: `func DefaultDir() (string, error)` (`THINKT_ANTIGRAVITY_HOME`, else `~/.gemini/antigravity-cli`); `func IsSessionPath(path string) bool`; `func BaseDirForPath(path string) string`; `func SessionIDForPath(path string) string`; `func sessionFile(baseDir, id string) string` (full, else plain, else `""`); `Discoverer`, `Factory()`; `func unquotePath(s string) string`; `type relatedTracker struct{…}`; `func newRelatedTracker(projectPath string, exclude []string) *relatedTracker`; `func (r *relatedTracker) call(name string, args map[string]any)`; `func (r *relatedTracker) workspace(path string)`; `func (r *relatedTracker) paths() []thinkt.RelatedPath`; `func repoRoot(path string) string` (nearest ancestor dir containing `.git`, `""` if none). (`ResumeCommand` moves to Task 7, where `Store` exists.)
 - Tool → reason, arg: `view_file.AbsolutePath`, `read_file.Path`, `list_dir.DirectoryPath`, `grep_search.SearchPath` → `read`; `replace_file_content.TargetFile`, `multi_replace_file_content.TargetFile`, `write_to_file.TargetFile`, `edit_file.Path`, `write_file.Path` → `edited`; `run_command.Cwd` → `command`. (Edit arguments cover every `CODE_ACTION` result's path, so result text is not parsed; ruling against design H's "and the path named in a `CODE_ACTION` result".)
 
 - [ ] **Step 1: Write the failing tests**
@@ -447,26 +474,20 @@ func TestRelatedTrackerFoldsToRepoRoots(t *testing.T) {
 }
 
 func TestRelatedFolderSkipsMissingTempAndHome(t *testing.T) {
-	root := t.TempDir()
+	root := t.TempDir() // under os.TempDir()
 	home := filepath.Join(root, "home")
-	r := newRelatedTracker(mkRepo(t, root, "p"), []string{home, "/tmp"})
+	tmpRepo := mkRepo(t, root, "scratch") // a real repo, so only the exclude prefix can drop it
+	r := newRelatedTracker(mkRepo(t, root, "p"), []string{home, os.TempDir()})
 	r.call("view_file", map[string]any{"AbsolutePath": "/no/such/repo/a.go"})
-	r.call("view_file", map[string]any{"AbsolutePath": filepath.Join(os.TempDir(), "x.go")})
+	r.call("view_file", map[string]any{"AbsolutePath": filepath.Join(tmpRepo, "x.go")})
 	r.call("write_to_file", map[string]any{"TargetFile": filepath.Join(home, "brain", "c1", "plan.md")})
 	if got := r.paths(); len(got) != 0 {
 		t.Fatalf("%+v", got)
 	}
 }
-
-func TestResumeCommand(t *testing.T) {
-	info, err := (&Store{}).ResumeCommand(thinkt.SessionMeta{ID: "c1", ProjectPath: "/w/ds4dg"})
-	if err != nil || info.Command != "agy" || !slices.Equal(info.Args, []string{"--conversation", "c1"}) || info.Dir != "/w/ds4dg" {
-		t.Fatalf("%+v %v", info, err)
-	}
-}
 ```
 
-`Reasons` are sorted alphabetically; `Count` counts tool calls (the `workspace` relation adds a reason, not a count). Paths sort by `Count` descending, then path. The excluded prefixes are a parameter, because test repos live under the system temp dir: the signature is `newRelatedTracker(projectPath string, exclude []string)`, the store passes `[home, os.TempDir(), "/tmp", "/private/tmp"]`, and the tests above pass `[]string{home, "/tmp"}`. Match `ResumeInfo` field names to the Kimi `resume.go`.
+`Reasons` are sorted alphabetically; `Count` counts tool calls (the `workspace` relation adds a reason, not a count). Paths sort by `Count` descending, then path. The excluded prefixes are a parameter, because test repos live under the system temp dir: the signature is `newRelatedTracker(projectPath string, exclude []string)`, the store passes `[home, os.TempDir(), "/tmp", "/private/tmp"]`, `TestRelatedTrackerFoldsToRepoRoots` passes `[]string{home, "/tmp"}` (its repos live under the temp dir); `TestRelatedFolderSkipsMissingTempAndHome` passes `os.TempDir()`, so its `scratch` repo, which is real and outside the project, is dropped only by the prefix check. Exclude prefixes are compared after `filepath.EvalSymlinks` on both sides (`/var` → `/private/var` on macOS).
 
 Add to `internal/sources/gemini/discovery_test.go`:
 
@@ -486,10 +507,10 @@ func TestIsSessionPathSkipsAntigravityHome(t *testing.T) {
 
 With `THINKT_ANTIGRAVITY_HOME` empty, `antigravity.DefaultDir()` resolves to `~/.gemini/antigravity-cli` from the real home, not from `THINKT_GEMINI_HOME`; so `gemini.IsSessionPath` excludes both the resolved Antigravity home and `<gemini base>/antigravity-cli`. `gemini` imports `antigravity`; `antigravity` must not import `gemini`.
 
-- [ ] **Step 2: Run** `go test ./internal/sources/antigravity ./internal/sources/gemini -run 'IsSessionPath|SessionFile|Unquote|Related|Resume'` — Expected: FAIL.
+- [ ] **Step 2: Run** `go test ./internal/sources/antigravity ./internal/sources/gemini -run 'IsSessionPath|SessionFile|Unquote|Related'` — Expected: FAIL.
 - [ ] **Step 3: Implement**; in the parser, call `p.related.call(c.Name, c.Args)` for each tool call of each model turn; `Parser.RelatedPaths() []thinkt.RelatedPath`; `NewParser` gains no parameter — add `func (p *Parser) TrackRelated(projectPath string, exclude []string)` which the session scan calls before reading.
 - [ ] **Step 4: Run** the same command plus `go test ./internal/sources/antigravity/...` — Expected: PASS.
-- [ ] **Step 5: Commit** `feat(antigravity): discovery, related folders, resume; gemini skips the antigravity home`
+- [ ] **Step 5: Commit** `feat(antigravity): discovery, related folders; gemini skips the antigravity home`
 
 ---
 
@@ -500,7 +521,7 @@ With `THINKT_ANTIGRAVITY_HOME` empty, `antigravity.DefaultDir()` resolves to `~/
 - Test: `internal/sources/antigravity/sessionstate_test.go`
 
 **Interfaces:**
-- Produces: `type summaryRow struct { ID, Title, Preview, ParentID, AgentName string; Workspaces []string; Modified time.Time; StepCount int }`; `func loadSummaries(baseDir string) (map[string]summaryRow, error)` (paths from `file://` URIs; zero time → zero `time.Time`); `func loadLastConversations(baseDir string) map[string]string` (conversation id → workspace path); `type sessionScan struct { FirstPrompt, LastPrompt, Model string; EntryCount int; Cost *thinkt.SessionCost; Cwd string; CreatedAt time.Time; Related []thinkt.RelatedPath }`; `func scanSessionFile(path, conversationID, parentID, projectPath string, exclude []string) sessionScan` (`Cwd` = most common unquoted `run_command` `Cwd`, ties → first seen); `func resolveWorkspace(row summaryRow, scanCwd string, last map[string]string, id string) string` (`""` means no workspace); `applyTo`, `cached` as in Kimi plus `RelatedPaths`.
+- Produces: `type summaryRow struct { ID, Title, Preview, ParentID, AgentName string; Workspaces []string; Modified time.Time; StepCount int }`; `func loadSummaries(baseDir string) (map[string]summaryRow, error)` (paths from `file://` URIs; `last_modified_time` scanned as a string and parsed by `parseSummaryTime` — the real value looks like `2026-06-10 14:02:22.02715+00:00`; the year-1 value → zero `time.Time`; a row that fails to scan is skipped and the rest are kept); `func loadLastConversations(baseDir string) map[string]string` (conversation id → workspace path); `type sessionScan struct { FirstPrompt, LastPrompt, Model string; EntryCount int; Cost *thinkt.SessionCost; Cwd string; CreatedAt time.Time; Related []thinkt.RelatedPath }`; `func scanSessionFile(path, conversationID, parentID, projectPath string, extraWorkspaces, exclude []string) sessionScan` (each extra workspace goes through `relatedTracker.workspace`) (`Cwd` = most common unquoted `run_command` `Cwd`, ties → first seen); `func resolveWorkspace(row summaryRow, scanCwd string, last map[string]string, id string) string` (`""` means no workspace); `applyTo`, `cached` as in Kimi plus `RelatedPaths`.
 - `testdata/summaries.sql`: the `CREATE TABLE conversation_summaries` statement from the evidence (copy the schema verbatim from the real db with `sqlite3 'file:…?immutable=1' .schema`) and rows for `11111111-aaaa` (title `"Fix Build"`, workspaces `["file:///w/ds4dg","file:///w/ds4-go"]`), `22222222-bbbb` (parent `11111111-aaaa`, agent `research`, title `""`, preview `"Research Child"`), `44444444-dddd` (no workspaces, title `""`, preview `""`, `last_modified_time` `0001-01-01 00:00:00+00:00`). Tests build the db with `database/sql` from this file in a temp home.
 
 - [ ] **Step 1: Write the failing tests**
@@ -523,7 +544,7 @@ func TestWorkspaceFirstEntryWins(t *testing.T) {
 }
 
 func TestWorkspaceFallsBackToCwd(t *testing.T) {
-	s := scanSessionFile(fixturePath(t, "noworkspace.jsonl"), "44444444-dddd", "", "", nil)
+	s := scanSessionFile(fixturePath(t, "noworkspace.jsonl"), "44444444-dddd", "", "", nil, nil)
 	if s.Cwd != "/w/old" || resolveWorkspace(summaryRow{}, s.Cwd, nil, "44444444-dddd") != "/w/old" {
 		t.Fatalf("%q", s.Cwd)
 	}
@@ -536,16 +557,34 @@ func TestWorkspaceFallsBackToLastConversations(t *testing.T) {
 }
 
 func TestScanSessionFileSummarises(t *testing.T) {
-	s := scanSessionFile(fixturePath(t, "main.jsonl"), "11111111-aaaa", "", "/w/ds4dg", nil)
+	s := scanSessionFile(fixturePath(t, "main.jsonl"), "11111111-aaaa", "", "/w/ds4dg", nil, nil)
 	if s.EntryCount != 15 || s.FirstPrompt != "fix the build" || s.LastPrompt != "thanks" ||
 		s.Model != "Gemini 4 Argon (High)" || s.Cost.InputTokens != 100 || s.CreatedAt.IsZero() {
 		t.Fatalf("%+v", s)
 	}
 }
+
+func TestScanSessionFileRelatesExtraWorkspaces(t *testing.T) {
+	root := t.TempDir()
+	proj, other := mkRepo(t, root, "ds4dg"), mkRepo(t, root, "ds4-go")
+	s := scanSessionFile(fixturePath(t, "noworkspace.jsonl"), "c", "", proj, []string{other}, []string{"/tmp"})
+	if len(s.Related) != 1 || s.Related[0].Path != other || !slices.Contains(s.Related[0].Reasons, "workspace") {
+		t.Fatalf("%+v", s.Related)
+	}
+}
+
+func TestParseSummaryTime(t *testing.T) {
+	if got := parseSummaryTime("2026-06-10 14:02:22.02715+00:00"); got.Year() != 2026 || got.Nanosecond() != 27150000 {
+		t.Fatal(got)
+	}
+	if !parseSummaryTime("0001-01-01 00:00:00+00:00").IsZero() || !parseSummaryTime("junk").IsZero() {
+		t.Fatal("zero")
+	}
+}
 ```
 
-- [ ] **Step 2: Run** `go test ./internal/sources/antigravity -run 'Summaries|Workspace|ScanSession'` — Expected: FAIL.
-- [ ] **Step 3: Implement**; `summaries.go` blank-imports `github.com/mattn/go-sqlite3` and opens `file:<path>?mode=ro&_busy_timeout=200`; any open or query error returns an empty map and the error (callers log and continue).
+- [ ] **Step 2: Run** `go test ./internal/sources/antigravity -run 'Summaries|Workspace|ScanSession|SummaryTime'` — Expected: FAIL.
+- [ ] **Step 3: Implement**; `summaries.go` blank-imports `github.com/mattn/go-sqlite3` and opens `file:<path>?immutable=1`; an open or query error returns the rows read so far and the error (callers log and continue); a per-row scan error skips that row only. `func parseSummaryTime(s string) time.Time` tries `2006-01-02 15:04:05.999999999-07:00` and returns zero for year 1 or an unparseable value.
 - [ ] **Step 4: Run** the same command — Expected: PASS.
 - [ ] **Step 5: Commit** `feat(antigravity): summaries db, workspace resolution, session scan`
 
@@ -554,12 +593,13 @@ func TestScanSessionFileSummarises(t *testing.T) {
 ### Task 7: Store
 
 **Files:**
-- Create: `internal/sources/antigravity/store.go`
-- Test: `internal/sources/antigravity/store_test.go`
+- Create: `internal/sources/antigravity/store.go`, `resume.go`
+- Modify: `internal/thinkt/types.go` (`WatchConfig.HiddenDirs []string`: hidden directory names the walker may enter), `internal/relay/watcher.go` (both filter sites — `warmActive` and the per-directory check — skip a `.`-prefixed name unless it is in `HiddenDirs`)
+- Test: `internal/sources/antigravity/store_test.go`, `resume_test.go`, `internal/relay/watcher_test.go`
 
 **Interfaces:**
 - Consumes: everything above.
-- Produces: `type Store`; `NewStore(baseDir string) *Store`; `NewStoreWithCacheDir(baseDir, cacheDir string) *Store`; the full `thinkt.Store` interface following `internal/sources/kimi/store.go` (cache, `SetCacheTTL`, `ResetCache`, enrichment with `WithEnrichSync`/`WithEnrich`, `WithSubagents`, `GetSessionMeta` by id or path, `LoadSession`, `OpenSession` by id or path, `WatchConfig{IncludeDirs: []string{"brain"}, ExcludeDirs: []string{"chunks"}, MaxDepth: 4}`). Project id and path are the workspace path; the no-workspace project has id and path `""` and name `"(no workspace)"`. `Workspace()` id: `installation_id` file contents, trimmed. Listing `ModifiedAt`: summary `Modified`, else transcript mtime. Title: summary title, else preview, else first prompt (after enrichment).
+- Produces: `type Store`; `NewStore(baseDir string) *Store`; `NewStoreWithCacheDir(baseDir, cacheDir string) *Store`; the full `thinkt.Store` interface following `internal/sources/kimi/store.go` (cache, `SetCacheTTL`, `ResetCache`, enrichment with `WithEnrichSync`/`WithEnrich`, `WithSubagents`, `GetSessionMeta` by id or path, `LoadSession`, `OpenSession` by id or path, `WatchConfig{IncludeDirs: []string{"brain"}, HiddenDirs: []string{".system_generated"}, ExcludeDirs: []string{"chunks"}, MaxDepth: 4}` — `brain/<id>/.system_generated/logs` is depth 4). Project id and path are the workspace path; the no-workspace project has id `"no-workspace"`, path `""`, name `"(no workspace)"`, and `ListSessions("no-workspace")` returns its sessions. `Store.relatedExclude []string` holds the exclude prefixes (`NewStore` sets `[home, os.TempDir(), "/tmp", "/private/tmp"]`); store tests set it to `[home]` because their repos live under the temp dir. The scan gets `row.Workspaces[1:]` as `extraWorkspaces`; a subagent passes none. `func (s *Store) ResumeCommand(thinkt.SessionMeta) (*thinkt.ResumeInfo, error)`: as Kimi — `Command` is `exec.LookPath("agy")`, `Args` `["agy", "--conversation", id]`, `Dir` `ProjectPath`; error when `agy` is not on PATH. `Workspace()` id: `installation_id` file contents, trimmed. Listing `ModifiedAt`: summary `Modified`, else transcript mtime. Title: summary title, else preview, else first prompt (after enrichment).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -572,27 +612,38 @@ func TestListSessionsRelatedPathsSurviveCache(t *testing.T) // EnrichSync twice 
 func TestGetSessionMetaByIDAndPath(t *testing.T)
 func TestOpenSessionReadsFullTranscript(t *testing.T)  // both files present with different content; entries come from transcript_full.jsonl
 func TestEmptyBrainDirsAreSkipped(t *testing.T)        // brain dir with only scratch/: not listed
+func TestNoWorkspaceProjectIsAddressable(t *testing.T) // home with a conversation that has no row, no Cwd, no last_conversations entry: ListProjects has {ID "no-workspace", Path "", Name "(no workspace)"}; ListSessions(ctx, "no-workspace") returns it
+func TestListSessionsRelatesExtraWorkspace(t *testing.T) // row workspaces [<repoA>, <repoB>] (real temp repos): RelatedPaths has repoB with reason "workspace"
+func TestResumeCommand(t *testing.T)                   // skip if exec.LookPath("agy") fails; Command == that path, Args == ["agy","--conversation","c1"], Dir == "/w/ds4dg"
 ```
+
+In `internal/relay/watcher_test.go`:
+
+```go
+func TestWatcherEntersListedHiddenDir(t *testing.T) // root/brain/c1/.system_generated/logs/transcript.jsonl and root/brain/c1/.other/x.jsonl, Config{IncludeDirs:["brain"], HiddenDirs:[".system_generated"], ExcludeDirs:["chunks"], MaxDepth:4}: logs dir is watched, .other is not, logs/chunks is not
+```
+
+Follow the existing watcher tests for how they observe the watched set.
 
 Write each with explicit `want` values as in the comments; reuse `testHome(t)`.
 
-- [ ] **Step 2: Run** `go test ./internal/sources/antigravity -run 'List|GetSessionMeta|OpenSession|EmptyBrain'` — Expected: FAIL.
+- [ ] **Step 2: Run** `go test ./internal/sources/antigravity ./internal/relay -run 'List|GetSessionMeta|OpenSession|EmptyBrain|NoWorkspace|Resume|HiddenDir'` — Expected: FAIL.
 - [ ] **Step 3: Implement.** A subagent's project is its parent's resolved workspace when its own row has none.
-- [ ] **Step 4: Run** `go test ./internal/sources/antigravity/...` — Expected: PASS.
-- [ ] **Step 5: Commit** `feat(antigravity): store`
+- [ ] **Step 4: Run** `go test ./internal/sources/antigravity/... ./internal/relay/...` — Expected: PASS.
+- [ ] **Step 5: Commit** `feat(antigravity): store, resume; relay enters .system_generated`
 
 ---
 
 ### Task 8: Registration and the "Related" summary line
 
 **Files:**
-- Modify: `internal/sources/sources.go`, `internal/tui/styles.go` (color `#3cc8b4`), `internal/tui/session_loader.go` (check `antigravity.IsSessionPath` before gemini; `openAntigravityLazySession` like `openKimiLazySession`), `internal/thinkt/active.go` (`"agy": SourceAntigravity`), `internal/index/search/search.go` (`searchFilters[antigravity] = antigravity.NewSearchFilter`), `internal/cmd/help_env.go` (`{"THINKT_ANTIGRAVITY_HOME", "~/.gemini/antigravity-cli", "Override Antigravity CLI data directory"}`), `internal/cmd/sources.go` (list line `Antigravity CLI (~/.gemini/antigravity-cli)` in both places Kimi appears), `internal/cli/sessions.go` (`SessionSummaryData.Related []string` formatted `"<path> (<reasons joined by ", ">)"`; template line `{{if .Related}}\n  Related:  {{join .Related "; "}}{{end}}` before Summary; help text entry `{{.Related}}`)
+- Modify: `internal/sources/sources.go`, `internal/tui/styles.go` (color `#3cc8b4`), `internal/tui/session_loader.go` (check `antigravity.IsSessionPath` before gemini; `openAntigravityLazySession` like `openKimiLazySession`), `internal/thinkt/active.go` (`"agy": SourceAntigravity`), `internal/index/search/search.go` (`searchFilters[antigravity] = antigravity.NewSearchFilter`), `internal/cmd/help_env.go` (`{"THINKT_ANTIGRAVITY_HOME", "~/.gemini/antigravity-cli", "Override Antigravity CLI data directory"}`), `internal/cmd/sources.go` (list line `Antigravity CLI (~/.gemini/antigravity-cli)` in both places Kimi appears), `internal/cli/sessions.go` (`SessionSummaryData.Related string`, built in Go in the loop that fills `SessionSummaryData`: each path as `"<path> (<reasons joined by ", ">)"`, paths joined by `"; "`; template line `{{if .Related}}\n  Related:  {{.Related}}{{end}}` before Summary — the template has no `join` func; help text entry `{{.Related}}`)
 - Test: `internal/tui/session_loader_antigravity_test.go`, `internal/index/search/bookkeeping_test.go`, `internal/cli/sessions_test.go` (or the existing summary test file), `internal/thinkt/active_test.go` if one covers `knownProcesses`
 
 - [ ] **Step 1: Write the failing tests**
 
 ```go
-func TestOpenLazySessionAntigravity(t *testing.T)       // THINKT_ANTIGRAVITY_HOME temp home; OpenLazySession(<full transcript path>) reads entries; THINKT_GEMINI_HOME set to its parent so the gemini check would also match
+func TestOpenLazySessionAntigravity(t *testing.T)       // THINKT_ANTIGRAVITY_HOME temp home; OpenLazySession(<full transcript path>) opens through antigravity, not the generic jsonl sniffer (entries have Source antigravity and UUIDs "<conv>:<step>")
 func TestScanFileAntigravitySkipsHarnessLines(t *testing.T) // "needle" in steps 0 (user), 7 (error), 11 (ephemeral): one match, line 1
 func TestFormatSummaryPrintsRelated(t *testing.T)       // meta with RelatedPaths [{/w/ds4-go, [command edited], 2}] → output contains "Related:  /w/ds4-go (command, edited)"
 func TestKnownProcessesAgy(t *testing.T)               // knownProcesses["agy"] == SourceAntigravity
@@ -614,6 +665,6 @@ func TestKnownProcessesAgy(t *testing.T)               // knownProcesses["agy"] 
 
 - [ ] **Step 1: Measure** on `~/.gemini/antigravity-cli`: sessions listed (expect 105 transcripts: main + 5 subagents); every transcript parses with no error; entries with empty text and no blocks = 0; duplicate UUIDs per session = 0; tool_result entries whose `ToolUseID` is not a tool_use in the same session = 0; unknown types = 0; the 5 subagents carry `ParentSessionID` and each parent's `invoke_subagent` tool_use links a child; projects listed (each a folder path, no Antigravity project ids); sessions in the no-workspace project (expect ≈5); a conversation known to span ds4dg and ds4-go shows `ds4-go` in `RelatedPaths`. Record the numbers in the ledger.
 - [ ] **Step 2: Fix** anything the measurement finds, each with a failing test first, one commit per fix.
-- [ ] **Step 3: Run** `thinkt sync` against a temp `THINKT_HOME` copy of the index (or the real one if the user's index is the norm in earlier passes) and search for a phrase from a recent Antigravity prompt; it is found.
+- [ ] **Step 3: Enable the source** (`thinkt sources enable antigravity` in the `THINKT_HOME` used below — an existing `config.Sources` map treats a missing key as disabled), then **run** `thinkt sync` against a temp `THINKT_HOME` copy of the index (or the real one if the user's index is the norm in earlier passes) and search for a phrase from a recent Antigravity prompt; it is found.
 - [ ] **Step 4: Write docs**: package README (layout, step-class table, pairing rule, workspace rule, subagents, related folders, what is not read); `AGENTS.md` source list, env table, package table, and the classification paragraph; `README.md` and `DEVELOP.md` source lists; report Summary row "after the Antigravity pass: …".
 - [ ] **Step 5: Run** `go test ./...` — Expected: PASS except the two iTerm tests. Commit `docs(antigravity): README; source lists; report row`.
