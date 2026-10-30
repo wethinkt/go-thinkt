@@ -158,7 +158,7 @@ const (
 //
 // 4: Codex item stream, tool pairs, usage, subagent rollouts
 // 5: Kimi Code tree, loop steps, subagent wires
-const ParserVersion = 5
+const ParserVersion = 6
 
 // EntryKind sub-classifies an entry within its Role. It is an open set:
 // sources may emit kinds the core does not name yet, and consumers switch on
@@ -348,8 +348,8 @@ type Entry struct {
 	Visibility Visibility `json:"visibility,omitempty"`
 
 	// Turn structure
-	TurnID          string `json:"turn_id,omitempty"`            // Groups records of one API response (Claude message.id)
-	PromptID        string `json:"prompt_id,omitempty"`          // Prompt this turn belongs to (Claude promptId)
+	TurnID          string `json:"turn_id,omitempty"`            // One model response (Claude message.id, Codex response_id, Kimi step uuid, Antigravity planner step)
+	PromptID        string `json:"prompt_id,omitempty"`          // One user prompt and everything until the agent hands back (Claude promptId)
 	ParentToolUseID string `json:"parent_tool_use_id,omitempty"` // Tool call this entry reports on
 	ChildSessionID  string `json:"child_session_id,omitempty"`   // Subagent session spawned by this entry
 

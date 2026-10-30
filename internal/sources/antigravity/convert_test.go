@@ -118,7 +118,7 @@ func TestChildTaskPromptIsVisibleUserEntry(t *testing.T) {
 	}
 }
 
-func TestChildTurnIDBeforeAnyUserInput(t *testing.T) {
+func TestChildPromptIDBeforeAnyUserInput(t *testing.T) {
 	// design B: steps before the first USER_INPUT take the first step's index
 	c := &converter{conversationID: "22222222-bbbb", parentID: "11111111-aaaa"}
 	for _, line := range fixtureLines(t, "child.jsonl") {
@@ -129,8 +129,8 @@ func TestChildTurnIDBeforeAnyUserInput(t *testing.T) {
 		} else {
 			e, _ = c.convert(h, class)
 		}
-		if e.TurnID != "0" {
-			t.Fatalf("step %d turn %q", h.Index, e.TurnID)
+		if e.PromptID != "0" {
+			t.Fatalf("step %d prompt %q", h.Index, e.PromptID)
 		}
 	}
 }

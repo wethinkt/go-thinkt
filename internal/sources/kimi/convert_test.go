@@ -113,7 +113,7 @@ func TestConvertEmptyUserProducesNothing(t *testing.T) {
 
 func TestConvertTurnEndedFailed(t *testing.T) {
 	e := convertLine(t, `{"type":"turn.ended","agentId":"main","turnId":0,"reason":"failed","error":{"code":"internal","message":"boom"},"durationMs":42,"time":1790000001026}`)[0]
-	if e.Role != thinkt.RoleSystem || e.Kind != thinkt.KindTurnDuration || !e.IsSecondary() || e.Error != "boom" || e.Metadata["duration_ms"] != int64(42) || e.TurnID != "0" || e.Text == "" {
+	if e.Role != thinkt.RoleSystem || e.Kind != thinkt.KindTurnDuration || !e.IsSecondary() || e.Error != "boom" || e.Metadata["duration_ms"] != int64(42) || e.PromptID != "0" || e.TurnID != "" || e.Text == "" {
 		t.Fatalf("entry = %+v", e)
 	}
 	ok := convertLine(t, fixtureLine(t, "wire-1.5.jsonl", 29))[0]

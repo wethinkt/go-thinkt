@@ -83,8 +83,8 @@ func TestParserLinksSubagentChild(t *testing.T) {
 
 func TestParserTurnIDsAndModel(t *testing.T) {
 	byStep := entriesByStep(parseFixture(t, "main.jsonl", "11111111-aaaa", ""))
-	if byStep[2].TurnID != "0" || byStep[14].TurnID != "13" || byStep[14].Model != "Gemini 4 Argon (High)" {
-		t.Fatalf("turn %q %q model %q", byStep[2].TurnID, byStep[14].TurnID, byStep[14].Model)
+	if byStep[2].PromptID != "0" || byStep[14].PromptID != "13" || byStep[14].Model != "Gemini 4 Argon (High)" {
+		t.Fatalf("prompt %q %q model %q", byStep[2].PromptID, byStep[14].PromptID, byStep[14].Model)
 	}
 }
 
@@ -120,7 +120,7 @@ func TestParserResultWithoutCallIsUnknown(t *testing.T) {
 	line := `{"step_index":0,"type":"GENERIC","status":"DONE","content":"orphan"}` + "\n"
 	p := NewParser(strings.NewReader(line), "c", "")
 	e, err := p.NextEntry()
-	if err != nil || e.Kind != thinkt.KindUnknown || !e.IsSecondary() || e.Text != "orphan" {
+	if err != nil || e.Kind != thinkt.KindUnknown || !e.IsSecondary() || e.Text != "orphan" || e.TurnID != "" {
 		t.Fatalf("%+v %v", e, err)
 	}
 }
@@ -145,5 +145,39 @@ func TestParserLinksChildOnlyFromInvokeSubagent(t *testing.T) {
 	}
 	if len(got) != 2 || got[0].ContentBlocks[0].ChildSessionID != "" || got[1].Metadata["child_session_ids"] != nil {
 		t.Fatalf("%+v", got)
+	}
+}
+
+// A planner step is one model response: its entry's TurnID is the step
+// index, its paired results carry the same id, and user input has none.
+func TestPlannerAndResultShareTurnID(t *testing.T) {
+	entries := parseFixture(t, "main.jsonl", "11111111-aaaa", "")
+	callTurn := map[string]string{}
+	for _, e := range entries {
+		for _, b := range e.ContentBlocks {
+			if b.Type == "tool_use" {
+				if want := strings.TrimPrefix(e.UUID, "11111111-aaaa:"); e.TurnID != want {
+					t.Errorf("planner %s TurnID = %q, want %q", e.UUID, e.TurnID, want)
+				}
+				callTurn[b.ToolUseID] = e.TurnID
+			}
+		}
+	}
+	results := 0
+	for _, e := range entries {
+		for _, b := range e.ContentBlocks {
+			if b.Type == "tool_result" {
+				results++
+				if e.TurnID != callTurn[b.ToolUseID] || e.TurnID == "" {
+					t.Errorf("result %s TurnID = %q, want %q", e.UUID, e.TurnID, callTurn[b.ToolUseID])
+				}
+			}
+		}
+		if e.Role == thinkt.RoleUser && len(e.ContentBlocks) == 0 && e.TurnID != "" {
+			t.Errorf("user entry %s TurnID = %q", e.UUID, e.TurnID)
+		}
+	}
+	if len(callTurn) == 0 || results == 0 {
+		t.Fatalf("fixture has %d calls, %d results", len(callTurn), results)
 	}
 }

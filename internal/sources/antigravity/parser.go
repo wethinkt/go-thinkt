@@ -149,6 +149,7 @@ func (p *Parser) result(h stepHead) {
 		call, p.pending = p.pending[0], p.pending[1:]
 	}
 	e := p.conv.resultEntry(h, call.ID)
+	e.TurnID = call.Turn
 	if call.Name == "invoke_subagent" {
 		p.linkChildren(&e, call.ID, subagentIDs(h.Content))
 	}

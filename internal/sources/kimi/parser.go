@@ -46,8 +46,9 @@ type Parser struct {
 	approvals map[string]approval
 	spawns    map[string]string // parent tool call id → child session id
 
-	seenCalls    map[string]bool // tool call ids the loop emitted
-	seenResults  map[string]bool // tool call ids whose result the loop emitted
+	seenCalls    map[string]bool   // tool call ids the loop emitted
+	callStep     map[string]string // tool call id → uuid of the step that made it
+	seenResults  map[string]bool   // tool call ids whose result the loop emitted
 	seenMessages map[string]bool
 	seenUserIDs  map[string]bool
 	turnTexts    map[string]bool
@@ -67,6 +68,7 @@ func NewParser(r io.Reader, sessionID string) *Parser {
 		approvals:    map[string]approval{},
 		spawns:       map[string]string{},
 		seenCalls:    map[string]bool{},
+		callStep:     map[string]string{},
 		seenResults:  map[string]bool{},
 		seenMessages: map[string]bool{},
 		seenUserIDs:  map[string]bool{},
@@ -328,6 +330,7 @@ func (p *Parser) appendCall(head recordHead) {
 	p.ensureStep(head)
 	p.step.blocks = append(p.step.blocks, thinkt.ContentBlock{Type: "tool_use", ToolUseID: head.ToolCallID, ToolName: r.Event.Name, ToolInput: r.Event.Args})
 	p.seenCalls[head.ToolCallID] = true
+	p.callStep[head.ToolCallID] = p.step.uuid
 }
 
 func (p *Parser) resultEntry(head recordHead) thinkt.Entry {
@@ -345,6 +348,7 @@ func (p *Parser) resultEntry(head recordHead) thinkt.Entry {
 	_ = json.Unmarshal(head.Payload, &r)
 	block := toolResultBlock(head.ToolCallID, r.Event.Result.Output, r.Event.Result.Note, r.Event.Result.IsError)
 	e := p.conv.newEntry(thinkt.RoleUser, head, head.ToolCallID+":result")
+	e.TurnID = p.callStep[head.ToolCallID]
 	if r.Event.Result.DurationMs != nil {
 		e.Metadata["duration_ms"] = *r.Event.Result.DurationMs
 	}
@@ -445,6 +449,7 @@ func (p *Parser) flush() {
 	p.step = nil
 	head := recordHead{Type: "context.append_loop_event", Key: "loop/step", Time: s.time, TurnID: s.turnID}
 	e := p.conv.newEntry(thinkt.RoleAssistant, head, s.uuid)
+	e.TurnID = s.uuid
 	failed := s.finish == "error" || s.finish == "interrupted"
 	if failed {
 		e.Error = s.errMsg

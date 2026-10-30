@@ -127,27 +127,28 @@ type toolCall struct {
 	ID   string
 	Name string
 	Args map[string]any
+	Turn string // index of the planner step that made the call
 }
 
 // converter turns steps of one conversation into entries. It carries the
 // turn id and the model across steps.
 type converter struct {
 	conversationID, parentID string
-	turnID                   string
+	promptID                 string
 	model                    string
 	firstParentMessageSeen   bool
 }
 
 func (c *converter) newEntry(role thinkt.Role, h stepHead) thinkt.Entry {
-	if c.turnID == "" {
-		c.turnID = strconv.Itoa(h.Index)
+	if c.promptID == "" {
+		c.promptID = strconv.Itoa(h.Index)
 	}
 	return thinkt.Entry{
 		UUID:      c.conversationID + ":" + strconv.Itoa(h.Index),
 		Role:      role,
 		Timestamp: h.CreatedAt,
 		Source:    thinkt.SourceAntigravity,
-		TurnID:    c.turnID,
+		PromptID:  c.promptID,
 		Metadata:  map[string]any{"step_type": h.Type, "status": h.Status},
 	}
 }
@@ -157,7 +158,7 @@ func (c *converter) newEntry(role thinkt.Role, h stepHead) thinkt.Entry {
 func (c *converter) convert(h stepHead, class StepClass) (thinkt.Entry, bool) {
 	switch class {
 	case ClassUserInput:
-		c.turnID = strconv.Itoa(h.Index)
+		c.promptID = strconv.Itoa(h.Index)
 		req, meta := splitUserInput(h.Content)
 		if m := modelFromSettingsChange(meta["settings_change"]); m != "" {
 			c.model = m
@@ -267,7 +268,7 @@ func (c *converter) modelTurn(h stepHead) (thinkt.Entry, []toolCall, bool) {
 	}
 	var calls []toolCall
 	for n, tc := range r.ToolCalls {
-		call := toolCall{ID: strconv.Itoa(h.Index) + "." + strconv.Itoa(n), Name: tc.Name, Args: tc.Args}
+		call := toolCall{ID: strconv.Itoa(h.Index) + "." + strconv.Itoa(n), Name: tc.Name, Args: tc.Args, Turn: strconv.Itoa(h.Index)}
 		calls = append(calls, call)
 		blocks = append(blocks, thinkt.ContentBlock{Type: "tool_use", ToolUseID: call.ID, ToolName: tc.Name, ToolInput: tc.Args})
 	}
@@ -275,6 +276,7 @@ func (c *converter) modelTurn(h stepHead) (thinkt.Entry, []toolCall, bool) {
 		return thinkt.Entry{}, nil, false
 	}
 	e := c.newEntry(thinkt.RoleAssistant, h)
+	e.TurnID = strconv.Itoa(h.Index)
 	e.ContentBlocks, e.Text, e.Model = blocks, text, c.model
 	if r.InputTokens != nil || r.CacheReadTokens != nil || r.OutputTokens != nil {
 		e.Usage = &thinkt.TokenUsage{InputTokens: deref(r.InputTokens), CacheReadInputTokens: deref(r.CacheReadTokens), OutputTokens: deref(r.OutputTokens)}

@@ -99,12 +99,12 @@ func TestParserFixture15Table(t *testing.T) {
 	}
 
 	// Row 1: before any turn; row 2 after agent.turn.started 0.
-	if entries[0].TurnID != "" || entries[1].TurnID != "0" || entries[1].Subtype != "injection" {
-		t.Errorf("turn ids: %q %q subtype %q", entries[0].TurnID, entries[1].TurnID, entries[1].Subtype)
+	if entries[0].PromptID != "" || entries[1].PromptID != "0" || entries[1].Subtype != "injection" {
+		t.Errorf("prompt ids: %q %q subtype %q", entries[0].PromptID, entries[1].PromptID, entries[1].Subtype)
 	}
 	// Row 3: step entry details.
 	step1 := entries[2]
-	if step1.TurnID != "0" || step1.Model != "kimi-code/k3" || step1.Effort != "high" || step1.StopReason != "tool_use" || step1.Metadata["message_id"] != "chatcmpl-1" {
+	if step1.PromptID != "0" || step1.Model != "kimi-code/k3" || step1.Effort != "high" || step1.StopReason != "tool_use" || step1.Metadata["message_id"] != "chatcmpl-1" {
 		t.Errorf("step-1 = %+v", step1)
 	}
 	if u := step1.Usage; u == nil || u.InputTokens != 100 || u.OutputTokens != 20 || u.CacheReadInputTokens != 40 || u.CacheCreationInputTokens != 5 {
@@ -150,13 +150,13 @@ func TestParserFixture15Table(t *testing.T) {
 	if entries[10].ContentBlocks[0].Thinking != "leftover" {
 		t.Errorf("salvaged = %+v", entries[10])
 	}
-	if entries[11].Subtype != "background_task" || entries[11].TurnID != "0" || entries[12].Subtype != "notify" || entries[12].TurnID != "1" || !strings.Contains(entries[12].Text, "bash-2") {
+	if entries[11].Subtype != "background_task" || entries[11].PromptID != "0" || entries[12].Subtype != "notify" || entries[12].PromptID != "1" || !strings.Contains(entries[12].Text, "bash-2") {
 		t.Errorf("notifications = %+v / %+v", entries[11], entries[12])
 	}
 	if entries[13].Subtype != "system_trigger" || entries[14].Subtype != "system_trigger" {
 		t.Errorf("triggers = %+v / %+v", entries[13], entries[14])
 	}
-	if e := entries[15]; e.TurnID != "1" || e.Usage != nil || e.StopReason != "" {
+	if e := entries[15]; e.PromptID != "1" || e.Usage != nil || e.StopReason != "" {
 		t.Errorf("step-5 = %+v", e)
 	}
 	if !strings.HasPrefix(entries[16].Text, `{"type":"mystery.record"`) {
@@ -365,5 +365,39 @@ func TestParserUnknownTypes(t *testing.T) {
 	drain(t, p)
 	if p.UnknownTypes()["mystery.record"] != 1 {
 		t.Fatalf("unknown = %v", p.UnknownTypes())
+	}
+}
+
+// A loop step is one model response: the step entry's TurnID is its own
+// uuid, and the results of the calls it made carry the same id.
+func TestStepAndResultsShareTurnID(t *testing.T) {
+	entries := readFixture(t, "wire-1.5.jsonl", "session_p1")
+	stepOf := map[string]string{}
+	for _, e := range entries {
+		for _, b := range e.ContentBlocks {
+			if b.Type == "tool_use" {
+				if e.TurnID != e.UUID {
+					t.Errorf("step %s TurnID = %q", e.UUID, e.TurnID)
+				}
+				stepOf[b.ToolUseID] = e.UUID
+			}
+		}
+	}
+	results := 0
+	for _, e := range entries {
+		for _, b := range e.ContentBlocks {
+			if b.Type == "tool_result" {
+				results++
+				if want := stepOf[b.ToolUseID]; e.TurnID != want {
+					t.Errorf("result %s TurnID = %q, want %q", e.UUID, e.TurnID, want)
+				}
+			}
+		}
+	}
+	if len(stepOf) == 0 || results == 0 {
+		t.Fatalf("fixture has %d calls, %d results", len(stepOf), results)
+	}
+	if entries[2].TurnID != entries[2].UUID || entries[2].Metadata["message_id"] != "chatcmpl-1" {
+		t.Errorf("step-1 = %+v", entries[2])
 	}
 }
