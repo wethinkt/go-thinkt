@@ -64,7 +64,9 @@ the latest `USER_INPUT` (steps before the first one take the first step's
 index). Attached `media` becomes a `[<mime_type>: <uri>]` text line; the
 file is not read.
 
-The search filter keeps user input, model turns and tool results.
+The search filter keeps user input, model turns, tool results, and a
+subagent's task prompt (the first system message from another conversation
+before any user input).
 
 ## Parser
 

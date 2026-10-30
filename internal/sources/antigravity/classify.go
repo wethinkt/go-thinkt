@@ -104,13 +104,28 @@ func ClassifyLine(line []byte) (stepHead, RecordClass) {
 }
 
 // NewSearchFilter returns a per-file predicate that keeps the lines a person
-// reads: prompts, model turns, and tool results. Harness steps, system
-// messages, checkpoints and errors stay out of the search index.
+// reads: prompts, model turns, tool results, and a subagent's task prompt.
+// Harness steps, other system messages, checkpoints and errors stay out of
+// the search index.
+//
+// The filter sees one file and not the parent's id, so a task prompt is the
+// first system message from another conversation before any user input; a
+// main conversation always opens with user input.
 func NewSearchFilter() func(line []byte) bool {
+	seenOpening := false
 	return func(line []byte) bool {
-		_, class := ClassifyLine(line)
+		h, class := ClassifyLine(line)
 		switch class {
-		case ClassUserInput, ClassModelTurn, ClassToolResult:
+		case ClassUserInput:
+			seenOpening = true
+			return true
+		case ClassModelTurn, ClassToolResult:
+			return true
+		case ClassSystemMessage:
+			if seenOpening || !isConversationSender(messageSender(h.Content)) {
+				return false
+			}
+			seenOpening = true
 			return true
 		default:
 			return false

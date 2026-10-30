@@ -97,3 +97,16 @@ func TestUnknownTallyCountsOncePerType(t *testing.T) {
 		t.Fatal("empty tally not nil")
 	}
 }
+
+func TestSearchFilterKeepsSubagentTaskPrompt(t *testing.T) {
+	f := NewSearchFilter()
+	var kept []int
+	for i, line := range fixtureLines(t, "child.jsonl") {
+		if f(line) {
+			kept = append(kept, i)
+		}
+	}
+	if !slices.Equal(kept, []int{0, 1}) {
+		t.Fatalf("kept %v", kept)
+	}
+}
