@@ -1,0 +1,2 @@
+{"step_index": 0, "source": "USER_EXPLICIT", "type": "USER_INPUT", "status": "DONE", "created_at": "2026-10-28T20:34:00Z", "content": "<USER_REQUEST>\nlook around\n</USER_REQUEST>"}
+{"step_index": 1, "source": "MODEL", "type": "PLANNER_RESPONSE", "status": "DONE", "created_at": "2026-10-28T20:34:01Z", "tool_calls": [{"name": "run_command", "args": {"CommandLine": "ls", "Cwd": "/w/old"}}, {"name": "run_command", "args": {"CommandLine": "ls", "Cwd": "\"/w/old\""}}, {"name": "run_command", "args": {"CommandLine": "ls", "Cwd": "/w/other"}}]}
