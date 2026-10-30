@@ -76,16 +76,45 @@ Per source:
 `etc/reports/SOURCE_FORMATS_2026-10.md`). `usageRecord` in `usage.go`
 ignores the field today. The parser holds only the last line's entries
 (`pending`), so most entries of a response are already released when the
-record arrives. The parser therefore holds every entry since the previous
-response closed and, on the `token_usage_record`, sets `TurnID` to its
-`response_id` on all of them before releasing them. Usage stays on the
-assistant entry `attachUsage` picks today. The hold is released without a
-`TurnID` at a user message, a turn boundary (`turn_context`,
-`task_started`), a legacy event, or end of file, so rollouts without usage
-records (older CLI versions) emit what they emit today. The item-id
-shared-prefix idea stays rejected. Cost: a live follow sees a response's
-entries when the response ends, not item by item. A response ends before
-its tool runs, so a long tool call is not delayed.
+record arrives. The rules:
+
+- **The hold.** The parser holds every entry produced since the previous
+  response closed. A `token_usage_record` closes the hold: it sets
+  `TurnID` to its `response_id` on every held entry, and usage goes on the
+  assistant entry `attachUsage` picks today.
+- **Runs of usage records.** The Codex design measured 13 places where two
+  `token_usage_record` lines sit together, and today the last one's usage
+  wins. A closed hold is released only when the next entry-producing line
+  arrives, so every usage record in a run applies to the same hold. The
+  last record in the run wins, for usage (as today) and for `TurnID`.
+- **Release without a TurnID** at a user message, a turn boundary
+  (`turn_context`, `task_started`), a legacy event, or end of file. Older
+  rollouts with no usage records emit what they emit today.
+- **Twin drop at read time.** The adjacent-twin check (`isItemTwin`, and
+  the legacy-event twin) compares each line with the line before it, as it
+  is read. Holding a whole response does not change what that comparison
+  sees.
+- **End of file.** `NextEntry` parses the bytes on disk. At end of file it
+  releases the hold without a `TurnID`, as today's `flushPending` does.
+  Otherwise a response still being written would vanish from the output. A
+  later parse, after the usage record has landed, stamps it; the metadata
+  cache already re-reads a file whose mtime changed. No reader in the tree
+  waits at the end of a growing Codex file today (`thinkt agents follow`
+  uses `parseJSONLLine`, which skips Codex lines because they have no
+  top-level `role`). A reader added later that waits there would wait for
+  the usage record instead of flushing. That belongs to that reader's
+  design, not this one.
+- **What the hold delays.** It only matters to a reader of a growing file.
+  Entries wait until the usage line is written. On six recent rollouts:
+  - 239 times the usage line came straight after the wire call, so the
+    call is released at once.
+  - 142 times the command item came first, then the usage line. There the
+    completed command item sits in the hold until the usage line, the very
+    next record. The wire call in front of it is the secondary
+    `KindToolWire` twin.
+
+  Visible output is never held for a tool's runtime.
+- The item-id shared-prefix idea stays rejected.
 
 **Kimi.** The loop step uuid is already the assistant entry's `UUID`
 (`flush` sets it from `openStep.uuid`). The assistant entry and the tool
@@ -105,14 +134,32 @@ exactly today's rule, so `TestChildTurnIDBeforeAnyUserInput` becomes a
 `PromptID` test with the same expectations ("0" for every pre-USER_INPUT
 step).
 
-**Tool results** take the `PromptID` of the prompt they belong to, and the
-`TurnID` of the response that made the call where the source pairs them
-(Kimi, Antigravity, Codex). A Codex result arrives after its response has
-closed, so the hold does not cover it: results bypass the hold, and the
-parser keeps a call id → response id map, filled when a
-`token_usage_record` closes a response that made calls. A result takes the
-response id of its call; an unpaired result, or one whose response had no
-usage record, has an empty `TurnID`.
+**Tool results** take the `PromptID` of the prompt they belong to. They
+take the `TurnID` of the response that made the call where it can be found:
+
+- **Kimi, Antigravity:** from the paired call, as above.
+- **Codex wire outputs** (`function_call_output`, `custom_tool_call_output`)
+  and **`McpToolCall` items:** a result arrives after its response has
+  closed, so the hold does not cover it. The parser keeps a map from call
+  id to response id, filled when a usage record closes a hold with calls in
+  it. A wire output carries the same `call_id`. An `McpToolCall` item id
+  matched the call id in all 20 sampled cases. Either kind takes the
+  response id of its call. An unpaired result, or one whose response had
+  no usage record, has an empty `TurnID`.
+- **Codex `CommandExecution` items:** these carry their own ids
+  (`exec-...`). They never equal the wire `call_id`: 672 sampled pairs
+  differed, and the parser keeps wire ids as `wire:<call_id>` for this
+  reason. One command item line becomes both the visible `tool_use` and
+  its `tool_result`.
+  - A command item that arrives while its response's hold is open takes
+    the hold's `TurnID`, both halves.
+  - One that arrives after the usage record (239 of the 381 sampled
+    shapes) keeps an empty `TurnID` on both halves. No field it carries
+    joins it to the response.
+  - Pairing pending exec calls by order is rejected: 40 sampled responses
+    were followed by two command items.
+  - The wire output that follows is the secondary twin; it is stamped
+    through the call-id map.
 
 Code that changes:
 
