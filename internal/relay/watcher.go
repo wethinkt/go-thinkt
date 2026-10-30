@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -402,9 +403,13 @@ func (w *FileWatcher) sourceFor(path string) string {
 	return detectSource(path)
 }
 
-// detectSource guesses the source type from the file path.
-// Used as a fallback when no WatchDir config matches.
+// detectSource names the source of a file when no WatchDir config matches:
+// the source whose resolver claims the path, else a guess from the path's
+// home folder name (a file just created may be too empty to sniff).
 func detectSource(path string) string {
+	if sp, _, ok := sources.ResolveSessionPath(path); ok {
+		return string(sp.Source)
+	}
 	lower := strings.ToLower(path)
 	switch {
 	case strings.Contains(lower, ".claude"):

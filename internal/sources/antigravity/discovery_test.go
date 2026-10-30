@@ -21,11 +21,11 @@ func TestIsSessionPath(t *testing.T) {
 			t.Errorf("%s: want %v", path, want)
 		}
 	}
-	if SessionIDForPath(filepath.Join(logs, "transcript.jsonl")) != "c1" ||
-		BaseDirForPath(filepath.Join(logs, "transcript.jsonl")) != home {
+	if sessionIDForPath(filepath.Join(logs, "transcript.jsonl")) != "c1" ||
+		baseDirForPath(filepath.Join(logs, "transcript.jsonl")) != home {
 		t.Fatal("id or base")
 	}
-	if SessionIDForPath(filepath.Join(home, "brain", "c1", "task.md")) != "" || BaseDirForPath("/x/y.jsonl") != "" {
+	if sessionIDForPath(filepath.Join(home, "brain", "c1", "task.md")) != "" || baseDirForPath("/x/y.jsonl") != "" {
 		t.Fatal("non-session path resolved")
 	}
 }

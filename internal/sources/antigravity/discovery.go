@@ -83,9 +83,9 @@ func sameDir(a, b string) bool {
 	return errA == nil && errB == nil && ra == rb
 }
 
-// BaseDirForPath returns the Antigravity base directory a transcript path
+// baseDirForPath returns the Antigravity base directory a transcript path
 // belongs to, or "" when the path is not a transcript.
-func BaseDirForPath(path string) string {
+func baseDirForPath(path string) string {
 	base, _, ok := splitTranscriptPath(path)
 	if !ok {
 		return ""
@@ -93,8 +93,8 @@ func BaseDirForPath(path string) string {
 	return base
 }
 
-// SessionIDForPath returns the conversation id of a transcript path, or "".
-func SessionIDForPath(path string) string {
+// sessionIDForPath returns the conversation id of a transcript path, or "".
+func sessionIDForPath(path string) string {
 	_, id, ok := splitTranscriptPath(path)
 	if !ok {
 		return ""

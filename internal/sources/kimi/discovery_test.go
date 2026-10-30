@@ -23,34 +23,34 @@ func TestIsSessionPath(t *testing.T) {
 }
 
 func TestBaseDirForPath(t *testing.T) {
-	if got := BaseDirForPath(filepath.FromSlash("/h/.kimi-code/sessions/wd_x_1/session_y/agents/main/wire.jsonl")); got != filepath.FromSlash("/h/.kimi-code") {
+	if got := baseDirForPath(filepath.FromSlash("/h/.kimi-code/sessions/wd_x_1/session_y/agents/main/wire.jsonl")); got != filepath.FromSlash("/h/.kimi-code") {
 		t.Fatalf("base = %q", got)
 	}
-	if got := BaseDirForPath(filepath.FromSlash("/h/nowhere/wire.jsonl")); got != "" {
+	if got := baseDirForPath(filepath.FromSlash("/h/nowhere/wire.jsonl")); got != "" {
 		t.Fatalf("base = %q", got)
 	}
 }
 
 func TestSessionIDForPath(t *testing.T) {
-	if got := SessionIDForPath(filepath.FromSlash("/h/.kimi-code/sessions/wd_x_1/session_y/agents/main/wire.jsonl")); got != "session_y" {
+	if got := sessionIDForPath(filepath.FromSlash("/h/.kimi-code/sessions/wd_x_1/session_y/agents/main/wire.jsonl")); got != "session_y" {
 		t.Fatalf("main = %q", got)
 	}
-	if got := SessionIDForPath(filepath.FromSlash("/h/.kimi-code/sessions/wd_x_1/session_y/agents/agent-0/wire.jsonl")); got != "session_y/agent-0" {
+	if got := sessionIDForPath(filepath.FromSlash("/h/.kimi-code/sessions/wd_x_1/session_y/agents/agent-0/wire.jsonl")); got != "session_y/agent-0" {
 		t.Fatalf("agent = %q", got)
 	}
-	if got := SessionIDForPath(filepath.FromSlash("/h/.kimi-code/sessions/wd_x_1/session_y/state.json")); got != "" {
+	if got := sessionIDForPath(filepath.FromSlash("/h/.kimi-code/sessions/wd_x_1/session_y/state.json")); got != "" {
 		t.Fatalf("state = %q", got)
 	}
 }
 
 func TestDefaultDirUsesKimiCode(t *testing.T) {
 	t.Setenv("THINKT_KIMI_HOME", "")
-	dir, err := DefaultDir()
+	dir, err := defaultDir()
 	if err != nil || !strings.HasSuffix(dir, ".kimi-code") {
 		t.Fatalf("dir = %q err = %v", dir, err)
 	}
 	t.Setenv("THINKT_KIMI_HOME", "/custom")
-	if dir, _ := DefaultDir(); dir != "/custom" {
+	if dir, _ := defaultDir(); dir != "/custom" {
 		t.Fatalf("dir = %q", dir)
 	}
 }

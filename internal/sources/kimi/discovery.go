@@ -60,9 +60,9 @@ func (d *Discoverer) basePath() string {
 	return dir
 }
 
-// DefaultDir returns the Kimi Code base directory: THINKT_KIMI_HOME if set,
+// defaultDir returns the Kimi Code base directory: THINKT_KIMI_HOME if set,
 // otherwise ~/.kimi-code.
-func DefaultDir() (string, error) {
+func defaultDir() (string, error) {
 	if kimiHome := os.Getenv("THINKT_KIMI_HOME"); kimiHome != "" {
 		return kimiHome, nil
 	}
@@ -102,10 +102,10 @@ func IsSessionPath(path string) bool {
 	return ok
 }
 
-// BaseDirForPath returns the Kimi Code base directory a wire path belongs
+// baseDirForPath returns the Kimi Code base directory a wire path belongs
 // to (the parent of its sessions/ component), or "" when the path is not a
 // wire file.
-func BaseDirForPath(path string) string {
+func baseDirForPath(path string) string {
 	base, _, _, ok := splitWirePath(path)
 	if !ok {
 		return ""
@@ -113,10 +113,10 @@ func BaseDirForPath(path string) string {
 	return base
 }
 
-// SessionIDForPath returns the session id a wire path denotes: the session
+// sessionIDForPath returns the session id a wire path denotes: the session
 // directory name for the main wire, "<session>/<agent>" for a subagent
 // wire, "" for anything else.
-func SessionIDForPath(path string) string {
+func sessionIDForPath(path string) string {
 	_, session, agent, ok := splitWirePath(path)
 	if !ok {
 		return ""

@@ -21,7 +21,7 @@ func (d *Discoverer) ResolveSessionPath(path string) (thinkt.SessionPath, bool) 
 func (d *Discoverer) OpenSessionPath(ctx context.Context, sp thinkt.SessionPath, path string) (thinkt.LazySession, error) {
 	base := sp.BaseDir
 	if base == "" {
-		base, _ = DefaultDir()
+		base, _ = defaultDir()
 	}
 	reader, err := NewStore(base).OpenSession(ctx, path)
 	if err != nil {

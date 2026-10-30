@@ -28,7 +28,7 @@ type Store struct {
 // NewStore creates a Kimi Code store rooted at baseDir (default ~/.kimi-code).
 func NewStore(baseDir string) *Store {
 	if baseDir == "" {
-		baseDir, _ = DefaultDir()
+		baseDir, _ = defaultDir()
 	}
 	cacheDir := ""
 	if dir, err := config.Dir(); err == nil {
@@ -41,7 +41,7 @@ func NewStore(baseDir string) *Store {
 // cache directory. Primarily useful for testing.
 func NewStoreWithCacheDir(baseDir, cacheDir string) *Store {
 	if baseDir == "" {
-		baseDir, _ = DefaultDir()
+		baseDir, _ = defaultDir()
 	}
 	return &Store{baseDir: baseDir, cacheDir: cacheDir}
 }
@@ -274,7 +274,7 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 		if err := thinkt.ValidateSessionPath(sessionID, s.baseDir); err != nil {
 			return nil, nil
 		}
-		id = SessionIDForPath(sessionID)
+		id = sessionIDForPath(sessionID)
 		if id == "" {
 			return nil, nil
 		}

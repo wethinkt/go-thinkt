@@ -13,7 +13,7 @@ func (d *Discoverer) ResolveSessionPath(path string) (thinkt.SessionPath, bool) 
 	if !IsSessionPath(path) {
 		return thinkt.SessionPath{}, false
 	}
-	return thinkt.SessionPath{Source: thinkt.SourceAntigravity, BaseDir: BaseDirForPath(path), SessionID: path}, true
+	return thinkt.SessionPath{Source: thinkt.SourceAntigravity, BaseDir: baseDirForPath(path), SessionID: path}, true
 }
 
 // OpenSessionPath implements thinkt.SessionPathResolver.

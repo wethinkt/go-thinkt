@@ -300,7 +300,7 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 		if err := thinkt.ValidateSessionPath(sessionID, s.baseDir); err != nil {
 			return nil, nil
 		}
-		id = SessionIDForPath(sessionID)
+		id = sessionIDForPath(sessionID)
 		if id == "" {
 			return nil, nil
 		}
