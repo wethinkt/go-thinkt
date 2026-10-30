@@ -336,7 +336,7 @@ func runSessionsSummary(cmd *cobra.Command, args []string) error {
 	logSelectedProject()
 
 	// Get sessions for the selected project
-	sessions, err := registry.SessionsForProject(ctx, sessionProject, sessionSources)
+	sessions, err := registry.SessionsForProject(ctx, sessionProject, sessionSources, sessionsSummaryListOptions()...)
 	if err != nil {
 		return err
 	}
@@ -355,6 +355,12 @@ func runSessionsSummary(cmd *cobra.Command, args []string) error {
 		SortBy:     sessionSortBy,
 		Descending: descending,
 	})
+}
+
+// sessionsSummaryListOptions scans sessions before the summary prints them:
+// message counts, prompts and related folders come from that scan.
+func sessionsSummaryListOptions() []thinkt.ListSessionsOption {
+	return []thinkt.ListSessionsOption{thinkt.WithEnrichSync()}
 }
 
 func runSessionsDelete(cmd *cobra.Command, args []string) error {

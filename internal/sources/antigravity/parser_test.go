@@ -124,3 +124,11 @@ func TestParserResultWithoutCallIsUnknown(t *testing.T) {
 		t.Fatalf("%+v %v", e, err)
 	}
 }
+
+func TestParserEmptyOrphanResultIsNotEmpty(t *testing.T) {
+	line := `{"step_index":0,"type":"GENERIC","status":"DONE"}` + "\n"
+	e, err := NewParser(strings.NewReader(line), "c", "").NextEntry()
+	if err != nil || (e.Text == "" && len(e.ContentBlocks) == 0) {
+		t.Fatalf("%+v %v", e, err)
+	}
+}

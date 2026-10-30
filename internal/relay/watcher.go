@@ -380,22 +380,24 @@ func (w *FileWatcher) watchLoop(ctx context.Context, events chan<- FileEvent) {
 }
 
 // rootConfigFor finds the registered root WatchDir that owns the given path.
+// Roots can nest (~/.gemini holds ~/.gemini/antigravity-cli), so the
+// deepest matching root wins.
 func (w *FileWatcher) rootConfigFor(path string) (WatchDir, bool) {
+	var best WatchDir
+	bestLen := -1
 	for root, wd := range w.configs {
-		if strings.HasPrefix(path, root+string(filepath.Separator)) || path == root {
-			return wd, true
+		if (path == root || strings.HasPrefix(path, root+string(filepath.Separator))) && len(root) > bestLen {
+			best, bestLen = wd, len(root)
 		}
 	}
-	return WatchDir{}, false
+	return best, bestLen >= 0
 }
 
 // sourceFor returns the source name for a file path by matching it against
 // registered watch roots. Falls back to path-based detection.
 func (w *FileWatcher) sourceFor(path string) string {
-	for root, wd := range w.configs {
-		if strings.HasPrefix(path, root) {
-			return wd.Source
-		}
+	if wd, ok := w.rootConfigFor(path); ok {
+		return wd.Source
 	}
 	return detectSource(path)
 }

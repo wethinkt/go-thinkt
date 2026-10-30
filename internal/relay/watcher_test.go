@@ -258,3 +258,36 @@ func TestWatcherEntersListedHiddenDir(t *testing.T) {
 		t.Fatal("expandDir: listed hidden dir not entered, or unlisted one entered")
 	}
 }
+
+// Nested roots (~/.gemini and ~/.gemini/antigravity-cli): the deepest root
+// owns a path, whatever order the configs map yields.
+func TestFileWatcherNestedRootsDeepestWins(t *testing.T) {
+	outer := t.TempDir()
+	inner := filepath.Join(outer, "antigravity-cli")
+	if err := os.MkdirAll(inner, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	fw, err := NewFileWatcher([]WatchDir{
+		{Path: outer, Source: "gemini", Config: thinkt.WatchConfig{MaxDepth: 2}},
+		{Path: inner, Source: "antigravity", Config: thinkt.WatchConfig{IncludeDirs: []string{"brain"}, MaxDepth: 4}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fw.Stop() //nolint:errcheck
+	path := filepath.Join(inner, "brain", "c1", ".system_generated", "logs", "transcript.jsonl")
+	for i := 0; i < 50; i++ {
+		if wd, ok := fw.rootConfigFor(path); !ok || wd.Source != "antigravity" {
+			t.Fatalf("rootConfigFor → %q", wd.Source)
+		}
+		if got := fw.sourceFor(path); got != "antigravity" {
+			t.Fatalf("sourceFor → %q", got)
+		}
+	}
+	if got := fw.sourceFor(filepath.Join(outer, "tmp", "s.json")); got != "gemini" {
+		t.Fatalf("outer path → %q", got)
+	}
+	if got := fw.sourceFor(outer + "x/y.jsonl"); got == "gemini" {
+		t.Fatal("prefix collision matched the outer root")
+	}
+}

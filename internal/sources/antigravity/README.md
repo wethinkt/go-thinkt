@@ -85,7 +85,8 @@ Projects are folders, keyed by path. A conversation's folder is the first
 `run_command` `Cwd` in its transcript (unquoted; Antigravity sometimes
 stores it JSON-quoted); else the workspace whose
 `last_conversations.json` entry names it; else the `no-workspace` project
-(path `""`, name `(no workspace)`). Antigravity's `project_id` is not used:
+(name and path `(no workspace)`, which names no real folder; its sessions
+have an empty `ProjectPath`). Antigravity's `project_id` is not used:
 one of its projects spans unrelated repos. A subagent takes its parent's
 folder.
 
@@ -93,7 +94,7 @@ folder.
 |---|---|
 | `Title` | summary `title`, else `preview`, else the first prompt |
 | `ParentSessionID` | summary `parent_conversation_id`; subagents are listed only with `thinkt.WithSubagents()` |
-| `ModifiedAt` | summary `last_modified_time` (the year-1 placeholder counts as missing), else the file mtime |
+| `ModifiedAt` | the later of summary `last_modified_time` (the year-1 placeholder counts as missing) and the file mtime, in UTC: background results land in the transcript after the row is written |
 | `CreatedAt`, `EntryCount`, `FirstPrompt`, `LastPrompt`, `Model`, `Cost` | one parser pass (`scanSessionFile`) |
 | `RelatedPaths` | see below |
 
@@ -117,6 +118,12 @@ touched, each folded to its repo root (nearest ancestor with `.git`):
 `Count` counts tool calls; a `workspace` reason adds no count. Paths that
 no longer exist outside any repo, paths inside the project, and paths
 under the Antigravity home or the system temp dirs are not recorded.
+
+## Relay
+
+`WatchConfig` reaches `.system_generated/logs` (via `HiddenDirs`), so the
+relay watcher sees activity there, but it cannot ship Antigravity traces
+yet: steps carry no `uuid`, and both transcript files sit in `logs/`.
 
 ## Not read
 

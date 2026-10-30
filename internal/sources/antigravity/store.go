@@ -21,6 +21,9 @@ const allSessionsCacheKey = "\x00antigravity_all_sessions"
 // is non-empty because the HTTP API rejects an empty project id.
 const noWorkspaceID = "no-workspace"
 
+// noWorkspaceName is that project's name and path.
+const noWorkspaceName = "(no workspace)"
+
 // Store implements thinkt.Store for Antigravity CLI (~/.gemini/antigravity-cli).
 type Store struct {
 	baseDir  string
@@ -133,7 +136,9 @@ func (s *Store) ListProjects(ctx context.Context) ([]thinkt.Project, error) {
 					SourceBasePath: ws.BasePath,
 				}
 				if sess.ProjectPath == "" {
-					p.Name, p.DisplayPath = "(no workspace)", "(no workspace)"
+					// Not absolute, so it names no real folder; CLI and TUI views
+					// show an empty path as "~".
+					p.Name, p.Path, p.DisplayPath = noWorkspaceName, noWorkspaceName, noWorkspaceName
 				} else if info, err := os.Stat(sess.ProjectPath); err == nil && info.IsDir() {
 					p.PathExists = true
 				}
@@ -408,8 +413,10 @@ func (s *Store) scanSessions() ([]thinkt.SessionMeta, error) {
 			Title:           row.Title,
 			ParentSessionID: row.ParentID,
 		}
-		if meta.ModifiedAt.IsZero() {
-			meta.ModifiedAt = info.ModTime()
+		// Background task results are appended after the summary row is
+		// written, so the later of the two times is the last change.
+		if info.ModTime().After(meta.ModifiedAt) {
+			meta.ModifiedAt = info.ModTime().UTC()
 		}
 		if meta.Title == "" {
 			meta.Title = row.Preview

@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
@@ -226,7 +227,7 @@ func TestNoWorkspaceProjectIsAddressable(t *testing.T) {
 	s := testStore(t, home, t.TempDir())
 	ctx := context.Background()
 	p, err := s.GetProject(ctx, noWorkspaceID)
-	if err != nil || p == nil || p.ID != "no-workspace" || p.Path != "" || p.Name != "(no workspace)" || p.SessionCount != 1 {
+	if err != nil || p == nil || p.ID != "no-workspace" || p.Path != "(no workspace)" || p.Name != "(no workspace)" || p.SessionCount != 1 {
 		t.Fatalf("%+v %v", p, err)
 	}
 	sessions, err := s.ListSessions(ctx, "no-workspace")
@@ -250,5 +251,25 @@ func TestWatchConfigReachesLogs(t *testing.T) {
 	if !slices.Equal(cfg.IncludeDirs, []string{"brain"}) || !slices.Equal(cfg.HiddenDirs, []string{".system_generated"}) ||
 		!slices.Equal(cfg.ExcludeDirs, []string{"chunks"}) || cfg.MaxDepth != 4 {
 		t.Fatalf("%+v", cfg)
+	}
+}
+
+// Background results land in the transcript after the summary row was
+// written: the later of the two times is when the conversation last changed.
+func TestModifiedAtIsLaterOfSummaryAndFile(t *testing.T) {
+	home := testHome(t)
+	s := testStore(t, home, t.TempDir())
+	sessions, err := s.loadAllSessions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(filepath.Join(logsDir(home, "11111111-aaaa"), fullTranscript))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range sessions {
+		if m.ID == "11111111-aaaa" && (!m.ModifiedAt.Equal(info.ModTime()) || m.ModifiedAt.Location() != time.UTC) {
+			t.Fatalf("ModifiedAt %v, file %v (summary row says 2026-10-28 20:40)", m.ModifiedAt, info.ModTime())
+		}
 	}
 }

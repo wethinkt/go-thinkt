@@ -308,6 +308,9 @@ func (c *converter) resultEntry(h stepHead, toolUseID string) thinkt.Entry {
 		e.Metadata["child_session_ids"] = ids
 	}
 	if toolUseID == "" {
+		if body == "" {
+			body = h.Type
+		}
 		e.Kind, e.Visibility, e.Text = thinkt.KindUnknown, thinkt.VisibilitySecondary, body
 		return e
 	}
