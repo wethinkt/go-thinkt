@@ -221,6 +221,7 @@ func (c *converter) systemMessage(h stepHead) (thinkt.Entry, bool) {
 		c.firstParentMessageSeen = true
 		e := c.newEntry(thinkt.RoleUser, h)
 		e.Text = body
+		e.Subtype = "system_trigger" // as Kimi marks a subagent's task prompt
 		e.Metadata["sender"] = sender
 		return e, true
 	}

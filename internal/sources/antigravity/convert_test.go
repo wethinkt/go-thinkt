@@ -112,7 +112,7 @@ func TestChildTaskPromptIsVisibleUserEntry(t *testing.T) {
 	c := &converter{conversationID: "22222222-bbbb", parentID: "11111111-aaaa"}
 	h, class := ClassifyLine(fixtureLines(t, "child.jsonl")[0])
 	e, ok := c.convert(h, class)
-	if !ok || e.Role != thinkt.RoleUser || e.IsSecondary() || e.Kind != thinkt.KindNone ||
+	if !ok || e.Role != thinkt.RoleUser || e.IsSecondary() || e.Kind != thinkt.KindNone || e.Subtype != "system_trigger" ||
 		!strings.Contains(e.Text, "Examine") {
 		t.Fatalf("%+v", e)
 	}
