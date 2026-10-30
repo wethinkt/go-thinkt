@@ -45,7 +45,7 @@ func IsSessionPath(path string) bool {
 	}
 	clean := filepath.Clean(path)
 	baseDir := getBaseDir()
-	if baseDir != "" && thinkt.IsPathWithinAny(clean, []string{baseDir}) {
+	if thinkt.WithinHome(clean, baseDir) {
 		return true
 	}
 	parts := strings.Split(clean, string(os.PathSeparator))

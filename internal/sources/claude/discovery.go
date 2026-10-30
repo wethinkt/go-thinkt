@@ -76,7 +76,7 @@ func IsSessionPath(path string) bool {
 		return false
 	}
 	baseDir := (&Discoverer{}).basePath()
-	if baseDir != "" && thinkt.IsPathWithinAny(path, []string{baseDir}) {
+	if thinkt.WithinHome(path, baseDir) {
 		return true
 	}
 	return false
