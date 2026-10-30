@@ -429,7 +429,7 @@ func (s *Store) scanSessions() ([]thinkt.SessionMeta, error) {
 		} else if len(row.Workspaces) > 0 {
 			meta.ProjectPath = row.Workspaces[0]
 		} else if row.ParentID == "" {
-			cwd := scanSessionFile(path, id, "", "", nil, nil).Cwd
+			cwd := commandCwd(path, id)
 			meta.ProjectPath = resolveWorkspace(row, cwd, last, id)
 		}
 		byID[id] = meta
@@ -449,6 +449,7 @@ func (s *Store) scanSessions() ([]thinkt.SessionMeta, error) {
 	}
 
 	sessions := make([]thinkt.SessionMeta, 0, len(order))
+	changed := false
 	for _, id := range order {
 		meta := *byID[id]
 		if _, ok := mc.Lookup(meta.FullPath, meta.ModifiedAt, meta.FileSize); !ok {
@@ -460,10 +461,13 @@ func (s *Store) scanSessions() ([]thinkt.SessionMeta, error) {
 				SubagentCount:   meta.SubagentCount,
 				ParentSessionID: meta.ParentSessionID,
 			})
+			changed = true
 		}
 		sessions = append(sessions, meta)
 	}
-	_ = mc.Save()
+	if changed {
+		_ = mc.Save()
+	}
 	s.mu.Lock()
 	s.extras = extras
 	s.mu.Unlock()

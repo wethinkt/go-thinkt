@@ -36,8 +36,7 @@ func scanSessionFile(path, conversationID, parentID, projectPath string, extraWo
 		p.related.workspace(w)
 	}
 	var cost thinkt.SessionCost
-	cwds := map[string]int{}
-	var cwdOrder []string
+	var cwds cwdTally
 	for {
 		e, err := p.NextEntry()
 		if err != nil {
@@ -64,30 +63,71 @@ func scanSessionFile(path, conversationID, parentID, projectPath string, extraWo
 			cost.OutputTokens += e.Usage.OutputTokens
 			cost.CachedInputTokens += e.Usage.CacheReadInputTokens
 		}
-		for _, b := range e.ContentBlocks {
-			if b.Type != "tool_use" || b.ToolName != "run_command" {
-				continue
-			}
-			args, _ := b.ToolInput.(map[string]any)
-			raw, _ := args["Cwd"].(string)
-			if cwd := unquotePath(raw); cwd != "" {
-				if cwds[cwd] == 0 {
-					cwdOrder = append(cwdOrder, cwd)
-				}
-				cwds[cwd]++
-			}
-		}
+		cwds.add(e)
 	}
-	for _, cwd := range cwdOrder {
-		if cwds[cwd] > cwds[s.Cwd] {
-			s.Cwd = cwd
-		}
-	}
+	s.Cwd = cwds.top()
 	if cost != (thinkt.SessionCost{}) {
 		s.Cost = &cost
 	}
 	s.Related = p.RelatedPaths()
 	return s
+}
+
+// cwdTally counts the folders run_command calls ran in.
+type cwdTally struct {
+	counts map[string]int
+	order  []string
+}
+
+// add counts the run_command Cwd arguments of an assistant entry.
+func (c *cwdTally) add(e *thinkt.Entry) {
+	if e.Role != thinkt.RoleAssistant {
+		return
+	}
+	for _, b := range e.ContentBlocks {
+		if b.Type != "tool_use" || b.ToolName != "run_command" {
+			continue
+		}
+		args, _ := b.ToolInput.(map[string]any)
+		raw, _ := args["Cwd"].(string)
+		if cwd := unquotePath(raw); cwd != "" {
+			if c.counts == nil {
+				c.counts = map[string]int{}
+			}
+			if c.counts[cwd] == 0 {
+				c.order = append(c.order, cwd)
+			}
+			c.counts[cwd]++
+		}
+	}
+}
+
+// top returns the most common folder, the first seen on a tie; "" if none.
+func (c *cwdTally) top() string {
+	best := ""
+	for _, cwd := range c.order {
+		if c.counts[cwd] > c.counts[best] {
+			best = cwd
+		}
+	}
+	return best
+}
+
+// commandCwd returns the folder a transcript's commands most often ran in,
+// for a conversation with no workspace. It skips the full scan's prompt,
+// usage and related-folder work.
+func commandCwd(path, conversationID string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = f.Close() }()
+	p := NewParser(f, conversationID, "")
+	var cwds cwdTally
+	for e, err := p.NextEntry(); err == nil; e, err = p.NextEntry() {
+		cwds.add(e)
+	}
+	return cwds.top()
 }
 
 // resolveWorkspace picks a conversation's project folder: the first

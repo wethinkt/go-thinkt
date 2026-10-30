@@ -273,3 +273,34 @@ func TestModifiedAtIsLaterOfSummaryAndFile(t *testing.T) {
 		}
 	}
 }
+
+// A listing that changes nothing in the metadata cache leaves its file alone.
+func TestListingDoesNotRewriteUnchangedCache(t *testing.T) {
+	home, cacheDir := testHome(t), t.TempDir()
+	if _, err := testStore(t, home, cacheDir).loadAllSessions(); err != nil {
+		t.Fatal(err)
+	}
+	files, _ := filepath.Glob(filepath.Join(cacheDir, "*"))
+	if len(files) != 1 {
+		t.Fatalf("cache files %v", files)
+	}
+	old := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	if err := os.Chtimes(files[0], old, old); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := testStore(t, home, cacheDir).loadAllSessions(); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Stat(files[0]); err != nil || !info.ModTime().Equal(old) {
+		t.Fatalf("cache rewritten: %v %v", info.ModTime(), err)
+	}
+}
+
+func TestCommandCwd(t *testing.T) {
+	if got := commandCwd(fixturePath(t, "noworkspace.jsonl"), "c"); got != "/w/old" {
+		t.Fatalf("%q", got)
+	}
+	if got := commandCwd(fixturePath(t, "child.jsonl"), "c"); got != "" {
+		t.Fatalf("%q", got)
+	}
+}
