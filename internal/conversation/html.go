@@ -64,6 +64,9 @@ func WriteHTML(w io.Writer, doc *Document, view View) error {
 		if message.TurnID != "" {
 			fmt.Fprintf(&out, " data-turn-id=\"%s\"", html.EscapeString(message.TurnID))
 		}
+		if message.PromptID != "" {
+			fmt.Fprintf(&out, " data-prompt-id=\"%s\"", html.EscapeString(message.PromptID))
+		}
 		if message.Kind != "" {
 			fmt.Fprintf(&out, " data-kind=\"%s\"", html.EscapeString(string(message.Kind)))
 		}

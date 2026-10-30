@@ -7,7 +7,7 @@ Package `codex` implements the session source for [Codex CLI](https://github.com
 ```
 codex/
 ├── discovery.go          # StoreFactory implementation, session path detection
-├── classify.go           # RecordClass, recordHead, ClassifyLine, IsSearchable, entryWeight
+├── classify.go           # recordHead, ClassifyLine (thinkt.RecordClass), IsSearchable, entryWeight
 ├── convert.go            # converter: messages, events, compaction, legacy events, unknown
 ├── tools.go              # tool pairs from harness items; wire calls as single entries
 ├── usage.go              # decodeUsage for token_usage_record
@@ -39,7 +39,7 @@ The base directory defaults to `~/.codex` and can be overridden with `THINKT_COD
 
 Every line is `{timestamp, type, payload}`. `ClassifyLine` reads the record key
 (`"<type>"`, `event_msg/<payload.type>`, `response_item/<payload.type>`, or
-`item/<item.type>` for `event_msg/item_completed`) and decides a `RecordClass`.
+`item/<item.type>` for `event_msg/item_completed`) and decides a `thinkt.RecordClass`.
 Harness items (`item/*`) are the entry source for agent output and tools; the
 model wire (`response_item/*`) supplies what items lack: user and developer
 input, raw tool calls, inter-agent messages.
@@ -84,8 +84,18 @@ no assistant entry held is dropped). A wire assistant message or reasoning
 record whose trimmed text equals the preceding `AgentMessage` or `Reasoning`
 item is dropped; a wire-only reply is kept. Legacy rollouts pair each
 `event_msg` user/agent/reasoning event with the wire record that follows, and
-the wire record wins. `turn_context` and `task_started` stamp `TurnID`, `Model`,
-and `Effort` on every later entry.
+the wire record wins. `turn_context` and `task_started` stamp `PromptID` (the
+`turn_id`), `Model`, and `Effort` on every later entry.
+
+The parser holds the entries of one model response until the
+`token_usage_record` that closes it, then sets the record's `response_id` as
+`TurnID` on all of them; adjacent usage records apply to the same response
+and the last one wins. A user message, `turn_context`, `task_started`, or the
+end of the file releases a response no record closed, without a `TurnID`.
+Tool results arrive after their response closed: a wire output or an
+`McpToolCall` takes the response id of its call through the call id; a
+`CommandExecution` item carries its own id and keeps an empty `TurnID` when it
+arrives after the usage record.
 
 ## Session state
 
@@ -106,12 +116,13 @@ hidden from `ListSessions` unless `thinkt.WithSubagents()` is passed; projects
 count them in `SubagentCount`, not `SessionCount`.
 
 `IsSearchable` lets the search scanner skip bookkeeping lines, wire twins, and
-secondary entries. `thinkt.ParserVersion` 4 covers this classification.
+secondary entries; the factory exposes it as `thinkt.SearchLineFilterer`.
+`thinkt.ParserVersion` 6 covers this format.
 
 ## Key Types
 
 - [`Discoverer`](discovery.go) — implements [`thinkt.StoreFactory`](../../thinkt/).
-- [`RecordClass`](classify.go), [`recordHead`](classify.go) — the class table's inputs and output.
+- [`recordHead`](classify.go) and `thinkt.RecordClass` — the class table's inputs and output.
 - [`Parser`](parser.go) — streaming reader producing [`thinkt.Entry`](../../thinkt/) values.
 - [`sessionScan`](sessionstate.go) — one full pass over a rollout for `SessionMeta`.
 - [`Store`](store.go) — implements [`thinkt.Store`](../../thinkt/).

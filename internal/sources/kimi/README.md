@@ -8,8 +8,8 @@ reading the current CLI's tree at `~/.kimi-code` (override with
 
 ```
 kimi/
-├── discovery.go          # StoreFactory, IsSessionPath, BaseDirForPath, SessionIDForPath
-├── classify.go           # RecordClass, recordHead, ClassifyLine, userClass, IsSearchable
+├── discovery.go          # StoreFactory, IsSessionPath, baseDirForPath, sessionIDForPath
+├── classify.go           # recordHead, ClassifyLine (thinkt.RecordClass), userClass, IsSearchable
 ├── convert.go            # user lines, events, protocol 1.0 messages, tool result blocks, usage
 ├── parser.go             # streaming Parser: loop-step hold, approvals, spawns, twin dedupe
 ├── sessionstate.go       # state.json, session_index.jsonl, workspaces.json, scanSessionFile
@@ -112,7 +112,12 @@ message is dropped when its id was already emitted.
 | `SubagentCount` | subagent wires under the session |
 
 `IsSearchable` applies the same rules line by line so search never hits a
-twin the parser drops. `thinkt.ParserVersion` 5 covers this format.
+twin the parser drops; the factory exposes `NewSearchFilter` as
+`thinkt.SearchLineFilterer`. The wire `turnId` is each entry's `PromptID`. A
+loop step is one model response: its entry's `TurnID` is the step uuid (its
+own `UUID`), and the results of the calls it made carry the same `TurnID`.
+The chat completion id stays in `Metadata["message_id"]`.
+`thinkt.ParserVersion` 6 covers this format.
 
 ## The legacy `~/.kimi` tree
 

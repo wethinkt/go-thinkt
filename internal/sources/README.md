@@ -35,6 +35,8 @@ sources/
 Each source subdirectory follows a common pattern:
 
 1. **`discovery.go`** — implements [`thinkt.StoreFactory`](../thinkt/) (`Source()`, `Create()`, `IsAvailable()`) plus `Factory()` and `IsSessionPath()` helpers
+   - **`pathresolve.go`** — implements `thinkt.SessionPathResolver` on the factory (`ResolveSessionPath`, `OpenSessionPath`); add the source to `resolveOrder` in [`resolve.go`](resolve.go), which mirrors the order the TUI used to pick a source and decides overlaps
+   - **`searchfilter.go`** (optional) — implements `thinkt.SearchLineFilterer` when some lines of a session file are not conversation content
 2. **`store.go`** — implements [`thinkt.Store`](../thinkt/) (`ListProjects`, `ListSessions`, `LoadSession`, `OpenSession`, `WatchConfig`, etc.)
 3. **`parser.go`** (optional) — reads source-specific JSONL/JSON formats and converts to [`thinkt.Entry`](../thinkt/)
 4. Register the new factory in [`sources.go`](sources.go)

@@ -39,6 +39,7 @@ type Message struct {
 	Kind        thinkt.EntryKind
 	Visibility  thinkt.Visibility
 	TurnID      string
+	PromptID    string
 	Attribution *thinkt.Attribution
 	StopReason  string
 	Error       string
@@ -87,7 +88,7 @@ func Build(entries []thinkt.Entry, opts BuildOptions) (*Document, error) {
 		key, _ := json.Marshal([]string{origin.SessionID, string(entry.Source), entry.UUID, strconv.Itoa(origin.EntryIndex)})
 		id := fmt.Sprintf("message-%x", sha256.Sum256(key))
 		message := Message{ID: id, Origin: origin, Role: entry.Role, Timestamp: entry.Timestamp, Source: entry.Source, Model: entry.Model,
-			Kind: entry.Kind, Visibility: entry.Visibility, TurnID: entry.TurnID, Attribution: entry.Attribution,
+			Kind: entry.Kind, Visibility: entry.Visibility, TurnID: entry.TurnID, PromptID: entry.PromptID, Attribution: entry.Attribution,
 			StopReason: entry.StopReason, Error: entry.Error, Compaction: entry.Compaction}
 		for j, raw := range entry.ContentBlocks {
 			blockOrigin := origin

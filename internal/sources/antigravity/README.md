@@ -9,8 +9,8 @@ this directory.
 
 ```
 antigravity/
-├── discovery.go          # StoreFactory, DefaultDir, IsSessionPath, BaseDirForPath, SessionIDForPath, sessionFile
-├── classify.go           # RecordClass, stepHead, ClassifyLine, NewSearchFilter
+├── discovery.go          # StoreFactory, DefaultDir, IsSessionPath, baseDirForPath, sessionIDForPath, sessionFile
+├── classify.go           # StepClass, stepHead, ClassifyLine, NewSearchFilter
 ├── convert.go            # step → entry: <USER_REQUEST> split, model turns, results, system messages
 ├── parser.go             # streaming Parser: order-based pairing, held model turn, subagent links
 ├── related.go            # relatedTracker: folders outside the project the conversation touched
@@ -59,9 +59,10 @@ from `type`:
 | `ERROR_MESSAGE` | api error | `KindAPIError`, secondary |
 | anything else | unknown | `KindUnknown`, secondary, logged once per type |
 
-Entry UUIDs are `<conversation-id>:<step_index>`. `TurnID` is the index of
+Entry UUIDs are `<conversation-id>:<step_index>`. `PromptID` is the index of
 the latest `USER_INPUT` (steps before the first one take the first step's
-index). Attached `media` becomes a `[<mime_type>: <uri>]` text line; the
+index). `TurnID` is the index of the planner step: its entry and the results
+paired to its calls share it; user input and system steps have none. Attached `media` becomes a `[<mime_type>: <uri>]` text line; the
 file is not read.
 
 The search filter keeps user input, model turns, tool results, and a

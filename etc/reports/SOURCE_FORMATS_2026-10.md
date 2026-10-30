@@ -40,13 +40,13 @@ lines sometimes add `metadata`. CLI versions seen: 0.130 to 0.164.
 |---|---|---|---|
 | `event_msg/item_completed` | 51,082 | semantic item stream: `item.type` is `CommandExecution` 20,635, `Reasoning` 15,639, `AgentMessage` 7,976, `UserMessage` 2,461, `FileChange` 2,090, `McpToolCall` 906, `Extension` 673, `ImageView` 321, `SubAgentActivity` 126, `ContextCompaction` 115, `WebSearch` 92, `CollabAgentToolCall` 65, `Plan` 1 | the entry source for agent output and tools: `AgentMessage`/`Reasoning`/`Plan` are assistant entries, tool items become tool_use + tool_result pairs, `SubAgentActivity`/`CollabAgentToolCall` are `KindAgentMessage` events, `UserMessage`/`ContextCompaction` are bookkeeping |
 | `event_msg/token_count` | 25,320 | cumulative usage + rate limits after each response | bookkeeping |
-| `token_usage_record` | 21,649 | per-response usage with `turn_id`, `response_id` | `Usage` on the held assistant entry; summed into `SessionCost` token totals |
+| `token_usage_record` | 21,649 | per-response usage with `turn_id`, `response_id` | `Usage` on the held assistant entry, `response_id` as `TurnID` on every entry of the response; summed into `SessionCost` token totals |
 | `response_item/custom_tool_call` + `_output` | 17,609 / 17,608 | `exec` JavaScript orchestration calls and chunked output | secondary `KindToolWire` entries (`wire:<call_id>`) when the name is an orchestration tool; normal tool entries otherwise |
 | `response_item/reasoning` | 17,540 | `summary[]` plus `encrypted_content`; `content` on 1,907 | dropped when it twins the preceding `Reasoning` item; thinking block when wire-only; bookkeeping when encrypted only |
 | `response_item/message` | 11,607 | roles user 2,924 / assistant 7,881 / developer 804; `phase` commentary 5,726 or final_answer 2,155 | user: turn, `KindCommandOutput`, or `KindMeta` by content item kinds; developer: secondary `KindMeta`; assistant: dropped when it twins the preceding `AgentMessage` item |
 | `response_item/function_call` + `_output` | 6,326 each | `wait`, MCP, and legacy tools | as `custom_tool_call` |
 | `event_msg/task_started` / `task_complete` / `turn_aborted` | 2,417 / 2,296 / 120 | turn brackets: `turn_id`, `root_turn_id`, `duration_ms`, `time_to_first_token_ms`, `last_agent_message`, `turn_attribution{turn_trigger, parent_turn_id, initiating_agent_path}` | `task_started` stamps `TurnID`; `task_complete`/`turn_aborted` are secondary `KindTurnDuration` entries with `duration_ms` and `Error` |
-| `turn_context` | 2,388 | per-turn model, effort, cwd, approval and sandbox policy, collaboration mode | session state: `TurnID`, `Model`, `Effort` on every later entry; `SessionMeta.Model` |
+| `turn_context` | 2,388 | per-turn model, effort, cwd, approval and sandbox policy, collaboration mode | session state: `PromptID`, `Model`, `Effort` on every later entry; `SessionMeta.Model` |
 | `event_msg/thread_settings_applied` | 2,166 | model, service tier, permission profile, reasoning effort | bookkeeping; model fallback for `SessionMeta.Model` |
 | `world_state` | 472 | hashes of instructions, skills, environment | bookkeeping |
 | `session_meta` | 205 | `session_id`, `cwd`, `cli_version`, `source` (`"vscode"`, `"cli"`, or `{subagent:{thread_spawn:{parent_thread_id, depth, agent_path, agent_nickname}}}`), `base_instructions` | `ID` (from `id`), cwd, branch, created, `ParentSessionID`, subagent title fallback |
@@ -96,7 +96,7 @@ the parent rollout names the child file, so the link is child to parent only.
 | `message` role developer | `RoleSystem`, `KindMeta`, secondary |
 | `message` role assistant, `AgentMessage` | `RoleAssistant`; `phase` in metadata |
 | `reasoning.summary` | thinking block (summary); encrypted content dropped |
-| `function_call`, `custom_tool_call`, `McpToolCall`, `CommandExecution` | tool_use block, `TurnID` from `turn_id` |
+| `function_call`, `custom_tool_call`, `McpToolCall`, `CommandExecution` | tool_use block, `PromptID` from `turn_id`, `TurnID` from the closing usage record (empty for a command item that arrives after it) |
 | `*_output`, `CommandExecution.aggregated_output` | tool_result block with stdout/stderr children; exit code in metadata |
 | `FileChange` | tool_result with `diff` child per file |
 | `task_complete`, `turn_aborted` | `RoleSystem`, `KindTurnDuration` (secondary), `Error` on abort |
@@ -225,7 +225,7 @@ Message roles: user 393, assistant 757, tool 801; content parts `text`,
 |---|---|
 | `context.append_loop_event` | one assistant entry per step (thinking, text, tool_use blocks, usage from `step.end`); `tool.result` to a tool_result entry |
 | `context.append_message` / `agent.message.appended` | user entries (the appended input record leads, the context twin is dropped); protocol 1.0 assistant and tool messages; batched appended assistant and tool records dropped when the loop covered them |
-| `turn.*`, `agent.turn.*` | `TurnID`; `turn.ended` to a secondary `KindTurnDuration`, `Error` on `reason: failed`; `turn.step.interrupted` sets `Error` on its step |
+| `turn.*`, `agent.turn.*` | `PromptID` (the loop step uuid is `TurnID`); `turn.ended` to a secondary `KindTurnDuration`, `Error` on `reason: failed`; `turn.step.interrupted` sets `Error` on its step |
 | `step.end.usage` | `Usage` on the step's assistant entry (`usage.record` is bookkeeping) |
 | `permission.record_approval_result` | `PermissionDecision` on the tool result (`approved` / `rejected`); `interaction.*` is bookkeeping |
 | `subagent.*` | `ChildSessionID` = `<sessionID>/<agentId>` on the event, the `Agent` tool_use and tool_result blocks, and the result entry |
