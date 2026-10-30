@@ -30,6 +30,7 @@ type Watcher struct {
 	done           chan struct{}
 	mu             sync.Mutex
 	sessionIndex   map[string]sessionIndexEntry // normalized path -> session info
+	unmatched      map[string]bool              // changed paths no session owns, warned about once
 
 	inFlightMu sync.Mutex
 	inFlight   map[string]bool
@@ -238,7 +239,11 @@ func (w *Watcher) handleFileChange(path string) {
 	}()
 
 	if !ok {
-		tuilog.Log.Warn("watcher: file changed but no session found", "path", realPath)
+		if w.firstUnmatched(realPath) {
+			tuilog.Log.Warn("watcher: file changed but no session found", "path", realPath)
+		} else {
+			tuilog.Log.Debug("watcher: file changed but no session found", "path", realPath)
+		}
 		return
 	}
 
@@ -291,7 +296,9 @@ func (w *Watcher) discoverSession(path string) (sessionIndexEntry, bool) {
 	}
 
 	for _, p := range projects {
-		if !strings.HasPrefix(path, p.Path) {
+		// Claude keeps sessions under the project folder; Antigravity, Kimi
+		// and others keep them under the source's own home.
+		if !strings.HasPrefix(path, p.Path) && !underDir(path, p.SourceBasePath) {
 			continue
 		}
 		store, ok := w.registry.Get(p.Source)
@@ -320,6 +327,34 @@ func (w *Watcher) discoverSession(path string) (sessionIndexEntry, bool) {
 	}
 
 	return sessionIndexEntry{}, false
+}
+
+// underDir reports whether path (already symlink-resolved) is below dir,
+// resolving dir's symlinks too. An empty dir matches nothing.
+func underDir(path, dir string) bool {
+	if dir == "" {
+		return false
+	}
+	if real, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = real
+	}
+	return strings.HasPrefix(path, filepath.Clean(dir)+string(filepath.Separator))
+}
+
+// firstUnmatched reports whether path is reported unmatched for the first
+// time. Sources that keep a second copy of a transcript next to the session
+// file (Antigravity) write it on every step; one warning is enough.
+func (w *Watcher) firstUnmatched(path string) bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.unmatched == nil {
+		w.unmatched = make(map[string]bool)
+	}
+	if w.unmatched[path] {
+		return false
+	}
+	w.unmatched[path] = true
+	return true
 }
 
 // isWatchableFile returns true if the path is a JSONL session file.
