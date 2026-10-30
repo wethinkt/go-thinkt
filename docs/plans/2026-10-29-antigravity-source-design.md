@@ -400,3 +400,8 @@ project view of sessions from elsewhere that touched it).
 - The first child id goes on the tool_use block when one call creates
   several subagents; all are in metadata. Cost if wrong: the other
   children are reachable only through the parent listing.
+- `edited` related folders come from the edit tools' path arguments
+  (`TargetFile`, `Path`), not from the path named in a `CODE_ACTION`
+  result, which section H also lists: every real `CODE_ACTION` result
+  follows an edit call naming the same file. Cost if wrong: an edit made
+  without one of those tools is not recorded as related.
