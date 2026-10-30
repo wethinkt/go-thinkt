@@ -82,7 +82,7 @@ type SemanticSearchResponse struct {
 // @Produce json
 // @Param q query string true "Search query text"
 // @Param project query string false "Filter by project name (substring match)"
-// @Param source query string false "Filter by source (claude, kimi), case-insensitive"
+// @Param source query string false "Filter by source (claude, kimi, gemini, copilot, codex, qwen, antigravity), case-insensitive"
 // @Param limit query int false "Maximum total matches (default 50)"
 // @Param limit_per_session query int false "Maximum matches per session (default 2, 0 for no limit)"
 // @Param case_sensitive query bool false "Enable case-sensitive matching (default false)"
@@ -196,7 +196,7 @@ func queryStats(db *indexdb.DB, enabledSources []string) StatsResponse {
 // @Produce json
 // @Param q query string true "Natural language search query"
 // @Param project query string false "Filter by project name (substring match)"
-// @Param source query string false "Filter by source (claude, kimi, gemini, copilot, codex, qwen), case-insensitive"
+// @Param source query string false "Filter by source (claude, kimi, gemini, copilot, codex, qwen, antigravity), case-insensitive"
 // @Param limit query int false "Maximum number of results (default 20)"
 // @Param max_distance query number false "Cosine distance threshold (0-2, lower is more similar)"
 // @Param diversity query bool false "Apply diversity scoring to return results from different sessions"

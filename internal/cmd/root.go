@@ -15,6 +15,7 @@ import (
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
 	"github.com/wethinkt/go-thinkt/internal/server"
 	"github.com/wethinkt/go-thinkt/internal/sources"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -33,7 +34,7 @@ var rootCmd = &cobra.Command{
 	SilenceErrors: true,
 	Long: `thinkt provides tools for exploring and extracting data from AI coding assistant sessions.
 
-Supports: Claude Code, Kimi Code, Gemini CLI, GitHub Copilot CLI, Codex CLI
+Supports: ` + thinkt.SourceDisplayNames() + `
 
 Running without a subcommand launches the interactive TUI.
 
@@ -168,7 +169,7 @@ func init() {
 	// - -p <path>: use specified path
 	sessionsCmd.PersistentFlags().StringVarP(&sessionProject, "project", "p", "", "project path (auto-detects from cwd if not set)")
 	sessionsCmd.PersistentFlags().BoolVar(&sessionForcePicker, "pick", false, "force project picker even if in a known project directory")
-	sessionsCmd.PersistentFlags().StringArrayVarP(&sessionSources, "source", "s", nil, "filter by source (claude|kimi|gemini|copilot|codex|qwen, can be specified multiple times)")
+	sessionsCmd.PersistentFlags().StringArrayVarP(&sessionSources, "source", "s", nil, "filter by source ("+thinkt.SourceNames("|")+", can be specified multiple times)")
 	sessionsCmd.PersistentFlags().StringVar(&logPath, "log", "", "write debug log to file")
 	sessionsSummaryCmd.Flags().StringVar(&sessionTemplate, "template", "", "custom Go text/template for output")
 	sessionsSummaryCmd.Flags().StringVar(&sessionSortBy, "sort", "time", "sort by: name, time")

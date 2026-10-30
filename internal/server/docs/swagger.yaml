@@ -1347,7 +1347,8 @@ paths:
         in: query
         name: project
         type: string
-      - description: Filter by source (claude, kimi), case-insensitive
+      - description: Filter by source (claude, kimi, gemini, copilot, codex, qwen,
+          antigravity), case-insensitive
         in: query
         name: source
         type: string

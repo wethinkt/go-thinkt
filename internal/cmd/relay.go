@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/wethinkt/go-thinkt/internal/relay"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -85,7 +86,7 @@ func runRelay(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(watchDirs) == 0 && !relayFlush {
-		return fmt.Errorf("no source directories found (available sources: claude, kimi, gemini, copilot, codex)")
+		return fmt.Errorf("no source directories found (available sources: %s)", thinkt.SourceNames(", "))
 	}
 
 	tuilog.Log.Info("Relay configuration",

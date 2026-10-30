@@ -429,7 +429,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Filter by source (claude, kimi), case-insensitive",
+                        "description": "Filter by source (claude, kimi, gemini, copilot, codex, qwen, antigravity), case-insensitive",
                         "name": "source",
                         "in": "query"
                     },

@@ -119,7 +119,7 @@ Examples:
 
 func init() {
 	// Root flags (persistent across all subcommands)
-	projectsCmd.PersistentFlags().StringArrayVarP(&projectSources, "source", "s", nil, "source to include (kimi|claude|gemini|copilot|codex|qwen, can be specified multiple times, default: all)")
+	projectsCmd.PersistentFlags().StringArrayVarP(&projectSources, "source", "s", nil, "source to include ("+thinkt.SourceNames("|")+", can be specified multiple times, default: all)")
 
 	// List command flags
 	projectsListCmd.Flags().BoolVar(&shortFormat, "short", false, "show project paths only")

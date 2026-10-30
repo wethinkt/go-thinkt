@@ -183,7 +183,7 @@ func (ms *MCPServer) registerTools() {
 	if ms.isToolAllowed("semantic_search") {
 		mcp.AddTool(ms.server, &mcp.Tool{
 			Name:        "semantic_search",
-			Description: "Search for sessions by meaning using on-device embeddings. Returns sessions ranked by semantic similarity to the query. Requires the indexer server with a synced embedding index.\n\nParameters:\n- query (required): Natural language search query\n- project: Filter by project name (partial match)\n- source: Filter by source (kimi|claude|gemini|copilot|codex|qwen), case-insensitive\n- max_distance: Cosine distance threshold (0-2 range, lower is more similar)\n- diversity: When true, applies diversity scoring to return results from different sessions rather than many results from the same session\n- limit: Maximum number of results (default: 20)",
+			Description: "Search for sessions by meaning using on-device embeddings. Returns sessions ranked by semantic similarity to the query. Requires the indexer server with a synced embedding index.\n\nParameters:\n- query (required): Natural language search query\n- project: Filter by project name (partial match)\n- source: Filter by source (" + thinkt.SourceNames("|") + "), case-insensitive\n- max_distance: Cosine distance threshold (0-2 range, lower is more similar)\n- diversity: When true, applies diversity scoring to return results from different sessions rather than many results from the same session\n- limit: Maximum number of results (default: 20)",
 		}, ms.handleSemanticSearch)
 	}
 }

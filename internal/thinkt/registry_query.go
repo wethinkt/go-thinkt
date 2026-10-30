@@ -9,9 +9,24 @@ import (
 // availableSourcesString returns a comma-separated list of all known sources
 // for use in error messages.
 func availableSourcesString() string {
+	return SourceNames(", ")
+}
+
+// SourceNames joins the ids of AllSources with sep, for help text and
+// error messages that list the sources.
+func SourceNames(sep string) string {
 	names := make([]string, len(AllSources))
 	for i, s := range AllSources {
 		names[i] = string(s)
+	}
+	return strings.Join(names, sep)
+}
+
+// SourceDisplayNames joins the display names of AllSources with ", ".
+func SourceDisplayNames() string {
+	names := make([]string, len(AllSources))
+	for i, s := range AllSources {
+		names[i] = s.DisplayName()
 	}
 	return strings.Join(names, ", ")
 }

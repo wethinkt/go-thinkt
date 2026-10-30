@@ -34,3 +34,12 @@ func TestMergeIntoCopiesRelatedPaths(t *testing.T) {
 		t.Fatalf("got %+v", meta.RelatedPaths)
 	}
 }
+
+func TestSourceNameListsFollowAllSources(t *testing.T) {
+	if got := SourceNames("|"); got != "claude|kimi|gemini|copilot|codex|qwen|antigravity" {
+		t.Fatalf("names %q", got)
+	}
+	if got := SourceDisplayNames(); got != "Claude Code, Kimi Code, Gemini CLI, GitHub Copilot, Codex CLI, Qwen Code, Antigravity CLI" {
+		t.Fatalf("display %q", got)
+	}
+}

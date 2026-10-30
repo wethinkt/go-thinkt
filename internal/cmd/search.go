@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	indexdb "github.com/wethinkt/go-thinkt/internal/index/db"
 	"github.com/wethinkt/go-thinkt/internal/index/search"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui"
 	"golang.org/x/term"
 )
@@ -113,7 +114,7 @@ By default opens an interactive TUI. Use --list for scripting output.`,
 
 func init() {
 	searchCmd.Flags().StringVarP(&searchFilterProject, "project", "p", "", "Filter by project name")
-	searchCmd.Flags().StringVarP(&searchFilterSource, "source", "s", "", "Filter by source (claude, kimi)")
+	searchCmd.Flags().StringVarP(&searchFilterSource, "source", "s", "", "Filter by source ("+thinkt.SourceNames(", ")+")")
 	searchCmd.Flags().IntVarP(&searchLimit, "limit", "n", 50, "Limit total matches")
 	searchCmd.Flags().IntVar(&searchLimitPerSess, "limit-per-session", 2, "Limit hits per session (0 for no limit)")
 	searchCmd.Flags().BoolVar(&searchList, "list", false, "Output as list instead of TUI")
