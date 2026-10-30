@@ -203,15 +203,18 @@ Rules from the spec:
 - Modify: `internal/sources/codex/usage.go` (`usageRecord.ResponseID string \`json:"response_id"\``; `decodeUsage` unchanged; new `responseID(payload json.RawMessage) string`), `codex/parser.go`, `codex/convert.go` (turn id → `PromptID`)
 - Test: `internal/sources/codex/parser_hold_test.go`, `codex/usage_test.go`
 
-**Interfaces:** Parser state replaces `pending`/`usageTarget` with `hold []thinkt.Entry`, `usageTarget int` (index of the last assistant entry of the most recent entry-producing line in the hold), `closed bool`, `callResponse map[string]string` (raw call id → response id).
+**Interfaces:** Parser state replaces `pending`/`usageTarget` with `hold []heldEntry` (`heldEntry{entry thinkt.Entry; mapped bool}`; `mapped` marks an id taken from the call-id map), `usageTarget int` (index in `hold` of the last assistant entry of the newest line in the hold; `-1` when that line has no assistant entry), `closed bool`, `callResponse map[string]string` (raw call id → response id).
 
 Algorithm (the spec's rules, in parser terms):
-- **Result lines** are wire outputs (`response_item/function_call_output`, `custom_tool_call_output`) and harness tool items (`item/CommandExecution`, `FileChange`, `McpToolCall`, `WebSearch`, `ImageView`, `Extension`). Every other entry-producing line is a **response line**.
+- **Result lines** are wire outputs (`response_item/function_call_output`, `custom_tool_call_output`) and harness tool items (`item/CommandExecution`, `FileChange`, `McpToolCall`, `WebSearch`, `ImageView`, `Extension`), both halves. A tool result is never a user-message boundary. Every other entry-producing line is a **response line**, except the boundary lines below.
+- **Boundary lines**: a user-role message (wire or item) and a legacy `event_msg/user_message`. On one, release the hold (see release), then emit the boundary entry at once with an empty `TurnID`; it never joins a hold. A legacy `agent_message`/`agent_reasoning` is a response line in older files: after any legacy flush it starts the new hold.
+- **Entry-less boundaries**: `turn_context` and `task_started` produce no entries (session state / bookkeeping) and today return before any hold logic. The release runs on that early-return path too.
 - Twin checks (`isItemTwin`, legacy `isWireTwin`) run exactly as today, when the line is read, before any hold logic.
-- On an entry-producing line: if `closed`, release the hold. Then: a user-role message line, `turn_context`, `task_started` or a legacy event releases the hold unstamped first. A result line with an empty hold is released at once; otherwise it joins the hold. A response line joins the hold.
-- Before releasing or holding, each entry whose tool block `ToolUseID` (with any `wire:` prefix removed) is in `callResponse` takes that response id as `TurnID`.
-- On `token_usage_record`: if the hold is empty, do nothing (today's behaviour after a user entry). Otherwise attach usage to `usageTarget` (last write wins) and set `TurnID` = this record's `response_id` on held entries whose `TurnID` is empty — a second adjacent record overwrites the first's stamp. Record every held `tool_use` id (prefix removed) → response id in `callResponse`. Set `closed = true`; do not release.
-- At EOF: release unstamped.
+- **Release** emits the held entries as they are: entries a usage record stamped keep that id, entries no usage record stamped come out with an empty `TurnID` (or their mapped id). Release empties the hold, clears `closed`, sets `usageTarget = -1`.
+- On a response or result line: if `closed`, release first. Then a result line with an empty hold is emitted at once; otherwise the line's entries join the hold. A response line joins the hold. After joining, `usageTarget` is the line's last assistant entry, or `-1` if the line has none.
+- Before emitting or holding, each entry whose tool block `ToolUseID` (with any `wire:` prefix removed) is in `callResponse` takes that response id as `TurnID` and is marked `mapped`.
+- On `token_usage_record`: if the hold is empty, do nothing. Otherwise attach usage to `usageTarget` when it is not `-1` (last write wins), set `TurnID` = this record's `response_id` on every held entry not marked `mapped` (a later record in the same run overwrites the earlier record's id), record every held `tool_use` id (prefix removed) → response id in `callResponse`, and set `closed = true`. Do not release.
+- At EOF: release (stamped entries keep their ids).
 
 - [ ] **Step 1: Write the failing tests** (inline fixtures in the `parseAll` style; JSON shapes from `testdata/rollout-fixture.jsonl`):
   - `TestResponseEntriesShareResponseID`: reasoning, assistant message, wire function_call, usage(`resp-1`) → all three entries `TurnID == "resp-1"`; usage on the assistant entry.
@@ -220,7 +223,10 @@ Algorithm (the spec's rules, in parser terms):
   - `TestCommandItemAfterUsageHasNoTurnID`: wire call `call_1`, usage(`resp-1`), `item/CommandExecution` id `exec-1`, wire output `call_1` → command halves `TurnID == ""`, wire output `TurnID == "resp-1"`, and output order equals line order.
   - `TestMcpToolCallAfterUsageJoinsByCallID`: wire call `call_9`, usage(`resp-1`), `item/McpToolCall` id `call_9` → both halves `TurnID == "resp-1"`.
   - `TestHoldReleasedUnstampedAtEOF`: reasoning, assistant message, EOF → both entries present, `TurnID == ""`.
-  - `TestUserMessageReleasesHoldUnstamped`: response lines, user message, usage → response entries `TurnID == ""`, usage not attached (today's `TestParserUsageAfterUserEntryIsNotAttached` still passes).
+  - `TestUserMessageReleasesHoldUnstamped`: response lines, user message, assistant message, usage(`resp-2`) → the earlier response entries and the user entry have `TurnID == ""`; the assistant entry has `TurnID == "resp-2"` and the usage. Today's `TestParserUsageAfterUserEntryIsNotAttached` (wire call, its output, usage) still passes: usage stays unattached because the output line cleared `usageTarget`, while both held entries take the record's `response_id`.
+  - `TestSecondResponseSharesItsOwnID`: reasoning, message, usage(`resp-1`), reasoning, message, usage(`resp-2`), EOF → four entries; the first pair `resp-1`, the second `resp-2`.
+  - `TestMappedIDSurvivesLaterUsage`: wire call `call_1`, usage(`resp-1`), reasoning, wire output `call_1` (joins the open hold), usage(`resp-2`) → the output keeps `TurnID == "resp-1"`, the reasoning is `resp-2`.
+  - `TestTurnContextReleasesHold`: response lines, `turn_context`, EOF → the held entries come out once, unstamped, before nothing else is emitted; order unchanged.
   - `TestTwinDropUnchangedByHold`: `fixAgentItemA2`, `fixWireA2`, usage → one entry, `TurnID` set.
   - `TestRolloutWithoutUsageRecords`: over a copy of `testdata/rollout-fixture.jsonl` with `token_usage_record` lines removed, entries equal today's output except `PromptID` holds what `TurnID` held and `TurnID == ""` (compare UUID, Role, Kind, Text order).
   - Existing tests asserting `TurnID == "turn-1"` change to `PromptID`.
