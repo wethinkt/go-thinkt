@@ -25,3 +25,14 @@ func AllFactories() []thinkt.StoreFactory {
 		antigravity.Factory(),
 	}
 }
+
+// Factory returns the factory for source s, or nil when s is not a known
+// source.
+func Factory(s thinkt.Source) thinkt.StoreFactory {
+	for _, f := range AllFactories() {
+		if f.Source() == s {
+			return f
+		}
+	}
+	return nil
+}

@@ -12,10 +12,7 @@ import (
 	"sync"
 
 	"github.com/wethinkt/go-thinkt/internal/index/db"
-	"github.com/wethinkt/go-thinkt/internal/sources/antigravity"
-	"github.com/wethinkt/go-thinkt/internal/sources/claude"
-	"github.com/wethinkt/go-thinkt/internal/sources/codex"
-	"github.com/wethinkt/go-thinkt/internal/sources/kimi"
+	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
@@ -295,21 +292,13 @@ func (s *Service) Search(opts SearchOptions) ([]SessionResult, int, error) {
 	return finalResults, totalMatches, nil
 }
 
-// searchable maps a source name to the function that decides whether a hit
-// inside one raw line of that source's session file is conversation content.
-// Sources without an entry keep every matching line.
-var searchable = map[string]func([]byte) bool{
-	string(thinkt.SourceClaude): claude.IsSearchable,
-	string(thinkt.SourceCodex):  codex.IsSearchable,
-}
-
-// searchFilters maps a source name to a factory for a per-file predicate.
-// The predicate sees every line of one file in order, so it can tell a
-// record from a twin an earlier line already carried. It takes precedence
-// over searchable for its source.
-var searchFilters = map[string]func() func([]byte) bool{
-	string(thinkt.SourceKimi):        kimi.NewSearchFilter,
-	string(thinkt.SourceAntigravity): antigravity.NewSearchFilter,
+// lineFilter returns the source's per-file search predicate, or nil when
+// the source keeps every matching line.
+func lineFilter(source string) func(line []byte, matched bool) bool {
+	if f, ok := sources.Factory(thinkt.Source(source)).(thinkt.SearchLineFilterer); ok {
+		return f.NewSearchLineFilter()
+	}
+	return nil
 }
 
 func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch) {
@@ -323,11 +312,11 @@ func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch)
 	// a short token limit would silently end the scan at the first one.
 	scanner := thinkt.NewScannerWithMaxCapacity(f)
 	lineNum := 0
-	isSearchable := searchable[c.Source]
-	var lineFilter func([]byte) bool
-	if factory := searchFilters[c.Source]; factory != nil {
-		lineFilter = factory()
-	}
+	// Request dumps, bookkeeping records, wire twins of harness items, and
+	// secondary entries (reminders, hook output, notices) are not
+	// conversation content; a hit inside them is noise. The filter sees
+	// every line so it can remember earlier ones.
+	filter := lineFilter(c.Source)
 
 	for scanner.Scan() {
 		if ctx.Err() != nil {
@@ -336,12 +325,12 @@ func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch)
 
 		lineNum++
 		text := scanner.Text()
-		keep := true
-		if lineFilter != nil {
-			keep = lineFilter(scanner.Bytes())
+		matched := m.Match(text)
+		if filter != nil && !filter(scanner.Bytes(), matched) {
+			continue
 		}
 
-		if m.Match(text) {
+		if matched {
 			role := "unknown"
 			var entry struct {
 				Role string `json:"role"` // Kimi style
@@ -354,14 +343,6 @@ func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch)
 					role = entry.Type
 				}
 			}
-			// Request dumps, bookkeeping records, wire twins of harness items,
-			// and secondary entries (reminders, hook output, notices) are not
-			// conversation content; a hit inside them is noise. Each source's
-			// classifier runs only on that source's files.
-			if !keep || (lineFilter == nil && isSearchable != nil && entry.Type != "" && !isSearchable([]byte(text))) {
-				continue
-			}
-
 			preview, matchStart, matchEnd := extractPreview(text, m)
 			select {
 			case out <- RawMatch{
