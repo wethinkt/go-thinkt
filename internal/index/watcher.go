@@ -9,6 +9,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/wethinkt/go-thinkt/internal/index/db"
+	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
@@ -288,57 +289,69 @@ func (w *Watcher) reindexSession(realPath string, entry sessionIndexEntry) {
 	}
 }
 
+// discoverSession finds the session a changed file belongs to. The source
+// that claims the path answers; a path no source claims, a source that is
+// not registered (turned off), a file that is not the one the store reads
+// for that session, and a subagent session are all skipped.
 func (w *Watcher) discoverSession(path string) (sessionIndexEntry, bool) {
 	ctx := context.Background()
-	projects, err := w.registry.ListAllProjects(ctx)
+	sp, _, ok := sources.ResolveSessionPath(path)
+	if !ok {
+		tuilog.Log.Debug("watcher: no source claims path", "path", path)
+		return sessionIndexEntry{}, false
+	}
+	store, ok := w.registry.Get(sp.Source)
+	if !ok {
+		tuilog.Log.Debug("watcher: source not enabled", "path", path, "source", sp.Source)
+		return sessionIndexEntry{}, false
+	}
+	meta, err := store.GetSessionMeta(ctx, sp.SessionID)
+	if err != nil || meta == nil {
+		tuilog.Log.Debug("watcher: session meta not found", "path", path, "source", sp.Source, "error", err)
+		return sessionIndexEntry{}, false
+	}
+	if !samePath(meta.FullPath, path) {
+		tuilog.Log.Debug("watcher: path is not the session file", "path", path, "session_file", meta.FullPath)
+		return sessionIndexEntry{}, false
+	}
+	if meta.ParentSessionID != "" {
+		tuilog.Log.Debug("watcher: skipping subagent session", "path", path, "parent", meta.ParentSessionID)
+		return sessionIndexEntry{}, false
+	}
+	if sp.ProjectID != "" {
+		return sessionIndexEntry{session: *meta, projectID: db.ScopedProjectID(sp.Source, sp.ProjectID), source: sp.Source}, true
+	}
+
+	// The project id is not in the path: find the project that lists this
+	// session, in this source only.
+	projects, err := store.ListProjects(ctx)
 	if err != nil {
 		return sessionIndexEntry{}, false
 	}
-
 	for _, p := range projects {
-		// Claude keeps sessions under the project folder; Antigravity, Kimi
-		// and others keep them under the source's own home.
-		if !strings.HasPrefix(path, p.Path) && !underDir(path, p.SourceBasePath) {
-			continue
-		}
-		store, ok := w.registry.Get(p.Source)
-		if !ok {
-			continue
-		}
-
 		sessions, err := store.ListSessions(ctx, p.ID)
 		if err != nil {
 			continue
 		}
-
 		for _, s := range sessions {
-			sRealPath, err := filepath.EvalSymlinks(s.FullPath)
-			if err != nil {
-				sRealPath = s.FullPath
-			}
-			if sRealPath == path {
-				return sessionIndexEntry{
-					session:   s,
-					projectID: db.ScopedProjectID(p.Source, p.ID),
-					source:    p.Source,
-				}, true
+			if samePath(s.FullPath, path) {
+				return sessionIndexEntry{session: s, projectID: db.ScopedProjectID(sp.Source, p.ID), source: sp.Source}, true
 			}
 		}
 	}
-
 	return sessionIndexEntry{}, false
 }
 
-// underDir reports whether path (already symlink-resolved) is below dir,
-// resolving dir's symlinks too. An empty dir matches nothing.
-func underDir(path, dir string) bool {
-	if dir == "" {
+// samePath reports whether a store's session path names path (already
+// symlink-resolved).
+func samePath(storePath, path string) bool {
+	if storePath == "" {
 		return false
 	}
-	if real, err := filepath.EvalSymlinks(dir); err == nil {
-		dir = real
+	if real, err := filepath.EvalSymlinks(storePath); err == nil {
+		storePath = real
 	}
-	return strings.HasPrefix(path, filepath.Clean(dir)+string(filepath.Separator))
+	return storePath == path
 }
 
 // firstUnmatched reports whether path is reported unmatched for the first
