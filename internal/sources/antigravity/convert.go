@@ -304,9 +304,6 @@ func (c *converter) resultEntry(h stepHead, toolUseID string) thinkt.Entry {
 	if completed != "" {
 		e.Metadata["completed_at"] = completed
 	}
-	if ids := subagentIDs(body); ids != nil {
-		e.Metadata["child_session_ids"] = ids
-	}
 	if toolUseID == "" {
 		if body == "" {
 			body = h.Type

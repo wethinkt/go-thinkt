@@ -132,3 +132,18 @@ func TestParserEmptyOrphanResultIsNotEmpty(t *testing.T) {
 		t.Fatalf("%+v %v", e, err)
 	}
 }
+
+// A file that quotes the subagent marker is not a subagent result.
+func TestParserLinksChildOnlyFromInvokeSubagent(t *testing.T) {
+	data := `{"step_index":0,"type":"PLANNER_RESPONSE","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"/w/README.md"}}]}
+{"step_index":1,"type":"VIEW_FILE","content":"Created the following subagents:\n{\"conversationId\": \"99999999-zzzz\"}"}
+`
+	var got []thinkt.Entry
+	p := NewParser(strings.NewReader(data), "c", "")
+	for e, err := p.NextEntry(); err == nil; e, err = p.NextEntry() {
+		got = append(got, *e)
+	}
+	if len(got) != 2 || got[0].ContentBlocks[0].ChildSessionID != "" || got[1].Metadata["child_session_ids"] != nil {
+		t.Fatalf("%+v", got)
+	}
+}

@@ -148,15 +148,28 @@ func (p *Parser) result(h stepHead) {
 		call, p.pending = p.pending[0], p.pending[1:]
 	}
 	e := p.conv.resultEntry(h, call.ID)
-	if ids, _ := e.Metadata["child_session_ids"].([]string); len(ids) > 0 && p.held != nil {
-		for i := range p.held.ContentBlocks {
-			if b := &p.held.ContentBlocks[i]; b.Type == "tool_use" && b.ToolUseID == call.ID {
-				b.ChildSessionID = ids[0]
-			}
-		}
+	if call.Name == "invoke_subagent" {
+		p.linkChildren(&e, call.ID, subagentIDs(h.Content))
 	}
 	p.emit(e)
 	if len(p.pending) == 0 {
 		p.release()
+	}
+}
+
+// linkChildren records the conversations an invoke_subagent call created:
+// all of them on the result, the first as the held call's ChildSessionID.
+func (p *Parser) linkChildren(result *thinkt.Entry, callID string, ids []string) {
+	if len(ids) == 0 {
+		return
+	}
+	result.Metadata["child_session_ids"] = ids
+	if p.held == nil {
+		return
+	}
+	for i := range p.held.ContentBlocks {
+		if b := &p.held.ContentBlocks[i]; b.Type == "tool_use" && b.ToolUseID == callID {
+			b.ChildSessionID = ids[0]
+		}
 	}
 }
