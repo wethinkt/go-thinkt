@@ -77,12 +77,12 @@ func TestConvertKindsAndVisibility(t *testing.T) {
 		emitted   bool
 	}{
 		{0, thinkt.KindNone, false, true},
-		{1, "", false, false},                         // empty history
-		{5, thinkt.KindTaskNotification, true, true},  // as Kimi
+		{1, "", false, false},                        // empty history
+		{5, thinkt.KindTaskNotification, true, true}, // as Kimi
 		{7, thinkt.KindAPIError, true, true},
-		{10, thinkt.KindAgentMessage, true, true},     // subagent report = Kimi's completion case, secondary
+		{10, thinkt.KindAgentMessage, true, true}, // subagent report = Kimi's completion case, secondary
 		{11, thinkt.KindMeta, true, true},
-		{12, thinkt.KindCompactSummary, false, true},  // as Claude: VisibilityNormal
+		{12, thinkt.KindCompactSummary, false, true}, // as Claude: VisibilityNormal
 		{13, thinkt.KindNone, false, true},
 		{15, thinkt.KindUnknown, true, true},
 	}

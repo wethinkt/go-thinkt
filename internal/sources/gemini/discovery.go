@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/wethinkt/go-thinkt/internal/sources/antigravity"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
@@ -55,15 +56,21 @@ func (f *Discoverer) IsAvailable() (bool, error) {
 }
 
 // IsSessionPath reports whether path looks like a Gemini session file.
+// Antigravity CLI keeps its tree under ~/.gemini too; paths there belong to
+// the antigravity source.
 func IsSessionPath(path string) bool {
 	if filepath.Ext(path) != ".json" {
 		return false
 	}
 	baseDir := (&Discoverer{}).basePath()
-	if baseDir != "" && thinkt.IsPathWithinAny(path, []string{baseDir}) {
-		return true
+	if baseDir == "" || !thinkt.IsPathWithinAny(path, []string{baseDir}) {
+		return false
 	}
-	return false
+	agy := []string{filepath.Join(baseDir, "antigravity-cli")}
+	if dir, err := antigravity.DefaultDir(); err == nil {
+		agy = append(agy, dir)
+	}
+	return !thinkt.IsPathWithinAny(path, agy)
 }
 
 // basePath returns the Gemini base directory.

@@ -24,3 +24,19 @@ func TestIsSessionPath_BoundarySafe(t *testing.T) {
 		t.Fatalf("expected non-json path to not match: %s", wrongExt)
 	}
 }
+
+func TestIsSessionPathSkipsAntigravityHome(t *testing.T) {
+	base := filepath.Join(t.TempDir(), ".gemini")
+	t.Setenv("THINKT_GEMINI_HOME", base)
+	t.Setenv("THINKT_ANTIGRAVITY_HOME", "")
+	if IsSessionPath(filepath.Join(base, "antigravity-cli", "settings.json")) {
+		t.Fatal("claimed default antigravity home")
+	}
+	if !IsSessionPath(filepath.Join(base, "tmp", "s.json")) {
+		t.Fatal("lost a real gemini path")
+	}
+	t.Setenv("THINKT_ANTIGRAVITY_HOME", filepath.Join(base, "agy"))
+	if IsSessionPath(filepath.Join(base, "agy", "brain", "c1", "task.md.metadata.json")) {
+		t.Fatal("claimed THINKT_ANTIGRAVITY_HOME")
+	}
+}

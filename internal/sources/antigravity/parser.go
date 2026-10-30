@@ -20,6 +20,7 @@ type Parser struct {
 	scanner *bufio.Scanner
 	conv    converter
 	unknown unknownTally
+	related *relatedTracker // nil unless TrackRelated was called
 
 	held    *thinkt.Entry  // model turn waiting for its calls
 	behind  []thinkt.Entry // entries after the held turn
@@ -35,6 +36,18 @@ func NewParser(r io.Reader, conversationID, parentID string) *Parser {
 		scanner: thinkt.NewScannerWithMaxCapacityCustom(r, 64*1024, thinkt.MaxScannerCapacity),
 		conv:    converter{conversationID: conversationID, parentID: parentID},
 	}
+}
+
+// TrackRelated makes the parser gather the folders outside projectPath
+// that the conversation's tool calls touched; paths under any exclude prefix
+// are not recorded. Call it before the first NextEntry.
+func (p *Parser) TrackRelated(projectPath string, exclude []string) {
+	p.related = newRelatedTracker(projectPath, exclude)
+}
+
+// RelatedPaths returns the folders gathered so far, or nil.
+func (p *Parser) RelatedPaths() []thinkt.RelatedPath {
+	return p.related.paths()
 }
 
 // UnknownTypes returns the step types the parser did not recognise and how
@@ -102,6 +115,9 @@ func (p *Parser) process(line []byte) {
 			return
 		}
 		p.pending = calls
+		for _, c := range calls {
+			p.related.call(c.Name, c.Args)
+		}
 		if len(calls) == 0 {
 			p.out = append(p.out, e)
 			return
