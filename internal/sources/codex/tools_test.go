@@ -65,7 +65,7 @@ func pairOf(t *testing.T, entries []thinkt.Entry) (thinkt.Entry, thinkt.ContentB
 
 func TestCommandExecutionPair(t *testing.T) {
 	use, call, res, result := pairOf(t, convertLine(t, fixtureLine(t, 16)))
-	if call.ToolName != "unified_exec_startup" || use.UUID != "exec-1" || call.ToolUseID != "exec-1" || use.TurnID != "turn-1" {
+	if call.ToolName != "unified_exec_startup" || use.UUID != "exec-1" || call.ToolUseID != "exec-1" || use.PromptID != "turn-1" {
 		t.Fatalf("tool_use = %+v", use)
 	}
 	in, _ := call.ToolInput.(map[string]any)

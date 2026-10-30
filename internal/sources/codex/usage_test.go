@@ -180,7 +180,7 @@ func TestParserFixtureOrderAndKinds(t *testing.T) {
 		}
 	}
 	a1 := entries[4]
-	if a1.Text != "Checking the build." || a1.Model != "gpt-5.5" || a1.Effort != "medium" || a1.TurnID != "turn-1" {
+	if a1.Text != "Checking the build." || a1.Model != "gpt-5.5" || a1.Effort != "medium" || a1.PromptID != "turn-1" {
 		t.Errorf("msg-a1 = %+v", a1)
 	}
 	if tc := entries[32]; tc.Metadata["duration_ms"] != int64(14000) || tc.Metadata["time_to_first_token_ms"] != int64(900) {

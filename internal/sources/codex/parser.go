@@ -14,10 +14,12 @@ import (
 
 // Parser reads Codex rollout JSONL and yields thinkt entries in file order.
 //
-// It holds the entries of the most recent producing line in pending so a
-// trailing token_usage_record can attach to the assistant entry it belongs
-// to, and so a wire twin of a harness item (assistant message, reasoning)
-// can be dropped by comparing text with the item that preceded it. Legacy
+// It holds the entries of one model response until the token_usage_record
+// that closes it, so every entry of the response gets the record's
+// response_id as TurnID and the usage attaches to the response's assistant
+// entry. A wire twin of a harness item (assistant message, reasoning) is
+// dropped by comparing text with the item that preceded it, as each line is
+// read. Legacy
 // pre-item rollouts pair event_msg user/agent/reasoning events with the wire
 // record that follows them; the wire record wins.
 type Parser struct {
@@ -27,9 +29,11 @@ type Parser struct {
 	conv      converter
 	turn      turnState
 
-	out         []thinkt.Entry
-	pending     []thinkt.Entry
-	usageTarget int
+	out          []thinkt.Entry
+	hold         []heldEntry       // entries of the open response
+	usageTarget  int               // index in hold of the newest line's last assistant entry, or -1
+	closed       bool              // a usage record closed the hold; the next producing line releases it
+	callResponse map[string]string // call id (no wire: prefix) → response id of the response that made it
 
 	lastAgentText     string
 	lastReasoningText string
@@ -44,10 +48,11 @@ type Parser struct {
 // NewParser creates a new Codex parser.
 func NewParser(r io.Reader, sessionID string) *Parser {
 	p := &Parser{
-		unknown:     thinkt.UnknownTally[string]{Source: thinkt.SourceCodex},
-		scanner:     thinkt.NewScannerWithMaxCapacityCustom(r, 64*1024, thinkt.MaxScannerCapacity),
-		sessionID:   sessionID,
-		usageTarget: -1,
+		unknown:      thinkt.UnknownTally[string]{Source: thinkt.SourceCodex},
+		scanner:      thinkt.NewScannerWithMaxCapacityCustom(r, 64*1024, thinkt.MaxScannerCapacity),
+		sessionID:    sessionID,
+		usageTarget:  -1,
+		callResponse: map[string]string{},
 	}
 	p.conv = converter{sessionID: sessionID, turn: &p.turn, calls: map[string]string{}}
 	return p
@@ -75,7 +80,7 @@ func (p *Parser) NextEntry() (*thinkt.Entry, error) {
 			if err := p.scanner.Err(); err != nil {
 				return nil, err
 			}
-			p.flushPending()
+			p.release()
 			if p.legacy != nil {
 				p.out = append(p.out, *p.legacy)
 				p.legacy = nil
@@ -91,10 +96,22 @@ func (p *Parser) NextEntry() (*thinkt.Entry, error) {
 	}
 }
 
-// flushPending moves the held entries to the output queue.
-func (p *Parser) flushPending() {
-	p.out = append(p.out, p.pending...)
-	p.pending = nil
+// heldEntry is an entry waiting for the usage record of its response.
+// mapped marks an entry whose TurnID came from the call-id map; a usage
+// record does not overwrite it.
+type heldEntry struct {
+	entry  thinkt.Entry
+	mapped bool
+}
+
+// release emits the held entries as they are: those a usage record stamped
+// keep its response id, the rest have none.
+func (p *Parser) release() {
+	for _, h := range p.hold {
+		p.out = append(p.out, h.entry)
+	}
+	p.hold = nil
+	p.closed = false
 	p.usageTarget = -1
 }
 
@@ -107,9 +124,12 @@ func (p *Parser) step(line []byte) {
 		p.unknown.Note(head.Key(), "line", p.lineNo)
 	}
 	key := head.Key()
-	if key == "token_usage_record" {
-		p.attachUsage(head)
+	switch key {
+	case "token_usage_record":
+		p.closeHold(head)
 		return
+	case "turn_context", "event_msg/task_started":
+		p.release() // a new turn: no usage record will close this response
 	}
 
 	entries := p.conv.convert(head, class, line)
@@ -132,21 +152,35 @@ func (p *Parser) step(line []byte) {
 			p.legacy = nil
 		}
 	}
+	// Legacy rollouts predate usage records; their events never join a hold.
 	if isLegacyEvent(head) {
-		p.flushPending()
+		p.release()
 		p.legacy = &entries[0]
 		p.legacyKey = head.PayloadType
 		return
 	}
 
-	p.flushPending()
-	p.pending = entries
-	for i := len(p.pending) - 1; i >= 0; i-- {
-		if p.pending[i].Role == thinkt.RoleAssistant {
-			p.usageTarget = i
-			break
+	mapped := p.stampFromCalls(entries)
+	switch {
+	case isUserMessage(head):
+		p.release()
+		p.out = append(p.out, entries...)
+	case isResultLine(key):
+		if p.closed {
+			p.release()
 		}
+		if len(p.hold) == 0 {
+			p.out = append(p.out, entries...)
+		} else {
+			p.join(entries, mapped)
+		}
+	default:
+		if p.closed {
+			p.release()
+		}
+		p.join(entries, mapped)
 	}
+
 	switch key {
 	case "item/AgentMessage":
 		p.lastAgentText = strings.TrimSpace(entries[0].Text)
@@ -155,16 +189,81 @@ func (p *Parser) step(line []byte) {
 	}
 }
 
-// attachUsage stores a token_usage_record on the assistant entry held in
-// pending. A second record for the same hold overwrites the first; a record
-// with no assistant entry pending is dropped (the session scan still sums it).
-func (p *Parser) attachUsage(head recordHead) {
-	if p.usageTarget < 0 || p.usageTarget >= len(p.pending) {
+// join adds one line's entries to the hold. The usage target becomes the
+// line's last assistant entry, or none when the line has no assistant entry.
+func (p *Parser) join(entries []thinkt.Entry, mapped []bool) {
+	p.usageTarget = -1
+	for i, e := range entries {
+		if e.Role == thinkt.RoleAssistant {
+			p.usageTarget = len(p.hold)
+		}
+		p.hold = append(p.hold, heldEntry{entry: e, mapped: mapped[i]})
+	}
+}
+
+// closeHold applies a token_usage_record to the open response: usage on the
+// target, the response id on every held entry the call-id map did not
+// stamp, and the response's calls into the map. A later record in the same
+// run applies to the same hold.
+func (p *Parser) closeHold(head recordHead) {
+	if len(p.hold) == 0 {
 		return
 	}
-	if u := decodeUsage(head.Payload); u != nil {
-		p.pending[p.usageTarget].Usage = u
+	if p.usageTarget >= 0 {
+		if u := decodeUsage(head.Payload); u != nil {
+			p.hold[p.usageTarget].entry.Usage = u
+		}
 	}
+	if id := responseID(head.Payload); id != "" {
+		for i := range p.hold {
+			if p.hold[i].mapped {
+				continue
+			}
+			p.hold[i].entry.TurnID = id
+			for _, b := range p.hold[i].entry.ContentBlocks {
+				if b.Type == "tool_use" && b.ToolUseID != "" {
+					p.callResponse[strings.TrimPrefix(b.ToolUseID, "wire:")] = id
+				}
+			}
+		}
+	}
+	p.closed = true
+}
+
+// stampFromCalls gives each entry that reports on a call of a closed
+// response that response's id, and reports which entries it stamped.
+func (p *Parser) stampFromCalls(entries []thinkt.Entry) []bool {
+	mapped := make([]bool, len(entries))
+	for i := range entries {
+		for _, b := range entries[i].ContentBlocks {
+			if b.ToolUseID == "" {
+				continue
+			}
+			if id, ok := p.callResponse[strings.TrimPrefix(b.ToolUseID, "wire:")]; ok {
+				entries[i].TurnID = id
+				mapped[i] = true
+				break
+			}
+		}
+	}
+	return mapped
+}
+
+// isUserMessage reports whether the line is a user prompt on the wire: it
+// ends the open response and is emitted on its own.
+func isUserMessage(h recordHead) bool {
+	return h.Type == "response_item" && h.PayloadType == "message" && h.Role == "user"
+}
+
+// isResultLine reports whether the line reports a tool's outcome: a wire
+// output, or a harness tool item (both halves of the pair).
+func isResultLine(key string) bool {
+	switch key {
+	case "response_item/function_call_output", "response_item/custom_tool_call_output",
+		"item/CommandExecution", "item/FileChange", "item/McpToolCall", "item/WebSearch", "item/ImageView", "item/Extension":
+		return true
+	}
+	return false
 }
 
 // isItemTwin reports whether a wire assistant message or reasoning record

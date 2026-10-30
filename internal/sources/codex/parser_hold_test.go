@@ -73,7 +73,7 @@ func TestParserStampsTurnModelAndEffort(t *testing.T) {
 	ctx := `{"timestamp":"2026-10-01T10:00:01Z","type":"turn_context","payload":{"turn_id":"t1","cwd":"/work/proj","model":"gpt-5.5","effort":"medium"}}`
 	item := `{"timestamp":"2026-10-01T10:00:03Z","type":"event_msg","payload":{"type":"item_completed","item":{"type":"AgentMessage","id":"msg-a1","content":[{"type":"Text","text":"Checking the build."}],"phase":"commentary"}}}`
 	entries := parseAll(t, ctx, item)
-	if len(entries) != 1 || entries[0].Model != "gpt-5.5" || entries[0].Effort != "medium" || entries[0].TurnID != "t1" {
+	if len(entries) != 1 || entries[0].Model != "gpt-5.5" || entries[0].Effort != "medium" || entries[0].PromptID != "t1" {
 		t.Fatalf("entries = %+v", entries)
 	}
 }

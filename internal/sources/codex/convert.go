@@ -68,12 +68,12 @@ func (c *converter) newEntry(role thinkt.Role, h recordHead, uuid string) thinkt
 		Metadata:  map[string]any{},
 	}
 	if c.turn != nil {
-		e.TurnID = c.turn.TurnID
+		e.PromptID = c.turn.TurnID
 		e.Model = c.turn.Model
 		e.Effort = c.turn.Effort
 	}
 	if id := payloadTurnID(h.Payload); id != "" {
-		e.TurnID = id
+		e.PromptID = id
 	}
 	return e
 }

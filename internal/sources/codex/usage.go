@@ -8,8 +8,9 @@ import (
 
 // usageRecord is the payload of a token_usage_record line.
 type usageRecord struct {
-	TurnID string `json:"turn_id"`
-	Usage  *struct {
+	TurnID     string `json:"turn_id"`
+	ResponseID string `json:"response_id"`
+	Usage      *struct {
 		InputTokens           int `json:"input_tokens"`
 		CachedInputTokens     int `json:"cached_input_tokens"`
 		CacheWriteInputTokens int `json:"cache_write_input_tokens"`
@@ -33,4 +34,14 @@ func decodeUsage(payload json.RawMessage) *thinkt.TokenUsage {
 		CacheCreationInputTokens: r.Usage.CacheWriteInputTokens,
 		ThinkingTokens:           r.Usage.ReasoningOutputTokens,
 	}
+}
+
+// responseID returns the response_id of a token_usage_record payload, the
+// id of the model response the record closes.
+func responseID(payload json.RawMessage) string {
+	var r usageRecord
+	if json.Unmarshal(payload, &r) != nil {
+		return ""
+	}
+	return r.ResponseID
 }

@@ -18,7 +18,7 @@ func convertLine(t *testing.T, line string) []thinkt.Entry {
 func TestConvertUserMessageWithDataImage(t *testing.T) {
 	line := `{"timestamp":"2026-10-01T10:00:00Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"look"},{"type":"input_image","image_url":"data:image/png;base64,AAAA"},{"type":"input_image","image_url":"https://x/y.png"}],"internal_chat_message_metadata_passthrough":{"turn_id":"t1","content_item_kinds":["user.text","user.image"]}}}`
 	entries := convertLine(t, line)
-	if len(entries) != 1 || entries[0].Role != thinkt.RoleUser || entries[0].TurnID != "t1" {
+	if len(entries) != 1 || entries[0].Role != thinkt.RoleUser || entries[0].PromptID != "t1" {
 		t.Fatalf("entries = %+v", entries)
 	}
 	if entries[0].Text != "look" || entries[0].Kind != thinkt.KindNone || entries[0].IsSecondary() {
@@ -46,7 +46,7 @@ func TestConvertUserHarnessTagIsMeta(t *testing.T) {
 	}
 	byKind := `{"timestamp":"2026-10-01T10:00:00Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<environment_context>\n</environment_context>"}],"internal_chat_message_metadata_passthrough":{"turn_id":"turn-1","content_item_kinds":["environments.environment_context"]}}}`
 	e = convertLine(t, byKind)[0]
-	if e.Kind != thinkt.KindMeta || e.Subtype != "environments.environment_context" || e.TurnID != "turn-1" {
+	if e.Kind != thinkt.KindMeta || e.Subtype != "environments.environment_context" || e.PromptID != "turn-1" {
 		t.Fatalf("entry = %+v", e)
 	}
 }
@@ -62,7 +62,7 @@ func TestConvertDeveloperMessageIsSecondaryMeta(t *testing.T) {
 func TestConvertAgentMessageItem(t *testing.T) {
 	line := `{"timestamp":"2026-10-01T10:00:03Z","type":"event_msg","payload":{"type":"item_completed","turn_id":"turn-1","item":{"type":"AgentMessage","id":"msg-a1","content":[{"type":"Text","text":"Checking the build."}],"phase":"commentary","questions":[{"id":"q1"}]}}}`
 	e := convertLine(t, line)[0]
-	if e.Role != thinkt.RoleAssistant || e.Text != "Checking the build." || e.UUID != "msg-a1" || e.TurnID != "turn-1" || e.Metadata["phase"] != "commentary" || e.Metadata["questions"] == nil {
+	if e.Role != thinkt.RoleAssistant || e.Text != "Checking the build." || e.UUID != "msg-a1" || e.PromptID != "turn-1" || e.Metadata["phase"] != "commentary" || e.Metadata["questions"] == nil {
 		t.Fatalf("entry = %+v", e)
 	}
 }
@@ -89,7 +89,7 @@ func TestConvertTaskCompleteWithError(t *testing.T) {
 	if e.Kind != thinkt.KindTurnDuration || !e.IsSecondary() || e.Error != "flagged" || e.Metadata["duration_ms"] != int64(10) {
 		t.Fatalf("entry = %+v", e)
 	}
-	if e.Role != thinkt.RoleSystem || e.Text != "turn complete" || e.Metadata["time_to_first_token_ms"] != int64(3) || e.TurnID != "t1" {
+	if e.Role != thinkt.RoleSystem || e.Text != "turn complete" || e.Metadata["time_to_first_token_ms"] != int64(3) || e.PromptID != "t1" {
 		t.Fatalf("entry = %+v", e)
 	}
 }
@@ -139,7 +139,7 @@ func TestConvertCollabAgentToolCall(t *testing.T) {
 func TestConvertWireAgentMessage(t *testing.T) {
 	line := `{"timestamp":"2026-10-01T10:00:13Z","type":"response_item","payload":{"type":"agent_message","id":"amsg-1","author":"/root/helper","recipient":"/root","content":[{"type":"input_text","text":"done"}],"internal_chat_message_metadata_passthrough":{"turn_id":"turn-1"}}}`
 	e := convertLine(t, line)[0]
-	if e.Role != thinkt.RoleUser || e.Kind != thinkt.KindAgentMessage || e.Text != "done" || e.UUID != "amsg-1" || e.Metadata["author"] != "/root/helper" || e.Metadata["recipient"] != "/root" || e.TurnID != "turn-1" {
+	if e.Role != thinkt.RoleUser || e.Kind != thinkt.KindAgentMessage || e.Text != "done" || e.UUID != "amsg-1" || e.Metadata["author"] != "/root/helper" || e.Metadata["recipient"] != "/root" || e.PromptID != "turn-1" {
 		t.Fatalf("entry = %+v", e)
 	}
 }
@@ -190,7 +190,7 @@ func TestNewEntryDefaultsUUIDFromLine(t *testing.T) {
 	c := &converter{sessionID: "sess", lineNo: 7, turn: &turnState{TurnID: "t9", Model: "m", Effort: "high"}, calls: map[string]string{}}
 	h, _ := ClassifyLine([]byte(`{"timestamp":"2026-10-01T10:00:19Z","type":"compacted","payload":{}}`))
 	e := c.newEntry(thinkt.RoleSystem, h, "")
-	if e.UUID != "sess:000007:compacted" || e.Source != thinkt.SourceCodex || e.TurnID != "t9" || e.Model != "m" || e.Effort != "high" || e.Timestamp.IsZero() {
+	if e.UUID != "sess:000007:compacted" || e.Source != thinkt.SourceCodex || e.PromptID != "t9" || e.Model != "m" || e.Effort != "high" || e.Timestamp.IsZero() {
 		t.Fatalf("entry = %+v", e)
 	}
 	if !strings.HasPrefix(e.UUID, "sess:") {
