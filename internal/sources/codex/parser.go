@@ -33,6 +33,7 @@ type Parser struct {
 	hold         []heldEntry       // entries of the open response
 	usageTarget  int               // index in hold of the newest line's last assistant entry, or -1
 	closed       bool              // a usage record closed the hold; the next producing line releases it
+	responding   bool              // a response line joined the hold; until then it holds only loose results
 	callResponse map[string]string // call id (no wire: prefix) → response id of the response that made it
 
 	lastAgentText     string
@@ -98,10 +99,13 @@ func (p *Parser) NextEntry() (*thinkt.Entry, error) {
 
 // heldEntry is an entry waiting for the usage record of its response.
 // mapped marks an entry whose TurnID came from the call-id map; a usage
-// record does not overwrite it.
+// record does not overwrite it. loose marks a tool result that arrived
+// before any line of a response: a usage record still attaches its usage,
+// as before the hold, but nothing ties it to a response id.
 type heldEntry struct {
 	entry  thinkt.Entry
 	mapped bool
+	loose  bool
 }
 
 // release emits the held entries as they are: those a usage record stamped
@@ -112,6 +116,7 @@ func (p *Parser) release() {
 	}
 	p.hold = nil
 	p.closed = false
+	p.responding = false
 	p.usageTarget = -1
 }
 
@@ -169,16 +174,13 @@ func (p *Parser) step(line []byte) {
 		if p.closed {
 			p.release()
 		}
-		if len(p.hold) == 0 {
-			p.out = append(p.out, entries...)
-		} else {
-			p.join(entries, mapped)
-		}
+		p.join(entries, mapped, !p.responding)
 	default:
 		if p.closed {
 			p.release()
 		}
-		p.join(entries, mapped)
+		p.responding = true
+		p.join(entries, mapped, false)
 	}
 
 	switch key {
@@ -191,13 +193,13 @@ func (p *Parser) step(line []byte) {
 
 // join adds one line's entries to the hold. The usage target becomes the
 // line's last assistant entry, or none when the line has no assistant entry.
-func (p *Parser) join(entries []thinkt.Entry, mapped []bool) {
+func (p *Parser) join(entries []thinkt.Entry, mapped []bool, loose bool) {
 	p.usageTarget = -1
 	for i, e := range entries {
 		if e.Role == thinkt.RoleAssistant {
 			p.usageTarget = len(p.hold)
 		}
-		p.hold = append(p.hold, heldEntry{entry: e, mapped: mapped[i]})
+		p.hold = append(p.hold, heldEntry{entry: e, mapped: mapped[i], loose: loose})
 	}
 }
 
@@ -216,7 +218,7 @@ func (p *Parser) closeHold(head recordHead) {
 	}
 	if id := responseID(head.Payload); id != "" {
 		for i := range p.hold {
-			if p.hold[i].mapped {
+			if p.hold[i].mapped || p.hold[i].loose {
 				continue
 			}
 			p.hold[i].entry.TurnID = id

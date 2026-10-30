@@ -189,3 +189,20 @@ func TestRolloutWithoutUsageRecords(t *testing.T) {
 		}
 	}
 }
+
+// A response whose only lines are tool results (no reasoning or message)
+// still takes its usage record, on the newest line's assistant entry, as
+// before the hold; it gets no TurnID because nothing ties it to a response.
+func TestUsageAfterLooseResultsStillAttaches(t *testing.T) {
+	entries := parseAll(t, f(turnWireCall, "call_1"), usage("resp-1", 10), f(turnWireOut, "call_1"), f(turnCommand, "exec-1"), usage("resp-2", 50), turnUser)
+	m := byUUID(entries)
+	if u := m["exec-1"].Usage; u == nil || u.InputTokens != 50 {
+		t.Fatalf("command usage = %+v", u)
+	}
+	if m["exec-1"].TurnID != "" || m["exec-1:result"].TurnID != "" {
+		t.Fatalf("command halves: %q %q", m["exec-1"].TurnID, m["exec-1:result"].TurnID)
+	}
+	if m["wire:call_1:result"].TurnID != "resp-1" {
+		t.Fatalf("wire output: %q", m["wire:call_1:result"].TurnID)
+	}
+}
