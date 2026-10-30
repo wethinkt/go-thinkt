@@ -444,6 +444,10 @@ type WatchConfig struct {
 	// ExcludeDirs are directory names to skip at any depth during recursion.
 	ExcludeDirs []string
 
+	// HiddenDirs are dot-directory names the walk may enter; every other
+	// directory whose name starts with "." is skipped.
+	HiddenDirs []string
+
 	// MaxDepth is the maximum directory depth to recurse below BasePath.
 	// 0 means watch BasePath only (no recursion).
 	MaxDepth int

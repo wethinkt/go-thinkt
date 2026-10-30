@@ -124,6 +124,7 @@ func (w *FileWatcher) warmActive(wd WatchDir) {
 	cfg := wd.Config
 	includeSet := makeSet(cfg.IncludeDirs)
 	excludeSet := makeSet(cfg.ExcludeDirs)
+	hiddenSet := makeSet(cfg.HiddenDirs)
 	cutoff := time.Now().Add(-warmWindow)
 
 	rootDepth := strings.Count(root, string(filepath.Separator))
@@ -139,7 +140,7 @@ func (w *FileWatcher) warmActive(wd WatchDir) {
 			if depth == 1 && len(includeSet) > 0 && !includeSet[name] {
 				return filepath.SkipDir
 			}
-			if excludeSet[name] || strings.HasPrefix(name, ".") {
+			if excludeSet[name] || (strings.HasPrefix(name, ".") && !hiddenSet[name]) {
 				return filepath.SkipDir
 			}
 			if cfg.MaxDepth > 0 && depth > cfg.MaxDepth {
@@ -204,7 +205,7 @@ func (w *FileWatcher) expandDir(path string) {
 	if excludeSet[name] {
 		return
 	}
-	if strings.HasPrefix(name, ".") {
+	if strings.HasPrefix(name, ".") && !makeSet(cfg.HiddenDirs)[name] {
 		return
 	}
 	if cfg.MaxDepth > 0 && depth > cfg.MaxDepth {

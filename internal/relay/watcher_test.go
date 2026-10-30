@@ -214,3 +214,47 @@ func TestFileWatcher_TimerCleanup(t *testing.T) {
 	cancel()
 	fw.Stop() //nolint:errcheck
 }
+
+func TestWatcherEntersListedHiddenDir(t *testing.T) {
+	root := t.TempDir()
+	conv := filepath.Join(root, "brain", "c1")
+	logs := filepath.Join(conv, ".system_generated", "logs")
+	chunks := filepath.Join(logs, "chunks")
+	other := filepath.Join(conv, ".other")
+	for _, d := range []string{chunks, other} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, f := range []string{filepath.Join(logs, "transcript.jsonl"), filepath.Join(other, "x.jsonl"), filepath.Join(chunks, "1.jsonl")} {
+		if err := os.WriteFile(f, []byte("{}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	wd := WatchDir{Path: root, Source: "antigravity", Config: thinkt.WatchConfig{
+		IncludeDirs: []string{"brain"}, HiddenDirs: []string{".system_generated"}, ExcludeDirs: []string{"chunks"}, MaxDepth: 4,
+	}}
+	fw, err := NewFileWatcher([]WatchDir{wd})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fw.Stop() //nolint:errcheck
+
+	fw.warmActive(wd)
+	if !fw.watched[logs] || fw.watched[other] || fw.watched[chunks] {
+		t.Fatalf("warm: logs %v other %v chunks %v", fw.watched[logs], fw.watched[other], fw.watched[chunks])
+	}
+
+	fresh := filepath.Join(root, "brain", "c2", ".system_generated")
+	if err := os.MkdirAll(filepath.Join(root, "brain", "c2", ".hidden"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(fresh, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	fw.expandDir(fresh)
+	fw.expandDir(filepath.Join(root, "brain", "c2", ".hidden"))
+	if !fw.watched[fresh] || fw.watched[filepath.Join(root, "brain", "c2", ".hidden")] {
+		t.Fatal("expandDir: listed hidden dir not entered, or unlisted one entered")
+	}
+}

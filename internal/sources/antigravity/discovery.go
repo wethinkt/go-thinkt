@@ -3,6 +3,8 @@ package antigravity
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
 // Transcript file names inside brain/<id>/.system_generated/logs. The full
@@ -98,4 +100,42 @@ func SessionIDForPath(path string) string {
 		return ""
 	}
 	return id
+}
+
+// Discoverer implements thinkt.StoreFactory for Antigravity CLI.
+type Discoverer struct{}
+
+// NewDiscoverer creates a new Antigravity CLI discoverer.
+func NewDiscoverer() *Discoverer {
+	return &Discoverer{}
+}
+
+// Source returns the Antigravity source type.
+func (d *Discoverer) Source() thinkt.Source {
+	return thinkt.SourceAntigravity
+}
+
+// Create creates an Antigravity store when the base directory exists.
+func (d *Discoverer) Create() (thinkt.Store, error) {
+	ok, _ := d.IsAvailable()
+	if !ok {
+		return nil, nil
+	}
+	dir, _ := DefaultDir()
+	return NewStore(dir), nil
+}
+
+// IsAvailable reports whether the Antigravity home has a brain directory.
+func (d *Discoverer) IsAvailable() (bool, error) {
+	dir, err := DefaultDir()
+	if err != nil {
+		return false, nil
+	}
+	info, err := os.Stat(filepath.Join(dir, "brain"))
+	return err == nil && info.IsDir(), nil
+}
+
+// Factory returns a thinkt.StoreFactory for Antigravity CLI.
+func Factory() thinkt.StoreFactory {
+	return NewDiscoverer()
 }
