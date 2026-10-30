@@ -30,6 +30,7 @@ We have a common `thinkt` interface to enable uniform access to various `Sources
   - [*Copilot CLI*](https://github.com/features/copilot/cli) from GitHub — [source docs](./internal/sources/copilot/)
   - [*Codex CLI*](https://github.com/openai/codex) from OpenAI — [source docs](./internal/sources/codex/)
   - [*Qwen Code*](https://www.qwen.ai) from Alibaba — [source docs](./internal/sources/qwen/)
+  - *Antigravity CLI* (`agy`) from Google — [source docs](./internal/sources/antigravity/)
 
 All of this structured data is exposed to you to easily navigate:
 
@@ -47,7 +48,7 @@ A built-in SQLite index powers fast `thinkt search` and `thinkt stats` queries; 
 ## Features
 
 - **Interactive TUI**: Navigate projects, sessions, and conversation content with a keyboard-driven terminal interface
-- **Multi-Source Support**: Works with Claude Code (`~/.claude`), Kimi Code (`~/.kimi-code`), Gemini CLI (`~/.gemini`), Copilot CLI (`~/.copilot`), Codex CLI (`~/.codex`), and Qwen Code (`~/.qwen`) — sessions from all sources are shown together
+- **Multi-Source Support**: Works with Claude Code (`~/.claude`), Kimi Code (`~/.kimi-code`), Gemini CLI (`~/.gemini`), Copilot CLI (`~/.copilot`), Codex CLI (`~/.codex`), Qwen Code (`~/.qwen`), and Antigravity CLI (`~/.gemini/antigravity-cli`) — sessions from all sources are shown together
 - **Tree View**: Browse projects in a collapsible tree grouped by directory, or switch to a flat list
 - **Agent Teams**: Inspect multi-agent teams (Claude Code), including members, tasks, and messages
 - **Analytics**: Token usage, tool frequency, word analysis, activity timelines via `thinkt stats`
@@ -171,7 +172,7 @@ thinkt tui --log /tmp/thinkt-debug.log
 | `thinkt help cheat` | Visual command tree (`--json` for machine-readable) |
 | `thinkt help llms` | Usage guide for LLMs and AI assistants |
 | `thinkt tui` | Launch interactive TUI |
-| `thinkt sources` | List available sources (claude, kimi, gemini, copilot, codex, qwen) |
+| `thinkt sources` | List available sources (claude, kimi, gemini, copilot, codex, qwen, antigravity) |
 | `thinkt sources status` | Show detailed source status |
 | `thinkt projects` | List all projects (detailed columns) |
 | `thinkt projects --short` | List project paths only |
@@ -553,6 +554,7 @@ Contents of `THINKT_HOME`:
 | `THINKT_COPILOT_HOME` | Copilot data directory | `~/.copilot` |
 | `THINKT_CODEX_HOME` | Codex CLI data directory | `~/.codex` |
 | `THINKT_QWEN_HOME` | Qwen Code data directory | `~/.qwen` |
+| `THINKT_ANTIGRAVITY_HOME` | Antigravity CLI data directory | `~/.gemini/antigravity-cli` |
 | `THINKT_LANG` | Override UI language (BCP 47 tag) | auto-detected |
 | `THINKT_LOG_FILE` | Write debug logs to this file path | (disabled) |
 | `THINKT_API_TOKEN` | Bearer token for API server authentication | (none) |

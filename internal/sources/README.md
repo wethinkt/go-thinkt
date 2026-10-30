@@ -4,6 +4,7 @@ Package `sources` aggregates all supported AI coding tool source factories.
 
 ## Supported Sources
 
+- [`antigravity`](antigravity/README.md) — Antigravity CLI session source
 - [`claude`](claude/README.md) — Claude Code session source
 - [`codex`](codex/README.md) — Codex CLI session source
 - [`copilot`](copilot/README.md) — Copilot CLI session source
@@ -16,6 +17,7 @@ Package `sources` aggregates all supported AI coding tool source factories.
 ```
 sources/
 ├── sources.go          # AllFactories() - registry of all source factories
+├── antigravity/        # Antigravity CLI session source
 ├── claude/             # Claude Code session source
 ├── codex/              # Codex CLI session source
 ├── copilot/            # Copilot CLI session source

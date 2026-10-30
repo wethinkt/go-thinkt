@@ -19,12 +19,13 @@ The tool supports multiple AI coding assistants via a `Store` interface:
 - **GitHub Copilot** (`~/.copilot`)
 - **Codex CLI** (`~/.codex`; rollouts under `sessions/`, titles in `session_index.jsonl`, subagent rollouts linked by `ParentSessionID`)
 - **Qwen Code** (`~/.qwen`)
+- **Antigravity CLI** (`~/.gemini/antigravity-cli`; step transcripts under `brain/<id>/.system_generated/logs`, titles and workspaces in `conversation_summaries.db`; the gemini source skips this directory)
 
-Sources are auto-discovered. Use `--source claude|kimi|gemini|copilot|codex|qwen` flags to filter.
+Sources are auto-discovered. Use `--source claude|kimi|gemini|copilot|codex|qwen|antigravity` flags to filter.
 
 **Source Enable/Disable:** Sources can be enabled/disabled via `thinkt sources enable/disable` (stored in `config.Sources` map). Disabled sources are invisible at the API boundary — the MCP/HTTP server validates against the `StoreRegistry` (which only registers enabled sources), and the indexer RPC server independently filters via `enabledSources` (derived from `config.EnabledSources()`, refreshed on `config_reload`). Both layers enforce filtering so neither can leak disabled source data.
 
-**Entry classification:** `thinkt.Entry` carries a source-neutral `Kind` (an open string type with constants) and a `Visibility` hint. Sources mark bookkeeping-adjacent entries (`turn_duration`, attachments, meta prompts) as `secondary`; the export filter, TUI "Other" toggle, and `conversation.WritePage` hide those by default while the REST API and MCP return every emitted entry. `thinkt.ParserVersion` must be bumped whenever a source changes which entries it emits; the metadata cache and the SQLite index recompute lazily on mismatch. The Claude parser drops request dumps and session-state records before parsing (see `internal/sources/claude/README.md`). Codex wire tool calls superseded by a harness item carry `KindToolWire` and are secondary; subagent rollouts are listed only with `thinkt.WithSubagents()` (see `internal/sources/codex/README.md`).
+**Entry classification:** `thinkt.Entry` carries a source-neutral `Kind` (an open string type with constants) and a `Visibility` hint. Sources mark bookkeeping-adjacent entries (`turn_duration`, attachments, meta prompts) as `secondary`; the export filter, TUI "Other" toggle, and `conversation.WritePage` hide those by default while the REST API and MCP return every emitted entry. `thinkt.ParserVersion` must be bumped whenever a source changes which entries it emits; the metadata cache and the SQLite index recompute lazily on mismatch. The Claude parser drops request dumps and session-state records before parsing (see `internal/sources/claude/README.md`). Codex wire tool calls superseded by a harness item carry `KindToolWire` and are secondary; subagent rollouts are listed only with `thinkt.WithSubagents()` (see `internal/sources/codex/README.md`). Antigravity pairs tool results to calls by order, hides harness steps, and lists subagent conversations only with `thinkt.WithSubagents()` (see `internal/sources/antigravity/README.md`). `SessionMeta.RelatedPaths` lists the folders outside the project a session touched (repo roots, with reasons `workspace`, `edited`, `command`, `read`); only the Antigravity source fills it so far.
 
 ### Key Packages
 
@@ -39,6 +40,7 @@ Sources are auto-discovered. Use `--source claude|kimi|gemini|copilot|codex|qwen
 | [`internal/sources/copilot`](./internal/sources/copilot/) | Copilot storage implementation |
 | [`internal/sources/codex`](./internal/sources/codex/) | Codex CLI storage implementation |
 | [`internal/sources/qwen`](./internal/sources/qwen/) | Qwen Code storage implementation |
+| [`internal/sources/antigravity`](./internal/sources/antigravity/) | Antigravity CLI storage implementation |
 | `internal/tui` | BubbleTea terminal UI (shell, pickers, viewer, theme builder) |
 | `internal/server` | HTTP REST API, teams API, indexer API, and MCP server |
 | `internal/server/web` | Full webapp submodule ([thinkt-web](https://github.com/wethinkt/thinkt-web), `dist` branch) |
@@ -253,6 +255,7 @@ The fingerprint is normalized to a consistent UUID format (lowercase, 8-4-4-4-12
 | `THINKT_COPILOT_HOME` | Copilot data directory | `~/.copilot` |
 | `THINKT_CODEX_HOME` | Codex CLI data directory | `~/.codex` |
 | `THINKT_QWEN_HOME` | Qwen Code data directory | `~/.qwen` |
+| `THINKT_ANTIGRAVITY_HOME` | Antigravity CLI data directory | `~/.gemini/antigravity-cli` |
 | `THINKT_LANG` | Override UI language (BCP 47 tag) | auto-detected |
 | `THINKT_LOG_FILE` | Write debug logs to this file path | (disabled) |
 | `THINKT_VIEWER` | Set `html` for the opt-in shared HTML/nthtml session viewer | existing viewer |

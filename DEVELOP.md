@@ -52,6 +52,7 @@ go-thinkt/
 │   │   ├── web/                 # ← thinkt-web submodule (branch: dist)
 │   │   └── web-lite/            # ← thinkt-web-lite submodule
 │   ├── sources/                 # Per-source implementations
+│   │   ├── antigravity/         # Antigravity CLI (~/.gemini/antigravity-cli)
 │   │   ├── claude/              # Claude Code (~/.claude)
 │   │   ├── kimi/                # Kimi Code (~/.kimi-code)
 │   │   ├── gemini/              # Gemini CLI (~/.gemini)
