@@ -15,7 +15,7 @@ func (d *Discoverer) ResolveSessionPath(path string) (thinkt.SessionPath, bool) 
 		return thinkt.SessionPath{}, false
 	}
 	home := d.basePath()
-	sp := thinkt.SessionPath{Source: thinkt.SourceClaude, BaseDir: home, SessionID: path}
+	sp := thinkt.SessionPath{Source: thinkt.SourceClaude, BaseDir: home, SessionID: thinkt.HomeSpelling(path, home)}
 	projectDir := filepath.Dir(path)
 	if filepath.Base(filepath.Dir(projectDir)) == "projects" {
 		sp.ProjectID = filepath.Join(home, "projects", filepath.Base(projectDir))

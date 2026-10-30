@@ -45,3 +45,21 @@ func WithinHome(path, home string) bool {
 	}
 	return IsPathWithinAny(realPath, []string{realHome})
 }
+
+// HomeSpelling returns path spelled under home when path reaches home
+// through a symlink, so a session found by its resolved path is keyed by the
+// path the store lists. Otherwise path is returned unchanged.
+func HomeSpelling(path, home string) string {
+	if home == "" || IsPathWithinAny(path, []string{home}) {
+		return path
+	}
+	realHome, err := filepath.EvalSymlinks(home)
+	if err != nil || !IsPathWithinAny(path, []string{realHome}) {
+		return path
+	}
+	rel, err := filepath.Rel(realHome, path)
+	if err != nil {
+		return path
+	}
+	return filepath.Join(home, rel)
+}

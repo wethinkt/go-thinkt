@@ -18,7 +18,7 @@ func (d *Discoverer) ResolveSessionPath(path string) (thinkt.SessionPath, bool) 
 	if base == "" && thinkt.WithinHome(path, d.basePath()) {
 		base = d.basePath()
 	}
-	return thinkt.SessionPath{Source: thinkt.SourceCodex, BaseDir: base, SessionID: path}, true
+	return thinkt.SessionPath{Source: thinkt.SourceCodex, BaseDir: base, SessionID: thinkt.HomeSpelling(path, base)}, true
 }
 
 // OpenSessionPath implements thinkt.SessionPathResolver.

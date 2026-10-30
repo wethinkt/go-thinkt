@@ -17,7 +17,7 @@ func (f *Discoverer) ResolveSessionPath(path string) (thinkt.SessionPath, bool) 
 	if base == "" {
 		base = f.basePath()
 	}
-	sp := thinkt.SessionPath{Source: thinkt.SourceGemini, BaseDir: base, SessionID: path}
+	sp := thinkt.SessionPath{Source: thinkt.SourceGemini, BaseDir: base, SessionID: thinkt.HomeSpelling(path, base)}
 	if chats := filepath.Dir(path); filepath.Base(chats) == "chats" {
 		sp.ProjectID = filepath.Base(filepath.Dir(chats))
 	}

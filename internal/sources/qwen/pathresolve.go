@@ -19,7 +19,7 @@ func (f *qwenFactory) ResolveSessionPath(path string) (thinkt.SessionPath, bool)
 	if base == "" && thinkt.WithinHome(path, getBaseDir()) {
 		base = getBaseDir()
 	}
-	sp := thinkt.SessionPath{Source: thinkt.SourceQwen, BaseDir: base, SessionID: path}
+	sp := thinkt.SessionPath{Source: thinkt.SourceQwen, BaseDir: base, SessionID: thinkt.HomeSpelling(path, base)}
 	if chats := filepath.Dir(path); filepath.Base(chats) == "chats" {
 		sp.ProjectID = filepath.Base(filepath.Dir(chats))
 	}
