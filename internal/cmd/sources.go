@@ -14,6 +14,7 @@ import (
 
 	"github.com/wethinkt/go-thinkt/internal/config"
 	thinktI18n "github.com/wethinkt/go-thinkt/internal/i18n"
+	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tui/theme"
 )
@@ -131,6 +132,13 @@ func runSourcesList(cmd *cobra.Command, args []string) error {
 		return json.NewEncoder(os.Stdout).Encode(srcs)
 	}
 
+	// Show available sources that are off too, so a source installed after
+	// setup is not invisible.
+	srcs = append(srcs, unregisteredSources(srcs, sources.AllFactories())...)
+	slices.SortFunc(srcs, func(a, b thinkt.SourceInfo) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
+
 	if len(srcs) == 0 {
 		fmt.Println(thinktI18n.T("cmd.sources.noSources", "No sources found."))
 		fmt.Println(thinktI18n.T("cmd.sources.expectedSources", "\nExpected sources:"))
@@ -143,6 +151,8 @@ func runSourcesList(cmd *cobra.Command, args []string) error {
 		fmt.Println("  - Antigravity CLI: ~/.gemini/antigravity-cli/")
 		return nil
 	}
+
+	defer writeNewSourcesHint(os.Stdout, cfg, srcs)
 
 	const gap = 2
 
@@ -183,9 +193,10 @@ func runSourcesList(cmd *cobra.Command, args []string) error {
 			r.status = thinktI18n.T("common.status.available", "available")
 		}
 		r.disabled = isSourceDisabled(cfg, string(s.Source))
-		r.enabled = thinktI18n.T("common.yes", "yes")
+		r.enabled = sourceEnabledLabel(cfg, string(s.Source))
 		if r.disabled {
-			r.enabled = thinktI18n.T("common.no", "no")
+			// Not opened: no counts for a source that is off.
+			r.projects, r.sessions, r.size = "-", "-", "-"
 		}
 		rows[i] = r
 

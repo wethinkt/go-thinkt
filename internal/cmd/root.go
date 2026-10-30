@@ -104,6 +104,8 @@ Examples:
 			thinktI18n.Init(locale)
 		}
 
+		maybeAnnounceNewSources(cmd)
+
 		return nil
 	},
 	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {

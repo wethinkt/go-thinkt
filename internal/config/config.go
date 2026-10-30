@@ -36,16 +36,19 @@ type SourceConfig struct {
 
 // Config holds the thinkt configuration.
 type Config struct {
-	Sources       map[string]SourceConfig `json:"sources,omitempty"`       // Per-source enabled/disabled settings
-	DiscoveredAt  *time.Time              `json:"discovered_at,omitempty"` // When discover wizard last ran
-	Theme         string                  `json:"theme"`                   // Name of the active theme
-	Language      string                  `json:"language,omitempty"`      // BCP 47 language tag (e.g., "en", "zh-Hans", "ja")
-	Terminal      string                  `json:"terminal,omitempty"`      // App ID for default terminal (e.g., "ghostty", "kitty")
-	AllowedApps   []AppConfig             `json:"allowed_apps,omitempty"`  // Apps allowed for open-in
-	Embedding     EmbeddingConfig         `json:"embedding"`               // Embedding settings
-	Summarization SummarizationConfig     `json:"summarization"`           // Summarization settings
-	Indexer       IndexerConfig           `json:"indexer"`                 // Indexer settings
-	Share         ShareConfig             `json:"share"`                   // Sharing platform settings
+	Sources map[string]SourceConfig `json:"sources,omitempty"` // Per-source enabled/disabled settings
+	// NotifiedSources lists sources found after setup that thinkt has
+	// announced once; they stay off until enabled.
+	NotifiedSources []string            `json:"notified_sources,omitempty"`
+	DiscoveredAt    *time.Time          `json:"discovered_at,omitempty"` // When discover wizard last ran
+	Theme           string              `json:"theme"`                   // Name of the active theme
+	Language        string              `json:"language,omitempty"`      // BCP 47 language tag (e.g., "en", "zh-Hans", "ja")
+	Terminal        string              `json:"terminal,omitempty"`      // App ID for default terminal (e.g., "ghostty", "kitty")
+	AllowedApps     []AppConfig         `json:"allowed_apps,omitempty"`  // Apps allowed for open-in
+	Embedding       EmbeddingConfig     `json:"embedding"`               // Embedding settings
+	Summarization   SummarizationConfig `json:"summarization"`           // Summarization settings
+	Indexer         IndexerConfig       `json:"indexer"`                 // Indexer settings
+	Share           ShareConfig         `json:"share"`                   // Sharing platform settings
 }
 
 // EmbeddingConfig holds embedding-related settings.
@@ -62,7 +65,7 @@ type SummarizationConfig struct {
 
 // ShareConfig holds sharing platform settings.
 type ShareConfig struct {
-	Enabled bool   `json:"enabled"` // Enable sharing features
+	Enabled bool   `json:"enabled"`       // Enable sharing features
 	URL     string `json:"url,omitempty"` // Share endpoint URL override
 }
 
