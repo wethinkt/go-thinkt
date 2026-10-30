@@ -41,9 +41,10 @@ output, less per-source wiring.
 
 - A source silently losing ids it has today. Every entry that carries a
   per-prompt id now still carries it after, in `PromptID`.
-- Path resolution that depends on the order sources are registered in.
+- Path resolution that depends on the order of `AllFactories()`; the
+  winner order is its own fixed list, matching today's TUI switch.
 - Listing, searching or serving a source that is turned off (see the
-  source visibility change). Resolvers decide from the path alone. One
+  source visibility change). Resolvers never open a store to decide. One
   exception, decided with the user: a session file the user names
   explicitly (TUI or `thinkt sessions view <path>`) opens even when its
   source is off, as it does today. The index watcher and relay only use
@@ -57,107 +58,204 @@ Decided with the user:
   hands control back. Claude's `promptId` already means this.
 - **`TurnID`**: one model response. Claude's `message.id` already means this.
 
+The comments in `internal/thinkt/types.go` already say this; the three
+newer sources store their prompt-scoped id in `TurnID` against them.
+
 Per source:
 
 | Source | PromptID | TurnID |
 |---|---|---|
 | Claude | `promptId` (unchanged) | `message.id` (unchanged) |
-| Codex | the rollout `turn_id` (moved from TurnID) | empty (see below) |
-| Kimi | the wire `turnId` (moved from TurnID) | the loop step uuid of the step the entry came from |
-| Antigravity | index of the opening USER_INPUT step, or of the subagent task-prompt step (moved from TurnID) | index of the model-turn step, shared by its text, thinking and tool-call entries (`<idx>` of the `<idx>.<n>` ids) |
+| Codex | the rollout `turn_id` (moved from TurnID) | `token_usage_record.payload.response_id` |
+| Kimi | the wire `turnId` (moved from TurnID) | the loop step uuid |
+| Antigravity | today's value, moved from TurnID: the opening USER_INPUT index, or the first emitted step's index for steps before any USER_INPUT | the PLANNER_RESPONSE step index |
 | Gemini, Copilot, Qwen | unchanged (none set today) | unchanged |
 
-Codex rollouts have no response id. Item ids from one response share a
-prefix, but that is not a documented id, so TurnID stays empty for Codex.
-(My call; cheap to revisit if Codex starts writing one.)
+**Codex.** `token_usage_record` closes each response and carries
+`response_id` (21,649 rows, one per response; see
+`etc/reports/SOURCE_FORMATS_2026-10.md`). `usageRecord` in `usage.go`
+ignores the field today. The parser holds only the last line's entries
+(`pending`), so most entries of a response are already released when the
+record arrives. The parser therefore holds every entry since the previous
+response closed and, on the `token_usage_record`, sets `TurnID` to its
+`response_id` on all of them before releasing them. Usage stays on the
+assistant entry `attachUsage` picks today. The hold is released without a
+`TurnID` at a user message, a turn boundary (`turn_context`,
+`task_started`), a legacy event, or end of file, so rollouts without usage
+records (older CLI versions) emit what they emit today. The item-id
+shared-prefix idea stays rejected. Cost: a live follow sees a response's
+entries when the response ends, not item by item. A response ends before
+its tool runs, so a long tool call is not delayed.
 
-Tool results take the ids of the prompt they belong to. They take the
-TurnID of the response that made the call where the source pairs them
-(Antigravity, Kimi); otherwise TurnID is empty.
+**Kimi.** The loop step uuid is already the assistant entry's `UUID`
+(`flush` sets it from `openStep.uuid`). The assistant entry and the tool
+results inside that step (`resultEntry`, which today copies only the wire
+`turnId`) take the open step's uuid as `TurnID`. The chat completion id
+(`messageId`, `chatcmpl-*`) is the closer analogue of Claude's
+`message.id`, but tool results cannot share it, so it stays in
+`Metadata["message_id"]`.
+
+**Antigravity.** Text, thinking and tool calls are blocks on one planner
+entry, whose `TurnID` is its step index (the `<idx>` of the `<idx>.<n>`
+call ids). The parser already remembers each pending call; it also keeps
+the planner index with it, and the paired result entry takes that index as
+`TurnID`. An orphan result has an empty `TurnID`. USER_INPUT, system
+message and harness entries have an empty `TurnID`. `PromptID` keeps
+exactly today's rule, so `TestChildTurnIDBeforeAnyUserInput` becomes a
+`PromptID` test with the same expectations ("0" for every pre-USER_INPUT
+step).
+
+**Tool results** take the `PromptID` of the prompt they belong to, and the
+`TurnID` of the response that made the call where the source pairs them
+(Kimi, Antigravity, Codex). A Codex result arrives after its response has
+closed, so the hold does not cover it: results bypass the hold, and the
+parser keeps a call id → response id map, filled when a
+`token_usage_record` closes a response that made calls. A result takes the
+response id of its call; an unpaired result, or one whose response had no
+usage record, has an empty `TurnID`.
 
 Code that changes:
 
-- `internal/thinkt/types.go`: field comments state the two meanings above.
-- Codex `convert.go`, Kimi `convert.go`/`parser.go`, Antigravity
-  `convert.go`: write the per-prompt value to `PromptID`, and the
-  per-response value to `TurnID` where the table says so.
+- Codex `usage.go`, `parser.go`, `convert.go`; Kimi `convert.go`,
+  `parser.go`; Antigravity `convert.go`, `parser.go`.
 - `internal/conversation`: `Message` gains `PromptID`; `html.go` writes
   `data-prompt-id` next to `data-turn-id`.
 - Swagger docs (`internal/server/docs`): field descriptions.
 - `thinkt.ParserVersion` 5 → 6 (emitted entries change), so the metadata
-  cache and index recompute.
+  cache and index recompute. `TestParserVersionIsFive` moves with it.
 - Source READMEs and `etc/reports/SOURCE_FORMATS_2026-10.md` mappings.
 
-Checked: neither web bundle nor the SQLite index or collector reads
-`turn_id` or `prompt_id`, so nothing downstream breaks.
+Checked: the SQLite schema, the collector and the embedded web assets do
+not read `turn_id` or `prompt_id`. The HTML page reads `data-turn-id`.
 
 ## 2. Session path resolver
+
+### The interface
 
 A new optional interface in `internal/thinkt`, implemented by each
 source's factory:
 
 ```go
-// SessionPath is what a source can tell about a file from its path alone.
+// SessionPath is what a source can tell about a file from its path.
 type SessionPath struct {
     Source    Source
-    BaseDir   string // the source home the file sits in, read from the path layout
+    BaseDir   string // the source home the file sits in, from the path layout; empty if unknown
     SessionID string // the id GetSessionMeta and OpenSession accept
-    ProjectID string // the project's ID when the path alone gives it; else empty
+    ProjectID string // set only when it is the store's Project.ID (see below)
 }
 
 // SessionPathResolver is implemented by a StoreFactory whose source can
 // recognise its own session files.
 type SessionPathResolver interface {
     // ResolveSessionPath reports whether path is one of this source's
-    // session files. It looks at the path only (no file reads, no store).
+    // session files, by its path only.
     ResolveSessionPath(path string) (SessionPath, bool)
-    // OpenSessionPath opens path through a store rooted at its BaseDir.
-    OpenSessionPath(ctx context.Context, path string) (SessionReader, error)
+    // OpenSessionPath opens path as a lazy session.
+    OpenSessionPath(ctx context.Context, sp SessionPath, path string) (LazySession, error)
 }
 ```
 
-`internal/sources` gets `ResolveSessionPath(path) (SessionPath, thinkt.StoreFactory, bool)`,
-which asks every factory in `AllFactories()`.
+### Which source wins
 
-Rules:
+Today's predicates overlap: Copilot claims any `events.jsonl` and anything
+under its home; Codex, Claude and Qwen each claim every `.jsonl` under
+their home; Codex and Qwen also claim `.codex/sessions/**` and
+`.qwen/projects/**` anywhere. The TUI switch order picks the winner.
+Resolution keeps that order exactly; it does not follow `AllFactories()`.
 
-- Each resolver claims exactly what that source's `IsSessionPath` claims
-  today, so copied sessions keep opening. Kimi, Copilot, Codex and Qwen
-  match their folder layout anywhere on disk; Claude, Gemini and
-  Antigravity check their home. `BaseDir` comes from the layout, not the
-  configured home. (My call, from "same output".)
-- `ProjectID` is filled where the project is in the path: Claude (the
-  project directory), Gemini and Qwen (the hash directory), Kimi and
-  Codex where their ids allow it. Antigravity leaves it empty: its
-  project comes from the summaries database. (My call.)
+`internal/sources` gets
 
-- Resolvers are disjoint: at most one source claims a path. A table test
-  in `internal/sources` runs every source's fixture paths through every
-  resolver and fails if two claim one. Gemini already excludes the
-  Antigravity home. The same check covers Kimi vs Codex.
-- The existing per-source `IsSessionPath`, `BaseDirForPath`,
-  `SessionIDForPath` and `DefaultDir` become the resolver's
-  implementation. They stay exported only where something else in the
-  source uses them.
+```go
+func ResolveSessionPath(path string) (thinkt.SessionPath, thinkt.SessionPathResolver, bool)
+```
 
-Callers:
+which tries, in this fixed order, first match wins:
+
+1. Kimi
+2. Antigravity
+3. Codex
+4. Copilot
+5. Qwen
+6. Gemini
+7. For a `.jsonl` no one claimed: the content sniff (today's
+   `detectJSONLSessionType`, moved from `internal/tui` into
+   `internal/sources`) picks Claude, Codex or Qwen from the first records.
+   Claude is only ever reached here, as today.
+
+The order is one ordered slice in `internal/sources`, next to
+`AllFactories()`, with a comment that it mirrors the old switch. Narrowing
+the predicates so they no longer overlap is out of scope: it would change
+which source opens some files.
+
+A table test pins the known overlaps to today's winners, at minimum:
+
+| Path | Winner |
+|---|---|
+| `events.jsonl` under `~/.claude` | Copilot |
+| a Codex rollout (`session_meta` first) in `~/.claude/projects/<dir>/` | Codex (sniff) |
+| a Claude transcript in `~/.claude/projects/<dir>/` | Claude (sniff) |
+| `.jsonl` under the Codex home | Codex |
+| `.jsonl` under the Qwen home | Qwen |
+| `transcript.jsonl` under the Antigravity home (inside `~/.gemini`) | Antigravity |
+| a Kimi `wire.jsonl` outside any home | Kimi |
+
+Each row is checked against the old `OpenLazySession` switch (kept in the
+test as the oracle) and against `ResolveSessionPath`; both must name the
+same source. When two resolvers would both match, the earlier one in the
+list wins; nothing errors.
+
+### What each resolver fills, and how it opens
+
+Each resolver claims what that source's `IsSessionPath` claims today, so
+copied sessions keep opening.
+
+| Source | BaseDir | ProjectID | OpenSessionPath |
+|---|---|---|---|
+| Claude | empty (sniffed) | the project directory (`DirPath`) | `claude.OpenLazySession(path)`, as today |
+| Codex | from the layout (`.codex` above `sessions`), else the home | empty: Project.ID is the workspace cwd, not in the path | `NewLazySession` over `codex.NewStore(BaseDir).OpenSession` |
+| Kimi | `BaseDirForPath`, else `DefaultDir` | empty: the `wd_*` folder is not the project id | `NewLazySession` over `kimi.NewStore(BaseDir).OpenSession` |
+| Antigravity | `BaseDirForPath`, else `DefaultDir` | empty: comes from the summaries database | `NewLazySession` over `antigravity.NewStore(BaseDir).OpenSession` |
+| Copilot | today's `findCopilotBaseDir` | empty | `NewLazySession` over `copilot.NewStore(BaseDir).OpenSession` |
+| Gemini | today's `findGeminiBaseDir` | the hash directory | `NewLazySession` over `gemini.NewStore(BaseDir).OpenSession` |
+| Qwen | from the layout (`.qwen` above `projects`), else empty | the hash directory | `NewLazySession` over `qwen.NewStore(BaseDir).OpenSession`; an empty BaseDir keeps today's `NewStore("")` |
+
+`ProjectID` is set only where it equals the store's `Project.ID`. A test
+confirms the Claude, Gemini and Qwen values against each store's
+`ListProjects`.
+
+The per-source `IsSessionPath`, `BaseDirForPath`, `SessionIDForPath` and
+`DefaultDir` become the resolver's implementation; they stay exported only
+where something else uses them.
+
+### Callers
 
 - **TUI loader** (`internal/tui/session_loader.go`): `OpenLazySession`
-  asks `sources.ResolveSessionPath` and calls `OpenSessionPath`. The
-  per-source `open*LazySession` helpers and `find*BaseDir` go away.
-  The content sniff (`detectJSONLSessionType`) stays as the last
-  fallback for `.jsonl` files outside any known home (copied files).
-- **Index watcher** (`discoverSession`): resolve the path, take the store
-  for that source from the registry (only registered, so only enabled,
-  sources), and call `GetSessionMeta(SessionID)`. With a `ProjectID` the
-  entry is built directly. Without one, the existing scan runs over that
-  source's projects only. If no resolver claims the path, or the meta
-  lookup fails, the current all-projects scan runs as before.
-  Sessions whose meta has a `ParentSessionID` are skipped: the index
-  does not hold subagent sessions today (sync never lists them), and
-  this pass does not change that. (My call.)
+  calls `sources.ResolveSessionPath` and then `OpenSessionPath`. The
+  switch, the per-source `open*LazySession` helpers, `find*BaseDir` and
+  the sniff leave the TUI. `OpenLazySessionWithRegistry` keeps
+  `StoreRegistry.OpenLazySessionByPath` as its fallback; the server, MCP
+  and `internal/target` keep using that registry scan unchanged. A file
+  the user names opens even when its source is off (decided with the
+  user).
+- **Index watcher** (`discoverSession`):
+  1. Resolve the path. No match: stop.
+  2. Take that source's store from the registry. Not registered
+     (disabled): stop.
+  3. `GetSessionMeta(SessionID)`. Error: stop.
+  4. If the meta's symlink-resolved `FullPath` is not the path, stop.
+     This keeps Antigravity's `transcript.jsonl` sibling undiscovered when
+     the store reads `transcript_full.jsonl`
+     (`TestDiscoverSessionOutsideProjectFolder`).
+  5. If the meta has a `ParentSessionID`, stop: `ListSessions` hides
+     subagent sessions, so the index has never held them.
+  6. With a `ProjectID`, build the entry. Without one, scan that one
+     source's projects for the session, as `discoverSession` does today
+     but over one store.
+
+  The scan across every store goes away. Each "stop" is a debug log; the
+  existing warn-once for unmatched paths stays.
 - **Relay** (`detectSource`): the string-contains fallback becomes a
-  resolver lookup; the deepest-watch-root match stays first.
+  `ResolveSessionPath` lookup; the deepest-watch-root match stays first.
 
 ## 3. Search line filter hook
 
@@ -167,33 +265,37 @@ A second optional factory interface:
 // SearchLineFilterer is implemented by a StoreFactory whose session files
 // contain lines that are not conversation content.
 type SearchLineFilterer interface {
-    // NewSearchLineFilter returns a predicate for one file. It sees every
-    // line of that file in order and reports whether a hit in the line counts.
+    // NewSearchLineFilter returns a predicate for one file. scanFile
+    // calls it once per file and runs it on every line in order,
+    // matching or not; it reports whether a hit in the line counts.
     NewSearchLineFilter() func(line []byte) bool
 }
 ```
 
-Claude and Codex wrap their stateless `IsSearchable`. Kimi and
-Antigravity return their `NewSearchFilter()`. `search.go` drops the
-`searchable` and `searchFilters` maps and looks the factory up by source
-name. Sources without the interface keep every matching line, as now.
+Claude and Codex implement it by wrapping their stateless `IsSearchable`.
+Kimi and Antigravity return their `NewSearchFilter()`. `search.go` drops
+the `searchable` and `searchFilters` maps and looks the factory up by
+source name. Gemini, Copilot and Qwen do not implement it and keep every
+matching line, as now. A source that loses the interface would start
+counting bookkeeping lines; the existing search tests for Claude, Codex,
+Kimi and Antigravity catch that.
 
 ## 4. Record classes and the unknown tally
 
 - `thinkt.RecordClass` with the seven values the Claude, Codex and Kimi
   copies already share (`ClassTurn`, `ClassEvent`, `ClassContext`,
   `ClassCheckpoint`, `ClassSessionState`, `ClassBookkeeping`,
-  `ClassUnknown`) and the same `String()` output. The three packages
-  use it directly and delete their copies. Per-value comments that are
-  source-specific move to each source's classifier.
-- Antigravity's enum is not the same thing: it classifies steps
-  (user input, model turn, tool result, harness, ...). It is renamed
-  `StepClass` and stays in the package. (My call: forcing it onto the
-  shared seven would lose the distinctions its parser branches on.)
+  `ClassUnknown`), the same `String()` output, and `IsEntry()` (identical
+  in all three: checkpoint is an entry, session state is not). The three
+  packages use it directly and delete their copies. Per-value comments
+  that are source-specific move to each source's classifier.
+- Antigravity's enum classifies steps (USER_INPUT, PLANNER_RESPONSE, ...;
+  its `ClassCheckpoint` means a CHECKPOINT step). It is renamed
+  `StepClass` and stays in the package.
 - `thinkt.UnknownTally[K ~string]` replaces the four `unknownTally`
   copies, with the same behaviour: count per key, log the first sighting
-  of each key at debug level with the source name, `Snapshot()` returns
-  a copy or nil. Claude keeps `EntryType` keys through the type parameter.
+  of each key at debug level with the source name, `Snapshot()` returns a
+  copy or nil. Claude keeps `EntryType` keys through the type parameter.
 
 ## Constraints
 
@@ -207,7 +309,7 @@ name. Sources without the interface keep every matching line, as now.
 
 1. Record classes and tally (mechanical, no behaviour change).
 2. Search hook (no behaviour change; existing search tests cover it).
-3. Path resolver, with the disjointness test, then the TUI loader,
+3. Path resolver, with the overlap table test, then the TUI loader,
    index watcher and relay callers.
 4. TurnID/PromptID, with the ParserVersion bump and docs.
 
@@ -216,6 +318,4 @@ name. Sources without the interface keep every matching line, as now.
 - Exact file names for the new `internal/thinkt` code.
 - How each resolver handles symlinked homes (the index watcher already
   resolves symlinks; resolvers should compare against resolved homes).
-- Test fixture paths per source for the disjointness test, including
-  copied-layout paths outside any home (Copilot's any-`events.jsonl`
-  rule is the broadest).
+- Further rows for the overlap table beyond the minimum listed.
