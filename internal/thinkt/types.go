@@ -23,6 +23,8 @@ const (
 	SourceGemini  Source = "gemini"
 	SourceKimi    Source = "kimi"
 	SourceQwen    Source = "qwen"
+
+	SourceAntigravity Source = "antigravity"
 )
 
 // AllSources is the canonical list of all known sources (excluding thinkt).
@@ -34,6 +36,7 @@ var AllSources = []Source{
 	SourceCopilot,
 	SourceCodex,
 	SourceQwen,
+	SourceAntigravity,
 }
 
 func (s Source) String() string {
@@ -52,6 +55,8 @@ func (s Source) String() string {
 		return "gemini"
 	case SourceQwen:
 		return "qwen"
+	case SourceAntigravity:
+		return "antigravity"
 	case "":
 		return "unknown"
 	default:
@@ -75,6 +80,8 @@ func (s Source) DisplayName() string {
 		return "Gemini CLI"
 	case SourceQwen:
 		return "Qwen Code"
+	case SourceAntigravity:
+		return "Antigravity CLI"
 	case "":
 		return "unknown source"
 	default:
@@ -93,11 +100,13 @@ func (s Source) Description() string {
 	case SourceCopilot:
 		return "GitHub Copilot sessions"
 	case SourceKimi:
-		return "Kimi Code sessions (~/.kimi)"
+		return "Kimi Code sessions (~/.kimi-code)"
 	case SourceGemini:
 		return "Gemini CLI sessions"
 	case SourceQwen:
 		return "Qwen Code sessions (~/.qwen)"
+	case SourceAntigravity:
+		return "Antigravity CLI conversations (~/.gemini/antigravity-cli)"
 	case "":
 		return "unknown source"
 	default:
@@ -230,6 +239,23 @@ type PRLink struct {
 	Repository string    `json:"repository,omitempty"`
 	Timestamp  time.Time `json:"timestamp,omitzero"`
 }
+
+// RelatedPath is a folder outside the session's project that the session
+// touched: another workspace folder, or a repo it edited, ran commands in,
+// or read from. Path is the repo root (nearest ancestor with .git).
+type RelatedPath struct {
+	Path    string   `json:"path"`
+	Reasons []string `json:"reasons"`
+	Count   int      `json:"count"`
+}
+
+// RelatedPath reasons.
+const (
+	RelatedWorkspace = "workspace"
+	RelatedEdited    = "edited"
+	RelatedCommand   = "command"
+	RelatedRead      = "read"
+)
 
 // WorktreeInfo records a session that moved into a git worktree
 // (Claude worktree-state and relocated records).
@@ -381,6 +407,7 @@ type SessionMeta struct {
 	PRLinks         []PRLink      `json:"pr_links,omitempty"`
 	Worktree        *WorktreeInfo `json:"worktree,omitempty"`
 	Cost            *SessionCost  `json:"cost,omitempty"`
+	RelatedPaths    []RelatedPath `json:"related_paths,omitempty"` // Folders outside the project this session touched
 }
 
 // Session represents a complete conversation session.

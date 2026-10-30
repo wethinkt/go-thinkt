@@ -47,6 +47,7 @@ type CachedSession struct {
 	PRLinks         []PRLink      `json:"pr_links,omitempty"`
 	Worktree        *WorktreeInfo `json:"worktree,omitempty"`
 	Cost            *SessionCost  `json:"cost,omitempty"`
+	RelatedPaths    []RelatedPath `json:"related_paths,omitempty"`
 }
 
 // metadataCacheJSON is the on-disk representation without the mutex.
@@ -229,6 +230,9 @@ func (mc *MetadataCache) MergeInto(meta *SessionMeta) bool {
 	}
 	if meta.Cost == nil {
 		meta.Cost = entry.Cost
+	}
+	if meta.RelatedPaths == nil {
+		meta.RelatedPaths = entry.RelatedPaths
 	}
 	if meta.FirstPrompt == "" {
 		meta.FirstPrompt = entry.FirstPrompt
