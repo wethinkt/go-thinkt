@@ -101,7 +101,7 @@ func payloadTurnID(raw json.RawMessage) string {
 // token_usage_record (the parser merges it), and for lines whose content is
 // empty. Dedupe candidates are converted like any turn line; the parser
 // decides whether to keep them.
-func (c *converter) convert(h recordHead, class RecordClass, line []byte) []thinkt.Entry {
+func (c *converter) convert(h recordHead, class thinkt.RecordClass, line []byte) []thinkt.Entry {
 	if !class.IsEntry() {
 		return nil
 	}
@@ -129,7 +129,7 @@ func (c *converter) convert(h recordHead, class RecordClass, line []byte) []thin
 	case "item/CollabAgentToolCall":
 		return c.convertCollabToolCall(h)
 	case "item/CommandExecution", "item/FileChange", "item/McpToolCall", "item/WebSearch", "item/ImageView", "item/Extension":
-		if class == ClassUnknown {
+		if class == thinkt.ClassUnknown {
 			return c.convertUnknown(h, line)
 		}
 		return c.convertToolItem(h)
@@ -142,7 +142,7 @@ func (c *converter) convert(h recordHead, class RecordClass, line []byte) []thin
 	case "event_msg/user_message", "event_msg/agent_message", "event_msg/agent_reasoning":
 		return c.convertLegacyEvent(h)
 	}
-	if class == ClassUnknown {
+	if class == thinkt.ClassUnknown {
 		return c.convertUnknown(h, line)
 	}
 	return nil
@@ -189,7 +189,7 @@ func contains(list []string, s string) bool {
 	return false
 }
 
-func (c *converter) convertWireMessage(h recordHead, class RecordClass) []thinkt.Entry {
+func (c *converter) convertWireMessage(h recordHead, class thinkt.RecordClass) []thinkt.Entry {
 	var m wireMessage
 	if json.Unmarshal(h.Payload, &m) != nil {
 		return nil

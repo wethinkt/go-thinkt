@@ -708,7 +708,7 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 	case EntryTypeProgress:
 		entry.Text = progressText(e)
 	default:
-		if ClassifyType(e.Type, "") == ClassUnknown {
+		if ClassifyType(e.Type, "") == thinkt.ClassUnknown {
 			entry.Kind = thinkt.KindUnknown
 			entry.Subtype = string(e.Type)
 			entry.Visibility = thinkt.VisibilitySecondary

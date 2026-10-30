@@ -154,7 +154,7 @@ func (c *converter) newEntry(role thinkt.Role, h stepHead) thinkt.Entry {
 
 // convert turns every class except model turns and tool results into at
 // most one entry; ok is false when the step emits nothing.
-func (c *converter) convert(h stepHead, class RecordClass) (thinkt.Entry, bool) {
+func (c *converter) convert(h stepHead, class StepClass) (thinkt.Entry, bool) {
 	switch class {
 	case ClassUserInput:
 		c.turnID = strconv.Itoa(h.Index)

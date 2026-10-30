@@ -7,51 +7,14 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
-// RecordClass says what a transcript line is for, decided from its type alone.
-// Claude Code declares the on-disk format internal, so unknown types are
-// expected over time and are surfaced rather than dropped.
-type RecordClass int
-
-const (
-	ClassTurn         RecordClass = iota // user, assistant
-	ClassEvent                           // system, queue-operation, progress
-	ClassContext                         // allow-listed attachment injected into the model turn
-	ClassCheckpoint                      // file-history-snapshot, file-history-delta, summary
-	ClassSessionState                    // ai-title, last-prompt, pr-link, relocated, worktree-state, cost-state
-	ClassBookkeeping                     // dropped: request dumps, mode latches, noisy attachments
-	ClassUnknown                         // type never seen; emitted as context so format drift is visible
-)
-
-func (c RecordClass) String() string {
-	switch c {
-	case ClassTurn:
-		return "turn"
-	case ClassEvent:
-		return "event"
-	case ClassContext:
-		return "context"
-	case ClassCheckpoint:
-		return "checkpoint"
-	case ClassSessionState:
-		return "session-state"
-	case ClassBookkeeping:
-		return "bookkeeping"
-	case ClassUnknown:
-		return "unknown"
-	default:
-		return "invalid"
-	}
-}
-
-// IsEntry reports whether records of this class become thinkt entries.
-func (c RecordClass) IsEntry() bool {
-	switch c {
-	case ClassTurn, ClassEvent, ClassContext, ClassCheckpoint, ClassUnknown:
-		return true
-	default:
-		return false
-	}
-}
+// The classifier sorts claude lines into thinkt.RecordClass values:
+//   thinkt.ClassTurn         user, assistant
+//   thinkt.ClassEvent        system, queue-operation, progress
+//   thinkt.ClassContext      allow-listed attachment injected into the model turn
+//   thinkt.ClassCheckpoint   file-history-snapshot, file-history-delta, summary
+//   thinkt.ClassSessionState ai-title, last-prompt, pr-link, relocated, worktree-state, cost-state
+//   thinkt.ClassBookkeeping  dropped: request dumps, mode latches, noisy attachments
+//   thinkt.ClassUnknown      type never seen; emitted as context so format drift is visible
 
 // ContextAttachmentTypes lists the attachment types a reader may want to see.
 // Every other attachment type is harness bookkeeping and is dropped.
@@ -72,26 +35,26 @@ var ContextAttachmentTypes = map[string]bool{
 
 // ClassifyType is the pure type table. attachmentType matters only for
 // EntryTypeAttachment.
-func ClassifyType(t EntryType, attachmentType string) RecordClass {
+func ClassifyType(t EntryType, attachmentType string) thinkt.RecordClass {
 	switch t {
 	case EntryTypeUser, EntryTypeAssistant:
-		return ClassTurn
+		return thinkt.ClassTurn
 	case EntryTypeSystem, EntryTypeQueueOperation, EntryTypeProgress:
 		// classifyHead demotes a queue-operation with no content to bookkeeping.
-		return ClassEvent
+		return thinkt.ClassEvent
 	case EntryTypeAttachment:
 		if ContextAttachmentTypes[attachmentType] {
-			return ClassContext
+			return thinkt.ClassContext
 		}
-		return ClassBookkeeping
+		return thinkt.ClassBookkeeping
 	case EntryTypeFileHistorySnapshot, EntryTypeFileHistoryDelta, EntryTypeSummary:
-		return ClassCheckpoint
+		return thinkt.ClassCheckpoint
 	case EntryTypeAITitle, EntryTypeLastPrompt, EntryTypePRLink, EntryTypeRelocated, EntryTypeWorktreeState, EntryTypeCostState:
-		return ClassSessionState
+		return thinkt.ClassSessionState
 	case EntryTypeAPIRequest, EntryTypeAPIRequestBlob, EntryTypeAPIRequestShape, EntryTypeMode, EntryTypePermissionMode, EntryTypeAtisLatch, "":
-		return ClassBookkeeping
+		return thinkt.ClassBookkeeping
 	default:
-		return ClassUnknown
+		return thinkt.ClassUnknown
 	}
 }
 
@@ -99,7 +62,7 @@ func ClassifyType(t EntryType, attachmentType string) RecordClass {
 // entry. It returns (nil, class, nil) for lines that are skipped by design and
 // an error only for malformed lines of an entry class. User and assistant
 // messages are pre-parsed; unknown types keep their raw line.
-func decodeRecord(line []byte) (*Entry, RecordClass, error) {
+func decodeRecord(line []byte) (*Entry, thinkt.RecordClass, error) {
 	_, _, class, err := classifyHead(line)
 	if err != nil {
 		return nil, class, err
@@ -111,7 +74,7 @@ func decodeRecord(line []byte) (*Entry, RecordClass, error) {
 	if err := json.Unmarshal(line, &entry); err != nil {
 		return nil, class, err
 	}
-	if class == ClassUnknown {
+	if class == thinkt.ClassUnknown {
 		entry.Raw = append([]byte(nil), line...)
 	}
 	if len(entry.Message) > 0 {
@@ -146,14 +109,14 @@ func IsSearchable(line []byte) bool {
 
 // ClassifyLine decodes only the type and attachment.type fields of a raw
 // line. A line that is not a JSON object classifies as bookkeeping.
-func ClassifyLine(line []byte) (EntryType, string, RecordClass) {
+func ClassifyLine(line []byte) (EntryType, string, thinkt.RecordClass) {
 	typ, att, class, _ := classifyHead(line)
 	return typ, att, class
 }
 
 // classifyHead is ClassifyLine with the decode error, so the Parser can keep
 // reporting malformed lines while the classification still drops them.
-func classifyHead(line []byte) (EntryType, string, RecordClass, error) {
+func classifyHead(line []byte) (EntryType, string, thinkt.RecordClass, error) {
 	var head struct {
 		Type       EntryType `json:"type"`
 		Attachment struct {
@@ -162,13 +125,13 @@ func classifyHead(line []byte) (EntryType, string, RecordClass, error) {
 		Content json.RawMessage `json:"content"`
 	}
 	if err := json.Unmarshal(line, &head); err != nil {
-		return "", "", ClassBookkeeping, err
+		return "", "", thinkt.ClassBookkeeping, err
 	}
 	class := ClassifyType(head.Type, head.Attachment.Type)
 	// A queue-operation without content (dequeue, remove, popAll) is only a
 	// timestamp; it says nothing a reader can act on.
 	if head.Type == EntryTypeQueueOperation && !hasContent(head.Content) {
-		class = ClassBookkeeping
+		class = thinkt.ClassBookkeeping
 	}
 	return head.Type, head.Attachment.Type, class, nil
 }

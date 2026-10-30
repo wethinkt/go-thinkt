@@ -8,51 +8,14 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
-// RecordClass says what a rollout line is for, decided from its record key
-// (type, payload.type, item.type) and a few cheap payload fields. The values
-// mirror claude.RecordClass so a later lift into thinkt is mechanical.
-type RecordClass int
-
-const (
-	ClassTurn         RecordClass = iota // user, assistant, tool pairs
-	ClassEvent                           // system events: task_complete, turn_aborted, compacted, subagent activity
-	ClassContext                         // harness-injected context: developer messages, environment, AGENTS.md
-	ClassCheckpoint                      // declared for parity with claude.RecordClass; never returned
-	ClassSessionState                    // session_meta, turn_context
-	ClassBookkeeping                     // dropped: harness mirrors, encrypted reasoning, counters
-	ClassUnknown                         // key never seen; emitted as a secondary system entry so drift is visible
-)
-
-func (c RecordClass) String() string {
-	switch c {
-	case ClassTurn:
-		return "turn"
-	case ClassEvent:
-		return "event"
-	case ClassContext:
-		return "context"
-	case ClassCheckpoint:
-		return "checkpoint"
-	case ClassSessionState:
-		return "session-state"
-	case ClassBookkeeping:
-		return "bookkeeping"
-	case ClassUnknown:
-		return "unknown"
-	default:
-		return "invalid"
-	}
-}
-
-// IsEntry reports whether lines of this class become thinkt entries.
-func (c RecordClass) IsEntry() bool {
-	switch c {
-	case ClassTurn, ClassEvent, ClassContext, ClassCheckpoint, ClassUnknown:
-		return true
-	default:
-		return false
-	}
-}
+// The classifier sorts codex lines into thinkt.RecordClass values:
+//   thinkt.ClassTurn         user, assistant, tool pairs
+//   thinkt.ClassEvent        system events: task_complete, turn_aborted, compacted, subagent activity
+//   thinkt.ClassContext      harness-injected context: developer messages, environment, AGENTS.md
+//   thinkt.ClassCheckpoint   never returned
+//   thinkt.ClassSessionState session_meta, turn_context
+//   thinkt.ClassBookkeeping  dropped: harness mirrors, encrypted reasoning, counters
+//   thinkt.ClassUnknown      key never seen; emitted as a secondary system entry so drift is visible
 
 // recordHead is the cheap view of one rollout line that classification and
 // conversion share. Payload is the raw payload object so the converter does
@@ -186,14 +149,14 @@ func leadText(raw json.RawMessage) string {
 
 // ClassifyLine decodes the head of one rollout line and classifies it. A line
 // that is not a JSON object is bookkeeping with an empty head.
-func ClassifyLine(line []byte) (recordHead, RecordClass) {
+func ClassifyLine(line []byte) (recordHead, thinkt.RecordClass) {
 	line = bytes.TrimSpace(line)
 	if len(line) == 0 || line[0] != '{' {
-		return recordHead{}, ClassBookkeeping
+		return recordHead{}, thinkt.ClassBookkeeping
 	}
 	var lh lineHead
 	if err := json.Unmarshal(line, &lh); err != nil {
-		return recordHead{}, ClassBookkeeping
+		return recordHead{}, thinkt.ClassBookkeeping
 	}
 	h := recordHead{Timestamp: lh.Timestamp, Type: lh.Type, Payload: lh.Payload}
 	var ph payloadHead
@@ -270,58 +233,58 @@ func isLegacyTwin(legacyKey, legacyText string, h recordHead) bool {
 	return false
 }
 
-func classify(h recordHead) RecordClass {
+func classify(h recordHead) thinkt.RecordClass {
 	switch h.Type {
 	case "session_meta", "turn_context":
-		return ClassSessionState
+		return thinkt.ClassSessionState
 	case "token_usage_record", "compacted":
-		return ClassEvent
+		return thinkt.ClassEvent
 	case "world_state", "inter_agent_communication_metadata":
-		return ClassBookkeeping
+		return thinkt.ClassBookkeeping
 	case "event_msg":
 		return classifyEvent(h)
 	case "response_item":
 		return classifyWire(h)
 	default:
-		return ClassUnknown
+		return thinkt.ClassUnknown
 	}
 }
 
-func classifyEvent(h recordHead) RecordClass {
+func classifyEvent(h recordHead) thinkt.RecordClass {
 	switch h.PayloadType {
 	case "item_completed":
 		switch h.ItemType {
 		case "UserMessage", "ContextCompaction":
-			return ClassBookkeeping
+			return thinkt.ClassBookkeeping
 		case "AgentMessage", "Plan", "CommandExecution", "FileChange", "McpToolCall", "WebSearch", "ImageView":
-			return ClassTurn
+			return thinkt.ClassTurn
 		case "Reasoning":
 			if h.HasSummary {
-				return ClassTurn
+				return thinkt.ClassTurn
 			}
-			return ClassBookkeeping
+			return thinkt.ClassBookkeeping
 		case "Extension":
 			if h.ItemKind == "web.search" || h.ItemKind == "clock.sleep" {
-				return ClassTurn
+				return thinkt.ClassTurn
 			}
-			return ClassUnknown
+			return thinkt.ClassUnknown
 		case "SubAgentActivity", "CollabAgentToolCall":
-			return ClassEvent
+			return thinkt.ClassEvent
 		default:
-			return ClassUnknown
+			return thinkt.ClassUnknown
 		}
 	case "task_complete", "turn_aborted":
-		return ClassEvent
+		return thinkt.ClassEvent
 	case "task_started", "token_count", "thread_settings_applied":
-		return ClassBookkeeping
+		return thinkt.ClassBookkeeping
 	case "user_message", "agent_message", "agent_reasoning":
-		return ClassTurn // legacy pre-item events
+		return thinkt.ClassTurn // legacy pre-item events
 	default:
-		return ClassUnknown
+		return thinkt.ClassUnknown
 	}
 }
 
-func classifyWire(h recordHead) RecordClass {
+func classifyWire(h recordHead) thinkt.RecordClass {
 	switch h.PayloadType {
 	case "message":
 		switch h.Role {
@@ -329,55 +292,55 @@ func classifyWire(h recordHead) RecordClass {
 			class, _ := userMessageClass(h)
 			return class
 		case "developer":
-			return ClassContext
+			return thinkt.ClassContext
 		case "assistant":
-			return ClassTurn
+			return thinkt.ClassTurn
 		default:
-			return ClassUnknown
+			return thinkt.ClassUnknown
 		}
 	case "reasoning":
 		if h.HasSummary {
-			return ClassTurn
+			return thinkt.ClassTurn
 		}
-		return ClassBookkeeping
+		return thinkt.ClassBookkeeping
 	case "function_call", "custom_tool_call":
 		if orchestrationTools[h.Name] {
-			return ClassEvent
+			return thinkt.ClassEvent
 		}
-		return ClassTurn
+		return thinkt.ClassTurn
 	case "function_call_output", "custom_tool_call_output":
 		// Outputs carry no tool name; the parser reclassifies one whose call
 		// it remembers as orchestration.
-		return ClassTurn
+		return thinkt.ClassTurn
 	case "agent_message":
-		return ClassTurn
+		return thinkt.ClassTurn
 	case "web_search_call", "additional_tools":
-		return ClassBookkeeping
+		return thinkt.ClassBookkeeping
 	default:
-		return ClassUnknown
+		return thinkt.ClassUnknown
 	}
 }
 
 // userMessageClass decides a user-role wire message from its content item
 // kinds, falling back to a harness tag sniff when the kinds are absent.
-func userMessageClass(h recordHead) (RecordClass, thinkt.EntryKind) {
+func userMessageClass(h recordHead) (thinkt.RecordClass, thinkt.EntryKind) {
 	if len(h.Kinds) == 0 {
 		if hasHarnessTag(h.LeadText) {
-			return ClassContext, thinkt.KindMeta
+			return thinkt.ClassContext, thinkt.KindMeta
 		}
-		return ClassTurn, thinkt.KindNone
+		return thinkt.ClassTurn, thinkt.KindNone
 	}
 	for _, k := range h.Kinds {
 		if strings.HasPrefix(k, "user.") {
-			return ClassTurn, thinkt.KindNone
+			return thinkt.ClassTurn, thinkt.KindNone
 		}
 	}
 	for _, k := range h.Kinds {
 		if k == "shell.user_command" {
-			return ClassTurn, thinkt.KindCommandOutput
+			return thinkt.ClassTurn, thinkt.KindCommandOutput
 		}
 	}
-	return ClassContext, thinkt.KindMeta
+	return thinkt.ClassContext, thinkt.KindMeta
 }
 
 // isDedupeCandidate reports whether the parser may drop this wire line
@@ -397,7 +360,7 @@ func isDedupeCandidate(h recordHead) bool {
 
 // entryWeight is the number of entries one line yields when every dedupe
 // candidate is dropped: the session scan sums it for EntryCount.
-func entryWeight(h recordHead, class RecordClass) int {
+func entryWeight(h recordHead, class thinkt.RecordClass) int {
 	if !class.IsEntry() || isDedupeCandidate(h) || h.Type == "token_usage_record" {
 		return 0
 	}

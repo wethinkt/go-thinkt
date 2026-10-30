@@ -102,6 +102,9 @@ func TestParserUnknownTypesTally(t *testing.T) {
 	if n != 2 || p.UnknownTypes()["mystery_record"] != 2 {
 		t.Fatalf("n = %d, unknown = %v", n, p.UnknownTypes())
 	}
+	if fresh := NewParser(strings.NewReader(""), "other"); fresh.UnknownTypes() != nil {
+		t.Fatalf("new parser tally = %v", fresh.UnknownTypes())
+	}
 }
 
 func TestParserPendingFlushedBeforeLegacyEvent(t *testing.T) {

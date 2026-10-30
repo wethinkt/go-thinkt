@@ -17,7 +17,7 @@ type Parser struct {
 	scanner *bufio.Scanner
 	lineNum int
 	errors  []error
-	unknown unknownTally
+	unknown thinkt.UnknownTally[EntryType]
 }
 
 // NewParser creates a parser from an io.Reader.
@@ -25,6 +25,7 @@ func NewParser(r io.Reader) *Parser {
 	scanner := thinkt.NewScannerWithMaxCapacityCustom(r, 128*1024, thinkt.MaxLineCapacity)
 
 	return &Parser{
+		unknown: thinkt.UnknownTally[EntryType]{Source: thinkt.SourceClaude},
 		scanner: scanner,
 		lineNum: 0,
 	}
@@ -60,8 +61,8 @@ func (p *Parser) NextEntry() (*Entry, error) {
 		if entry == nil {
 			continue
 		}
-		if class == ClassUnknown {
-			p.unknown.note(entry.Type, "line", p.lineNum)
+		if class == thinkt.ClassUnknown {
+			p.unknown.Note(entry.Type, "line", p.lineNum)
 		}
 		return entry, nil
 	}
@@ -210,7 +211,7 @@ func (p *Parser) Errors() []error {
 // UnknownTypes returns how many records of each never-seen type were read,
 // or nil when every record had a known type.
 func (p *Parser) UnknownTypes() map[EntryType]int {
-	return p.unknown.snapshot()
+	return p.unknown.Snapshot()
 }
 
 // LineNum returns the current line number.

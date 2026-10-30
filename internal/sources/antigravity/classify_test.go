@@ -32,7 +32,7 @@ func fixtureStep(t *testing.T, name string, idx int) stepHead {
 }
 
 func TestClassifyLineEveryFixtureStep(t *testing.T) {
-	want := []RecordClass{ClassUserInput, ClassHarness, ClassModelTurn, ClassToolResult, ClassToolResult,
+	want := []StepClass{ClassUserInput, ClassHarness, ClassModelTurn, ClassToolResult, ClassToolResult,
 		ClassSystemMessage, ClassModelTurn, ClassAPIError, ClassModelTurn, ClassToolResult,
 		ClassSystemMessage, ClassHarness, ClassCheckpoint, ClassUserInput, ClassModelTurn, ClassUnknown}
 	lines := fixtureLines(t, "main.jsonl")
@@ -83,18 +83,6 @@ func TestSearchFilterKeepsConversationLines(t *testing.T) {
 	}
 	if !slices.Equal(kept, []int{0, 2, 3, 4, 6, 8, 9, 13, 14}) {
 		t.Fatalf("kept %v", kept)
-	}
-}
-
-func TestUnknownTallyCountsOncePerType(t *testing.T) {
-	var u unknownTally
-	u.note("MYSTERY_STEP")
-	u.note("MYSTERY_STEP")
-	if got := u.snapshot(); got["MYSTERY_STEP"] != 2 || len(got) != 1 {
-		t.Fatalf("%v", got)
-	}
-	if (&unknownTally{}).snapshot() != nil {
-		t.Fatal("empty tally not nil")
 	}
 }
 

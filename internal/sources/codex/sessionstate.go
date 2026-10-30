@@ -152,7 +152,7 @@ func scanSessionFile(path string) sessionScan {
 			if h.Role != "user" {
 				continue
 			}
-			if class, kind := userMessageClass(h); class != ClassTurn || kind != thinkt.KindNone {
+			if class, kind := userMessageClass(h); class != thinkt.ClassTurn || kind != thinkt.KindNone {
 				continue
 			}
 			if text := userPromptText(h.Payload); text != "" {

@@ -45,10 +45,10 @@ func scanSessionFile(path string) sessionScan {
 		}
 		typ, _, class := ClassifyLine(line)
 		switch class {
-		case ClassSessionState:
+		case thinkt.ClassSessionState:
 			s.applyState(typ, line)
 			continue
-		case ClassTurn:
+		case thinkt.ClassTurn:
 			s.EntryCount++
 			if s.FirstPrompt != "" && thinkt.IsRealModel(s.Model) {
 				continue

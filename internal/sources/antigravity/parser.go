@@ -19,7 +19,7 @@ import (
 type Parser struct {
 	scanner *bufio.Scanner
 	conv    converter
-	unknown unknownTally
+	unknown thinkt.UnknownTally[string]
 	related *relatedTracker // nil unless TrackRelated was called
 
 	held    *thinkt.Entry  // model turn waiting for its calls
@@ -33,6 +33,7 @@ type Parser struct {
 // conversation of a subagent, "" otherwise.
 func NewParser(r io.Reader, conversationID, parentID string) *Parser {
 	return &Parser{
+		unknown: thinkt.UnknownTally[string]{Source: thinkt.SourceAntigravity},
 		scanner: thinkt.NewScannerWithMaxCapacityCustom(r, 64*1024, thinkt.MaxScannerCapacity),
 		conv:    converter{conversationID: conversationID, parentID: parentID},
 	}
@@ -53,7 +54,7 @@ func (p *Parser) RelatedPaths() []thinkt.RelatedPath {
 // UnknownTypes returns the step types the parser did not recognise and how
 // often each appeared.
 func (p *Parser) UnknownTypes() map[string]int {
-	return p.unknown.snapshot()
+	return p.unknown.Snapshot()
 }
 
 // NextEntry returns the next entry, or io.EOF at the end of the stream.
@@ -133,7 +134,7 @@ func (p *Parser) process(line []byte) {
 		}
 	default:
 		if class == ClassUnknown {
-			p.unknown.note(h.Type, "step", h.Index)
+			p.unknown.Note(h.Type, "step", h.Index)
 		}
 		if e, ok := p.conv.convert(h, class); ok {
 			p.emit(e)

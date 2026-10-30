@@ -9,51 +9,14 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 )
 
-// RecordClass says what a wire line is for, decided from its record key and
-// a few cheap fields. The values mirror claude.RecordClass and
-// codex.RecordClass so a later lift into thinkt is mechanical.
-type RecordClass int
-
-const (
-	ClassTurn         RecordClass = iota // user prompts, loop parts and calls, tool results
-	ClassEvent                           // system events and the loop's step markers
-	ClassContext                         // harness-injected context: reminders, preambles, notifications
-	ClassCheckpoint                      // declared for parity; never returned
-	ClassSessionState                    // metadata
-	ClassBookkeeping                     // dropped: prompts repeated by turn.prompt, counters, configuration
-	ClassUnknown                         // key never seen; emitted as a secondary system entry so drift is visible
-)
-
-func (c RecordClass) String() string {
-	switch c {
-	case ClassTurn:
-		return "turn"
-	case ClassEvent:
-		return "event"
-	case ClassContext:
-		return "context"
-	case ClassCheckpoint:
-		return "checkpoint"
-	case ClassSessionState:
-		return "session-state"
-	case ClassBookkeeping:
-		return "bookkeeping"
-	case ClassUnknown:
-		return "unknown"
-	default:
-		return "invalid"
-	}
-}
-
-// IsEntry reports whether lines of this class become thinkt entries.
-func (c RecordClass) IsEntry() bool {
-	switch c {
-	case ClassTurn, ClassEvent, ClassContext, ClassCheckpoint, ClassUnknown:
-		return true
-	default:
-		return false
-	}
-}
+// The classifier sorts kimi lines into thinkt.RecordClass values:
+//   thinkt.ClassTurn         user prompts, loop parts and calls, tool results
+//   thinkt.ClassEvent        system events and the loop's step markers
+//   thinkt.ClassContext      harness-injected context: reminders, preambles, notifications
+//   thinkt.ClassCheckpoint   never returned
+//   thinkt.ClassSessionState metadata
+//   thinkt.ClassBookkeeping  dropped: prompts repeated by turn.prompt, counters, configuration
+//   thinkt.ClassUnknown      key never seen; emitted as a secondary system entry so drift is visible
 
 // recordHead is the cheap view of one wire line that classification and
 // conversion share.
@@ -167,14 +130,14 @@ type appendedEnvelope struct {
 
 // ClassifyLine decodes the head of one wire line and classifies it. A line
 // that is not a JSON object is bookkeeping with an empty head.
-func ClassifyLine(line []byte) (recordHead, RecordClass) {
+func ClassifyLine(line []byte) (recordHead, thinkt.RecordClass) {
 	line = bytes.TrimSpace(line)
 	if len(line) == 0 || line[0] != '{' {
-		return recordHead{}, ClassBookkeeping
+		return recordHead{}, thinkt.ClassBookkeeping
 	}
 	var lh lineHead
 	if err := json.Unmarshal(line, &lh); err != nil {
-		return recordHead{}, ClassBookkeeping
+		return recordHead{}, thinkt.ClassBookkeeping
 	}
 	h := recordHead{Type: lh.Type, Key: lh.Type, Time: lh.Time, Payload: json.RawMessage(line), ToolCallID: lh.ToolCallID, TurnID: stringID(lh.TurnID)}
 	switch lh.Type {
@@ -220,18 +183,18 @@ func ClassifyLine(line []byte) (recordHead, RecordClass) {
 	return h, classify(h)
 }
 
-func classify(h recordHead) RecordClass {
+func classify(h recordHead) thinkt.RecordClass {
 	switch {
 	case h.Type == "metadata":
-		return ClassSessionState
+		return thinkt.ClassSessionState
 	case strings.HasPrefix(h.Key, "loop/"):
 		switch h.Key {
 		case "loop/step.begin", "loop/step.end":
-			return ClassEvent
+			return thinkt.ClassEvent
 		case "loop/content.part", "loop/tool.call", "loop/tool.result":
-			return ClassTurn
+			return thinkt.ClassTurn
 		default:
-			return ClassUnknown
+			return thinkt.ClassUnknown
 		}
 	case strings.HasPrefix(h.Key, "ctx/"):
 		switch h.Role {
@@ -239,9 +202,9 @@ func classify(h recordHead) RecordClass {
 			class, _, _ := userClass(h)
 			return class
 		case "assistant", "tool":
-			return ClassTurn
+			return thinkt.ClassTurn
 		default:
-			return ClassUnknown
+			return thinkt.ClassUnknown
 		}
 	case strings.HasPrefix(h.Key, "appended/"):
 		switch h.Role {
@@ -249,23 +212,23 @@ func classify(h recordHead) RecordClass {
 			class, _, _ := userClass(h)
 			return class
 		case "assistant", "tool":
-			return ClassTurn
+			return thinkt.ClassTurn
 		default:
-			return ClassUnknown
+			return thinkt.ClassUnknown
 		}
 	case h.Type == "turn.steer":
-		return ClassContext
+		return thinkt.ClassContext
 	case h.Type == "turn.step.interrupted", h.Type == "turn.ended",
 		h.Type == "subagent.spawned", h.Type == "subagent.completed", h.Type == "subagent.failed", h.Type == "subagent.cancelled",
 		h.Type == "task.started", h.Type == "task.terminated",
 		h.Type == "plan.revision",
 		h.Type == "permission.record_approval_result":
-		return ClassEvent
+		return thinkt.ClassEvent
 	}
 	if isBookkeepingType(h.Type) {
-		return ClassBookkeeping
+		return thinkt.ClassBookkeeping
 	}
-	return ClassUnknown
+	return thinkt.ClassUnknown
 }
 
 func isBookkeepingType(t string) bool {
@@ -301,40 +264,40 @@ func splitGitContext(text string) (block, rest string) {
 
 // userClass decides a user message (appended input, context message, steer,
 // or appended notify) from its origin and lead text: class, kind, subtype.
-func userClass(h recordHead) (RecordClass, thinkt.EntryKind, string) {
+func userClass(h recordHead) (thinkt.RecordClass, thinkt.EntryKind, string) {
 	text := strings.TrimSpace(h.LeadText)
 	switch h.Origin {
 	case "injection":
-		return ClassContext, thinkt.KindMeta, "injection"
+		return thinkt.ClassContext, thinkt.KindMeta, "injection"
 	case "system_trigger":
 		// A subagent's task usually follows a <git-context> block in the
 		// same message; only a bare preamble or a nudge is harness text.
 		_, task := splitGitContext(text)
 		if task == "" || task == "continue" || strings.HasPrefix(task, "Working directory:") {
-			return ClassContext, thinkt.KindMeta, "system_trigger"
+			return thinkt.ClassContext, thinkt.KindMeta, "system_trigger"
 		}
-		return ClassTurn, thinkt.KindNone, "system_trigger"
+		return thinkt.ClassTurn, thinkt.KindNone, "system_trigger"
 	case "task", "background_task":
-		return ClassContext, thinkt.KindTaskNotification, h.Origin
+		return thinkt.ClassContext, thinkt.KindTaskNotification, h.Origin
 	case "skill_activation":
-		return ClassContext, thinkt.KindMeta, "skill_activation"
+		return thinkt.ClassContext, thinkt.KindMeta, "skill_activation"
 	case "shell_command":
-		return ClassTurn, thinkt.KindCommandOutput, "shell_command"
+		return thinkt.ClassTurn, thinkt.KindCommandOutput, "shell_command"
 	case "user":
-		return ClassTurn, thinkt.KindNone, ""
+		return thinkt.ClassTurn, thinkt.KindNone, ""
 	}
 	if h.Source == "notify" {
-		return ClassContext, thinkt.KindTaskNotification, "notify"
+		return thinkt.ClassContext, thinkt.KindTaskNotification, "notify"
 	}
 	if strings.HasPrefix(text, compactionLead) {
-		return ClassContext, thinkt.KindCompactSummary, "compaction"
+		return thinkt.ClassContext, thinkt.KindCompactSummary, "compaction"
 	}
 	for _, lead := range harnessLeads {
 		if strings.HasPrefix(text, lead) {
-			return ClassContext, thinkt.KindMeta, "injection"
+			return thinkt.ClassContext, thinkt.KindMeta, "injection"
 		}
 	}
-	return ClassTurn, thinkt.KindNone, ""
+	return thinkt.ClassTurn, thinkt.KindNone, ""
 }
 
 // NewSearchFilter returns a per-file predicate for the search scanner. It
@@ -362,7 +325,7 @@ func NewSearchFilter() func(line []byte) bool {
 				seenUserIDs[h.ID] = true
 			}
 			c, kind, _ := userClass(h)
-			return c == ClassTurn && kind == thinkt.KindNone
+			return c == thinkt.ClassTurn && kind == thinkt.KindNone
 		case "loop/content.part", "loop/tool.call", "loop/tool.result", "ctx/assistant", "ctx/tool":
 			return true
 		}

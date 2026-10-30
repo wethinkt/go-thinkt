@@ -110,20 +110,20 @@ func (c *converter) convertUser(h recordHead) []thinkt.Entry {
 	e.Subtype = subtype
 	// A subagent task prompt shows the task; the git context it opens with
 	// is kept in metadata.
-	if subtype == "system_trigger" && class == ClassTurn {
+	if subtype == "system_trigger" && class == thinkt.ClassTurn {
 		if block, rest := splitGitContext(text); block != "" {
 			e.Text = rest
 			e.Metadata["git_context"] = block
 		}
 	}
-	if class == ClassContext || kind == thinkt.KindCommandOutput {
+	if class == thinkt.ClassContext || kind == thinkt.KindCommandOutput {
 		e.Visibility = thinkt.VisibilitySecondary
 	}
 	return []thinkt.Entry{e}
 }
 
 // convertEvent converts the system events and unknown lines.
-func (c *converter) convertEvent(h recordHead, class RecordClass, line []byte) []thinkt.Entry {
+func (c *converter) convertEvent(h recordHead, class thinkt.RecordClass, line []byte) []thinkt.Entry {
 	switch h.Type {
 	case "turn.ended":
 		return c.turnEnded(h)
@@ -134,7 +134,7 @@ func (c *converter) convertEvent(h recordHead, class RecordClass, line []byte) [
 	case "plan.revision":
 		return c.planRevision(h)
 	}
-	if class == ClassUnknown {
+	if class == thinkt.ClassUnknown {
 		e := c.newEntry(thinkt.RoleSystem, h, "")
 		e.Kind = thinkt.KindUnknown
 		e.Visibility = thinkt.VisibilitySecondary

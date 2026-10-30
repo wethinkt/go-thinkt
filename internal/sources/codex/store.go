@@ -633,7 +633,7 @@ func (s *Store) readSessionMetaFast(path, workspaceID string) (*thinkt.SessionMe
 			if meta.FirstPrompt != "" || h.Role != "user" {
 				continue
 			}
-			if class, kind := userMessageClass(h); class == ClassTurn && kind == thinkt.KindNone {
+			if class, kind := userMessageClass(h); class == thinkt.ClassTurn && kind == thinkt.KindNone {
 				meta.FirstPrompt = userPromptText(h.Payload)
 			}
 		}

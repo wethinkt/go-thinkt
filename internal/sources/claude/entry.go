@@ -117,7 +117,7 @@ type Entry struct {
 	RenderedRole string               `json:"renderedRole,omitempty"`
 
 	// Raw holds the original line for record types the parser has never seen,
-	// so the entry can show it. Readers set it only for ClassUnknown lines.
+	// so the entry can show it. Readers set it only for thinkt.ClassUnknown lines.
 	Raw json.RawMessage `json:"-"`
 
 	// Parsed messages (lazily populated on first access via GetUserMessage/GetAssistantMessage)

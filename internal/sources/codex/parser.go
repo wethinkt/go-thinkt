@@ -37,13 +37,14 @@ type Parser struct {
 	legacy    *thinkt.Entry
 	legacyKey string
 
-	unknown unknownTally
+	unknown thinkt.UnknownTally[string]
 	done    bool
 }
 
 // NewParser creates a new Codex parser.
 func NewParser(r io.Reader, sessionID string) *Parser {
 	p := &Parser{
+		unknown:     thinkt.UnknownTally[string]{Source: thinkt.SourceCodex},
 		scanner:     thinkt.NewScannerWithMaxCapacityCustom(r, 64*1024, thinkt.MaxScannerCapacity),
 		sessionID:   sessionID,
 		usageTarget: -1,
@@ -55,7 +56,7 @@ func NewParser(r io.Reader, sessionID string) *Parser {
 // UnknownTypes returns the record keys the parser did not recognise and how
 // often each appeared.
 func (p *Parser) UnknownTypes() map[string]int {
-	return p.unknown.snapshot()
+	return p.unknown.Snapshot()
 }
 
 // NextEntry returns the next entry, or io.EOF at the end of the stream.
@@ -102,8 +103,8 @@ func (p *Parser) step(line []byte) {
 	head, class := ClassifyLine(line)
 	p.conv.lineNo = p.lineNo
 	p.turn.apply(head)
-	if class == ClassUnknown {
-		p.unknown.note(head.Key(), "line", p.lineNo)
+	if class == thinkt.ClassUnknown {
+		p.unknown.Note(head.Key(), "line", p.lineNo)
 	}
 	key := head.Key()
 	if key == "token_usage_record" {

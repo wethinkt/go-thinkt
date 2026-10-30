@@ -53,7 +53,7 @@ type Parser struct {
 	turnTexts    map[string]bool
 
 	out     []thinkt.Entry
-	unknown unknownTally
+	unknown thinkt.UnknownTally[string]
 	done    bool
 }
 
@@ -61,6 +61,7 @@ type Parser struct {
 // the file belongs to (the session directory name, or "<session>/<agent>").
 func NewParser(r io.Reader, sessionID string) *Parser {
 	p := &Parser{
+		unknown:      thinkt.UnknownTally[string]{Source: thinkt.SourceKimi},
 		scanner:      thinkt.NewScannerWithMaxCapacityCustom(r, 64*1024, thinkt.MaxScannerCapacity),
 		sessionID:    sessionID,
 		approvals:    map[string]approval{},
@@ -78,7 +79,7 @@ func NewParser(r io.Reader, sessionID string) *Parser {
 // UnknownTypes returns the record keys the parser did not recognise and how
 // often each appeared.
 func (p *Parser) UnknownTypes() map[string]int {
-	return p.unknown.snapshot()
+	return p.unknown.Snapshot()
 }
 
 // NextEntry returns the next entry, or io.EOF at the end of the stream.
@@ -125,8 +126,8 @@ func (p *Parser) process(line []byte) {
 	head, class := ClassifyLine(line)
 	p.conv.lineNo = p.lineNo
 	p.turn.apply(head)
-	if class == ClassUnknown {
-		p.unknown.note(head.Key, "line", p.lineNo)
+	if class == thinkt.ClassUnknown {
+		p.unknown.Note(head.Key, "line", p.lineNo)
 	}
 	// A step closed by an error or interruption waits one line for the
 	// turn.step.interrupted that carries its message.

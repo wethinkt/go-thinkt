@@ -5,22 +5,22 @@ import (
 	"time"
 )
 
-// RecordClass says what a transcript step is for, decided from its type.
-type RecordClass int
+// StepClass says what a transcript step is for, decided from its type.
+type StepClass int
 
 const (
-	ClassUserInput     RecordClass = iota // USER_INPUT
-	ClassModelTurn                        // PLANNER_RESPONSE
-	ClassToolResult                       // the nine result step types
-	ClassSystemMessage                    // SYSTEM_MESSAGE: task notifications, subagent messages
-	ClassHarness                          // EPHEMERAL_MESSAGE, CONVERSATION_HISTORY
-	ClassCheckpoint                       // CHECKPOINT: compaction summary
-	ClassAPIError                         // ERROR_MESSAGE
-	ClassUnknown                          // type never seen; emitted as a secondary entry so drift is visible
-	ClassInvalid                          // not JSON (a partial last line)
+	ClassUserInput     StepClass = iota // USER_INPUT
+	ClassModelTurn                      // PLANNER_RESPONSE
+	ClassToolResult                     // the nine result step types
+	ClassSystemMessage                  // SYSTEM_MESSAGE: task notifications, subagent messages
+	ClassHarness                        // EPHEMERAL_MESSAGE, CONVERSATION_HISTORY
+	ClassCheckpoint                     // CHECKPOINT: compaction summary
+	ClassAPIError                       // ERROR_MESSAGE
+	ClassUnknown                        // type never seen; emitted as a secondary entry so drift is visible
+	ClassInvalid                        // not JSON (a partial last line)
 )
 
-func (c RecordClass) String() string {
+func (c StepClass) String() string {
 	switch c {
 	case ClassUserInput:
 		return "user-input"
@@ -77,7 +77,7 @@ type stepHead struct {
 }
 
 // ClassifyLine decodes one transcript line and says what it is.
-func ClassifyLine(line []byte) (stepHead, RecordClass) {
+func ClassifyLine(line []byte) (stepHead, StepClass) {
 	var h stepHead
 	if err := json.Unmarshal(line, &h); err != nil {
 		return stepHead{}, ClassInvalid

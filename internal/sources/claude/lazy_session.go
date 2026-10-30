@@ -40,7 +40,7 @@ type LazySession struct {
 	// Background line count for progress estimation
 	totalEntries atomic.Int64 // 0 = unknown/scanning, >0 = known
 
-	unknown unknownTally // record types the classifier has never seen
+	unknown thinkt.UnknownTally[EntryType] // record types the classifier has never seen
 
 	legacySummary string // pre-2.1 summary record; title fallback
 }
@@ -58,7 +58,7 @@ func (ls *LazySession) title() string {
 func (ls *LazySession) UnknownTypes() map[EntryType]int {
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
-	return ls.unknown.snapshot()
+	return ls.unknown.Snapshot()
 }
 
 // OpenLazySession opens a session file and preloads metadata.
@@ -71,6 +71,7 @@ func OpenLazySession(path string) (*LazySession, error) {
 	}
 
 	ls := &LazySession{
+		unknown:  thinkt.UnknownTally[EntryType]{Source: thinkt.SourceClaude},
 		Path:     path,
 		FileSize: reader.FileSize(),
 		reader:   reader,
@@ -133,15 +134,15 @@ func (ls *LazySession) readNextEntry() (*Entry, error) {
 
 	// Session-state records never become entries but still carry metadata.
 	entry, class, decodeErr := decodeRecord(line)
-	if class == ClassSessionState {
+	if class == thinkt.ClassSessionState {
 		ls.onSessionState(line)
 	}
 	if decodeErr != nil || entry == nil {
 		// Malformed, bookkeeping, or session-state line: nothing to append.
 		return nil, nil
 	}
-	if class == ClassUnknown {
-		ls.unknown.note(entry.Type, "path", ls.Path, "offset", ls.bytesRead)
+	if class == thinkt.ClassUnknown {
+		ls.unknown.Note(entry.Type, "path", ls.Path, "offset", ls.bytesRead)
 	}
 	if entry.Type == EntryTypeSummary && strings.TrimSpace(entry.Summary) != "" {
 		ls.legacySummary = entry.Summary
