@@ -356,3 +356,20 @@ func TestSessionCopier_Copy_ToSpecificFile(t *testing.T) {
 		t.Error("expected file to be copied to specific path")
 	}
 }
+
+func TestFormatSummaryPrintsRelated(t *testing.T) {
+	sessions := []thinkt.SessionMeta{{
+		FullPath: "/p/t.jsonl", ID: "c1", ModifiedAt: time.Now(),
+		RelatedPaths: []thinkt.RelatedPath{
+			{Path: "/w/ds4-go", Reasons: []string{"command", "edited"}, Count: 2},
+			{Path: "/w/other", Reasons: []string{"read"}, Count: 1},
+		},
+	}}
+	var buf bytes.Buffer
+	if err := NewSessionsFormatter(&buf).FormatSummary(sessions, "", SessionListOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "Related:  /w/ds4-go (command, edited); /w/other (read)") {
+		t.Fatalf("%s", buf.String())
+	}
+}

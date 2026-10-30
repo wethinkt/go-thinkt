@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/wethinkt/go-thinkt/internal/sources/antigravity"
 	"github.com/wethinkt/go-thinkt/internal/sources/claude"
 	"github.com/wethinkt/go-thinkt/internal/sources/codex"
 	"github.com/wethinkt/go-thinkt/internal/sources/copilot"
@@ -27,6 +28,9 @@ func OpenLazySession(path string) (thinkt.LazySession, error) {
 	case kimi.IsSessionPath(path):
 		tuilog.Log.Info("OpenLazySession: detected as kimi session")
 		return openKimiLazySession(path)
+	case antigravity.IsSessionPath(path):
+		tuilog.Log.Info("OpenLazySession: detected as antigravity session")
+		return openAntigravityLazySession(path)
 	case codex.IsSessionPath(path):
 		tuilog.Log.Info("OpenLazySession: detected as codex session")
 		return openCodexLazySession(path)
@@ -173,6 +177,21 @@ func openKimiLazySession(path string) (thinkt.LazySession, error) {
 	reader, err := kimi.NewStore(base).OpenSession(context.Background(), path)
 	if err != nil {
 		return nil, fmt.Errorf("open kimi session: %w", err)
+	}
+	return thinkt.NewLazySession(reader)
+}
+
+// openAntigravityLazySession opens an Antigravity transcript
+// (<base>/brain/<id>/.system_generated/logs/transcript{,_full}.jsonl) through
+// the store rooted at the path's base directory.
+func openAntigravityLazySession(path string) (thinkt.LazySession, error) {
+	base := antigravity.BaseDirForPath(path)
+	if base == "" {
+		base, _ = antigravity.DefaultDir()
+	}
+	reader, err := antigravity.NewStore(base).OpenSession(context.Background(), path)
+	if err != nil {
+		return nil, fmt.Errorf("open antigravity session: %w", err)
 	}
 	return thinkt.NewLazySession(reader)
 }

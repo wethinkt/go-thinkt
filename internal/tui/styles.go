@@ -207,6 +207,8 @@ func SourceColorHex(s thinkt.Source) string {
 		return "#4f8cff"
 	case thinkt.SourceQwen:
 		return "#ff6b9d"
+	case thinkt.SourceAntigravity:
+		return "#3cc8b4"
 	default:
 		return "#888888"
 	}

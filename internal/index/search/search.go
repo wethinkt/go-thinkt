@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/wethinkt/go-thinkt/internal/index/db"
+	"github.com/wethinkt/go-thinkt/internal/sources/antigravity"
 	"github.com/wethinkt/go-thinkt/internal/sources/claude"
 	"github.com/wethinkt/go-thinkt/internal/sources/codex"
 	"github.com/wethinkt/go-thinkt/internal/sources/kimi"
@@ -307,7 +308,8 @@ var searchable = map[string]func([]byte) bool{
 // record from a twin an earlier line already carried. It takes precedence
 // over searchable for its source.
 var searchFilters = map[string]func() func([]byte) bool{
-	string(thinkt.SourceKimi): kimi.NewSearchFilter,
+	string(thinkt.SourceKimi):        kimi.NewSearchFilter,
+	string(thinkt.SourceAntigravity): antigravity.NewSearchFilter,
 }
 
 func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch) {

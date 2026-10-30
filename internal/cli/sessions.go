@@ -163,6 +163,7 @@ type SessionSummaryData struct {
 	Modified  time.Time
 	Branch    string
 	Source    string
+	Related   string // folders outside the project: "<path> (<reasons>)" joined by "; "
 }
 
 const defaultSessionSummaryTemplate = `{{range .}}{{.Path}}
@@ -171,7 +172,8 @@ const defaultSessionSummaryTemplate = `{{range .}}{{.Path}}
   Messages: {{.Messages}}
   Created:  {{.Created.Format "2006-01-02 15:04"}}
   Modified: {{.Modified.Format "2006-01-02 15:04"}}{{if .Branch}}
-  Branch:   {{.Branch}}{{end}}{{if .Summary}}
+  Branch:   {{.Branch}}{{end}}{{if .Related}}
+  Related:  {{.Related}}{{end}}{{if .Summary}}
   Summary:  {{.Summary}}{{end}}
 
 {{end}}`
@@ -185,7 +187,8 @@ const SessionSummaryTemplateHelp = `Template variables:
   {{.Messages}}   Number of messages
   {{.Created}}    Creation time (time.Time)
   {{.Modified}}   Last modified time (time.Time)
-  {{.Branch}}     Git branch (if available)`
+  {{.Branch}}     Git branch (if available)
+  {{.Related}}    Folders outside the project the session touched (if any)`
 
 // FormatSummary outputs detailed session information.
 func (f *SessionsFormatter) FormatSummary(sessions []thinkt.SessionMeta, customTmpl string, opts SessionListOptions) error {
@@ -204,6 +207,7 @@ func (f *SessionsFormatter) FormatSummary(sessions []thinkt.SessionMeta, customT
 			Modified:  s.ModifiedAt,
 			Branch:    s.GitBranch,
 			Source:    string(s.Source),
+			Related:   formatRelated(s.RelatedPaths),
 		}
 	}
 
@@ -219,6 +223,15 @@ func (f *SessionsFormatter) FormatSummary(sessions []thinkt.SessionMeta, customT
 	}
 
 	return tmpl.Execute(f.w, data)
+}
+
+// formatRelated renders related folders as "<path> (<reasons>)" joined by "; ".
+func formatRelated(paths []thinkt.RelatedPath) string {
+	parts := make([]string, 0, len(paths))
+	for _, p := range paths {
+		parts = append(parts, p.Path+" ("+strings.Join(p.Reasons, ", ")+")")
+	}
+	return strings.Join(parts, "; ")
 }
 
 func sortSessions(sessions []thinkt.SessionMeta, sortBy string, descending bool) {

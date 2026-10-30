@@ -202,3 +202,25 @@ func TestScanFileKimiSkipsContextTwinAndBatch(t *testing.T) {
 		t.Fatalf("want one match on line 1, got %v", lines)
 	}
 }
+
+func TestScanFileAntigravitySkipsHarnessLines(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "transcript_full.jsonl")
+	content := `{"step_index":0,"type":"USER_INPUT","content":"<USER_REQUEST>\nneedle here\n</USER_REQUEST>"}
+{"step_index":1,"type":"ERROR_MESSAGE","error":"needle in an error"}
+{"step_index":2,"type":"EPHEMERAL_MESSAGE","content":"<EPHEMERAL_MESSAGE>needle reminder</EPHEMERAL_MESSAGE>"}
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m, _ := NewMatcher("needle", false, false)
+	out := make(chan RawMatch, 8)
+	scanFile(context.Background(), Candidate{Path: path, Source: "antigravity"}, m, out)
+	close(out)
+	var lines []int
+	for match := range out {
+		lines = append(lines, match.LineNum)
+	}
+	if len(lines) != 1 || lines[0] != 1 {
+		t.Fatalf("want one match on line 1, got %v", lines)
+	}
+}

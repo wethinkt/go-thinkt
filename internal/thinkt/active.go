@@ -251,6 +251,7 @@ var knownProcesses = map[string]Source{
 	"kimi":   SourceKimi,
 	"gemini": SourceGemini,
 	"codex":  SourceCodex,
+	"agy":    SourceAntigravity,
 }
 
 // detectMtime finds sessions with recent file modifications across all sources.

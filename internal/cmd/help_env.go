@@ -54,6 +54,7 @@ var envGroups = []envGroup{
 		{"THINKT_CODEX_HOME", "", "Override Codex session directory"},
 		{"THINKT_COPILOT_HOME", "", "Override Copilot session directory"},
 		{"THINKT_QWEN_HOME", "", "Override Qwen session directory"},
+		{"THINKT_ANTIGRAVITY_HOME", "~/.gemini/antigravity-cli", "Override Antigravity CLI data directory"},
 	}},
 }
 

@@ -2,6 +2,7 @@
 package sources
 
 import (
+	"github.com/wethinkt/go-thinkt/internal/sources/antigravity"
 	"github.com/wethinkt/go-thinkt/internal/sources/claude"
 	"github.com/wethinkt/go-thinkt/internal/sources/codex"
 	"github.com/wethinkt/go-thinkt/internal/sources/copilot"
@@ -21,5 +22,6 @@ func AllFactories() []thinkt.StoreFactory {
 		gemini.Factory(),
 		kimi.Factory(),
 		qwen.Factory(),
+		antigravity.Factory(),
 	}
 }

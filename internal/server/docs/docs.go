@@ -1931,6 +1931,7 @@ const docTemplate = `{
                 "local_command",
                 "queue_operation",
                 "api_error",
+                "tool_wire",
                 "unknown"
             ],
             "x-enum-comments": {
@@ -1946,6 +1947,7 @@ const docTemplate = `{
                 "KindMeta": "harness-authored user turn (isMeta, \u003csystem-reminder\u003e)",
                 "KindQueueOperation": "queue-operation record",
                 "KindTaskNotification": "\u003ctask-notification\u003e user turn",
+                "KindToolWire": "the raw tool call the model emitted, superseded by a structured harness item; secondary",
                 "KindTurnDuration": "system/turn_duration",
                 "KindUnknown": "record type the parser has never seen"
             },
@@ -1964,6 +1966,7 @@ const docTemplate = `{
                 "system/local_command",
                 "queue-operation record",
                 "assistant record flagged isApiErrorMessage",
+                "the raw tool call the model emitted, superseded by a structured harness item; secondary",
                 "record type the parser has never seen"
             ],
             "x-enum-varnames": [
@@ -1981,6 +1984,7 @@ const docTemplate = `{
                 "KindLocalCommand",
                 "KindQueueOperation",
                 "KindAPIError",
+                "KindToolWire",
                 "KindUnknown"
             ]
         },
@@ -2079,6 +2083,23 @@ const docTemplate = `{
                 }
             }
         },
+        "thinkt.RelatedPath": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "reasons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "thinkt.Role": {
             "type": "string",
             "enum": [
@@ -2118,13 +2139,23 @@ const docTemplate = `{
                 "api_duration_ms": {
                     "type": "integer"
                 },
+                "cached_input_tokens": {
+                    "type": "integer"
+                },
                 "duration_ms": {
+                    "type": "integer"
+                },
+                "input_tokens": {
+                    "description": "Token totals summed over the session's usage records (Codex\ntoken_usage_record). Zero when the source does not report them.",
                     "type": "integer"
                 },
                 "lines_added": {
                     "type": "integer"
                 },
                 "lines_removed": {
+                    "type": "integer"
+                },
+                "output_tokens": {
                     "type": "integer"
                 },
                 "tool_duration_ms": {
@@ -2193,6 +2224,13 @@ const docTemplate = `{
                     "description": "Normalized project path",
                     "type": "string"
                 },
+                "related_paths": {
+                    "description": "Folders outside the project this session touched",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/thinkt.RelatedPath"
+                    }
+                },
                 "source": {
                     "description": "Which tool (kimi, claude)",
                     "allOf": [
@@ -2230,7 +2268,8 @@ const docTemplate = `{
                 "copilot",
                 "gemini",
                 "kimi",
-                "qwen"
+                "qwen",
+                "antigravity"
             ],
             "x-enum-varnames": [
                 "SourceThinkt",
@@ -2239,7 +2278,8 @@ const docTemplate = `{
                 "SourceCopilot",
                 "SourceGemini",
                 "SourceKimi",
-                "SourceQwen"
+                "SourceQwen",
+                "SourceAntigravity"
             ]
         },
         "thinkt.Team": {

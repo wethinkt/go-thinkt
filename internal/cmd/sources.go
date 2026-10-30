@@ -50,7 +50,8 @@ Sources include:
   - Gemini CLI (~/.gemini)
   - GitHub Copilot (~/.copilot)
   - Codex CLI (~/.codex)
-  - Qwen Code (~/.qwen)`,
+  - Qwen Code (~/.qwen)
+  - Antigravity CLI (~/.gemini/antigravity-cli)`,
 	RunE: runSourcesList,
 }
 
@@ -139,6 +140,7 @@ func runSourcesList(cmd *cobra.Command, args []string) error {
 		fmt.Println("  - Copilot CLI: ~/.copilot/")
 		fmt.Println("  - Codex CLI: ~/.codex/")
 		fmt.Println("  - Qwen Code: ~/.qwen/")
+		fmt.Println("  - Antigravity CLI: ~/.gemini/antigravity-cli/")
 		return nil
 	}
 

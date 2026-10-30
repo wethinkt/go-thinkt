@@ -649,6 +649,7 @@ definitions:
     - local_command
     - queue_operation
     - api_error
+    - tool_wire
     - unknown
     type: string
     x-enum-comments:
@@ -664,6 +665,8 @@ definitions:
       KindMeta: harness-authored user turn (isMeta, <system-reminder>)
       KindQueueOperation: queue-operation record
       KindTaskNotification: <task-notification> user turn
+      KindToolWire: the raw tool call the model emitted, superseded by a structured
+        harness item; secondary
       KindTurnDuration: system/turn_duration
       KindUnknown: record type the parser has never seen
     x-enum-descriptions:
@@ -681,6 +684,8 @@ definitions:
     - system/local_command
     - queue-operation record
     - assistant record flagged isApiErrorMessage
+    - the raw tool call the model emitted, superseded by a structured harness item;
+      secondary
     - record type the parser has never seen
     x-enum-varnames:
     - KindNone
@@ -697,6 +702,7 @@ definitions:
     - KindLocalCommand
     - KindQueueOperation
     - KindAPIError
+    - KindToolWire
     - KindUnknown
   thinkt.PRLink:
     properties:
@@ -763,6 +769,17 @@ definitions:
         description: Which machine/host
         type: string
     type: object
+  thinkt.RelatedPath:
+    properties:
+      count:
+        type: integer
+      path:
+        type: string
+      reasons:
+        items:
+          type: string
+        type: array
+    type: object
   thinkt.Role:
     enum:
     - user
@@ -795,11 +812,20 @@ definitions:
     properties:
       api_duration_ms:
         type: integer
+      cached_input_tokens:
+        type: integer
       duration_ms:
+        type: integer
+      input_tokens:
+        description: |-
+          Token totals summed over the session's usage records (Codex
+          token_usage_record). Zero when the source does not report them.
         type: integer
       lines_added:
         type: integer
       lines_removed:
+        type: integer
+      output_tokens:
         type: integer
       tool_duration_ms:
         type: integer
@@ -847,6 +873,11 @@ definitions:
       project_path:
         description: Normalized project path
         type: string
+      related_paths:
+        description: Folders outside the project this session touched
+        items:
+          $ref: '#/definitions/thinkt.RelatedPath'
+        type: array
       source:
         allOf:
         - $ref: '#/definitions/thinkt.Source'
@@ -877,6 +908,7 @@ definitions:
     - gemini
     - kimi
     - qwen
+    - antigravity
     type: string
     x-enum-varnames:
     - SourceThinkt
@@ -886,6 +918,7 @@ definitions:
     - SourceGemini
     - SourceKimi
     - SourceQwen
+    - SourceAntigravity
   thinkt.Team:
     properties:
       created_at:

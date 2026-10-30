@@ -350,3 +350,9 @@ func (m *mockActiveStore) OpenSession(_ context.Context, _ string) (SessionReade
 	return nil, nil
 }
 func (m *mockActiveStore) WatchConfig() WatchConfig { return DefaultWatchConfig() }
+
+func TestKnownProcessesAgy(t *testing.T) {
+	if knownProcesses["agy"] != SourceAntigravity {
+		t.Fatalf("agy → %q", knownProcesses["agy"])
+	}
+}
