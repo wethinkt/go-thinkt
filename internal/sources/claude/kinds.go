@@ -3,7 +3,6 @@ package claude
 import (
 	"encoding/json"
 	"html"
-	"regexp"
 	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -44,31 +43,35 @@ var userWrapperKinds = []struct {
 	{"<bash-input", thinkt.KindCommandOutput},
 }
 
-// taskTagRe matches a tag of a <task-notification> body.
-var taskTagRe = regexp.MustCompile(`(?s)<(task-id|tool-use-id|status|output-file|summary)>(.*?)</`)
+// taskTag returns the first value of a tag.
+func taskTag(text, tag string) string {
+	_, rest, ok := strings.Cut(text, "<"+tag+">")
+	if !ok {
+		return ""
+	}
+	value, _, ok := strings.Cut(rest, "</"+tag+">")
+	if !ok {
+		return ""
+	}
+	return html.UnescapeString(strings.TrimSpace(value))
+}
 
 // parseTaskNotification reads the task link of a <task-notification>, nil
-// without a task or tool id. A status means the task ended; without one the
-// note is an update.
+// without a task or tool id. Only the fields ahead of the free-text <result>
+// count, since a result can quote anything. A status means the task ended;
+// without one the note is an update.
 func parseTaskNotification(text string) *thinkt.TaskLink {
-	l := thinkt.TaskLink{Event: thinkt.TaskUpdate}
-	for _, m := range taskTagRe.FindAllStringSubmatch(text, -1) {
-		value := html.UnescapeString(strings.TrimSpace(m[2]))
-		switch m[1] {
-		case "task-id":
-			l.ID = value
-		case "tool-use-id":
-			l.ToolUseID = value
-		case "status":
-			l.Status, l.Event = value, thinkt.TaskFinished
-		case "output-file":
-			l.OutputPath = value
-		case "summary":
-			l.Description = value
-		}
+	head, _, _ := strings.Cut(text, "<result>")
+	head, _, _ = strings.Cut(head, "</task-notification>")
+	l := thinkt.TaskLink{
+		ID: taskTag(head, "task-id"), ToolUseID: taskTag(head, "tool-use-id"), Event: thinkt.TaskUpdate,
+		Status: taskTag(head, "status"), OutputPath: taskTag(head, "output-file"), Description: taskTag(head, "summary"),
 	}
 	if l.ID == "" && l.ToolUseID == "" {
 		return nil
+	}
+	if l.Status != "" {
+		l.Event = thinkt.TaskFinished
 	}
 	return &l
 }

@@ -83,3 +83,14 @@ func TestTaskTrackerOrdersByStart(t *testing.T) {
 		t.Fatalf("%+v", got)
 	}
 }
+
+func TestTaskTrackerKeepsTheStartingCall(t *testing.T) {
+	var tr TaskTracker
+	tr.Entry(taskCall("a1", "t1", "p1", "turn1", 10))
+	tr.Entry(taskNote("r1", 11, TaskLink{ID: "b1", Event: TaskStarted, ToolUseID: "t1"}))
+	tr.Entry(taskCall("a2", "t2", "p2", "turn2", 20))
+	tr.Entry(taskNote("r2", 21, TaskLink{ID: "b1", Event: TaskStarted, ToolUseID: "t2"}))
+	if got := tr.Tasks(); len(got) != 1 || got[0].ToolUseID != "t1" || got[0].StartEntryUUID != "a1" {
+		t.Fatalf("%+v", got)
+	}
+}

@@ -91,7 +91,9 @@ func (t *TaskTracker) link(e *Entry, l *TaskLink) {
 	}
 	if l.ToolUseID != "" {
 		t.byTool[l.ToolUseID] = id
-		task.ToolUseID = l.ToolUseID
+		if task.ToolUseID == "" {
+			task.ToolUseID = l.ToolUseID
+		}
 		if call, ok := t.calls[l.ToolUseID]; ok && task.StartEntryUUID == "" {
 			task.StartEntryUUID, task.PromptID, task.TurnID, task.StartedAt = call.uuid, call.prompt, call.turn, call.at
 		}

@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	backgroundTaskRe = regexp.MustCompile(`/(task-\d+)\b`)
+	backgroundTaskRe = regexp.MustCompile(`^task-\d+\b`)
 	userRequestRe    = regexp.MustCompile(`(?s)<USER_REQUEST>\n?(.*?)\n?</USER_REQUEST>`)
 	additionalMetaRe = regexp.MustCompile(`(?s)<ADDITIONAL_METADATA>\n?(.*?)\n?</ADDITIONAL_METADATA>`)
 	settingsChangeRe = regexp.MustCompile(`(?s)<USER_SETTINGS_CHANGE>\n?(.*?)\n?</USER_SETTINGS_CHANGE>`)
@@ -121,6 +121,19 @@ func withMedia(text string, media []mediaRef) string {
 		}
 	}
 	return text
+}
+
+// taskNamed returns the first of this conversation's tasks that text names,
+// as <conversation>/task-N; a bare task-N could be any path.
+func (c *converter) taskNamed(text string) string {
+	if c.conversationID == "" {
+		return ""
+	}
+	_, rest, ok := strings.Cut(text, c.conversationID+"/")
+	if !ok {
+		return ""
+	}
+	return backgroundTaskRe.FindString(rest)
 }
 
 // mediaBlocks returns a block for each attachment with a location.
@@ -350,8 +363,8 @@ func (c *converter) resultEntry(h stepHead, toolUseID string) thinkt.Entry {
 	}}
 	// The first result naming a task is its start; the tracker ignores later
 	// mentions, such as a read of its log.
-	if m := backgroundTaskRe.FindStringSubmatch(body); m != nil {
-		e.Task = &thinkt.TaskLink{ID: m[1], Event: thinkt.TaskStarted, ToolUseID: toolUseID, Kind: "process"}
+	if id := c.taskNamed(body); id != "" {
+		e.Task = &thinkt.TaskLink{ID: id, Event: thinkt.TaskStarted, ToolUseID: toolUseID, Kind: "process"}
 	}
 	return e
 }

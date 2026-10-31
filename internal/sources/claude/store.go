@@ -705,6 +705,9 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 			rendered = append(rendered, r.Content)
 		}
 		entry.Text = attachmentText(attachmentType, e.Attachment, rendered)
+		if attachmentType == "queued_command" && detectUserKind(entry.Text, false) == thinkt.KindTaskNotification {
+			entry.Task = parseTaskNotification(entry.Text)
+		}
 		entry.ParentToolUseID = attachmentToolUseID(e.Attachment)
 		entry.Metadata["attachment_type"] = attachmentType
 	case EntryTypeSummary:

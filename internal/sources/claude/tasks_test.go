@@ -56,3 +56,22 @@ func TestSessionLinksBackgroundBash(t *testing.T) {
 		t.Fatal(fmt.Sprintf("%+v", task))
 	}
 }
+
+// A notification's free-text result can quote anything.
+func TestParseTaskNotificationIgnoresTheResult(t *testing.T) {
+	l := parseTaskNotification("<task-notification><task-id>b1</task-id><summary>Fix <b>x</b> and more</summary><result>saw <task-id>zzz</task-id><status>failed</status></result></task-notification>")
+	if l == nil || l.ID != "b1" || l.Event != thinkt.TaskUpdate || l.Status != "" || l.Description != "Fix <b>x</b> and more" {
+		t.Fatalf("%+v", l)
+	}
+	s := parseTaskNotification("<task-notification><task-id>b2</task-id><status>completed</status><status>failed</status></task-notification>")
+	if s == nil || s.Status != "completed" {
+		t.Fatalf("%+v", s)
+	}
+}
+
+func TestQueuedNotificationCarriesLink(t *testing.T) {
+	e := convertLine(t, `{"type":"attachment","uuid":"at1","timestamp":"2026-10-19T14:47:32Z","attachment":{"type":"queued_command","prompt":"<task-notification><task-id>b1</task-id><tool-use-id>t1</tool-use-id><status>completed</status></task-notification>"}}`)
+	if e.Task == nil || e.Task.ID != "b1" || e.Task.Event != thinkt.TaskFinished {
+		t.Fatalf("%+v", e)
+	}
+}

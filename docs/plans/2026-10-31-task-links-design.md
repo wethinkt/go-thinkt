@@ -28,7 +28,7 @@ Tallied from local sessions.
 
 | Source | Started | Finished |
 |---|---|---|
-| Claude | `toolUseResult.backgroundTaskId` (257), or `isAsync` with `agentId` (357) on the call's result | `<task-notification>` with `<task-id>`, `<status>`, `<output-file>`, `<tool-use-id>` (163 of 334); without a status it is an update |
+| Claude | `toolUseResult.backgroundTaskId` (257), or `isAsync` with `agentId` (357) on the call's result | `<task-notification>` in a user turn or a `queued_command` attachment, with `<task-id>`, `<status>`, `<output-file>`, `<tool-use-id>`; without a status it is an update |
 | Kimi | `task.started` (34) `info.taskId`, `parentToolCallId`, `kind`, `description` | `task.terminated` `info.status` |
 | Antigravity | the first tool result naming `<conversation>/task-N` (`RUN_COMMAND` or `GENERIC`) | a system message from sender `<conversation>/task-N` |
 
@@ -54,10 +54,14 @@ else the entry of the first link. A task with no start record still lists.
 
 `thinkt.ParserVersion` goes to 10.
 
-Known limits, from local data: Claude's `<event>` notes are `Monitor` stream
-updates, so they never end a task; and most Claude agents have no closing
-record, because their result reaches the parent another way, so they list as
-started with no end. Nothing is invented for them.
+Most Claude notifications arrive as `queued_command` attachments, so those
+carry links too. Claude's `<event>` notes are `Monitor` stream updates and
+never end a task. Only the fields ahead of a notification's free-text
+`<result>` are read. Antigravity task names count only as
+`<conversation>/task-N`, since a bare `task-N` could be any path.
+
+Measured locally: Claude 651 tasks, 639 with a start, 624 with an end; Kimi
+34, all with both; Antigravity 257, all with a start, 255 with an end.
 
 ## Tasks
 
