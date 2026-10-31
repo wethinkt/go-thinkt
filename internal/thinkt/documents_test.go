@@ -1,6 +1,8 @@
 package thinkt
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,7 +13,12 @@ import (
 var docTools = map[string]DocTool{
 	"write": {Path: "path", Content: "content"},
 	"edit":  {Path: "path", Old: "old", New: "new", All: "all"},
-	"multi": {Path: "path", Chunks: "chunks", Old: "old", New: "new"},
+	"multi": {Path: "path", Chunks: "chunks", Old: "old", New: "new", All: "all"},
+}
+
+var quotedTools = map[string]DocTool{
+	"write": {Path: "path", Content: "content", Quoted: true},
+	"edit":  {Path: "path", Old: "old", New: "new", Quoted: true},
 }
 
 func allDocs(string) bool { return true }
@@ -87,7 +94,7 @@ func TestDocumentTrackerUnquotesPaths(t *testing.T) {
 
 // Some sources store text arguments JSON-quoted, as they do paths.
 func TestDocumentTrackerUnquotesText(t *testing.T) {
-	d := NewDocumentTracker(docTools, allDocs)
+	d := NewDocumentTracker(quotedTools, allDocs)
 	d.Entry(call("e1", "write", map[string]any{"path": "/d/a.md", "content": `"line one\nline two"`}))
 	d.Entry(call("e2", "edit", map[string]any{"path": "/d/a.md", "old": `"line two"`, "new": `"line 2"`}))
 	vs := d.Documents()[0].Versions
@@ -148,5 +155,57 @@ func TestDocumentKind(t *testing.T) {
 		if got := DocumentKind(in); got != want {
 			t.Errorf("%s: %s", in, got)
 		}
+	}
+}
+
+func TestDocumentTrackerKeepsQuotesUnlessToldOtherwise(t *testing.T) {
+	d := NewDocumentTracker(docTools, allDocs)
+	d.Entry(call("e1", "write", map[string]any{"path": "/d/a.md", "content": `"quoted"`}))
+	if v := d.Documents()[0].Versions[0]; v.Content != `"quoted"` {
+		t.Fatalf("%+v", v)
+	}
+}
+
+func TestDocumentTrackerAllAcceptsStringsAndChunks(t *testing.T) {
+	d := NewDocumentTracker(docTools, allDocs)
+	d.Entry(call("e1", "write", map[string]any{"path": "/d/a.md", "content": "x x"}))
+	d.Entry(call("e2", "edit", map[string]any{"path": "/d/a.md", "old": "x", "new": "y", "all": "true"}))
+	d.Entry(call("e3", "multi", map[string]any{"path": "/d/a.md", "chunks": []any{
+		map[string]any{"old": "y", "new": "z", "all": true},
+	}}))
+	vs := d.Documents()[0].Versions
+	if vs[1].Content != "y y" || vs[2].Content != "z z" {
+		t.Fatalf("%+v", vs)
+	}
+}
+
+func TestDocumentTrackerReadsOnlyRegularFiles(t *testing.T) {
+	dir := t.TempDir()
+	secret := filepath.Join(dir, "secret")
+	if err := os.WriteFile(secret, []byte("secret"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "a.md")
+	if err := os.Symlink(secret, link); err != nil {
+		t.Fatal(err)
+	}
+	d := NewDocumentTracker(docTools, allDocs)
+	d.Entry(call("e1", "write", map[string]any{"path": link, "content": "known"}))
+	d.Entry(call("e2", "write", map[string]any{"path": dir, "content": "dir"}))
+	for _, doc := range d.Documents() {
+		if doc.Final == "secret" || doc.Final == "" {
+			t.Fatalf("%+v", doc)
+		}
+	}
+}
+
+type nilReaderStore struct{ Store }
+
+func (nilReaderStore) OpenSession(context.Context, string) (SessionReader, error) { return nil, nil }
+
+func TestVisitEntriesUnknownSession(t *testing.T) {
+	err := VisitEntries(context.Background(), nilReaderStore{}, "nope", func(*Entry) {})
+	if !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("%v", err)
 	}
 }

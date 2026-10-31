@@ -36,12 +36,12 @@ func (s *Store) SessionDocuments(ctx context.Context, sessionID string) ([]think
 	}
 	var docs []thinkt.AgentDocument
 	for _, path := range paths {
-		data, err := os.ReadFile(path)
-		if err != nil {
+		text, ok := thinkt.ReadDocumentFile(path)
+		if !ok {
 			continue
 		}
 		name := filepath.Base(path)
-		d := thinkt.AgentDocument{Name: name, Path: path, Kind: thinkt.DocPlan, Final: string(data)}
+		d := thinkt.AgentDocument{Name: name, Path: path, Kind: thinkt.DocPlan, Final: text}
 		if info, err := os.Stat(path); err == nil {
 			d.UpdatedAt = info.ModTime()
 		}
@@ -60,11 +60,11 @@ func planVersions(dir, key string, revisions map[string]*thinkt.Entry) []thinkt.
 		if err != nil {
 			continue
 		}
-		data, err := os.ReadFile(f)
-		if err != nil {
+		text, ok := thinkt.ReadDocumentFile(f)
+		if !ok {
 			continue
 		}
-		v := thinkt.DocumentVersion{Number: n, Tool: "plan.revision", Content: string(data)}
+		v := thinkt.DocumentVersion{Number: n, Tool: "plan.revision", Content: text}
 		if e := revisions["plan/"+key+"/"+filepath.Base(f)]; e != nil {
 			v.EntryUUID, v.Timestamp = e.UUID, e.Timestamp
 		}

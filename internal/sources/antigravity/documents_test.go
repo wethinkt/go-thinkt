@@ -52,3 +52,12 @@ func TestDocumentToolsRebuildEdits(t *testing.T) {
 		t.Fatalf("%+v", vs)
 	}
 }
+
+func TestDocumentToolsUnquoteText(t *testing.T) {
+	d := thinkt.NewDocumentTracker(docTools, func(string) bool { return true })
+	d.Entry(&thinkt.Entry{ContentBlocks: []thinkt.ContentBlock{{Type: "tool_use", ToolName: "write_to_file",
+		ToolInput: map[string]any{"TargetFile": "/b/a.md", "CodeContent": `"one\ntwo"`}}}})
+	if v := d.Documents()[0].Versions[0]; v.Content != "one\ntwo" {
+		t.Fatalf("%+v", v)
+	}
+}

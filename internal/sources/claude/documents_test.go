@@ -48,3 +48,26 @@ func TestSessionDocumentsRebuildsPlans(t *testing.T) {
 		t.Fatalf("%+v", stated)
 	}
 }
+
+// A path that climbs out of plans/ is not a document, so its file is never read.
+func TestSessionDocumentsRefusesTraversal(t *testing.T) {
+	t.Setenv("THINKT_HOME", t.TempDir())
+	home := filepath.Join(t.TempDir(), "claude")
+	if err := os.MkdirAll(filepath.Join(home, "plans"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, "secret.md"), []byte("TOPSECRET"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	id := "11111111-2222-4333-8444-555555555555"
+	dir := filepath.Join(home, "projects", "-p")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	line := fmt.Sprintf(`{"type":"assistant","uuid":"e1","timestamp":"2026-10-01T00:00:00Z","cwd":"/p","message":{"role":"assistant","model":"claude-opus-4","content":[{"type":"tool_use","id":"t","name":"Write","input":{"file_path":%q,"content":"x"}}]}}`, filepath.Join(home, "plans")+"/../secret.md")
+	writeTempSession(t, dir, id+".jsonl", line+"\n")
+	docs, err := NewStore(home).SessionDocuments(context.Background(), id)
+	if err != nil || len(docs) != 0 {
+		t.Fatalf("%+v %v", docs, err)
+	}
+}

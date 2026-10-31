@@ -55,6 +55,7 @@ type DocumentStore interface {
 // Chunks, the edits are a list of objects holding Old and New.
 type DocTool struct {
 	Path, Content, Old, New, All, Chunks string
+	Quoted                               bool
 }
 
 // DocumentKind guesses a document's kind from its file name.
@@ -114,14 +115,32 @@ func (d *DocumentTracker) Documents() []AgentDocument {
 		last := doc.Versions[len(doc.Versions)-1]
 		doc.Final, doc.UpdatedAt = last.Content, last.Timestamp
 		if doc.Path != "" {
-			if data, err := os.ReadFile(doc.Path); err == nil {
-				doc.Final = string(data)
+			if text, ok := ReadDocumentFile(doc.Path); ok {
+				doc.Final = text
 			}
 		}
 		out = append(out, *doc)
 	}
 	slices.SortFunc(out, func(a, b AgentDocument) int { return strings.Compare(a.Name+a.Path, b.Name+b.Path) })
 	return out
+}
+
+// maxDocumentFile bounds a document read from disk.
+const maxDocumentFile = 16 << 20
+
+// ReadDocumentFile returns a document file's text. Paths come from session
+// transcripts, so only a regular file of sensible size is read, and never
+// through a symlink.
+func ReadDocumentFile(path string) (string, bool) {
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() || info.Size() > maxDocumentFile {
+		return "", false
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", false
+	}
+	return string(data), true
 }
 
 func (d *DocumentTracker) doc(key, name, path, kind string) *AgentDocument {
@@ -145,23 +164,22 @@ func add(doc *AgentDocument, e *Entry, tool, content string, partial bool) {
 func apply(dt DocTool, args map[string]any, doc *AgentDocument) (string, bool) {
 	if dt.Content != "" {
 		if s, ok := args[dt.Content].(string); ok {
-			return unquoteText(s), false
+			return dt.text(s), false
 		}
 	}
 	if len(doc.Versions) == 0 {
 		return "", true
 	}
 	text := doc.Versions[len(doc.Versions)-1].Content
-	all, _ := args[dt.All].(bool)
 	partial := false
 	for _, c := range edits(dt, args) {
 		oldText, _ := c[dt.Old].(string)
 		newText, _ := c[dt.New].(string)
-		oldText, newText = unquoteText(oldText), unquoteText(newText)
+		oldText, newText = dt.text(oldText), dt.text(newText)
 		switch {
 		case oldText == "" || !strings.Contains(text, oldText):
 			partial = true
-		case all:
+		case flag(c[dt.All]) || flag(args[dt.All]):
 			text = strings.ReplaceAll(text, oldText, newText)
 		default:
 			text = strings.Replace(text, oldText, newText, 1)
@@ -170,10 +188,21 @@ func apply(dt DocTool, args map[string]any, doc *AgentDocument) (string, bool) {
 	return text, partial
 }
 
-// unquoteText returns a text argument without the JSON quoting some sources
-// store around it.
-func unquoteText(s string) string {
-	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+// flag reads a boolean argument, which some sources store as text.
+func flag(v any) bool {
+	switch b := v.(type) {
+	case bool:
+		return b
+	case string:
+		return b == "true"
+	}
+	return false
+}
+
+// text returns a text argument, without the JSON quoting a Quoted tool
+// stores around it.
+func (dt DocTool) text(s string) string {
+	if dt.Quoted && len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
 		var u string
 		if json.Unmarshal([]byte(s), &u) == nil {
 			return u
@@ -208,8 +237,14 @@ func VisitEntries(ctx context.Context, store Store, sessionID string, visit func
 	if err != nil {
 		return err
 	}
+	if r == nil {
+		return ErrSessionNotFound
+	}
 	defer func() { _ = r.Close() }()
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		e, err := r.ReadNext()
 		if errors.Is(err, io.EOF) {
 			return nil

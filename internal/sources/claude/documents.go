@@ -19,9 +19,9 @@ var _ thinkt.DocumentStore = (*Store)(nil)
 // SessionDocuments returns the plans a session wrote under <home>/plans and
 // the plans it stated with ExitPlanMode.
 func (s *Store) SessionDocuments(ctx context.Context, sessionID string) ([]thinkt.AgentDocument, error) {
-	prefix := filepath.Join(s.baseDir, "plans") + string(filepath.Separator)
+	plans := filepath.Join(s.baseDir, "plans")
 	tracker := thinkt.NewDocumentTracker(docTools, func(path string) bool {
-		return strings.HasPrefix(path, prefix)
+		return filepath.Dir(filepath.Clean(path)) == plans && strings.HasSuffix(path, ".md")
 	})
 	err := thinkt.VisitEntries(ctx, s, sessionID, func(e *thinkt.Entry) {
 		tracker.Entry(e)

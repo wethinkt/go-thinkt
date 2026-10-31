@@ -53,3 +53,14 @@ func TestAPI_GetSessionDocuments_StoreWithoutDocuments(t *testing.T) {
 		t.Fatalf("%+v", out)
 	}
 }
+
+func TestAPI_GetSessionDocuments_UnknownSession(t *testing.T) {
+	registry := thinkt.NewRegistry()
+	server := NewHTTPServer(registry, DefaultConfig())
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions/"+url.PathEscape("/no/such/session.jsonl")+"/documents", nil)
+	w := httptest.NewRecorder()
+	server.router.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+}

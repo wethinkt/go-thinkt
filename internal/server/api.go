@@ -678,14 +678,14 @@ func (s *HTTPServer) handleGetSessionDocuments(w http.ResponseWriter, r *http.Re
 	}
 	store, meta, err := s.registry.ResolveSessionByPath(r.Context(), path)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "documents_failed", err.Error())
+		writeDocumentsError(w, err)
 		return
 	}
 	out := DocumentsResponse{Documents: []thinkt.AgentDocument{}}
 	if ds, ok := store.(thinkt.DocumentStore); ok {
 		docs, err := ds.SessionDocuments(r.Context(), meta.FullPath)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "documents_failed", err.Error())
+			writeDocumentsError(w, err)
 			return
 		}
 		if docs != nil {
@@ -693,6 +693,14 @@ func (s *HTTPServer) handleGetSessionDocuments(w http.ResponseWriter, r *http.Re
 		}
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+func writeDocumentsError(w http.ResponseWriter, err error) {
+	if errors.Is(err, thinkt.ErrSessionNotFound) {
+		writeError(w, http.StatusNotFound, "session_not_found", err.Error())
+		return
+	}
+	writeError(w, http.StatusInternalServerError, "documents_failed", err.Error())
 }
 
 // loadSession loads a session with optional pagination.

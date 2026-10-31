@@ -14,11 +14,11 @@ import (
 
 // docTools names the tools that write brain documents.
 var docTools = map[string]thinkt.DocTool{
-	"write_to_file":              {Path: "TargetFile", Content: "CodeContent"},
-	"write_file":                 {Path: "Path", Content: "Content"},
-	"replace_file_content":       {Path: "TargetFile", Old: "TargetContent", New: "ReplacementContent", All: "AllowMultiple"},
-	"edit_file":                  {Path: "Path", Old: "Target", New: "Replacement"},
-	"multi_replace_file_content": {Path: "TargetFile", Chunks: "ReplacementChunks", Old: "TargetContent", New: "ReplacementContent"},
+	"write_to_file":              {Path: "TargetFile", Content: "CodeContent", Quoted: true},
+	"write_file":                 {Path: "Path", Content: "Content", Quoted: true},
+	"replace_file_content":       {Path: "TargetFile", Old: "TargetContent", New: "ReplacementContent", All: "AllowMultiple", Quoted: true},
+	"edit_file":                  {Path: "Path", Old: "Target", New: "Replacement", Quoted: true},
+	"multi_replace_file_content": {Path: "TargetFile", Chunks: "ReplacementChunks", Old: "TargetContent", New: "ReplacementContent", All: "AllowMultiple", Quoted: true},
 }
 
 // artifactKinds maps a metadata artifactType to a document kind.
@@ -49,12 +49,12 @@ func (s *Store) SessionDocuments(ctx context.Context, sessionID string) ([]think
 	paths, _ := filepath.Glob(filepath.Join(brain, "*.md"))
 	for _, path := range paths {
 		if !slices.ContainsFunc(docs, func(d thinkt.AgentDocument) bool { return d.Path == path }) {
-			data, err := os.ReadFile(path)
-			if err != nil {
+			text, ok := thinkt.ReadDocumentFile(path)
+			if !ok {
 				continue
 			}
 			name := filepath.Base(path)
-			docs = append(docs, thinkt.AgentDocument{Name: name, Path: path, Kind: thinkt.DocumentKind(name), Final: string(data)})
+			docs = append(docs, thinkt.AgentDocument{Name: name, Path: path, Kind: thinkt.DocumentKind(name), Final: text})
 		}
 	}
 	for i := range docs {
