@@ -141,7 +141,7 @@ func writeBlock(out *bytes.Buffer, md goldmark.Markdown, block Block, view View,
 			return fmt.Errorf("conversation: Markdown: %w", err)
 		}
 	case "image", "document":
-		fmt.Fprintf(out, "<p class=\"media-placeholder\" data-media-id=\"%s\">%s — %s</p>\n", html.EscapeString(block.ID), blockLabel(block), html.EscapeString(block.MediaType))
+		fmt.Fprintf(out, "<p class=\"media-placeholder\" data-media-id=\"%s\">%s — %s</p>\n", html.EscapeString(block.ID), blockLabel(block), html.EscapeString(strings.TrimSpace(block.MediaType+" "+block.MediaURI)))
 	case thinkt.BlockTypeDiff:
 		writeDiff(out, block.Text)
 	default:

@@ -642,6 +642,7 @@ func (e *Relay) syncSessionLocked(ctx context.Context, store thinkt.Store, meta 
 	}
 	if info, err := os.Stat(meta.FullPath); err == nil {
 		st.ModTime, st.Size = info.ModTime(), info.Size()
+		st.ParserVersion = thinkt.ParserVersion
 	}
 	st.Path = meta.FullPath
 	e.state.Sessions[key] = st
@@ -685,7 +686,8 @@ func (e *Relay) reconcile(ctx context.Context) error {
 				switch {
 				case st == nil:
 					e.syncSessionLocked(ctx, store, meta, e.cfg.Backfill == BackfillNone)
-				case !info.ModTime().Equal(st.ModTime) || info.Size() != st.Size:
+				case !info.ModTime().Equal(st.ModTime) || info.Size() != st.Size,
+					st.ParserVersion != thinkt.ParserVersion:
 					e.syncSessionLocked(ctx, store, meta, false)
 				}
 			}

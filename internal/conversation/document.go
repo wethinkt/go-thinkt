@@ -59,6 +59,7 @@ type Block struct {
 	IsError   bool
 	MediaType string
 	MediaData string
+	MediaURI  string
 	Related   []string
 
 	// Children are nested parts of a tool result (text, media, diff). Their
@@ -113,6 +114,9 @@ func buildBlock(raw thinkt.ContentBlock, id string, origin Origin) (Block, error
 	block := Block{ID: id, Origin: origin, Kind: raw.Type,
 		ToolID: raw.ToolUseID, ToolName: raw.ToolName, IsError: raw.IsError,
 		MediaType: raw.MediaType, MediaData: raw.MediaData, ChildSessionID: raw.ChildSessionID}
+	if raw.Media != nil {
+		block.MediaURI = raw.Media.URI
+	}
 	switch raw.Type {
 	case "text", thinkt.BlockTypeDiff:
 		block.Text = raw.Text

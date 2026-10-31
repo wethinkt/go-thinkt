@@ -102,20 +102,34 @@ func renderThinktUserEntry(entry *thinkt.Entry, width int, filters *RoleFilterSe
 
 	// Render image/document blocks from user entries
 	if filters == nil || filters.Media {
-		for _, cb := range entry.ContentBlocks {
-			if (cb.Type == "image" || cb.Type == "document") && cb.MediaData != "" {
-				s := renderImageBlock(cb.MediaType, cb.MediaData, width)
-				if s != "" {
-					parts = append(parts, s)
-				}
-			}
-		}
+		parts = append(parts, renderMediaBlocks(entry.ContentBlocks, width)...)
 	}
 
 	if len(parts) == 0 {
 		return ""
 	}
 	return strings.Join(parts, "\n")
+}
+
+// renderMediaBlocks renders inline images, and a line naming the location of
+// media kept elsewhere; a referenced file is not opened.
+func renderMediaBlocks(blocks []thinkt.ContentBlock, width int) []string {
+	var parts []string
+	for _, cb := range blocks {
+		if cb.Type != "image" && cb.Type != "document" {
+			continue
+		}
+		switch {
+		case cb.MediaData != "":
+			if s := renderImageBlock(cb.MediaType, cb.MediaData, width); s != "" {
+				parts = append(parts, s)
+			}
+		case cb.Media != nil && cb.Media.URI != "":
+			label := imageLabel.Render(thinktI18n.T("tui.label.image", "Image"))
+			parts = append(parts, label+" "+cb.Media.URI)
+		}
+	}
+	return parts
 }
 
 func renderThinktAssistantEntry(entry *thinkt.Entry, width int, renderer *glamour.TermRenderer, useGlamour bool, filters *RoleFilterSet) string {

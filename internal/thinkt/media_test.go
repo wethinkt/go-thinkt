@@ -61,8 +61,10 @@ func TestMediaBlockURL(t *testing.T) {
 	if _, ok := MediaBlockURL(""); ok {
 		t.Fatal("empty URL")
 	}
-	if _, ok := MediaBlockURL("data:nonsense"); ok {
-		t.Fatal("malformed data URL")
+	// A data URL that is not base64 keeps its text as a reference.
+	svg := "data:image/svg+xml,%3Csvg%3E"
+	if b, ok := MediaBlockURL(svg); !ok || b.Media.URI != svg || b.Type != "image" {
+		t.Fatalf("%+v", b)
 	}
 	if b, ok := MediaBlockURL("data:application/pdf;base64,eA=="); !ok || b.Type != "document" || b.MediaType != "application/pdf" {
 		t.Fatalf("%+v", b)

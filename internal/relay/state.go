@@ -19,6 +19,8 @@ type sessionState struct {
 	Size        int64             `json:"size"`         // file size when last synced
 	Generation  int64             `json:"generation"`   // generation of the last sync
 	Path        string            `json:"path"`         // the session file
+	// ParserVersion is the thinkt.ParserVersion that read the session last.
+	ParserVersion int `json:"parser_version"`
 }
 
 // relayState is the relay's per-session record, persisted across restarts

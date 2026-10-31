@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -97,9 +98,13 @@ func splitToolOutput(v any) (string, []thinkt.ContentBlock) {
 			if s, _ := part["text"].(string); s != "" {
 				texts = append(texts, s)
 			}
+		default:
+			if data, err := json.Marshal(raw); err == nil {
+				media = append(media, thinkt.ContentBlock{Type: "text", Text: string(data)})
+			}
 		}
 	}
-	if len(media) == 0 {
+	if !slices.ContainsFunc(media, func(b thinkt.ContentBlock) bool { return b.Media != nil }) {
 		return normalizeToolOutput(v), nil
 	}
 	return strings.Join(texts, "\n"), media

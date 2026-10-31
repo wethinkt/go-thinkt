@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -53,5 +54,15 @@ func TestMcpImageAndImageViewAreBlocks(t *testing.T) {
 	}
 	if len(found) != 2 || found[0].Media.Size != 2 || found[1].Media.URI != "/b/x.png" {
 		t.Fatalf("%+v", found)
+	}
+}
+
+func TestSplitToolOutputKeepsUnknownParts(t *testing.T) {
+	text, media := splitToolOutput([]any{
+		map[string]any{"type": "input_image", "image_url": "data:image/png;base64,eHg="},
+		map[string]any{"type": "output_text", "text": "kept"},
+	})
+	if len(media) != 2 || media[1].Type != "text" || !strings.Contains(media[1].Text, "kept") {
+		t.Fatalf("%q %+v", text, media)
 	}
 }

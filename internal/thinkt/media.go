@@ -54,20 +54,16 @@ func MediaBlockURI(mediaType, uri string) ContentBlock {
 	return ContentBlock{Type: mediaBlockType(mediaType), MediaType: mediaType, Media: &MediaRef{URI: uri}}
 }
 
-// MediaBlockURL returns a block for a data: URL, or for any other URL as a
-// reference, assumed to be an image. It reports false for an empty URL or a
-// malformed data: URL.
+// MediaBlockURL returns a block for a base64 data: URL, or for any other URL
+// as a reference, assumed to be an image. It reports false for an empty URL.
 func MediaBlockURL(u string) (ContentBlock, bool) {
 	if u == "" {
 		return ContentBlock{}, false
 	}
-	rest, ok := strings.CutPrefix(u, "data:")
-	if !ok {
-		return ContentBlock{Type: "image", Media: &MediaRef{URI: u}}, true
+	if rest, ok := strings.CutPrefix(u, "data:"); ok {
+		if head, data, ok := strings.Cut(rest, ";base64,"); ok {
+			return MediaBlock(head, data), true
+		}
 	}
-	head, data, ok := strings.Cut(rest, ";base64,")
-	if !ok {
-		return ContentBlock{}, false
-	}
-	return MediaBlock(head, data), true
+	return ContentBlock{Type: "image", Media: &MediaRef{URI: u}}, true
 }
