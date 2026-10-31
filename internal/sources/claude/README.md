@@ -129,5 +129,5 @@ parsed.
 | `edited` | `Edit`, `MultiEdit`, `Write`, `NotebookEdit` |
 | `command` | `Bash`: the record's `cwd` |
 
-`SessionMeta.ProjectPath` holds the storage folder here, so the project is
-the session's first recorded `cwd`.
+The project is the session's first recorded `cwd`, which is exact where a
+decoded folder name is not.

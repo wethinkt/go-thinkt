@@ -50,9 +50,8 @@ func NewStoreWithCacheDir(baseDir, cacheDir string) *Store {
 	return &Store{baseDir: baseDir, cacheDir: cacheDir, relatedExclude: thinkt.RelatedExclude(baseDir)}
 }
 
-// tracker returns a related-folders tracker. SessionMeta.ProjectPath holds
-// the storage folder here, so the scan names the project from the session's
-// first cwd.
+// tracker returns a related-folders tracker. The scan names the project from
+// the session's first cwd, which is exact where a decoded folder name is not.
 func (s *Store) tracker() *thinkt.RelatedTracker {
 	return thinkt.NewRelatedTracker("", s.relatedExclude)
 }
@@ -155,6 +154,18 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 	return nil, nil
 }
 
+// projectDir returns the storage folder of a project named by id or by its
+// path, as SessionMeta.ProjectPath holds it.
+func (s *Store) projectDir(ctx context.Context, id string) string {
+	if strings.HasPrefix(id, filepath.Join(s.baseDir, "projects")+string(filepath.Separator)) {
+		return id
+	}
+	if p, _ := s.GetProject(ctx, id); p != nil {
+		return p.ID
+	}
+	return id
+}
+
 // ListSessions returns sessions for a project. Results are cached per
 // project after the first call. Cached metadata (FirstPrompt, Model,
 // EntryCount) is merged from the persistent MetadataCache. If WithEnrich
@@ -163,6 +174,7 @@ func (s *Store) GetProject(ctx context.Context, id string) (*thinkt.Project, err
 func (s *Store) ListSessions(ctx context.Context, projectID string, opts ...thinkt.ListSessionsOption) ([]thinkt.SessionMeta, error) {
 	cfg := thinkt.ResolveListOptions(opts)
 
+	projectID = s.projectDir(ctx, projectID)
 	sessions, err := s.cache.LoadSessions(projectID, func() ([]thinkt.SessionMeta, error) {
 		raw, err := ListProjectSessions(projectID)
 		if err != nil {
@@ -170,11 +182,12 @@ func (s *Store) ListSessions(ctx context.Context, projectID string, opts ...thin
 		}
 
 		ws := s.Workspace()
+		project := projectPath(projectID)
 		result := make([]thinkt.SessionMeta, len(raw))
 		for i, sess := range raw {
 			result[i] = thinkt.SessionMeta{
 				ID:          sess.SessionID,
-				ProjectPath: projectID,
+				ProjectPath: project,
 				FullPath:    sess.FullPath,
 				FirstPrompt: sess.FirstPrompt,
 				Summary:     sess.Summary,
@@ -332,7 +345,7 @@ func (s *Store) getSessionMetaByPath(sessionPath string) (*thinkt.SessionMeta, e
 					}
 					meta := &thinkt.SessionMeta{
 						ID:          e.SessionID,
-						ProjectPath: projectDir,
+						ProjectPath: projectPath(projectDir),
 						FullPath:    fullPath,
 						FirstPrompt: e.FirstPrompt,
 						Summary:     e.Summary,
@@ -363,7 +376,7 @@ func (s *Store) getSessionMetaByPath(sessionPath string) (*thinkt.SessionMeta, e
 	sessionID := strings.TrimSuffix(filepath.Base(sessionPath), ".jsonl")
 	meta := &thinkt.SessionMeta{
 		ID:          sessionID,
-		ProjectPath: projectDir,
+		ProjectPath: projectPath(projectDir),
 		FullPath:    sessionPath,
 		ModifiedAt:  info.ModTime(),
 		FileSize:    info.Size(),
@@ -863,7 +876,7 @@ func convertSession(s *Session, workspaceID string) *thinkt.Session {
 
 	meta := thinkt.SessionMeta{
 		ID:          s.ID,
-		ProjectPath: s.Path,
+		ProjectPath: projectPath(filepath.Dir(s.Path)),
 		FullPath:    s.Path,
 		GitBranch:   s.Branch,
 		Model:       s.Model,

@@ -437,7 +437,8 @@ func (m *ConversationViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "w":
 			if m.session != nil && !m.busy {
 				meta := m.session.Metadata()
-				openInWeb(meta.ProjectPath, m.paths[m.index])
+				meta.FullPath = m.paths[m.index]
+				openInWeb(webProjectID(meta), meta.FullPath)
 			}
 			return m, nil
 		}

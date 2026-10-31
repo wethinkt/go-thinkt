@@ -1,9 +1,7 @@
 package claude
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 
@@ -36,25 +34,9 @@ func (s *Store) ResumeCommand(session thinkt.SessionMeta) (*thinkt.ResumeInfo, e
 //  3. session.ProjectPath as-is
 func resolveProjectPath(session thinkt.SessionMeta) string {
 	if session.FullPath != "" {
-		projectDir := filepath.Dir(session.FullPath)
-
-		// Try sessions-index.json first — it has the original unambiguous path
-		indexPath := filepath.Join(projectDir, "sessions-index.json")
-		if data, err := os.ReadFile(indexPath); err == nil {
-			var idx struct {
-				OriginalPath string `json:"originalPath"`
-			}
-			if json.Unmarshal(data, &idx) == nil && idx.OriginalPath != "" {
-				return idx.OriginalPath
-			}
-		}
-
-		// Fall back to DecodeDirName
-		_, decoded := DecodeDirName(filepath.Base(projectDir))
-		if decoded != "" {
-			return decoded
+		if path := projectPath(filepath.Dir(session.FullPath)); path != "" {
+			return path
 		}
 	}
-
 	return session.ProjectPath
 }

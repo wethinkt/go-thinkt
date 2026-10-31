@@ -163,7 +163,8 @@ const (
 // 8: RelatedPaths from Claude, Codex, Kimi and Gemini tool calls
 // 9: MediaRef on every image and document block
 // 10: TaskLink on the entries that start or end a background task
-const ParserVersion = 10
+// 11: Claude ProjectPath is the project folder, not the storage folder
+const ParserVersion = 11
 
 // EntryKind sub-classifies an entry within its Role. It is an open set:
 // sources may emit kinds the core does not name yet, and consumers switch on

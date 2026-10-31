@@ -4,16 +4,27 @@ import (
 	"fmt"
 	"net/url"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
+// webProjectID returns the project id the web selects a session's project
+// by. Claude's id is the storage folder; elsewhere it is the project path.
+func webProjectID(meta thinkt.SessionMeta) string {
+	if meta.Source == thinkt.SourceClaude && meta.FullPath != "" {
+		return filepath.Dir(meta.FullPath)
+	}
+	return meta.ProjectPath
+}
+
 // openInWeb opens the thinkt web interface in the default browser,
 // optionally deep-linking to a specific project and/or session.
-func openInWeb(projectPath, sessionPath string) {
+func openInWeb(projectID, sessionPath string) {
 	inst := config.FindInstanceByType(config.InstanceServer)
 	if inst == nil {
 		tuilog.Log.Warn("openInWeb: no running server found")
@@ -32,8 +43,8 @@ func openInWeb(projectPath, sessionPath string) {
 	if sessionPath != "" {
 		params.Set("session_path", sessionPath)
 	}
-	if projectPath != "" {
-		params.Set("project_id", projectPath)
+	if projectID != "" {
+		params.Set("project_id", projectID)
 	}
 
 	openURL := baseURL + "/"
@@ -52,7 +63,7 @@ func openInWeb(projectPath, sessionPath string) {
 		openURL += "#" + params.Encode()
 	}
 
-	tuilog.Log.Info("openInWeb", "url", baseURL, "project", projectPath, "session", sessionPath)
+	tuilog.Log.Info("openInWeb", "url", baseURL, "project", projectID, "session", sessionPath)
 	openBrowser(openURL)
 }
 

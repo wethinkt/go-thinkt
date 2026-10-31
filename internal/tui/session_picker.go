@@ -706,7 +706,7 @@ func (m SessionPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, keys.OpenWeb):
 			if item := m.list.SelectedItem(); item != nil {
 				if si, ok := item.(pickerSessionItem); ok {
-					openInWeb(si.meta.ProjectPath, si.meta.FullPath)
+					openInWeb(webProjectID(si.meta), si.meta.FullPath)
 				}
 			}
 			return m, nil

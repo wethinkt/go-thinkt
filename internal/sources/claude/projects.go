@@ -54,6 +54,23 @@ type sessionsIndex struct {
 	OriginalPath string            `json:"originalPath"`
 }
 
+// projectPath returns the real folder of the project stored in dirPath:
+// sessions-index.json's originalPath when there is one, else the decoded
+// directory name, else the home directory (for "-").
+func projectPath(dirPath string) string {
+	if data, err := os.ReadFile(filepath.Join(dirPath, "sessions-index.json")); err == nil {
+		var idx sessionsIndex
+		if json.Unmarshal(data, &idx) == nil && idx.OriginalPath != "" {
+			return idx.OriginalPath
+		}
+	}
+	_, decoded := DecodeDirName(filepath.Base(dirPath))
+	if decoded == "" {
+		decoded, _ = os.UserHomeDir()
+	}
+	return decoded
+}
+
 // DecodeDirName converts a Claude Code hashed directory name to a human-readable
 // display name and decoded full path. The directory name format replaces path
 // separators with "-":
@@ -144,19 +161,10 @@ func ListProjects(baseDir string) ([]Project, error) {
 		}
 
 		dirPath := filepath.Join(projectsDir, entry.Name())
-		displayName, fullPath := DecodeDirName(entry.Name())
-		if fullPath == "" {
-			fullPath = homeDir // Fallback to home dir if decoding fails (e.g., for "-")
-		}
-
-		// Check for sessions-index.json to get the real path
-		indexPath := filepath.Join(dirPath, "sessions-index.json")
-		if data, err := os.ReadFile(indexPath); err == nil {
-			var idx sessionsIndex
-			if json.Unmarshal(data, &idx) == nil && idx.OriginalPath != "" {
-				fullPath = idx.OriginalPath
-				displayName = filepath.Base(fullPath)
-			}
+		displayName, decoded := DecodeDirName(entry.Name())
+		fullPath := projectPath(dirPath)
+		if decoded != "" && fullPath != decoded {
+			displayName = filepath.Base(fullPath)
 		}
 
 		// Skip if this is the user's home directory

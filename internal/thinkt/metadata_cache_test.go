@@ -384,8 +384,8 @@ func TestMergeIntoCopiesParentSessionID(t *testing.T) {
 	}
 }
 
-func TestParserVersionIsTen(t *testing.T) {
-	if ParserVersion != 10 {
+func TestParserVersionIsEleven(t *testing.T) {
+	if ParserVersion != 11 {
 		t.Fatalf("ParserVersion = %d", ParserVersion)
 	}
 }
