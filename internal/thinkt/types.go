@@ -158,7 +158,9 @@ const (
 //
 // 4: Codex item stream, tool pairs, usage, subagent rollouts
 // 5: Kimi Code tree, loop steps, subagent wires
-const ParserVersion = 6
+// 6: PromptID per prompt, TurnID per model response in every source
+// 7: Gemini JSONL sessions and usage
+const ParserVersion = 7
 
 // EntryKind sub-classifies an entry within its Role. It is an open set:
 // sources may emit kinds the core does not name yet, and consumers switch on

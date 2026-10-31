@@ -464,12 +464,7 @@ func convertSession(g *Session, meta *thinkt.SessionMeta) *thinkt.Session {
 				Model:       msg.Model,
 			}
 
-			if msg.Tokens != nil {
-				asstEntry.Usage = &thinkt.TokenUsage{
-					InputTokens:  msg.Tokens.Input,
-					OutputTokens: msg.Tokens.Output,
-				}
-			}
+			asstEntry.Usage = usageFromTokens(msg.Tokens)
 
 			if msg.Content != "" {
 				asstEntry.ContentBlocks = append(asstEntry.ContentBlocks, thinkt.ContentBlock{
