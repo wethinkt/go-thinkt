@@ -193,13 +193,8 @@ func (e *Relay) Start(ctx context.Context) error {
 		tuilog.Log.Info("Relay started in buffer-only mode (no collector)")
 	}
 
-	// Ship what changed while the relay was off (and, on first run, the
-	// history already on disk) before watching.
-	if err := e.reconcile(ctx); err != nil {
-		tuilog.Log.Warn("Startup reconcile failed", "error", err)
-	}
-
-	// Start file watcher
+	// Start file watcher before the reconcile, so a session written while
+	// the reconcile runs queues an event instead of being missed.
 	watcher, err := NewFileWatcher(e.cfg.WatchDirs)
 	if err != nil {
 		return fmt.Errorf("create file watcher: %w", err)
@@ -215,6 +210,12 @@ func (e *Relay) Start(ctx context.Context) error {
 	// Log watched directories
 	for _, wd := range e.cfg.WatchDirs {
 		tuilog.Log.Info("Watching", "source", wd.Source, "dir", wd.Path)
+	}
+
+	// Ship what changed while the relay was off (and, on first run, the
+	// history already on disk). Events queue in the watcher meanwhile.
+	if err := e.reconcile(ctx); err != nil {
+		tuilog.Log.Warn("Startup reconcile failed", "error", err)
 	}
 
 	// Start session activity sweep goroutine
