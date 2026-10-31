@@ -196,7 +196,11 @@ func init() {
 	sessionsCmd.AddCommand(sessionsViewCmd)
 	sessionsCmd.AddCommand(sessionsResumeCmd)
 	sessionsCmd.AddCommand(sessionsResolveCmd)
+	sessionsCmd.AddCommand(sessionsDocsCmd)
 	sessionsListCmd.Flags().BoolVar(&sessionJSON, "json", false, "output sessions as JSON")
+	sessionsDocsCmd.Flags().BoolVar(&sessionDocsJSON, "json", false, "output documents as JSON")
+	sessionsDocsCmd.Flags().StringVar(&sessionDocName, "name", "", "print this document's final text")
+	sessionsDocsCmd.Flags().IntVar(&sessionDocVersion, "version", 0, "with --name, print this version")
 	sessionsResolveCmd.Flags().BoolVar(&sessionResolveJSON, "json", false, "output resolved session metadata as JSON")
 	// (prompts subcommands removed — use 'thinkt export template' instead)
 

@@ -502,6 +502,13 @@ func (s *HTTPServer) handleGetSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Delegate /sessions/<path>/documents to the documents handler.
+	if sessionPath, ok := strings.CutSuffix(path, "/documents"); ok {
+		rewriteWildcardPath(r, sessionPath)
+		s.handleGetSessionDocuments(w, r)
+		return
+	}
+
 	// Delegate /sessions/<path>/resume to the resume handler.
 	// Chi's wildcard matches the entire suffix, so the resume route
 	// pattern (/sessions/resume/*) only works when "resume" comes first.
@@ -644,6 +651,48 @@ func (s *HTTPServer) handleGetSessionMetadata(w http.ResponseWriter, r *http.Req
 	}
 
 	writeJSON(w, http.StatusOK, output)
+}
+
+// DocumentsResponse is a session's agent documents.
+type DocumentsResponse struct {
+	Documents []thinkt.AgentDocument `json:"documents"`
+}
+
+// handleGetSessionDocuments returns the documents an agent kept in a session.
+// @Summary Get a session's agent documents
+// @Description Plans, task lists and walkthroughs the agent kept, each with its versions. Empty for a source that keeps none.
+// @Tags sessions
+// @Produce json
+// @Param path path string true "Session file path"
+// @Success 200 {object} DocumentsResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
+// @Failure 500 {object} ErrorResponse
+// @Router /sessions/{path}/documents [get]
+// @Security BearerAuth
+func (s *HTTPServer) handleGetSessionDocuments(w http.ResponseWriter, r *http.Request) {
+	path, err := extractWildcardPath(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "missing_path", "Session path is required")
+		return
+	}
+	store, meta, err := s.registry.ResolveSessionByPath(r.Context(), path)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "documents_failed", err.Error())
+		return
+	}
+	out := DocumentsResponse{Documents: []thinkt.AgentDocument{}}
+	if ds, ok := store.(thinkt.DocumentStore); ok {
+		docs, err := ds.SessionDocuments(r.Context(), meta.FullPath)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "documents_failed", err.Error())
+			return
+		}
+		if docs != nil {
+			out.Documents = docs
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // loadSession loads a session with optional pagination.

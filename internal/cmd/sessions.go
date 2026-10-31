@@ -29,6 +29,9 @@ var (
 	sessionViewAll     bool
 	sessionViewRaw     bool // --raw flag for undecorated output
 	sessionResolveJSON bool
+	sessionDocsJSON    bool
+	sessionDocName     string
+	sessionDocVersion  int
 	sessionJSON        bool // --json flag for JSON output
 )
 
@@ -199,6 +202,23 @@ By default, outputs only the canonical full path.
 Use --json for structured output.`,
 	Args: cobra.ExactArgs(1),
 	RunE: runSessionsResolve,
+}
+
+var sessionsDocsCmd = &cobra.Command{
+	Use:   "docs <session>",
+	Short: "List the documents an agent kept in a session",
+	Long: `List the plans, task lists and walkthroughs an agent kept alongside a
+session, each with the versions the session wrote.
+
+Use --name to print a document's final text, and --version for one version.
+
+Examples:
+  thinkt sessions docs <session>
+  thinkt sessions docs <session> --name implementation_plan
+  thinkt sessions docs <session> --name task.md --version 2
+  thinkt sessions docs <session> --json`,
+	Args: cobra.ExactArgs(1),
+	RunE: runSessionsDocs,
 }
 
 // logSelectedProject prints the resolved project to stderr when -v is set.
@@ -655,6 +675,45 @@ func execResume(registry *thinkt.StoreRegistry, session thinkt.SessionMeta) erro
 		return err
 	}
 	return thinkt.ExecResume(info)
+}
+
+func runSessionsDocs(cmd *cobra.Command, args []string) error {
+	registry := CreateSourceRegistry()
+	ctx := context.Background()
+	if sessionProject == "" && !filepath.IsAbs(args[0]) {
+		if cwd, err := os.Getwd(); err == nil {
+			if project := registry.FindProjectForPath(ctx, cwd); project != nil {
+				sessionProject = project.ID
+			}
+		}
+	}
+	meta, err := cli.ResolveSession(registry, sessionProject, args[0])
+	if err != nil {
+		return err
+	}
+	var docs []thinkt.AgentDocument
+	if store, ok := registry.Get(meta.Source); ok {
+		if ds, ok := store.(thinkt.DocumentStore); ok {
+			if docs, err = ds.SessionDocuments(ctx, meta.FullPath); err != nil {
+				return err
+			}
+		}
+	}
+	if sessionDocName != "" {
+		text, err := cli.DocumentText(docs, sessionDocName, sessionDocVersion)
+		if err != nil {
+			return err
+		}
+		fmt.Println(text)
+		return nil
+	}
+	if sessionDocsJSON {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(docs)
+	}
+	cli.FormatDocuments(os.Stdout, docs)
+	return nil
 }
 
 func runSessionsResolve(cmd *cobra.Command, args []string) error {

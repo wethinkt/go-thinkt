@@ -475,10 +475,10 @@ project_id      text NOT NULL FK(project.id CASCADE)
 
 - [x] **Prometheus metrics** - Collector and relay expose `/metrics` for Prometheus scraping
 - [ ] **Hugo docs site deployment** - Publish to GitHub Pages
-- [ ] **Agent documents over time** - Track how the documents an agent writes alongside a conversation evolve
+- [x] **Agent documents over time** - Track how the documents an agent writes alongside a conversation evolve
   - Antigravity keeps them in `brain/<conversation-id>/` (`implementation_plan.md`, `walkthrough.md`, `task.md`, …) with `*.metadata.json` (type, summary, `updatedAt`); Kimi Code keeps plan files under `agents/main/plans/` announced by `plan.revision`
   - Rebuild each version from the tool calls that wrote or edited it, show the final file, and link versions to the steps that produced them
-  - Render them typeset (nthtml) next to the conversation
+- [ ] **Agent documents in the viewers** - Show `thinkt.AgentDocument` versions in the TUI and web, typeset (nthtml) next to the conversation
 - [x] **Related folders for every source** - `SessionMeta.RelatedPaths` (added with the Antigravity source) records the other repos a session touched: extra workspace folders, edits, commands, reads
   - Filled for Claude, Codex, Kimi and Gemini from their tool calls
   - A project view of sessions from elsewhere that touched this folder (TUI, web, `projects` CLI)
