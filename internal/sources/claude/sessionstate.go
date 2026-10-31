@@ -128,7 +128,8 @@ var relatedTools = thinkt.ToolPaths{
 // trackToolCalls feeds an assistant line's tool calls to related. Only lines
 // holding a tool call are decoded, so the scan stays a byte classifier.
 func trackToolCalls(related *thinkt.RelatedTracker, line []byte) {
-	if related == nil || !bytes.Contains(line, []byte(`"tool_use"`)) {
+	// With no project yet a call cannot be judged: it may be inside it.
+	if !related.HasProject() || !bytes.Contains(line, []byte(`"tool_use"`)) {
 		return
 	}
 	var rec struct {

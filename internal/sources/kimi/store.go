@@ -48,8 +48,12 @@ func NewStoreWithCacheDir(baseDir, cacheDir string) *Store {
 	return &Store{baseDir: baseDir, cacheDir: cacheDir, relatedExclude: thinkt.RelatedExclude(baseDir)}
 }
 
-// tracker returns the related-folders tracker for a session of project.
+// tracker returns the related-folders tracker for a session of project, nil
+// when the project is the "unknown" placeholder.
 func (s *Store) tracker(project string) *thinkt.RelatedTracker {
+	if project == "unknown" {
+		return nil
+	}
 	return thinkt.TrackRelated(project, s.relatedExclude)
 }
 

@@ -557,8 +557,8 @@ func TestStore_GetSessionMeta(t *testing.T) {
 	if meta.WorkspaceID != "ws-123" {
 		t.Errorf("expected workspace ID 'ws-123', got '%s'", meta.WorkspaceID)
 	}
-	if meta.EntryCount != 2 {
-		t.Errorf("expected EntryCount=2, got %d", meta.EntryCount)
+	if meta.EntryCount != 1 {
+		t.Errorf("expected EntryCount=1 (the scan, not the index), got %d", meta.EntryCount)
 	}
 	if meta.ChunkCount != 1 {
 		t.Errorf("expected ChunkCount=1, got %d", meta.ChunkCount)

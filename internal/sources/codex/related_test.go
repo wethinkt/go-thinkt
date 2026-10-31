@@ -90,3 +90,14 @@ func TestScanFollowsTurnCwd(t *testing.T) {
 		t.Fatalf("%+v", s.Related)
 	}
 }
+
+// An unknown project is a placeholder, not a folder to measure from.
+func TestTrackerNeedsARealProject(t *testing.T) {
+	s := &Store{}
+	if s.tracker("unknown") != nil || s.tracker("") != nil {
+		t.Fatal("a tracker with no project")
+	}
+	if s.tracker("/p") == nil {
+		t.Fatal("no tracker for a project")
+	}
+}

@@ -297,6 +297,7 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 		sessions, _ := s.ListSessions(ctx, p.ID)
 		for _, sess := range sessions {
 			if sess.ID == sessionID {
+				s.enrichSessionMeta(&sess)
 				return &sess, nil
 			}
 		}
