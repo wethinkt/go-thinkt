@@ -104,8 +104,9 @@ type DuckDBStore struct {
 	superseded    SupersededMode
 
 	// Single-writer pattern: incoming payloads go to a channel, a single
-	// goroutine drains and writes them.
-	ingestCh chan tracewire.Payload
+	// goroutine drains and writes them, and answers each caller once its
+	// payload is committed.
+	ingestCh chan ingestReq
 	flushCh  chan chan struct{}
 	wg       sync.WaitGroup
 	done     chan struct{}
@@ -156,7 +157,7 @@ func NewDuckDBStore(dbPath string, batchSize int, flushInterval time.Duration, s
 		batchSize:     batchSize,
 		flushInterval: flushInterval,
 		superseded:    superseded,
-		ingestCh:      make(chan tracewire.Payload, batchSize*2),
+		ingestCh:      make(chan ingestReq, batchSize*2),
 		flushCh:       make(chan chan struct{}),
 		done:          make(chan struct{}),
 	}
@@ -167,11 +168,28 @@ func NewDuckDBStore(dbPath string, batchSize int, flushInterval time.Duration, s
 	return s, nil
 }
 
-// IngestBatch queues one relay payload for the batch writer.
+// ingestReq is one queued payload and where to report its result.
+type ingestReq struct {
+	p    tracewire.Payload
+	done chan error
+}
+
+// IngestBatch writes one relay payload through the single writer and
+// returns once it is committed, or with the error that stopped it. The
+// collector acknowledges a relay only after this returns nil, so a 200
+// means the data is stored.
 func (s *DuckDBStore) IngestBatch(ctx context.Context, p tracewire.Payload) error {
+	req := ingestReq{p: p, done: make(chan error, 1)}
 	select {
-	case s.ingestCh <- p:
-		return nil
+	case s.ingestCh <- req:
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.done:
+		return fmt.Errorf("collector store closed")
+	}
+	select {
+	case err := <-req.done:
+		return err
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -187,20 +205,17 @@ func (s *DuckDBStore) Flush() {
 	}
 }
 
-// batchWriter is the single goroutine that drains the ingest channel
-// and writes batches to DuckDB.
+// batchWriter is the single goroutine that writes payloads. Each wake-up
+// writes everything queued, so concurrent relays share one pass.
 func (s *DuckDBStore) batchWriter() {
 	defer s.wg.Done()
 
-	ticker := time.NewTicker(s.flushInterval)
-	defer ticker.Stop()
-
-	var batch []tracewire.Payload
+	var batch []ingestReq
 	drain := func() {
 		for {
 			select {
-			case p := <-s.ingestCh:
-				batch = append(batch, p)
+			case r := <-s.ingestCh:
+				batch = append(batch, r)
 			default:
 				return
 			}
@@ -209,24 +224,17 @@ func (s *DuckDBStore) batchWriter() {
 
 	for {
 		select {
-		case p := <-s.ingestCh:
-			batch = append(batch, p)
-			if batchEntryCount(batch) >= s.batchSize {
-				s.flushBatch(batch)
-				batch = nil
-			}
+		case r := <-s.ingestCh:
+			batch = append(batch, r)
+			drain()
+			s.flushBatch(batch)
+			batch = nil
 
 		case done := <-s.flushCh:
 			drain()
 			s.flushBatch(batch)
 			batch = nil
 			close(done)
-
-		case <-ticker.C:
-			if len(batch) > 0 {
-				s.flushBatch(batch)
-				batch = nil
-			}
 
 		case <-s.done:
 			drain()
@@ -236,39 +244,46 @@ func (s *DuckDBStore) batchWriter() {
 	}
 }
 
-// batchEntryCount returns the total number of entries across payloads.
-func batchEntryCount(batch []tracewire.Payload) int {
+// batchEntryCount returns the total number of entries across requests.
+func batchEntryCount(batch []ingestReq) int {
 	n := 0
-	for _, p := range batch {
-		n += len(p.Entries) + len(p.Removed)
+	for _, r := range batch {
+		n += len(r.p.Entries) + len(r.p.Removed)
 	}
 	return n
 }
 
-// flushBatch writes payloads to DuckDB, each in its own transaction, so one
-// bad payload does not lose the others.
-func (s *DuckDBStore) flushBatch(batch []tracewire.Payload) {
+// flushBatch writes requests to DuckDB, each payload in its own
+// transaction, and reports each result to its caller.
+func (s *DuckDBStore) flushBatch(batch []ingestReq) {
 	if len(batch) == 0 {
 		return
 	}
 	start := time.Now()
-	for _, p := range batch {
-		tx, err := s.db.BeginTx(context.Background(), nil)
-		if err != nil {
-			tuilog.Log.Error("Failed to begin transaction", "error", err)
-			return
-		}
-		if err := s.writePayload(tx, p); err != nil {
-			tuilog.Log.Error("Failed to write payload", "session_id", p.Session.ID, "source", p.Source, "error", err)
-			_ = tx.Rollback()
-			continue
-		}
-		if err := tx.Commit(); err != nil {
-			tuilog.Log.Error("Failed to commit payload", "session_id", p.Session.ID, "error", err)
-		}
+	for _, r := range batch {
+		r.done <- s.writeOne(r.p)
 	}
 	batchFlushDurationSeconds.Observe(time.Since(start).Seconds())
 	tuilog.Log.Debug("Flushed batch", "payloads", len(batch), "entries", batchEntryCount(batch))
+}
+
+// writeOne writes one payload in its own transaction.
+func (s *DuckDBStore) writeOne(p tracewire.Payload) error {
+	tx, err := s.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		tuilog.Log.Error("Failed to begin transaction", "error", err)
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	if err := s.writePayload(tx, p); err != nil {
+		tuilog.Log.Error("Failed to write payload", "session_id", p.Session.ID, "source", p.Source, "error", err)
+		_ = tx.Rollback()
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		tuilog.Log.Error("Failed to commit payload", "session_id", p.Session.ID, "error", err)
+		return fmt.Errorf("commit: %w", err)
+	}
+	return nil
 }
 
 // writePayload applies one payload. A payload whose generation is lower
