@@ -8,7 +8,9 @@ import (
 )
 
 // ResolveSessionPath implements thinkt.SessionPathResolver for what
-// IsSessionPath claims. The project id is the hash folder above chats/.
+// IsSessionPath claims. The project id is the projectHash the file records
+// (its first line), the same for a hash folder and a slug folder; it is
+// empty when the file has none yet.
 func (f *Discoverer) ResolveSessionPath(path string) (thinkt.SessionPath, bool) {
 	if !IsSessionPath(path) {
 		return thinkt.SessionPath{}, false
@@ -17,11 +19,12 @@ func (f *Discoverer) ResolveSessionPath(path string) (thinkt.SessionPath, bool) 
 	if base == "" {
 		base = f.basePath()
 	}
-	sp := thinkt.SessionPath{Source: thinkt.SourceGemini, BaseDir: base, SessionID: thinkt.HomeSpelling(path, base)}
-	if chats := filepath.Dir(path); filepath.Base(chats) == "chats" {
-		sp.ProjectID = filepath.Base(filepath.Dir(chats))
-	}
-	return sp, true
+	return thinkt.SessionPath{
+		Source:    thinkt.SourceGemini,
+		BaseDir:   base,
+		SessionID: thinkt.HomeSpelling(path, base),
+		ProjectID: fileProjectHash(path),
+	}, true
 }
 
 // OpenSessionPath implements thinkt.SessionPathResolver.

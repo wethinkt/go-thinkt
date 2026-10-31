@@ -55,15 +55,27 @@ func (f *Discoverer) IsAvailable() (bool, error) {
 	return len(entries) > 0, nil
 }
 
-// IsSessionPath reports whether path looks like a Gemini session file.
-// Antigravity CLI keeps its tree under ~/.gemini too; paths there belong to
-// the antigravity source.
+// IsSessionPath reports whether path is a Gemini session file under the
+// Gemini home: tmp/<project>/chats/<name>.jsonl, a subagent's
+// tmp/<project>/chats/<parent>/<name>.jsonl, or an older
+// tmp/<project>/chats/<name>.json. Antigravity CLI keeps its tree under
+// ~/.gemini too; paths there belong to the antigravity source.
 func IsSessionPath(path string) bool {
-	if filepath.Ext(path) != ".json" {
-		return false
-	}
 	baseDir := (&Discoverer{}).basePath()
 	if !thinkt.WithinHome(path, baseDir) {
+		return false
+	}
+	dir := filepath.Dir(path)
+	switch filepath.Ext(path) {
+	case ".jsonl":
+		if filepath.Base(dir) != "chats" {
+			dir = filepath.Dir(dir) // a subagent folder
+		}
+	case ".json":
+	default:
+		return false
+	}
+	if filepath.Base(dir) != "chats" || filepath.Base(filepath.Dir(filepath.Dir(dir))) != "tmp" {
 		return false
 	}
 	agy := []string{filepath.Join(baseDir, "antigravity-cli")}

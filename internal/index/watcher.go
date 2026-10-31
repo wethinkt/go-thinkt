@@ -132,7 +132,10 @@ func (w *Watcher) watchProject(p thinkt.Project) error {
 		return nil
 	}
 
-	sessions, err := store.ListSessions(context.Background(), p.ID)
+	// Subagent sessions are listed so their folders are watched; their
+	// changes reach discoverSession, which skips them. Only top-level
+	// sessions go into the index.
+	sessions, err := store.ListSessions(context.Background(), p.ID, thinkt.WithSubagents())
 	if err != nil {
 		return err
 	}
@@ -163,6 +166,9 @@ func (w *Watcher) watchProject(p thinkt.Project) error {
 			}
 		}
 
+		if s.ParentSessionID != "" {
+			continue
+		}
 		entries = append(entries, indexEntry{
 			path: realPath,
 			entry: sessionIndexEntry{

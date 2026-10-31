@@ -292,11 +292,16 @@ func (s *Service) Search(opts SearchOptions) ([]SessionResult, int, error) {
 	return finalResults, totalMatches, nil
 }
 
-// lineFilter returns the source's per-file search predicate, or nil when
-// the source keeps every matching line.
-func lineFilter(source string) func(line []byte, matched bool) bool {
-	if f, ok := sources.Factory(thinkt.Source(source)).(thinkt.SearchLineFilterer); ok {
-		return f.NewSearchLineFilter()
+// lineFilter returns the source's per-file search predicate for path, or
+// nil when the source keeps every matching line. A file filter, which sees
+// the path, wins over a line filter.
+func lineFilter(source, path string) func(line []byte, matched bool) bool {
+	f := sources.Factory(thinkt.Source(source))
+	if ff, ok := f.(thinkt.SearchFileFilterer); ok {
+		return ff.NewSearchFileFilter(path)
+	}
+	if lf, ok := f.(thinkt.SearchLineFilterer); ok {
+		return lf.NewSearchLineFilter()
 	}
 	return nil
 }
@@ -316,7 +321,7 @@ func scanFile(ctx context.Context, c Candidate, m *Matcher, out chan<- RawMatch)
 	// secondary entries (reminders, hook output, notices) are not
 	// conversation content; a hit inside them is noise. The filter sees
 	// every line so it can remember earlier ones.
-	filter := lineFilter(c.Source)
+	filter := lineFilter(c.Source, c.Path)
 
 	for scanner.Scan() {
 		if ctx.Err() != nil {
