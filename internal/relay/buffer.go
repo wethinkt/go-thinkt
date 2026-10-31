@@ -2,14 +2,18 @@ package relay
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"sync/atomic"
 	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/config"
+	"github.com/wethinkt/go-thinkt/internal/tracewire"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -19,6 +23,7 @@ import (
 type DiskBuffer struct {
 	dir      string
 	maxBytes int64
+	seq      atomic.Uint64 // orders writes within one nanosecond
 }
 
 // NewDiskBuffer creates a new DiskBuffer at the given directory with a size limit.
@@ -34,7 +39,7 @@ func NewDiskBuffer(dir string, maxSizeMB int) (*DiskBuffer, error) {
 }
 
 // Write stores a payload to the buffer directory as a JSON file.
-func (b *DiskBuffer) Write(payload TracePayload) error {
+func (b *DiskBuffer) Write(payload tracewire.Payload) error {
 	// Check size limit
 	currentSize, err := b.Size()
 	if err != nil {
@@ -49,22 +54,24 @@ func (b *DiskBuffer) Write(payload TracePayload) error {
 		return fmt.Errorf("marshal payload: %w", err)
 	}
 
-	// Use timestamp-based filename for ordering
-	filename := fmt.Sprintf("%d_%s.json", time.Now().UnixNano(), payload.SessionID)
+	// The name sorts chronologically and never contains the session id
+	// itself, which can hold a "/" (subagent ids).
+	key := sha256.Sum256([]byte(payload.Source + "\x00" + payload.Session.ID))
+	filename := fmt.Sprintf("%020d_%06d_%s.json", time.Now().UnixNano(), b.seq.Add(1)%1000000, hex.EncodeToString(key[:])[:12])
 	path := filepath.Join(b.dir, filename)
 
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		return fmt.Errorf("write buffer file: %w", err)
 	}
 
-	tuilog.Log.Debug("Buffered payload", "path", path, "entries", len(payload.Entries))
+	tuilog.Log.Debug("Buffered payload", "path", path, "session_id", payload.Session.ID, "entries", len(payload.Entries))
 	return nil
 }
 
 // Drain reads all buffered payloads in order and ships them using the provided
 // function. Successfully shipped payloads are deleted from disk.
 // Returns the number of payloads successfully drained.
-func (b *DiskBuffer) Drain(ctx context.Context, ship func(TracePayload) error) (int, error) {
+func (b *DiskBuffer) Drain(ctx context.Context, ship func(tracewire.Payload) error) (int, error) {
 	files, err := b.listFiles()
 	if err != nil {
 		return 0, err
@@ -84,7 +91,7 @@ func (b *DiskBuffer) Drain(ctx context.Context, ship func(TracePayload) error) (
 			continue
 		}
 
-		var payload TracePayload
+		var payload tracewire.Payload
 		if err := json.Unmarshal(data, &payload); err != nil {
 			tuilog.Log.Warn("Failed to decode buffer file, removing", "path", path, "error", err)
 			os.Remove(path)
@@ -152,4 +159,27 @@ func (b *DiskBuffer) listFiles() ([]string, error) {
 
 	sort.Strings(files)
 	return files, nil
+}
+
+// Discard removes the buffered payloads keep rejects (a source turned off
+// since they were written) and returns how many it removed.
+func (b *DiskBuffer) Discard(keep func(tracewire.Payload) bool) (int, error) {
+	files, err := b.listFiles()
+	if err != nil {
+		return 0, err
+	}
+	removed := 0
+	for _, path := range files {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		var payload tracewire.Payload
+		if json.Unmarshal(data, &payload) != nil || !keep(payload) {
+			if os.Remove(path) == nil {
+				removed++
+			}
+		}
+	}
+	return removed, nil
 }

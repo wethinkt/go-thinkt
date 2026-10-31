@@ -62,6 +62,7 @@ func main() {
 		showVersion  bool
 		logFile      string
 		metricsPort  int
+		backfill     string
 	)
 
 	allNames := sourceNames()
@@ -73,6 +74,7 @@ func main() {
 	flag.BoolVar(&showVersion, "version", false, "print version and exit")
 	flag.StringVar(&logFile, "log", "", "write debug log to file")
 	flag.IntVar(&metricsPort, "metrics-port", 0, "port for Prometheus /metrics endpoint (0 = disabled)")
+	flag.StringVar(&backfill, "backfill", "", "sessions already on disk when first seen: all or none (env THINKT_RELAY_BACKFILL; default all)")
 	flag.Parse()
 
 	if showVersion {
@@ -103,8 +105,15 @@ func main() {
 		sourceFilter[thinkt.Source(s)] = true
 	}
 
-	// Discover watch dirs from source registry
-	dirs := discoverWatchDirs(sourceFilter, quiet)
+	backfillMode, err := relay.ResolveBackfill(backfill)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Ship only the sources the config enables, narrowed by --source.
+	registry := sources.Restrict(sources.EnabledRegistry(), sourceFilter)
+	dirs := discoverWatchDirs(registry, quiet)
 	if len(dirs) == 0 {
 		if len(srcs) > 0 {
 			fmt.Fprintf(os.Stderr, "error: no session directories found for sources: %s\n", strings.Join([]string(srcs), ", "))
@@ -121,6 +130,8 @@ func main() {
 		BufferDir:    bufferDir,
 		Quiet:        quiet,
 		Version:      version,
+		Registry:     registry,
+		Backfill:     backfillMode,
 	}
 
 	relay, err := relay.New(cfg)
@@ -176,21 +187,11 @@ func main() {
 	}
 }
 
-// discoverWatchDirs uses the source registry to find session directories.
-// If filter is non-empty, only sources in the filter are included.
-func discoverWatchDirs(filter map[thinkt.Source]bool, quiet bool) []relay.WatchDir {
-	discovery := thinkt.NewDiscovery(sources.AllFactories()...)
-	registry, err := discovery.Discover(context.Background())
-	if err != nil {
-		return nil
-	}
-
+// discoverWatchDirs lists the session directories of the registry's stores.
+func discoverWatchDirs(registry *thinkt.StoreRegistry, quiet bool) []relay.WatchDir {
 	var dirs []relay.WatchDir
 	for _, store := range registry.All() {
 		src := store.Source()
-		if len(filter) > 0 && !filter[src] {
-			continue
-		}
 		ws := store.Workspace()
 		if ws.BasePath == "" {
 			continue

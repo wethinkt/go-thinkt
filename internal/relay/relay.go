@@ -1,10 +1,10 @@
 package relay
 
 import (
-	"bufio"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -13,7 +13,9 @@ import (
 	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/fingerprint"
-	"github.com/wethinkt/go-thinkt/internal/sources/claude"
+	"github.com/wethinkt/go-thinkt/internal/sources"
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tracewire"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -34,9 +36,11 @@ type Relay struct {
 	tracesBuffered atomic.Int64
 	lastShipTime   atomic.Int64 // unix nano
 
-	// Tracks file read offsets so we only ship new entries
-	offsets   map[string]int64
-	offsetsMu sync.Mutex
+	// What was last shipped per session, persisted at cfg.StatePath.
+	// syncMu serialises syncs, so the state and the buffer order stay
+	// consistent.
+	state  *relayState
+	syncMu sync.Mutex
 
 	// Session activity tracking
 	sessionActivity   map[string]time.Time // sessionPath -> lastWriteTime
@@ -72,13 +76,21 @@ func New(cfg RelayConfig) (*Relay, error) {
 		return nil, fmt.Errorf("create disk buffer: %w", err)
 	}
 
+	if cfg.Registry == nil {
+		cfg.Registry = thinkt.NewRegistry()
+	}
+	state, err := loadState(cfg.StatePath)
+	if err != nil {
+		return nil, err
+	}
+
 	machineID, _ := fingerprint.GetFingerprint()
 	instanceID := fmt.Sprintf("%s-%d", machineID, os.Getpid())
 
 	return &Relay{
 		cfg:             cfg,
 		buffer:          buf,
-		offsets:         make(map[string]int64),
+		state:           state,
 		sessionActivity: make(map[string]time.Time),
 		machineID:       machineID,
 		instanceID:      instanceID,
@@ -102,6 +114,12 @@ func (e *Relay) Start(ctx context.Context) error {
 		e.registerAgent(ctx)
 	} else {
 		tuilog.Log.Info("Relay started in buffer-only mode (no collector)")
+	}
+
+	// Ship what changed while the relay was off (and, on first run, the
+	// history already on disk) before watching.
+	if err := e.reconcile(ctx); err != nil {
+		tuilog.Log.Warn("Startup reconcile failed", "error", err)
 	}
 
 	// Start file watcher
@@ -155,7 +173,8 @@ func (e *Relay) Start(ctx context.Context) error {
 	}
 }
 
-// ExportOnce performs a one-shot export of all session files in the watch directories.
+// ExportOnce ships every enabled source's sessions that are new or changed
+// since the last run, then drains the buffer.
 func (e *Relay) ExportOnce(ctx context.Context) error {
 	endpoint, err := e.resolveCollector()
 	if err != nil {
@@ -165,28 +184,12 @@ func (e *Relay) ExportOnce(ctx context.Context) error {
 	if endpoint.URL != "" {
 		e.shipper = NewShipper(endpoint.URL, e.cfg.APIKey)
 	}
-
-	for _, wd := range e.cfg.WatchDirs {
-		entries, err := os.ReadDir(wd.Path)
-		if err != nil {
-			tuilog.Log.Warn("Failed to read watch dir", "dir", wd.Path, "error", err)
-			continue
-		}
-
-		for _, entry := range entries {
-			if entry.IsDir() || filepath.Ext(entry.Name()) != ".jsonl" {
-				continue
-			}
-
-			path := filepath.Join(wd.Path, entry.Name())
-			e.processFile(ctx, path, wd.Source)
-		}
+	if err := e.reconcile(ctx); err != nil {
+		return err
 	}
-
 	return e.FlushBuffer(ctx)
 }
 
-// FlushBuffer attempts to drain the disk buffer by shipping buffered payloads.
 func (e *Relay) FlushBuffer(ctx context.Context) error {
 	if e.shipper == nil {
 		return nil
@@ -197,7 +200,7 @@ func (e *Relay) FlushBuffer(ctx context.Context) error {
 		return err
 	}
 
-	shipped, err := e.buffer.Drain(ctx, func(payload TracePayload) error {
+	shipped, err := e.buffer.Drain(ctx, func(payload tracewire.Payload) error {
 		_, shipErr := e.shipper.Ship(ctx, payload)
 		return shipErr
 	})
@@ -279,7 +282,7 @@ func (e *Relay) handleFileEvent(ctx context.Context, event FileEvent) {
 	// Track session activity
 	e.recordSessionWrite(ctx, event.Path, event.Source)
 
-	e.processFile(ctx, event.Path, event.Source)
+	e.syncPath(ctx, event.Path)
 }
 
 // recordSessionWrite updates session activity tracking and emits lifecycle events.
@@ -378,288 +381,214 @@ func sessionIDFromPath(path string) string {
 	return base
 }
 
-// processFile reads new entries from a JSONL file and ships them in batches.
-func (e *Relay) processFile(ctx context.Context, path, source string) {
-	e.offsetsMu.Lock()
-	offset := e.offsets[path]
-	e.offsetsMu.Unlock()
-
-	f, err := os.Open(path)
-	if err != nil {
-		tuilog.Log.Warn("Failed to open session file", "path", path, "error", err)
-		return
-	}
-	defer f.Close()
-
-	// Seek to last known position
-	if offset > 0 {
-		if _, err := f.Seek(offset, 0); err != nil {
-			tuilog.Log.Warn("Failed to seek in session file", "path", path, "error", err)
-			return
-		}
-	}
-
-	// Read new entries
-	var entries []TraceEntry
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 1024*1024), 10*1024*1024) // 10MB max line
-
-	for scanner.Scan() {
-		entry, ok := parseRawEntry(scanner.Bytes())
-		if !ok {
-			continue
-		}
-		entries = append(entries, entry)
-	}
-
-	// Update offset
-	newOffset, _ := f.Seek(0, 1) // current position
-	e.offsetsMu.Lock()
-	e.offsets[path] = newOffset
-	e.offsetsMu.Unlock()
-
-	if len(entries) == 0 {
-		return
-	}
-
-	// Derive session ID from filename
-	sessionID := filepath.Base(path)
-	ext := filepath.Ext(sessionID)
-	if ext != "" {
-		sessionID = sessionID[:len(sessionID)-len(ext)]
-	}
-
-	// Extract project path from directory structure.
-	// Claude stores sessions in ~/.claude/projects/<encoded-path>/<session>.jsonl
-	projectPath := extractProjectPath(path)
-
-	// Batch and ship
-	for i := 0; i < len(entries); i += e.cfg.BatchSize {
-		end := min(i+e.cfg.BatchSize, len(entries))
-
-		payload := TracePayload{
-			InstanceID:  e.instanceID,
-			Source:      source,
-			SessionID:   sessionID,
-			ProjectPath: projectPath,
-			Entries:     entries[i:end],
-			MachineID:   e.machineID,
-		}
-
-		e.shipOrBuffer(ctx, payload)
-	}
-}
-
-// extractProjectPath derives a project path from a session file path.
-// For Claude, sessions are stored in ~/.claude/projects/<encoded-path>/<session>.jsonl
-// where <encoded-path> uses dash-encoded paths (e.g., -Users-evan-my-project).
-func extractProjectPath(filePath string) string {
-	dir := filepath.Dir(filePath)
-	parent := filepath.Base(filepath.Dir(dir)) // e.g., "projects"
-	if parent == "projects" {
-		encoded := filepath.Base(dir)
-		_, fullPath := claude.DecodeDirName(encoded)
-		return fullPath
-	}
-	return ""
-}
-
-// shipOrBuffer tries to ship a payload; on failure, buffers it to disk.
-func (e *Relay) shipOrBuffer(ctx context.Context, payload TracePayload) {
+// shipOrBuffer sends a payload, or writes it to the disk buffer when the
+// collector is not configured, a ship fails, or older payloads are already
+// buffered (so a newer payload never overtakes a buffered older one). It
+// reports whether the payload was shipped or buffered.
+func (e *Relay) shipOrBuffer(ctx context.Context, payload tracewire.Payload) bool {
 	src := payload.Source
 	if src == "" {
 		src = "unknown"
 	}
 	n := float64(len(payload.Entries))
 
-	if e.shipper == nil {
-		// No collector configured, buffer only
+	toBuffer := func() bool {
 		if err := e.buffer.Write(payload); err != nil {
 			tuilog.Log.Error("Failed to buffer payload", "error", err)
 			e.tracesFailed.Add(int64(len(payload.Entries)))
 			exportEntriesFailed.WithLabelValues(src).Add(n)
-		} else {
-			e.tracesBuffered.Add(int64(len(payload.Entries)))
-			exportEntriesBuffered.Add(n)
+			return false
 		}
-		return
+		e.tracesBuffered.Add(int64(len(payload.Entries)))
+		exportEntriesBuffered.Add(n)
+		return true
+	}
+
+	if e.shipper == nil {
+		return toBuffer()
+	}
+	if pending, _ := e.buffer.Count(); pending > 0 {
+		ok := toBuffer()
+		_ = e.FlushBuffer(ctx)
+		return ok
 	}
 
 	start := time.Now()
 	result, err := e.shipper.Ship(ctx, payload)
 	shipDurationSeconds.Observe(time.Since(start).Seconds())
-
 	if err != nil {
 		shipRequestsTotal.WithLabelValues("error").Inc()
 		exportEntriesFailed.WithLabelValues(src).Add(n)
-		tuilog.Log.Warn("Ship failed, buffering",
-			"entries", len(payload.Entries),
-			"error", err,
-		)
+		tuilog.Log.Warn("Ship failed, buffering", "session_id", payload.Session.ID, "entries", len(payload.Entries), "error", err)
 		e.tracesFailed.Add(int64(len(payload.Entries)))
-		if bufErr := e.buffer.Write(payload); bufErr != nil {
-			tuilog.Log.Error("Failed to buffer payload", "error", bufErr)
-		} else {
-			e.tracesBuffered.Add(int64(len(payload.Entries)))
-			exportEntriesBuffered.Add(n)
-		}
-		return
+		return toBuffer()
 	}
 
 	shipRequestsTotal.WithLabelValues("ok").Inc()
 	exportEntriesShipped.WithLabelValues(src).Add(float64(result.Entries))
 	e.tracesShipped.Add(int64(result.Entries))
 	e.lastShipTime.Store(time.Now().UnixNano())
+	return true
 }
 
-// rawEntry is a minimal struct for parsing JSONL lines from any source.
-// Different sources use different field names: Claude uses "type" for role,
-// Kimi uses "role", etc. This struct captures both so we can normalize.
-type rawEntry struct {
-	UUID      string          `json:"uuid"`
-	Type      string          `json:"type"` // Claude: role is in "type"
-	Role      string          `json:"role"` // Kimi/others: role is in "role"
-	Timestamp time.Time       `json:"timestamp"`
-	Model     string          `json:"model,omitempty"`
-	Text      string          `json:"text,omitempty"`
-	AgentID   string          `json:"agentId,omitempty"`
-	IsError   bool            `json:"isError,omitempty"` // Claude: tool_result error flag
-	Message   json.RawMessage `json:"message,omitempty"`
-}
-
-// validRoles are the roles accepted by the collector.
-var validRoles = map[string]bool{
-	"user": true, "assistant": true, "tool_use": true, "tool_result": true, "system": true,
-}
-
-// parseRawEntry parses a JSONL line into a TraceEntry, handling source-specific
-// field naming differences.
-func parseRawEntry(line []byte) (TraceEntry, bool) {
-	var raw rawEntry
-	if err := json.Unmarshal(line, &raw); err != nil {
-		return TraceEntry{}, false
-	}
-
-	if raw.UUID == "" {
-		return TraceEntry{}, false
-	}
-
-	// Resolve role: prefer "role" field, fall back to "type" field
-	role := raw.Role
-	if role == "" {
-		role = raw.Type
-	}
-	// Map source-specific types to collector roles
-	switch role {
-	case "human":
-		role = "user"
-	}
-	if !validRoles[role] {
-		return TraceEntry{}, false
-	}
-
-	text := raw.Text
-
-	// Try to extract text, model, tokens from assistant message content
-	var info messageInfo
-	if raw.Message != nil {
-		info = extractFromMessage(raw.Message, text)
-		text = info.Text
-	}
-	model := info.Model
-	if raw.Model != "" {
-		model = raw.Model
-	}
-
-	return TraceEntry{
-		UUID:         raw.UUID,
-		Role:         role,
-		Timestamp:    raw.Timestamp,
-		Text:         text,
-		Model:        model,
-		ToolName:     info.ToolName,
-		AgentID:      raw.AgentID,
-		IsError:      raw.IsError,
-		InputTokens:  info.InputTokens,
-		OutputTokens: info.OutputTokens,
-		ThinkingLen:  info.ThinkingLen,
-		HasThinking:  info.HasThinking,
-		HasToolUse:   info.HasToolUse,
-	}, true
-}
-
-// messageInfo holds extracted fields from a message JSON blob.
-type messageInfo struct {
-	Text         string
-	Model        string
-	ToolName     string
-	InputTokens  int
-	OutputTokens int
-	ThinkingLen  int
-	HasThinking  bool
-	HasToolUse   bool
-}
-
-// extractFromMessage extracts text, model, tool name, and token usage from a message JSON blob.
-func extractFromMessage(msg json.RawMessage, fallbackText string) messageInfo {
-	info := messageInfo{Text: fallbackText}
-
-	var parsed struct {
-		Model   string          `json:"model"`
-		Content json.RawMessage `json:"content"`
-		Usage   *struct {
-			InputTokens  int `json:"input_tokens"`
-			OutputTokens int `json:"output_tokens"`
-		} `json:"usage"`
-	}
-	if err := json.Unmarshal(msg, &parsed); err != nil {
-		return info
-	}
-	info.Model = parsed.Model
-	if parsed.Usage != nil {
-		info.InputTokens = parsed.Usage.InputTokens
-		info.OutputTokens = parsed.Usage.OutputTokens
-	}
-
-	if parsed.Content == nil {
-		return info
-	}
-
-	// Content can be a string or an array of blocks
-	var contentStr string
-	if err := json.Unmarshal(parsed.Content, &contentStr); err == nil {
-		if info.Text == "" {
-			info.Text = contentStr
-		}
-		return info
-	}
-
-	// Parse as array of content blocks
-	var blocks []struct {
-		Type     string `json:"type"`
-		Text     string `json:"text"`
-		Name     string `json:"name"`
-		Thinking string `json:"thinking"`
-	}
-	if err := json.Unmarshal(parsed.Content, &blocks); err != nil {
-		return info
-	}
-
-	for _, b := range blocks {
-		switch b.Type {
-		case "text":
-			if info.Text == "" {
-				info.Text = b.Text
-			}
-		case "tool_use":
-			info.HasToolUse = true
-			if info.ToolName == "" {
-				info.ToolName = b.Name
-			}
-		case "thinking":
-			info.HasThinking = true
-			info.ThinkingLen += len(b.Thinking)
+// lookup finds the session a path belongs to. Some stores cache their
+// session list for the life of the process (Kimi, Antigravity), so a nil
+// result for an existing file, or a size that disagrees with the file,
+// clears that store's cache and looks once more.
+func lookup(ctx context.Context, store thinkt.Store, path string) *thinkt.SessionMeta {
+	info, statErr := os.Stat(path)
+	meta, _ := store.GetSessionMeta(ctx, path)
+	stale := statErr == nil && (meta == nil || (meta.FileSize != 0 && meta.FileSize != info.Size()))
+	if stale {
+		if r, ok := store.(interface{ ResetCache() }); ok {
+			r.ResetCache()
+			meta, _ = store.GetSessionMeta(ctx, path)
 		}
 	}
-	return info
+	return meta
+}
+
+// syncPath ships the changes of the session file at path. A path no
+// enabled source owns is ignored; a path that is no longer a session
+// (deleted, or no longer listed by its store) drops its state and ships
+// nothing: the archive keeps what it has.
+func (e *Relay) syncPath(ctx context.Context, path string) {
+	sp, _, ok := sources.ResolveSessionPath(path)
+	if !ok {
+		return
+	}
+	store, ok := e.cfg.Registry.Get(sp.Source)
+	if !ok {
+		return
+	}
+	meta := lookup(ctx, store, path)
+
+	e.syncMu.Lock()
+	defer e.syncMu.Unlock()
+	if meta == nil {
+		e.pruneLocked(func(st *sessionState) bool { return st.Path == path })
+		e.saveStateLocked()
+		return
+	}
+	e.syncSessionLocked(ctx, store, *meta, false)
+	e.saveStateLocked()
+}
+
+// syncSessionLocked reads one session through its store, diffs it against
+// the state, and ships or buffers the payloads. With record set it only
+// records what is there (backfill none). Callers hold syncMu.
+func (e *Relay) syncSessionLocked(ctx context.Context, store thinkt.Store, meta thinkt.SessionMeta, record bool) {
+	id := meta.FullPath
+	if id == "" {
+		id = meta.ID
+	}
+	reader, err := store.OpenSession(ctx, id)
+	if err != nil {
+		tuilog.Log.Debug("Relay: open session failed", "session_id", meta.ID, "error", err)
+		return
+	}
+	var entries []thinkt.Entry
+	for {
+		entry, err := reader.ReadNext()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			tuilog.Log.Debug("Relay: read session failed", "session_id", meta.ID, "error", err)
+			break
+		}
+		entries = append(entries, *entry)
+	}
+	reader.Close()
+	assignIDs(entries)
+
+	key := stateKey(store.Source(), meta.ID)
+	st := e.state.Sessions[key]
+	if st == nil {
+		st = &sessionState{}
+	}
+	base := tracewire.Payload{
+		Version:    tracewire.Version,
+		InstanceID: e.instanceID,
+		MachineID:  e.machineID,
+		Source:     string(store.Source()),
+	}
+	for _, p := range diffSession(meta, entries, st, base, e.cfg.BatchSize) {
+		if record {
+			p.Session.Generation = 0
+		} else if !e.shipOrBuffer(ctx, p) {
+			return // keep the state as it was; the next sync retries
+		}
+		st.commit(p)
+	}
+	if info, err := os.Stat(meta.FullPath); err == nil {
+		st.ModTime, st.Size = info.ModTime(), info.Size()
+	}
+	st.Path = meta.FullPath
+	e.state.Sessions[key] = st
+}
+
+// reconcile walks every enabled source's sessions, subagents included, and
+// syncs those that are new (per the backfill setting) or whose file changed
+// since the state recorded it. State for sessions whose file is gone is
+// dropped.
+func (e *Relay) reconcile(ctx context.Context) error {
+	e.syncMu.Lock()
+	defer e.syncMu.Unlock()
+	for _, store := range e.cfg.Registry.All() {
+		projects, err := store.ListProjects(ctx)
+		if err != nil {
+			tuilog.Log.Warn("Relay: list projects failed", "source", store.Source(), "error", err)
+			continue
+		}
+		for _, p := range projects {
+			sessions, err := store.ListSessions(ctx, p.ID, thinkt.WithSubagents())
+			if err != nil {
+				continue
+			}
+			for _, meta := range sessions {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				if meta.FullPath == "" {
+					continue
+				}
+				info, err := os.Stat(meta.FullPath)
+				if err != nil {
+					continue
+				}
+				st := e.state.Sessions[stateKey(store.Source(), meta.ID)]
+				switch {
+				case st == nil:
+					e.syncSessionLocked(ctx, store, meta, e.cfg.Backfill == BackfillNone)
+				case !info.ModTime().Equal(st.ModTime) || info.Size() != st.Size:
+					e.syncSessionLocked(ctx, store, meta, false)
+				}
+			}
+		}
+	}
+	e.pruneLocked(func(st *sessionState) bool {
+		_, err := os.Stat(st.Path)
+		return st.Path == "" || os.IsNotExist(err)
+	})
+	e.saveStateLocked()
+	return nil
+}
+
+// pruneLocked drops state entries gone reports true for.
+func (e *Relay) pruneLocked(gone func(*sessionState) bool) {
+	for k, st := range e.state.Sessions {
+		if gone(st) {
+			delete(e.state.Sessions, k)
+		}
+	}
+}
+
+func (e *Relay) saveStateLocked() {
+	if e.cfg.StatePath == "" {
+		return
+	}
+	if err := e.state.save(e.cfg.StatePath); err != nil {
+		tuilog.Log.Warn("Relay: save state failed", "error", err)
+	}
 }

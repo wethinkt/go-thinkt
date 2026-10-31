@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/wethinkt/go-thinkt/internal/relay"
+	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
@@ -18,6 +19,7 @@ var (
 	relayCollectorURL string
 	relayAPIKey       string
 	relaySource       string
+	relayBackfill     string
 	relayForward      bool
 	relayFlush        bool
 	relayQuiet        bool
@@ -67,14 +69,18 @@ func runRelay(cmd *cobra.Command, args []string) error {
 		apiKey = os.Getenv("THINKT_API_KEY")
 	}
 
-	// Auto-discover watch directories from source registry
-	var watchDirs []relay.WatchDir
+	backfill, err := relay.ResolveBackfill(relayBackfill)
+	if err != nil {
+		return err
+	}
+
+	// Ship only enabled sources, narrowed by --source.
 	registry := CreateSourceRegistry()
+	if relaySource != "" {
+		registry = sources.Restrict(registry, map[thinkt.Source]bool{thinkt.Source(relaySource): true})
+	}
+	var watchDirs []relay.WatchDir
 	for _, store := range registry.All() {
-		// Filter by source if specified
-		if relaySource != "" && string(store.Source()) != relaySource {
-			continue
-		}
 		ws := store.Workspace()
 		if ws.BasePath != "" {
 			watchDirs = append(watchDirs, relay.WatchDir{
@@ -102,6 +108,8 @@ func runRelay(cmd *cobra.Command, args []string) error {
 		APIKey:       apiKey,
 		WatchDirs:    watchDirs,
 		Quiet:        relayQuiet,
+		Registry:     registry,
+		Backfill:     backfill,
 	}
 
 	relay, err := relay.New(cfg)

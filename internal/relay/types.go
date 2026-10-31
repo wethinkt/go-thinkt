@@ -4,9 +4,12 @@ package relay
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/urlutil"
 )
@@ -48,10 +51,51 @@ type RelayConfig struct {
 
 	// Version is the relay version string (set via ldflags).
 	Version string
+
+	// Registry holds the stores of the enabled sources; only they ship.
+	Registry *thinkt.StoreRegistry
+
+	// Backfill is "all" (ship every session already on disk when the relay
+	// first sees it) or "none" (record what is there and ship only later
+	// changes). Default "all"; THINKT_RELAY_BACKFILL.
+	Backfill string
+
+	// StatePath is the relay's per-session state file. Default
+	// <thinkt home>/relay/state.json.
+	StatePath string
+}
+
+// Backfill modes.
+const (
+	BackfillAll  = "all"
+	BackfillNone = "none"
+)
+
+// ResolveBackfill returns the --backfill flag value, else
+// THINKT_RELAY_BACKFILL, else all.
+func ResolveBackfill(flag string) (string, error) {
+	if flag == "" {
+		flag = os.Getenv("THINKT_RELAY_BACKFILL")
+	}
+	switch flag {
+	case "", BackfillAll:
+		return BackfillAll, nil
+	case BackfillNone:
+		return BackfillNone, nil
+	}
+	return "", fmt.Errorf("invalid backfill %q (want all or none)", flag)
 }
 
 // Defaults applies default values to unset config fields.
 func (c *RelayConfig) Defaults() {
+	if c.Backfill == "" {
+		c.Backfill = BackfillAll
+	}
+	if c.StatePath == "" {
+		if dir, err := config.Dir(); err == nil {
+			c.StatePath = filepath.Join(dir, "relay", "state.json")
+		}
+	}
 	if c.BufferDir == "" {
 		c.BufferDir = "~/.thinkt/relay-buffer/"
 	}
@@ -98,34 +142,6 @@ func NormalizeCollectorURL(u string) string {
 	return u + "/v1/traces"
 }
 
-// TracePayload is the HTTP POST body for /v1/traces.
-type TracePayload struct {
-	InstanceID  string         `json:"instance_id"`
-	Source      string         `json:"source"` // "claude", "kimi", etc.
-	ProjectPath string         `json:"project_path"`
-	SessionID   string         `json:"session_id"`
-	Entries     []TraceEntry   `json:"entries"`
-	MachineID   string         `json:"machine_id,omitempty"`
-	Metadata    map[string]any `json:"metadata,omitempty"`
-}
-
-// TraceEntry is a single trace entry in the payload.
-type TraceEntry struct {
-	UUID         string    `json:"uuid"`
-	Role         string    `json:"role"`
-	Timestamp    time.Time `json:"timestamp"`
-	Text         string    `json:"text,omitempty"`
-	Model        string    `json:"model,omitempty"`
-	ToolName     string    `json:"tool_name,omitempty"`
-	AgentID      string    `json:"agent_id,omitempty"`
-	IsError      bool      `json:"is_error,omitempty"`
-	InputTokens  int       `json:"input_tokens,omitempty"`
-	OutputTokens int       `json:"output_tokens,omitempty"`
-	ThinkingLen  int       `json:"thinking_len,omitempty"`
-	HasThinking  bool      `json:"has_thinking,omitempty"`
-	HasToolUse   bool      `json:"has_tool_use,omitempty"`
-}
-
 // ShipResult tracks the result of shipping a batch.
 type ShipResult struct {
 	BatchID    string
@@ -149,6 +165,7 @@ type RelayStats struct {
 // SessionActivityEvent is sent to the collector to report session lifecycle changes.
 type SessionActivityEvent struct {
 	InstanceID  string    `json:"instance_id"`
+	MachineID   string    `json:"machine_id,omitempty"`
 	Source      string    `json:"source"`
 	ProjectPath string    `json:"project_path"`
 	SessionID   string    `json:"session_id"`

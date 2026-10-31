@@ -252,6 +252,7 @@ func init() {
 	relayCmd.Flags().StringVar(&relayCollectorURL, "collector-url", "", "collector URL (default: auto-discover)")
 	relayCmd.Flags().StringVar(&relayAPIKey, "api-key", "", "API key for collector authentication")
 	relayCmd.Flags().StringVar(&relaySource, "source", "", "filter by source (claude, kimi, etc.)")
+	relayCmd.Flags().StringVar(&relayBackfill, "backfill", "", "sessions already on disk when first seen: all (ship them) or none (ship only later changes) (env THINKT_RELAY_BACKFILL; default all)")
 	relayCmd.Flags().BoolVar(&relayForward, "forward", false, "continuous watch mode")
 	relayCmd.Flags().BoolVar(&relayFlush, "flush", false, "flush the disk buffer")
 	relayCmd.Flags().BoolVarP(&relayQuiet, "quiet", "q", false, "suppress non-error output")

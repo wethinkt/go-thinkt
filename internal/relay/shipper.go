@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/wethinkt/go-thinkt/internal/tracewire"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -38,7 +39,7 @@ func NewShipper(collectorURL, apiKey string) *Shipper {
 }
 
 // Ship sends a TracePayload to the collector with retry and exponential backoff.
-func (s *Shipper) Ship(ctx context.Context, payload TracePayload) (*ShipResult, error) {
+func (s *Shipper) Ship(ctx context.Context, payload tracewire.Payload) (*ShipResult, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("marshal payload: %w", err)
