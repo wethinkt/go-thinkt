@@ -2,6 +2,7 @@ package collect
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -22,12 +23,19 @@ func metricsSource(s string) string {
 func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
-	r.Body = http.MaxBytesReader(w, r.Body, 10<<20) // 10MB limit
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<20) // 64MB: full entries carry tool output
 
 	var req tracewire.Payload
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ingestRequestsTotal.WithLabelValues("error").Inc()
 		writeError(w, http.StatusBadRequest, "invalid_json", "Failed to parse request body")
+		return
+	}
+
+	if req.Version != tracewire.Version {
+		ingestRequestsTotal.WithLabelValues("error").Inc()
+		writeError(w, http.StatusBadRequest, "unsupported_version",
+			fmt.Sprintf("payload version %d is not supported (want %d); upgrade the relay", req.Version, tracewire.Version))
 		return
 	}
 
@@ -43,11 +51,8 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 			"session_id", req.Session.ID, "dropped", dropped)
 	}
 
-	if len(req.Entries) == 0 {
-		ingestRequestsTotal.WithLabelValues("ok").Inc()
-		writeJSON(w, http.StatusOK, IngestResponse{Accepted: 0, Message: "all entries dropped during validation"})
-		return
-	}
+	// A payload with no entries still carries removals and session
+	// metadata; it is always ingested.
 
 	// Update agent heartbeat and trace count
 	s.registry.Heartbeat(req.InstanceID)
@@ -62,11 +67,13 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	summaries := make([]EntrySummary, 0, len(req.Entries))
-	for _, e := range req.Entries {
-		summaries = append(summaries, summarize(e))
+	if len(req.Entries) > 0 {
+		summaries := make([]EntrySummary, 0, len(req.Entries))
+		for _, e := range req.Entries {
+			summaries = append(summaries, summarize(e))
+		}
+		s.pubsub.Publish(req.Session.ID, summaries)
 	}
-	s.pubsub.Publish(req.Session.ID, summaries)
 
 	src := metricsSource(req.Source)
 	ingestEntriesTotal.WithLabelValues(src).Add(float64(len(req.Entries)))

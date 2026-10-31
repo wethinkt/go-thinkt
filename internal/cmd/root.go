@@ -240,6 +240,7 @@ func init() {
 	collectCmd.Flags().StringVar(&collectStorage, "storage", "", "DuckDB storage path")
 	collectCmd.Flags().StringVar(&collectToken, "token", "", "bearer token for authentication")
 	collectCmd.Flags().BoolVarP(&collectQuiet, "quiet", "q", false, "suppress non-error output")
+	collectCmd.Flags().StringVar(&collectSuperseded, "superseded", "", "entries a relay reports removed: keep (marked superseded) or delete (env THINKT_COLLECTOR_SUPERSEDED; default keep)")
 	collectCmd.AddCommand(exportParquetCmd)
 	exportParquetCmd.Flags().StringVar(&parquetStorage, "storage", "", "path to collector.duckdb (default: ~/.thinkt/dbs/collector.duckdb)")
 	exportParquetCmd.Flags().StringVar(&parquetOut, "out", "", "output directory (default: ~/.thinkt/exports/parquet/)")

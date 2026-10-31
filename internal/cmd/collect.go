@@ -14,11 +14,12 @@ import (
 
 // Collect command flags
 var (
-	collectPort    int
-	collectHost    string
-	collectStorage string
-	collectToken   string
-	collectQuiet   bool
+	collectPort       int
+	collectHost       string
+	collectStorage    string
+	collectToken      string
+	collectQuiet      bool
+	collectSuperseded string
 )
 
 var collectCmd = &cobra.Command{
@@ -53,12 +54,17 @@ func runCollect(cmd *cobra.Command, args []string) error {
 
 	tuilog.Log.Info("Starting collector server", "port", collectPort, "host", collectHost)
 
+	superseded, err := collect.ResolveSupersededMode(collectSuperseded)
+	if err != nil {
+		return err
+	}
 	cfg := collect.CollectorConfig{
-		Port:   collectPort,
-		Host:   collectHost,
-		DBPath: collectStorage,
-		Token:  collectToken,
-		Quiet:  collectQuiet,
+		Port:       collectPort,
+		Host:       collectHost,
+		DBPath:     collectStorage,
+		Token:      collectToken,
+		Quiet:      collectQuiet,
+		Superseded: superseded,
 	}
 
 	srv, err := collect.NewServer(cfg)

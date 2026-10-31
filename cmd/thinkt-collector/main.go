@@ -32,6 +32,7 @@ func main() {
 		quiet       bool
 		showVersion bool
 		logFile     string
+		superseded  string
 	)
 
 	flag.IntVar(&port, "port", collect.DefaultPort, "server port")
@@ -41,6 +42,7 @@ func main() {
 	flag.BoolVar(&quiet, "quiet", false, "suppress non-error output")
 	flag.BoolVar(&showVersion, "version", false, "print version and exit")
 	flag.StringVar(&logFile, "log", "", "write debug log to file")
+	flag.StringVar(&superseded, "superseded", "", "entries a relay reports removed: keep or delete (env THINKT_COLLECTOR_SUPERSEDED; default keep)")
 	flag.Parse()
 
 	if showVersion {
@@ -57,12 +59,18 @@ func main() {
 		defer tuilog.Log.Close()
 	}
 
+	mode, err := collect.ResolveSupersededMode(superseded)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
 	cfg := collect.CollectorConfig{
-		Port:   port,
-		Host:   host,
-		DBPath: storage,
-		Token:  token,
-		Quiet:  quiet,
+		Port:       port,
+		Host:       host,
+		DBPath:     storage,
+		Token:      token,
+		Quiet:      quiet,
+		Superseded: mode,
 	}
 
 	srv, err := collect.NewServer(cfg)

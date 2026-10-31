@@ -5,6 +5,7 @@ package collect
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -39,6 +40,15 @@ const (
 	SupersededKeep   SupersededMode = "keep"   // keep the row, marked superseded (default)
 	SupersededDelete SupersededMode = "delete" // delete the row
 )
+
+// ResolveSupersededMode returns the --superseded flag value, else
+// THINKT_COLLECTOR_SUPERSEDED, else keep.
+func ResolveSupersededMode(flag string) (SupersededMode, error) {
+	if flag == "" {
+		flag = os.Getenv("THINKT_COLLECTOR_SUPERSEDED")
+	}
+	return ParseSupersededMode(flag)
+}
 
 // ParseSupersededMode reads a --superseded value; "" is keep.
 func ParseSupersededMode(v string) (SupersededMode, error) {
