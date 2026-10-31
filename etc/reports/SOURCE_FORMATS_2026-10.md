@@ -1,4 +1,4 @@
-# Source formats as of October 2026: Codex, Antigravity, Kimi Code
+# Source formats as of October 2026: Codex, Antigravity, Kimi Code, Gemini CLI
 
 Survey of what each harness writes on one machine, compared with what the
 matching thinkt source reads. Companion to
@@ -232,6 +232,36 @@ Message roles: user 393, assistant 757, tool 801; content parts `text`,
 | `plan.revision` | attachment entry pointing at the plan file |
 | `state.json` | `Title`, `LastPrompt`, `CreatedAt`, `ParentSessionID` for sub agents |
 | everything else | bookkeeping |
+
+## Gemini CLI (`~/.gemini`)
+
+Measured on 2026-10-30 against two corpora:
+- **A Mac:** 5 `.jsonl` files, Gemini CLI 0.42.0.
+- **A second machine:** 7 `.jsonl` and 35 `.json` files, February to May
+  2026. 13 of the `.json` files are under hash folders and 22 under slug
+  folders.
+
+Gemini CLI 0.39 moved from one JSON document per session to an
+append-only `.jsonl` file; a `.json` session is converted only when it is
+resumed. The reconstruction rules come from the CLI loader
+(`createJsonlRecordAccumulator` in `chatRecordingService.ts`).
+
+| Line | Count (both machines) | Meaning | thinkt |
+|---|---|---|---|
+| header: `sessionId`, `projectHash`, `startTime`, `lastUpdated`, `kind`, `directories` | 12 | session identity | session state |
+| `type: gemini` | 811 lines, 1–5 copies per id | one model response: text, `thoughts`, `tokens`, `model`, `toolCalls` with inline results | assistant entry (`TurnID` = id) and one `tool_result` per call |
+| `type: user` | 25 | part list | prompt (`PromptID`), or a secondary continuation |
+| `type: info` / `warning` / `error` | 7 | notices (cancelled, auth) | secondary system entries |
+| `$set` | about 350 | `lastUpdated`, `summary`, `memoryScratchpad`; or `messages`, a checkpoint | metadata, or replay |
+| `$patch`, `$rewindTo` | 0 (the loader applies them) | edit, remove or reorder messages; truncate | replay |
+
+- **Usage:** `tokens.output` excludes thinking (`total = input + output +
+  thoughts`). thinkt sets `OutputTokens = output + thoughts`, and
+  `cached` becomes `CacheReadInputTokens`.
+- **Tools:** `update_topic` (95 calls) is the CLI's status line and is
+  shown as secondary.
+- **Subagents:** `invoke_agent` carries `agentId`. The child file is
+  `chats/<parent sessionId>/<agentId>.jsonl`.
 
 ## Shared work
 
