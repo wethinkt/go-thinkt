@@ -577,7 +577,7 @@ func (e *Relay) syncSessionLocked(ctx context.Context, store thinkt.Store, meta 
 		MachineID:  e.machineID,
 		Source:     string(store.Source()),
 	}
-	for _, p := range diffSession(meta, entries, st, base, e.cfg.BatchSize) {
+	for _, p := range diffSession(meta, entries, st, base, e.cfg.BatchSize, nextGeneration(st, time.Now())) {
 		if record {
 			p.Session.Generation = 0
 		} else if !e.shipOrBuffer(ctx, p) {

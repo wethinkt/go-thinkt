@@ -56,7 +56,7 @@ func TestStateMissingFileIsEmpty(t *testing.T) {
 }
 
 func TestDiffNewSession(t *testing.T) {
-	ps := diffSession(meta(), []thinkt.Entry{ent("u1", "a"), ent("u2", "b"), ent("u3", "c")}, &sessionState{}, base, 100)
+	ps := diffSession(meta(), []thinkt.Entry{ent("u1", "a"), ent("u2", "b"), ent("u3", "c")}, &sessionState{}, base, 100, gen(&sessionState{}))
 	if len(ps) != 1 || uuids(ps[0].Entries) != "u1,u2,u3" || ps[0].Session.Generation != 1 || ps[0].Removed != nil {
 		t.Fatalf("%+v", ps)
 	}
@@ -68,20 +68,20 @@ func TestDiffNewSession(t *testing.T) {
 func TestDiffNoChange(t *testing.T) {
 	es := []thinkt.Entry{ent("u1", "a"), ent("u2", "b")}
 	st := &sessionState{}
-	for _, p := range diffSession(meta(), es, st, base, 100) {
+	for _, p := range diffSession(meta(), es, st, base, 100, gen(st)) {
 		st.commit(p)
 	}
-	if ps := diffSession(meta(), es, st, base, 100); len(ps) != 0 {
+	if ps := diffSession(meta(), es, st, base, 100, gen(st)); len(ps) != 0 {
 		t.Fatalf("%+v", ps)
 	}
 }
 
 func TestDiffChangedAndRemoved(t *testing.T) {
 	st := &sessionState{}
-	for _, p := range diffSession(meta(), []thinkt.Entry{ent("u1", "a"), ent("u2", "b"), ent("u3", "c")}, st, base, 100) {
+	for _, p := range diffSession(meta(), []thinkt.Entry{ent("u1", "a"), ent("u2", "b"), ent("u3", "c")}, st, base, 100, gen(st)) {
 		st.commit(p)
 	}
-	ps := diffSession(meta(), []thinkt.Entry{ent("u1", "a2"), ent("u2", "b")}, st, base, 100)
+	ps := diffSession(meta(), []thinkt.Entry{ent("u1", "a2"), ent("u2", "b")}, st, base, 100, gen(st))
 	if len(ps) != 1 || uuids(ps[0].Entries) != "u1" || strings.Join(ps[0].Removed, ",") != "u3" || ps[0].Session.Generation != 2 {
 		t.Fatalf("%+v", ps)
 	}
@@ -89,10 +89,10 @@ func TestDiffChangedAndRemoved(t *testing.T) {
 
 func TestDiffRemovalOnly(t *testing.T) {
 	st := &sessionState{}
-	for _, p := range diffSession(meta(), []thinkt.Entry{ent("u1", "a"), ent("u2", "b")}, st, base, 100) {
+	for _, p := range diffSession(meta(), []thinkt.Entry{ent("u1", "a"), ent("u2", "b")}, st, base, 100, gen(st)) {
 		st.commit(p)
 	}
-	ps := diffSession(meta(), []thinkt.Entry{ent("u1", "a")}, st, base, 100)
+	ps := diffSession(meta(), []thinkt.Entry{ent("u1", "a")}, st, base, 100, gen(st))
 	if len(ps) != 1 || len(ps[0].Entries) != 0 || strings.Join(ps[0].Removed, ",") != "u2" {
 		t.Fatalf("%+v", ps)
 	}
@@ -105,12 +105,12 @@ func TestDiffRemovalOnly(t *testing.T) {
 func TestDiffMetadataOnly(t *testing.T) {
 	es := []thinkt.Entry{ent("u1", "a")}
 	st := &sessionState{}
-	for _, p := range diffSession(meta(), es, st, base, 100) {
+	for _, p := range diffSession(meta(), es, st, base, 100, gen(st)) {
 		st.commit(p)
 	}
 	m := meta()
 	m.Title = "Renamed"
-	ps := diffSession(m, es, st, base, 100)
+	ps := diffSession(m, es, st, base, 100, gen(st))
 	if len(ps) != 1 || len(ps[0].Entries) != 0 || ps[0].Session.Title != "Renamed" {
 		t.Fatalf("%+v", ps)
 	}
@@ -122,7 +122,7 @@ func TestDiffSplitsByBatchSize(t *testing.T) {
 		es = append(es, ent(fmt.Sprintf("u%03d", i), "x"))
 	}
 	st := &sessionState{Hashes: map[string]string{"gone": "h"}, Generation: 0}
-	ps := diffSession(meta(), es, st, base, 100)
+	ps := diffSession(meta(), es, st, base, 100, gen(st))
 	if len(ps) != 3 {
 		t.Fatalf("%d payloads", len(ps))
 	}
@@ -138,7 +138,7 @@ func TestDiffSplitsByBatchSize(t *testing.T) {
 
 func TestDiffOversizedEntryAlone(t *testing.T) {
 	big := ent("big", strings.Repeat("x", 9<<20))
-	ps := diffSession(meta(), []thinkt.Entry{ent("a", "1"), big, ent("b", "2")}, &sessionState{}, base, 100)
+	ps := diffSession(meta(), []thinkt.Entry{ent("a", "1"), big, ent("b", "2")}, &sessionState{}, base, 100, gen(&sessionState{}))
 	for _, p := range ps {
 		for _, e := range p.Entries {
 			if e.UUID == "big" && len(p.Entries) != 1 {
@@ -168,5 +168,18 @@ func TestAssignIDs(t *testing.T) {
 	assignIDs(again)
 	if uuids(again) != uuids(es) {
 		t.Fatalf("not stable: %s vs %s", uuids(again), uuids(es))
+	}
+}
+
+// gen is the generation the old tests expect: one past the state's.
+func gen(st *sessionState) int64 { return st.Generation + 1 }
+
+func TestNextGenerationMonotonic(t *testing.T) {
+	now := time.Unix(100, 0)
+	if g := nextGeneration(&sessionState{}, now); g != now.UnixNano() {
+		t.Fatalf("fresh state: %d", g)
+	}
+	if g := nextGeneration(&sessionState{Generation: now.UnixNano() + 5}, now); g != now.UnixNano()+6 {
+		t.Fatalf("clock behind state: %d", g)
 	}
 }

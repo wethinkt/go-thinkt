@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
 	"github.com/wethinkt/go-thinkt/internal/tracewire"
@@ -43,15 +44,14 @@ func snapshotHash(s tracewire.Session) string {
 // last shipped and returns the payloads to ship: changed or new entries,
 // split by batchSize and maxPayloadBytes, the uuids that disappeared on
 // the last payload, and the full session snapshot on every payload. All
-// payloads share one generation (st.Generation+1). An unchanged session
-// gives none. st is not modified; commit applies each payload once it is
-// shipped or buffered.
-func diffSession(meta thinkt.SessionMeta, entries []thinkt.Entry, st *sessionState, base tracewire.Payload, batchSize int) []tracewire.Payload {
+// payloads carry generation gen. An unchanged session gives none. st is
+// not modified; commit applies each payload once it is shipped or buffered.
+func diffSession(meta thinkt.SessionMeta, entries []thinkt.Entry, st *sessionState, base tracewire.Payload, batchSize int, gen int64) []tracewire.Payload {
 	if batchSize <= 0 {
 		batchSize = 100
 	}
 	snap := tracewire.SessionFromMeta(meta)
-	snap.Generation = st.Generation + 1
+	snap.Generation = gen
 
 	present := make(map[string]bool, len(entries))
 	var changed []thinkt.Entry
@@ -96,6 +96,14 @@ func diffSession(meta thinkt.SessionMeta, entries []thinkt.Entry, st *sessionSta
 	}
 	out[len(out)-1].Removed = removed
 	return out
+}
+
+// nextGeneration is the generation of a new sync of a session: its start
+// time in nanoseconds, never below the last one. It does not depend on the
+// local state surviving, so a relay whose state file was lost still sends
+// generations above what the collector holds.
+func nextGeneration(st *sessionState, now time.Time) int64 {
+	return max(now.UnixNano(), st.Generation+1)
 }
 
 // commit records a payload the collector accepted, or the buffer took.
