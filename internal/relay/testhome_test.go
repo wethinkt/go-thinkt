@@ -76,7 +76,7 @@ func layoutHomes(t *testing.T) homes {
 	copyFile(t, filepath.Join(src, "gemini", "testdata", "chats", "17503250-82e4-479a-ab9d-69002dcb6d31", "92szal.jsonl"),
 		filepath.Join(h.gemini, "tmp", "proj", "chats", "17503250-82e4-479a-ab9d-69002dcb6d31", "92szal.jsonl"))
 	copyFile(t, filepath.Join(src, "antigravity", "testdata", "main.jsonl"),
-		filepath.Join(h.antigravity, "brain", "c1", ".system_generated", "logs", "transcript_full.jsonl"))
+		filepath.Join(h.antigravity, "brain", "a1", ".system_generated", "logs", "transcript_full.jsonl"))
 	writeFile(t, filepath.Join(h.copilot, "session-state", "c1", "events.jsonl"), strings.Join([]string{
 		`{"type":"session.start","id":"e0","timestamp":"2026-10-01T10:00:00Z","data":{"sessionId":"c1"}}`,
 		`{"type":"user.message","id":"e1","timestamp":"2026-10-01T10:00:01Z","data":{"content":"hello copilot"}}`,

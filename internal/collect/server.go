@@ -113,6 +113,16 @@ func (s *Server) setupRouter() chi.Router {
 	return r
 }
 
+// Handler returns the collector's HTTP handler, for serving it in-process
+// (tests, embedding).
+func (s *Server) Handler() http.Handler { return s.router }
+
+// Store returns the collector's trace store.
+func (s *Server) Store() TraceStore { return s.store }
+
+// Close closes the collector's store.
+func (s *Server) Close() error { return s.store.Close() }
+
 // ListenAndServe starts the collector server and blocks until ctx is cancelled.
 func (s *Server) ListenAndServe(ctx context.Context) error {
 	// Check for port conflicts

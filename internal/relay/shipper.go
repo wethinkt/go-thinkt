@@ -25,6 +25,7 @@ type Shipper struct {
 	collectorURL string
 	apiKey       string
 	client       *http.Client
+	backoff      time.Duration // first retry delay; doubles per retry
 }
 
 // NewShipper creates a new Shipper targeting the given collector URL.
@@ -32,6 +33,7 @@ func NewShipper(collectorURL, apiKey string) *Shipper {
 	return &Shipper{
 		collectorURL: collectorURL,
 		apiKey:       apiKey,
+		backoff:      initialBackoff,
 		client: &http.Client{
 			Timeout: shipTimeout,
 		},
@@ -49,7 +51,7 @@ func (s *Shipper) Ship(ctx context.Context, payload tracewire.Payload) (*ShipRes
 	var lastErr error
 	var statusCode int
 
-	backoff := initialBackoff
+	backoff := s.backoff
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
 			tuilog.Log.Debug("Retrying ship", "attempt", attempt, "backoff", backoff)

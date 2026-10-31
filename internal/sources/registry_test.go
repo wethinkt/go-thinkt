@@ -1,4 +1,4 @@
-package cmd
+package sources
 
 import (
 	"slices"
@@ -7,8 +7,8 @@ import (
 	"github.com/wethinkt/go-thinkt/internal/config"
 )
 
-func TestConfiguredEnabledSources_UnconstrainedWhenUnset(t *testing.T) {
-	allowed, constrained := configuredEnabledSources(config.Config{})
+func TestConfiguredEnabled_UnconstrainedWhenUnset(t *testing.T) {
+	allowed, constrained := ConfiguredEnabled(config.Config{})
 	if constrained {
 		t.Fatal("expected unconstrained sources when config has no source settings")
 	}
@@ -17,7 +17,7 @@ func TestConfiguredEnabledSources_UnconstrainedWhenUnset(t *testing.T) {
 	}
 }
 
-func TestConfiguredEnabledSources_UsesSourcesMap(t *testing.T) {
+func TestConfiguredEnabled_UsesSourcesMap(t *testing.T) {
 	cfg := config.Config{
 		Sources: map[string]config.SourceConfig{
 			"claude": {Enabled: true},
@@ -25,7 +25,7 @@ func TestConfiguredEnabledSources_UsesSourcesMap(t *testing.T) {
 		},
 	}
 
-	allowed, constrained := configuredEnabledSources(cfg)
+	allowed, constrained := ConfiguredEnabled(cfg)
 	if !constrained {
 		t.Fatal("expected constrained sources when Sources map is present")
 	}
@@ -36,7 +36,7 @@ func TestConfiguredEnabledSources_UsesSourcesMap(t *testing.T) {
 	}
 }
 
-func TestConfiguredEnabledSources_AllDisabledWithSourcesMap(t *testing.T) {
+func TestConfiguredEnabled_AllDisabledWithSourcesMap(t *testing.T) {
 	cfg := config.Config{
 		Sources: map[string]config.SourceConfig{
 			"claude": {Enabled: false},
@@ -44,7 +44,7 @@ func TestConfiguredEnabledSources_AllDisabledWithSourcesMap(t *testing.T) {
 		},
 	}
 
-	allowed, constrained := configuredEnabledSources(cfg)
+	allowed, constrained := ConfiguredEnabled(cfg)
 	if !constrained {
 		t.Fatal("expected constrained sources when Sources map is present")
 	}

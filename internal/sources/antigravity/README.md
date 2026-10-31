@@ -124,9 +124,10 @@ under the Antigravity home or the system temp dirs are not recorded.
 
 ## Relay
 
-`WatchConfig` reaches `.system_generated/logs` (via `HiddenDirs`), so the
-relay watcher sees activity there, but it cannot ship Antigravity traces
-yet: steps carry no `uuid`, and both transcript files sit in `logs/`.
+`WatchConfig` reaches `.system_generated/logs` (via `HiddenDirs`). The
+relay re-reads a changed conversation through this store and ships its
+entries. The plain `transcript.jsonl` beside `transcript_full.jsonl` is not
+a session, so its writes ship nothing.
 
 ## Not read
 

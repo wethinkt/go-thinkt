@@ -13,14 +13,24 @@ import (
 // enabled.
 func EnabledRegistry() *thinkt.StoreRegistry {
 	cfg, _ := config.Load()
+	allowed, constrained := ConfiguredEnabled(cfg)
+	if constrained && len(allowed) == 0 {
+		return thinkt.NewRegistry()
+	}
+	return RegistryFor(allowed)
+}
+
+// ConfiguredEnabled returns the source names the config enables, and
+// whether the config constrains sources at all (a sources map is present).
+func ConfiguredEnabled(cfg config.Config) ([]string, bool) {
 	if cfg.Sources != nil {
 		enabled := cfg.EnabledSources()
-		if len(enabled) == 0 {
-			return thinkt.NewRegistry()
+		if enabled == nil {
+			return []string{}, true
 		}
-		return RegistryFor(enabled)
+		return enabled, true
 	}
-	return RegistryFor(nil)
+	return nil, false
 }
 
 // RegistryFor discovers the stores of the named sources; an empty list

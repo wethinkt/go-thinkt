@@ -25,7 +25,7 @@ Sources are auto-discovered. Use `--source claude|kimi|gemini|copilot|codex|qwen
 
 **Source Enable/Disable:** Sources can be enabled/disabled via `thinkt config sources enable/disable` (stored in `config.Sources` map). A source with no entry in an existing map (installed after setup) stays off: `config sources list` shows it as `new` with the enable command, and the first other command announces it once on stderr (recorded in `config.NotifiedSources`). Sources that are off are only checked for availability, never opened. Disabled sources are invisible at the API boundary — the MCP/HTTP server validates against the `StoreRegistry` (which only registers enabled sources), and the indexer RPC server independently filters via `enabledSources` (derived from `config.EnabledSources()`, refreshed on `config_reload`). Both layers enforce filtering so neither can leak disabled source data.
 
-**Entry classification:** `thinkt.Entry` carries a source-neutral `Kind` (an open string type with constants) and a `Visibility` hint. Sources mark bookkeeping-adjacent entries (`turn_duration`, attachments, meta prompts) as `secondary`; the export filter, TUI "Other" toggle, and `conversation.WritePage` hide those by default while the REST API and MCP return every emitted entry. `thinkt.ParserVersion` must be bumped whenever a source changes which entries it emits; the metadata cache and the SQLite index recompute lazily on mismatch. In every source `Entry.PromptID` is one user prompt and everything until the agent hands back, and `Entry.TurnID` is one model response (Claude `message.id`, Codex `response_id`, Kimi step uuid, Antigravity planner step); a source that cannot tell responses apart leaves `TurnID` empty. The Claude parser drops request dumps and session-state records before parsing (see `internal/sources/claude/README.md`). Codex wire tool calls superseded by a harness item carry `KindToolWire` and are secondary; subagent rollouts are listed only with `thinkt.WithSubagents()` (see `internal/sources/codex/README.md`). Antigravity pairs tool results to calls by order, hides harness steps, and lists subagent conversations only with `thinkt.WithSubagents()` (see `internal/sources/antigravity/README.md`). Gemini CLI `.jsonl` files are rebuilt before they are read (later lines can rewind or patch earlier ones); notices and `update_topic` calls are secondary, and search uses the optional `thinkt.SearchFileFilterer` so hits count only in lines the rebuilt session keeps (see `internal/sources/gemini/README.md`). `SessionMeta.RelatedPaths` lists the folders outside the project a session touched (repo roots, with reasons `workspace`, `edited`, `command`, `read`); only the Antigravity source fills it so far. `WatchConfig.HiddenDirs` names dot-directories the relay watcher may enter, and nested watch roots (`~/.gemini` and `~/.gemini/antigravity-cli`) resolve to the deepest root; the relay still cannot ship Antigravity or Gemini CLI traces (Antigravity steps and Gemini records carry no `uuid`, and a Gemini line can be rewritten or rewound later, so it would need the parsed entries).
+**Entry classification:** `thinkt.Entry` carries a source-neutral `Kind` (an open string type with constants) and a `Visibility` hint. Sources mark bookkeeping-adjacent entries (`turn_duration`, attachments, meta prompts) as `secondary`; the export filter, TUI "Other" toggle, and `conversation.WritePage` hide those by default while the REST API and MCP return every emitted entry. `thinkt.ParserVersion` must be bumped whenever a source changes which entries it emits; the metadata cache and the SQLite index recompute lazily on mismatch. In every source `Entry.PromptID` is one user prompt and everything until the agent hands back, and `Entry.TurnID` is one model response (Claude `message.id`, Codex `response_id`, Kimi step uuid, Antigravity planner step); a source that cannot tell responses apart leaves `TurnID` empty. The Claude parser drops request dumps and session-state records before parsing (see `internal/sources/claude/README.md`). Codex wire tool calls superseded by a harness item carry `KindToolWire` and are secondary; subagent rollouts are listed only with `thinkt.WithSubagents()` (see `internal/sources/codex/README.md`). Antigravity pairs tool results to calls by order, hides harness steps, and lists subagent conversations only with `thinkt.WithSubagents()` (see `internal/sources/antigravity/README.md`). Gemini CLI `.jsonl` files are rebuilt before they are read (later lines can rewind or patch earlier ones); notices and `update_topic` calls are secondary, and search uses the optional `thinkt.SearchFileFilterer` so hits count only in lines the rebuilt session keeps (see `internal/sources/gemini/README.md`). `SessionMeta.RelatedPaths` lists the folders outside the project a session touched (repo roots, with reasons `workspace`, `edited`, `command`, `read`); only the Antigravity source fills it so far. `WatchConfig.HiddenDirs` names dot-directories the relay watcher may enter, and nested watch roots (`~/.gemini` and `~/.gemini/antigravity-cli`) resolve to the deepest root. The relay ships every enabled source through its store, so it carries what the readers produce, not raw lines.
 
 ### Key Packages
 
@@ -339,19 +339,26 @@ These endpoints query the built-in SQLite index directly (no subprocess).
 
 The collector/relay system enables push-based trace aggregation from multiple machines:
 
-**Relay** (`internal/relay/`) watches local JSONL session files and ships traces to a remote collector:
-- `FileWatcher` uses fsnotify with 2-second debounce (only `.jsonl` files)
-- `Shipper` POSTs batches with retry (3 attempts, exponential backoff: 1s/2s/4s)
-- `DiskBuffer` stores payloads as JSON files when collector is unreachable
+**Relay** (`internal/relay/`) reads the enabled sources' sessions through their stores and ships full `thinkt.Entry` values to a remote collector. The payload is `tracewire.Payload` version 2 (`internal/tracewire`): one session's changed entries, the uuids it no longer has (`removed`), and a full session snapshot.
+- **Archive keys:** a session is `(machine_id, source, session_id)`, an entry is `(machine_id, source, session_id, uuid)`. Entries without a uuid get a stable composed one (`relay-noid:…`).
+- **State:** `~/.thinkt/relay/state.json` keeps, per session, the entry hashes last shipped, the file's mtime and size, and a generation. Only changes ship, and a restart re-reads only sessions whose files changed.
+- **Reconcile:** `thinkt relay` (one-shot) and the start of `--forward` reconcile every session. `--backfill all|none` (`THINKT_RELAY_BACKFILL`, default `all`) decides whether history already on disk ships on first sight.
+- **Vanished sessions:** a session file that disappears sends nothing, and the archive keeps it.
+- `FileWatcher` uses fsnotify with 2-second debounce (only `.jsonl` files); each event re-reads that session through its store.
+- `Shipper` POSTs with retry (3 attempts, exponential backoff: 1s/2s/4s).
+- `DiskBuffer` stores payloads as JSON files when the collector is unreachable. While it holds any payload, new ones queue behind it, so a newer sync never overtakes an older one. All payloads of one sync share a generation.
+- **One relay per machine:** the relay registers as `InstanceRelay`, and a second one refuses to start. Buffered payloads of sources turned off since are dropped at start.
 - `DiscoverCollector()` cascade: `THINKT_COLLECTOR_URL` env → `.thinkt/collector.json` → well-known endpoint → local buffer
-- File offset tracking: only ships new entries since last read
 
 **Collector** (`internal/collect/`) receives, normalizes, and stores traces:
 - HTTP server with chi router, bearer auth (constant-time comparison), CORS
 - `TraceStore` interface backed by DuckDB (`~/.thinkt/collector.duckdb`)
-- Single-writer batch pattern: incoming requests queue to a channel, one goroutine drains and writes in transactions
+- Single-writer batch pattern: incoming payloads queue to a channel, one goroutine drains and writes each in its own transaction
+- `POST /v1/traces` accepts version 2 only (older bodies get 400 `unsupported_version`), up to 64 MB. A payload with no entries still applies its `removed` and session metadata.
+- **Generations:** a payload whose generation is lower than the session's stored one is acknowledged and ignored.
+- **Removed entries:** `--superseded keep|delete` (`THINKT_COLLECTOR_SUPERSEDED`, default `keep`). They are kept with `superseded_at` set, or deleted; readers skip superseded rows.
 - `AgentRegistry` with heartbeat tracking, stale cleanup after 5 minutes
-- `NormalizeRequest()` validates roles, cleans whitespace, clamps token counts
+- `NormalizePayload()` requires machine, source and session ids, and drops entries without a uuid
 
 **Collector API endpoints:**
 | Endpoint | Method | Description |
@@ -364,13 +371,15 @@ The collector/relay system enables push-based trace aggregation from multiple ma
 | `/v1/collector/health` | GET | Health check (no auth required) |
 
 **DuckDB Schema (distinct from indexer):**
-- `collected_sessions` — session summaries with entry counts
-- `collected_entries` — individual trace entries with tokens/thinking
+- `sessions` — one row per `(machine_id, source, session_id)`: the latest snapshot, generation, `first_seen`/`last_seen`, activity status
+- `entries` — one row per `(machine_id, source, session_id, uuid)`: `entry_json` (the full entry), derived role/kind/text/tool/token columns, `content_hash`, `superseded_at`
+- `session_activity` — relay lifecycle events, keyed by the full session key
 - `collected_agents` — registered relay agents
+- The pre-archive `collected_sessions`/`collected_entries` tables are dropped at startup.
 
 **Standalone Binaries:**
-- `thinkt-relay` — Flag-only (no cobra), repeatable `--watch-dir`, env var fallbacks
-- `thinkt-collector` — Flag-only (no cobra), `--port`, `--host`, `--storage`, `--token`
+- `thinkt-relay` — Flag-only (no cobra), repeatable `--source`, `--backfill`, env var fallbacks; ships the sources the config enables
+- `thinkt-collector` — Flag-only (no cobra), `--port`, `--host`, `--storage`, `--token`, `--superseded`
 
 ## Webapps
 
