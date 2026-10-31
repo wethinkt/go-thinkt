@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -23,13 +24,14 @@ type sessionScan struct {
 	PRLinks     []thinkt.PRLink
 	Worktree    *thinkt.WorktreeInfo
 	Cost        *thinkt.SessionCost
+	Related     []thinkt.RelatedPath
 }
 
 // scanSessionFile classifies every line of a transcript. It unmarshals
 // message bodies only until the first prompt and first real model are
 // known; session-state lines are small and decoded in full. The last
 // non-empty ai-title wins.
-func scanSessionFile(path string) sessionScan {
+func scanSessionFile(path string, related *thinkt.RelatedTracker) sessionScan {
 	var s sessionScan
 	f, err := os.Open(path)
 	if err != nil {
@@ -50,6 +52,9 @@ func scanSessionFile(path string) sessionScan {
 			continue
 		case thinkt.ClassTurn:
 			s.EntryCount++
+			if typ == EntryTypeAssistant {
+				trackToolCalls(related, line)
+			}
 			if s.FirstPrompt != "" && thinkt.IsRealModel(s.Model) {
 				continue
 			}
@@ -92,7 +97,52 @@ func scanSessionFile(path string) sessionScan {
 			}
 		}
 	}
+	s.Related = related.Paths()
 	return s
+}
+
+// relatedTools names the tools whose calls say which folder a session read
+// or edited. Bash carries no folder of its own; its record's cwd does.
+var relatedTools = thinkt.ToolPaths{
+	"Read":         {Arg: "file_path", Reason: thinkt.RelatedRead},
+	"NotebookRead": {Arg: "notebook_path", Reason: thinkt.RelatedRead},
+	"Grep":         {Arg: "path", Reason: thinkt.RelatedRead},
+	"Glob":         {Arg: "path", Reason: thinkt.RelatedRead},
+	"LS":           {Arg: "path", Reason: thinkt.RelatedRead},
+	"Edit":         {Arg: "file_path", Reason: thinkt.RelatedEdited},
+	"MultiEdit":    {Arg: "file_path", Reason: thinkt.RelatedEdited},
+	"Write":        {Arg: "file_path", Reason: thinkt.RelatedEdited},
+	"NotebookEdit": {Arg: "notebook_path", Reason: thinkt.RelatedEdited},
+}
+
+// trackToolCalls feeds an assistant line's tool calls to related. Only lines
+// holding a tool call are decoded, so the scan stays a byte classifier.
+func trackToolCalls(related *thinkt.RelatedTracker, line []byte) {
+	if related == nil || !bytes.Contains(line, []byte(`"tool_use"`)) {
+		return
+	}
+	var rec struct {
+		Cwd     string `json:"cwd"`
+		Message struct {
+			Content []struct {
+				Type  string         `json:"type"`
+				Name  string         `json:"name"`
+				Input map[string]any `json:"input"`
+			} `json:"content"`
+		} `json:"message"`
+	}
+	if json.Unmarshal(line, &rec) != nil {
+		return
+	}
+	for _, b := range rec.Message.Content {
+		switch {
+		case b.Type != "tool_use":
+		case b.Name == "Bash":
+			related.Touch(rec.Cwd, "", thinkt.RelatedCommand)
+		default:
+			related.Call(relatedTools, b.Name, b.Input, rec.Cwd)
+		}
+	}
 }
 
 // displayTitle is the ai-title, or the legacy summary when no title was
@@ -200,6 +250,9 @@ func (s sessionScan) applyTo(meta *thinkt.SessionMeta) {
 	if meta.Cost == nil {
 		meta.Cost = s.Cost
 	}
+	if meta.RelatedPaths == nil {
+		meta.RelatedPaths = s.Related
+	}
 }
 
 // cached returns the cache entry for this scan.
@@ -219,6 +272,7 @@ func (s sessionScan) cached(meta thinkt.SessionMeta) thinkt.CachedSession {
 		PRLinks:       meta.PRLinks,
 		Worktree:      meta.Worktree,
 		Cost:          meta.Cost,
+		RelatedPaths:  meta.RelatedPaths,
 	}
 }
 

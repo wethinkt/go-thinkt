@@ -24,8 +24,10 @@ type Store struct {
 	baseDir  string
 	cacheDir string // directory for persistent metadata cache
 	cache    thinkt.StoreCache
-	mcOnce   sync.Once
-	mc       *thinkt.MetadataCache // lazily loaded
+	// relatedExclude holds path prefixes never recorded as related folders.
+	relatedExclude []string
+	mcOnce         sync.Once
+	mc             *thinkt.MetadataCache // lazily loaded
 
 	headerMu  sync.Mutex
 	headerIDs map[string]string // session ID → the file's sessionId (resume, links)
@@ -41,7 +43,7 @@ func NewStore(baseDir string) *Store {
 	if dir, err := config.Dir(); err == nil {
 		cacheDir = filepath.Join(dir, "cache")
 	}
-	return &Store{baseDir: baseDir, cacheDir: cacheDir, headerIDs: map[string]string{}}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir, relatedExclude: thinkt.RelatedExclude(baseDir), headerIDs: map[string]string{}}
 }
 
 // NewStoreWithCacheDir creates a Gemini store with an explicit cache directory.
@@ -51,7 +53,12 @@ func NewStoreWithCacheDir(baseDir, cacheDir string) *Store {
 		home, _ := os.UserHomeDir()
 		baseDir = filepath.Join(home, ".gemini")
 	}
-	return &Store{baseDir: baseDir, cacheDir: cacheDir, headerIDs: map[string]string{}}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir, relatedExclude: thinkt.RelatedExclude(baseDir), headerIDs: map[string]string{}}
+}
+
+// tracker returns the related-folders tracker for a session of project.
+func (s *Store) tracker(project string) *thinkt.RelatedTracker {
+	return thinkt.TrackRelated(project, s.relatedExclude)
 }
 
 // metadataCache returns the lazily-loaded persistent metadata cache.
@@ -212,6 +219,10 @@ type sessionFile struct {
 // .jsonl conversion supersedes.
 func (s *Store) scanProject(hash string, folders []projectFolder) []sessionFile {
 	ws := s.Workspace()
+	path := ""
+	if len(folders) > 0 {
+		path = folders[0].Path
+	}
 	mc := s.metadataCache()
 	var files []sessionFile
 	for _, folder := range folders {
@@ -226,12 +237,12 @@ func (s *Store) scanProject(hash string, folders []projectFolder) []sessionFile 
 			case e.IsDir():
 				continue // subagent folders: below, once parents are known
 			case strings.HasSuffix(e.Name(), ".jsonl"):
-				if f, ok := s.jsonlFile(mc, full, strings.TrimSuffix(e.Name(), ".jsonl"), ""); ok {
+				if f, ok := s.jsonlFile(mc, full, strings.TrimSuffix(e.Name(), ".jsonl"), "", path); ok {
 					f.slug, f.key = folder.IsSlug, e.Name()
 					files = append(files, f)
 				}
 			case strings.HasSuffix(e.Name(), ".json"):
-				if f, ok := s.jsonFile(mc, full, ws.ID); ok {
+				if f, ok := s.jsonFile(mc, full, ws.ID, path); ok {
 					f.slug, f.key = folder.IsSlug, e.Name()
 					files = append(files, f)
 				}
@@ -260,7 +271,7 @@ func (s *Store) scanProject(hash string, folders []projectFolder) []sessionFile 
 			subs, _ := filepath.Glob(filepath.Join(chats, d.Name(), "*.jsonl"))
 			for _, full := range subs {
 				name := filepath.Base(full)
-				if f, ok := s.jsonlFile(mc, full, strings.TrimSuffix(name, ".jsonl"), parent); ok {
+				if f, ok := s.jsonlFile(mc, full, strings.TrimSuffix(name, ".jsonl"), parent, path); ok {
 					f.slug, f.key = folder.IsSlug, d.Name()+"/"+name
 					files = append(files, f)
 				}
@@ -272,10 +283,6 @@ func (s *Store) scanProject(hash string, folders []projectFolder) []sessionFile 
 	files = dedupeFolders(files)
 	files = s.dropSuperseded(files)
 
-	path := ""
-	if len(folders) > 0 {
-		path = folders[0].Path
-	}
 	children := map[string]int{}
 	for _, f := range files {
 		if f.meta.ParentSessionID != "" {
@@ -296,7 +303,7 @@ func (s *Store) scanProject(hash string, folders []projectFolder) []sessionFile 
 }
 
 // jsonlFile reads one .jsonl session's metadata through the cache.
-func (s *Store) jsonlFile(mc *thinkt.MetadataCache, full, stem, parent string) (sessionFile, bool) {
+func (s *Store) jsonlFile(mc *thinkt.MetadataCache, full, stem, parent, project string) (sessionFile, bool) {
 	info, err := os.Stat(full)
 	if err != nil {
 		return sessionFile{}, false
@@ -314,11 +321,11 @@ func (s *Store) jsonlFile(mc *thinkt.MetadataCache, full, stem, parent string) (
 			ID: id, ParentSessionID: cached.ParentSessionID, FullPath: full, FileSize: info.Size(),
 			CreatedAt: cached.CreatedAt, ModifiedAt: info.ModTime(), Title: cached.Title,
 			FirstPrompt: cached.FirstPrompt, Model: cached.Model, EntryCount: cached.EntryCount,
-			Cost: cached.Cost, Source: thinkt.SourceGemini, ChunkCount: 1,
+			Cost: cached.Cost, RelatedPaths: cached.RelatedPaths, Source: thinkt.SourceGemini, ChunkCount: 1,
 		}
 		return sessionFile{meta: meta, headerID: headerID, jsonl: true}, true
 	}
-	scan, err := scanJSONL(full, stem, parent)
+	scan, err := scanJSONL(full, stem, parent, s.tracker(project))
 	if err != nil || scan == nil {
 		if err != nil {
 			tuilog.Log.Debug("gemini: skip session file", "path", full, "error", err)
@@ -333,7 +340,7 @@ func (s *Store) jsonlFile(mc *thinkt.MetadataCache, full, stem, parent string) (
 	}
 	mc.Set(full, thinkt.CachedSession{
 		FirstPrompt: m.FirstPrompt, Model: m.Model, EntryCount: m.EntryCount, Title: m.Title,
-		ParentSessionID: m.ParentSessionID, Cost: m.Cost, CreatedAt: m.CreatedAt,
+		ParentSessionID: m.ParentSessionID, Cost: m.Cost, RelatedPaths: m.RelatedPaths, CreatedAt: m.CreatedAt,
 		ModifiedAt: info.ModTime(), FileSize: info.Size(),
 	})
 	return sessionFile{meta: m, headerID: scan.HeaderID, jsonl: true}, true
@@ -355,7 +362,7 @@ func jsonlHeaderID(path string) string {
 }
 
 // jsonFile reads one .json session's metadata through the cache.
-func (s *Store) jsonFile(mc *thinkt.MetadataCache, full, wsID string) (sessionFile, bool) {
+func (s *Store) jsonFile(mc *thinkt.MetadataCache, full, wsID, project string) (sessionFile, bool) {
 	info, err := os.Stat(full)
 	if err != nil {
 		return sessionFile{}, false
@@ -365,12 +372,12 @@ func (s *Store) jsonFile(mc *thinkt.MetadataCache, full, wsID string) (sessionFi
 		meta := thinkt.SessionMeta{
 			ID: stem, FullPath: full, FirstPrompt: cached.FirstPrompt, Model: cached.Model,
 			EntryCount: cached.EntryCount, GitBranch: cached.GitBranch, FileSize: info.Size(),
-			CreatedAt: cached.CreatedAt, ModifiedAt: info.ModTime(),
+			CreatedAt: cached.CreatedAt, ModifiedAt: info.ModTime(), RelatedPaths: cached.RelatedPaths,
 			Source: thinkt.SourceGemini, ChunkCount: 1,
 		}
 		return sessionFile{meta: meta}, true
 	}
-	meta, headerID, err := s.readSessionMeta(full, info.Size(), info.ModTime(), wsID)
+	meta, headerID, err := s.readSessionMeta(full, info.Size(), info.ModTime(), wsID, project)
 	if err != nil {
 		tuilog.Log.Error("failed to read gemini session meta", "path", full, "error", err)
 		return sessionFile{}, false
@@ -378,7 +385,7 @@ func (s *Store) jsonFile(mc *thinkt.MetadataCache, full, wsID string) (sessionFi
 	mc.Set(full, thinkt.CachedSession{
 		FirstPrompt: meta.FirstPrompt, Model: meta.Model, EntryCount: meta.EntryCount,
 		GitBranch: meta.GitBranch, CreatedAt: meta.CreatedAt, ModifiedAt: info.ModTime(),
-		FileSize: info.Size(),
+		FileSize: info.Size(), RelatedPaths: meta.RelatedPaths,
 	})
 	return sessionFile{meta: *meta, headerID: headerID}, true
 }
@@ -564,7 +571,7 @@ func (s *Store) ListSessions(ctx context.Context, projectID string, opts ...thin
 
 // readSessionMeta reads a .json session's metadata, its ID being the file
 // stem, and returns the file's sessionId.
-func (s *Store) readSessionMeta(path string, size int64, modTime time.Time, wsID string) (*thinkt.SessionMeta, string, error) {
+func (s *Store) readSessionMeta(path string, size int64, modTime time.Time, wsID, project string) (*thinkt.SessionMeta, string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, "", err
@@ -598,6 +605,11 @@ func (s *Store) readSessionMeta(path string, size int64, modTime time.Time, wsID
 			meta.Model = msg.Model
 		}
 	}
+	related := s.tracker(project)
+	for _, e := range convertSession(&sess, meta).Entries {
+		related.Blocks(relatedTools, e.ContentBlocks, "")
+	}
+	meta.RelatedPaths = related.Paths()
 	return meta, sess.SessionID, nil
 }
 

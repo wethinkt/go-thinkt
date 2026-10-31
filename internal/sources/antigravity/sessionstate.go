@@ -33,7 +33,7 @@ func scanSessionFile(path, conversationID, parentID, projectPath string, extraWo
 	p := NewParser(f, conversationID, parentID)
 	p.TrackRelated(projectPath, exclude)
 	for _, w := range extraWorkspaces {
-		p.related.workspace(w)
+		p.related.Workspace(w)
 	}
 	var cost thinkt.SessionCost
 	var cwds cwdTally
@@ -90,7 +90,7 @@ func (c *cwdTally) add(e *thinkt.Entry) {
 		}
 		args, _ := b.ToolInput.(map[string]any)
 		raw, _ := args["Cwd"].(string)
-		if cwd := unquotePath(raw); cwd != "" {
+		if cwd := thinkt.UnquotePath(raw); cwd != "" {
 			if c.counts == nil {
 				c.counts = map[string]int{}
 			}

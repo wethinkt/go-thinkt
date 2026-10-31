@@ -101,11 +101,12 @@ type sessionScan struct {
 	Model       string
 	EntryCount  int
 	Cost        *thinkt.SessionCost
+	Related     []thinkt.RelatedPath
 }
 
 // scanSessionFile parses a wire file to EOF and summarises it. Wire files
 // are small, so running the parser keeps the count exact by construction.
-func scanSessionFile(path, sessionID string) sessionScan {
+func scanSessionFile(path, sessionID string, related *thinkt.RelatedTracker) sessionScan {
 	var s sessionScan
 	f, err := os.Open(path)
 	if err != nil {
@@ -120,6 +121,7 @@ func scanSessionFile(path, sessionID string) sessionScan {
 			break
 		}
 		s.EntryCount++
+		related.Blocks(relatedTools, e.ContentBlocks, "")
 		if e.Model != "" {
 			s.Model = e.Model
 		}
@@ -143,7 +145,23 @@ func scanSessionFile(path, sessionID string) sessionScan {
 	if cost != (thinkt.SessionCost{}) {
 		s.Cost = &cost
 	}
+	s.Related = related.Paths()
 	return s
+}
+
+// relatedTools names the tools whose calls say which folder a session
+// touched. Relative paths resolve against the project.
+var relatedTools = thinkt.ToolPaths{
+	"Read":           {Arg: "path", Reason: thinkt.RelatedRead},
+	"ReadFile":       {Arg: "path", Reason: thinkt.RelatedRead},
+	"ReadMediaFile":  {Arg: "path", Reason: thinkt.RelatedRead},
+	"Grep":           {Arg: "path", Reason: thinkt.RelatedRead},
+	"Glob":           {Arg: "path", Reason: thinkt.RelatedRead},
+	"Edit":           {Arg: "path", Reason: thinkt.RelatedEdited},
+	"Write":          {Arg: "path", Reason: thinkt.RelatedEdited},
+	"WriteFile":      {Arg: "path", Reason: thinkt.RelatedEdited},
+	"StrReplaceFile": {Arg: "path", Reason: thinkt.RelatedEdited},
+	"Bash":           {Arg: "cwd", Reason: thinkt.RelatedCommand},
 }
 
 // applyTo fills the empty fields of meta from the scan; EntryCount is always
@@ -165,6 +183,9 @@ func (s sessionScan) applyTo(meta *thinkt.SessionMeta) {
 	if meta.Cost == nil {
 		meta.Cost = s.Cost
 	}
+	if meta.RelatedPaths == nil {
+		meta.RelatedPaths = s.Related
+	}
 }
 
 // cached returns the cache entry for this scan.
@@ -183,6 +204,7 @@ func (s sessionScan) cached(meta thinkt.SessionMeta) thinkt.CachedSession {
 		SubagentCount:   meta.SubagentCount,
 		ParentSessionID: meta.ParentSessionID,
 		Cost:            meta.Cost,
+		RelatedPaths:    meta.RelatedPaths,
 	}
 }
 

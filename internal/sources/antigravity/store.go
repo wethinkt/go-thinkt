@@ -58,7 +58,7 @@ func NewStoreWithCacheDir(baseDir, cacheDir string) *Store {
 	return &Store{
 		baseDir:        baseDir,
 		cacheDir:       cacheDir,
-		relatedExclude: []string{baseDir, os.TempDir(), "/tmp", "/private/tmp"},
+		relatedExclude: thinkt.RelatedExclude(baseDir),
 	}
 }
 

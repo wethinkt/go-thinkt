@@ -23,8 +23,10 @@ type Store struct {
 	baseDir  string
 	cacheDir string // directory for persistent metadata cache
 	cache    thinkt.StoreCache
-	mcOnce   sync.Once
-	mc       *thinkt.MetadataCache // lazily loaded
+	// relatedExclude holds path prefixes never recorded as related folders.
+	relatedExclude []string
+	mcOnce         sync.Once
+	mc             *thinkt.MetadataCache // lazily loaded
 }
 
 // NewStore creates a new Codex store.
@@ -37,7 +39,7 @@ func NewStore(baseDir string) *Store {
 	if dir, err := config.Dir(); err == nil {
 		cacheDir = filepath.Join(dir, "cache")
 	}
-	return &Store{baseDir: baseDir, cacheDir: cacheDir}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir, relatedExclude: thinkt.RelatedExclude(baseDir)}
 }
 
 // NewStoreWithCacheDir creates a Codex store with an explicit cache directory.
@@ -47,7 +49,12 @@ func NewStoreWithCacheDir(baseDir, cacheDir string) *Store {
 		home, _ := os.UserHomeDir()
 		baseDir = filepath.Join(home, ".codex")
 	}
-	return &Store{baseDir: baseDir, cacheDir: cacheDir}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir, relatedExclude: thinkt.RelatedExclude(baseDir)}
+}
+
+// tracker returns the related-folders tracker for a session of project.
+func (s *Store) tracker(project string) *thinkt.RelatedTracker {
+	return thinkt.TrackRelated(project, s.relatedExclude)
 }
 
 // metadataCache returns the lazily-loaded persistent metadata cache.
@@ -272,7 +279,7 @@ func (s *Store) startEnrichment(ctx context.Context, projectID string, all []thi
 				return
 			}
 			sess := &enriched[idx]
-			scan := scanSessionFile(sess.FullPath)
+			scan := scanSessionFile(sess.FullPath, s.tracker(sess.ProjectPath))
 			scan.applyTo(sess)
 			mc.Set(sess.FullPath, scan.cached(*sess))
 			_ = mc.Save()
@@ -295,7 +302,7 @@ func (s *Store) enrichInto(mc *thinkt.MetadataCache, meta *thinkt.SessionMeta) b
 	if mc.MergeInto(meta) && meta.EntryCount > 0 {
 		return false
 	}
-	scan := scanSessionFile(meta.FullPath)
+	scan := scanSessionFile(meta.FullPath, s.tracker(meta.ProjectPath))
 	scan.applyTo(meta)
 	mc.Set(meta.FullPath, scan.cached(*meta))
 	return true

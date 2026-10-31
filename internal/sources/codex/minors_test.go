@@ -25,14 +25,14 @@ func TestScanSessionFileEntryCountMatchesParserOnLegacyRollout(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "legacy.jsonl")
 	writeLines(t, path, lines...)
 	parsed := parseAll(t, lines...)
-	s := scanSessionFile(path)
+	s := scanSessionFile(path, nil)
 	if len(parsed) != 3 || s.EntryCount != len(parsed) {
 		t.Fatalf("parser emitted %d, scan counted %d", len(parsed), s.EntryCount)
 	}
 }
 
 func TestScanSessionFileEntryCountMatchesParserOnFixture(t *testing.T) {
-	if n := scanSessionFile("testdata/rollout-fixture.jsonl").EntryCount; n != len(readFixture(t)) {
+	if n := scanSessionFile("testdata/rollout-fixture.jsonl", nil).EntryCount; n != len(readFixture(t)) {
 		t.Fatalf("scan counted %d, parser emitted %d", n, len(readFixture(t)))
 	}
 }
@@ -105,7 +105,7 @@ func TestScanSessionFileCountsNonTwinWireReply(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "r.jsonl")
 	writeLines(t, path, fixAgentItemA2, other, fixAgentItemA2, fixWireA2)
 	parsed := parseAll(t, fixAgentItemA2, other, fixAgentItemA2, fixWireA2)
-	if s := scanSessionFile(path); len(parsed) != 3 || s.EntryCount != 3 {
+	if s := scanSessionFile(path, nil); len(parsed) != 3 || s.EntryCount != 3 {
 		t.Fatalf("parser %d, scan %d", len(parsed), s.EntryCount)
 	}
 }

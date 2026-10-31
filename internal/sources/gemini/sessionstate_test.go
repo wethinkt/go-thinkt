@@ -22,7 +22,7 @@ func userLine(id, text string) string {
 }
 
 func TestScanJSONLFixture(t *testing.T) {
-	s, err := scanJSONL(mainFixture, mainStem, "")
+	s, err := scanJSONL(mainFixture, mainStem, "", nil)
 	if err != nil || s == nil {
 		t.Fatalf("%v %v", s, err)
 	}
@@ -52,7 +52,7 @@ func TestScanJSONLTitleRules(t *testing.T) {
 		`"line one\nline two"`:        "",
 	} {
 		p := writeJSONL(t, hdr, userLine("u", "hi"), `{"$set":{"summary":`+summary+`}}`)
-		s, err := scanJSONL(p, "session-x", "")
+		s, err := scanJSONL(p, "session-x", "", nil)
 		if err != nil || s.Meta.Title != want {
 			t.Errorf("summary %s: title %q, want %q (%v)", summary, s.Meta.Title, want, err)
 		}
@@ -61,14 +61,14 @@ func TestScanJSONLTitleRules(t *testing.T) {
 
 func TestScanJSONLFirstPromptSkipsSlash(t *testing.T) {
 	p := writeJSONL(t, hdr, userLine("u1", "/model"), userLine("u2", "fix it"))
-	s, err := scanJSONL(p, "session-x", "")
+	s, err := scanJSONL(p, "session-x", "", nil)
 	if err != nil || s.Meta.FirstPrompt != "fix it" {
 		t.Fatalf("%+v %v", s, err)
 	}
 }
 
 func TestScanJSONLSubagentIDs(t *testing.T) {
-	s, err := scanJSONL(subFixture, "92szal", mainStem)
+	s, err := scanJSONL(subFixture, "92szal", mainStem, nil)
 	if err != nil || s == nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestScanJSONLSubagentIDs(t *testing.T) {
 
 func TestScanJSONLNoHeader(t *testing.T) {
 	p := writeJSONL(t, userLine("u", "hi"))
-	if s, err := scanJSONL(p, "session-x", ""); s != nil || err != nil {
+	if s, err := scanJSONL(p, "session-x", "", nil); s != nil || err != nil {
 		t.Fatalf("%+v %v", s, err)
 	}
 }

@@ -279,7 +279,7 @@ func ListProjectSessionsBackfill(projectDir string) ([]SessionMeta, error) {
 			continue
 		}
 		if sessions[i].FirstPrompt == "" || !thinkt.IsRealModel(sessions[i].Model) || sessions[i].MessageCount == 0 || sessions[i].Summary == "" {
-			scan := scanSessionFile(sessions[i].FullPath)
+			scan := scanSessionFile(sessions[i].FullPath, nil)
 			if sessions[i].FirstPrompt == "" {
 				sessions[i].FirstPrompt = scan.FirstPrompt
 			}

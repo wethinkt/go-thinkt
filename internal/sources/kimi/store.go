@@ -21,8 +21,10 @@ type Store struct {
 	baseDir  string
 	cacheDir string
 	cache    thinkt.StoreCache
-	mcOnce   sync.Once
-	mc       *thinkt.MetadataCache
+	// relatedExclude holds path prefixes never recorded as related folders.
+	relatedExclude []string
+	mcOnce         sync.Once
+	mc             *thinkt.MetadataCache
 }
 
 // NewStore creates a Kimi Code store rooted at baseDir (default ~/.kimi-code).
@@ -34,7 +36,7 @@ func NewStore(baseDir string) *Store {
 	if dir, err := config.Dir(); err == nil {
 		cacheDir = filepath.Join(dir, "cache")
 	}
-	return &Store{baseDir: baseDir, cacheDir: cacheDir}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir, relatedExclude: thinkt.RelatedExclude(baseDir)}
 }
 
 // NewStoreWithCacheDir creates a Kimi Code store with an explicit metadata
@@ -43,7 +45,12 @@ func NewStoreWithCacheDir(baseDir, cacheDir string) *Store {
 	if baseDir == "" {
 		baseDir, _ = defaultDir()
 	}
-	return &Store{baseDir: baseDir, cacheDir: cacheDir}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir, relatedExclude: thinkt.RelatedExclude(baseDir)}
+}
+
+// tracker returns the related-folders tracker for a session of project.
+func (s *Store) tracker(project string) *thinkt.RelatedTracker {
+	return thinkt.TrackRelated(project, s.relatedExclude)
 }
 
 func (s *Store) metadataCache() *thinkt.MetadataCache {
@@ -238,7 +245,7 @@ func (s *Store) startEnrichment(ctx context.Context, projectID string, all []thi
 				return
 			}
 			sess := &enriched[idx]
-			scan := scanSessionFile(sess.FullPath, sess.ID)
+			scan := scanSessionFile(sess.FullPath, sess.ID, s.tracker(sess.ProjectPath))
 			scan.applyTo(sess)
 			mc.Set(sess.FullPath, scan.cached(*sess))
 			_ = mc.Save()
@@ -260,7 +267,7 @@ func (s *Store) enrichInto(mc *thinkt.MetadataCache, meta *thinkt.SessionMeta) b
 	if mc.MergeInto(meta) && meta.EntryCount > 0 {
 		return false
 	}
-	scan := scanSessionFile(meta.FullPath, meta.ID)
+	scan := scanSessionFile(meta.FullPath, meta.ID, s.tracker(meta.ProjectPath))
 	scan.applyTo(meta)
 	mc.Set(meta.FullPath, scan.cached(*meta))
 	return true

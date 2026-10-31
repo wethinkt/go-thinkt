@@ -20,7 +20,7 @@ func writeTempSession(t *testing.T, dir, name, content string) string {
 }
 
 func TestScanSessionFileModernFixture(t *testing.T) {
-	s := scanSessionFile(modernFixture)
+	s := scanSessionFile(modernFixture, nil)
 	if s.Title != "Final title" || s.LastPrompt != "hello" || s.EntryCount != modernFixtureEntries || s.FirstPrompt != "hello" {
 		t.Fatalf("%+v", s)
 	}
@@ -38,7 +38,7 @@ func TestScanSessionFileLegacySummaryIsTitleFallback(t *testing.T) {
 		`{"type":"summary","summary":"Legacy title","leafUuid":"l"}`+"\n"+
 			`{"type":"user","uuid":"u","message":{"role":"user","content":"hi"}}`+"\n")
 	var meta thinkt.SessionMeta
-	scanSessionFile(path).applyTo(&meta)
+	scanSessionFile(path, nil).applyTo(&meta)
 	if meta.Title != "Legacy title" || meta.Summary != "Legacy title" {
 		t.Fatalf("legacy summary must back the title: %+v", meta)
 	}
@@ -46,7 +46,7 @@ func TestScanSessionFileLegacySummaryIsTitleFallback(t *testing.T) {
 		`{"type":"summary","summary":"Legacy title","leafUuid":"l"}`+"\n"+
 			`{"type":"ai-title","aiTitle":"Real title","sessionId":"s"}`+"\n")
 	var meta2 thinkt.SessionMeta
-	scanSessionFile(withTitle).applyTo(&meta2)
+	scanSessionFile(withTitle, nil).applyTo(&meta2)
 	if meta2.Title != "Real title" {
 		t.Fatalf("ai-title must win over legacy summary: %+v", meta2)
 	}
@@ -71,7 +71,7 @@ func TestScanSessionFileEmptyTitleDoesNotBlank(t *testing.T) {
 	path := writeTempSession(t, t.TempDir(), "s.jsonl",
 		`{"type":"ai-title","aiTitle":"Keep","sessionId":"s"}`+"\n"+
 			`{"type":"ai-title","aiTitle":"","sessionId":"s"}`+"\n")
-	if s := scanSessionFile(path); s.Title != "Keep" {
+	if s := scanSessionFile(path, nil); s.Title != "Keep" {
 		t.Fatalf("title %q", s.Title)
 	}
 }
@@ -81,7 +81,7 @@ func TestScanSessionFileStateRecords(t *testing.T) {
 		`{"type":"pr-link","sessionId":"s","prNumber":162,"prUrl":"https://example.com/pull/162","prRepository":"org/repo","timestamp":"2026-10-20T01:01:45.565Z"}`+"\n"+
 			`{"type":"worktree-state","worktreeSession":{"originalCwd":"/p","worktreePath":"/p/.claude/worktrees/x","worktreeName":"x","worktreeBranch":"worktree-x","originalBranch":"main"},"sessionId":"s"}`+"\n"+
 			`{"type":"relocated","sessionId":"s","relocatedCwd":"/p/.claude/worktrees/x"}`+"\n")
-	s := scanSessionFile(path)
+	s := scanSessionFile(path, nil)
 	if len(s.PRLinks) != 1 || s.PRLinks[0].Number != 162 || s.PRLinks[0].Repository != "org/repo" || s.PRLinks[0].Timestamp.IsZero() {
 		t.Fatalf("pr links %+v", s.PRLinks)
 	}
@@ -100,7 +100,7 @@ func TestScanSessionFileBookkeepingOnly(t *testing.T) {
 		`{"type":"ai-title","aiTitle":"Only title","sessionId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}`+"\n"+
 			`{"type":"mode","mode":"normal","sessionId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}`+"\n"+
 			`{"type":"permission-mode","permissionMode":"auto","sessionId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}`+"\n")
-	if s := scanSessionFile(path); s.EntryCount != 0 || s.Title != "Only title" {
+	if s := scanSessionFile(path, nil); s.EntryCount != 0 || s.Title != "Only title" {
 		t.Fatalf("scan %+v", s)
 	}
 

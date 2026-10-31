@@ -21,8 +21,10 @@ type Store struct {
 	baseDir  string
 	cacheDir string // directory for persistent metadata cache
 	cache    thinkt.StoreCache
-	mcOnce   sync.Once
-	mc       *thinkt.MetadataCache
+	// relatedExclude holds path prefixes never recorded as related folders.
+	relatedExclude []string
+	mcOnce         sync.Once
+	mc             *thinkt.MetadataCache
 }
 
 // NewStore creates a new Claude store.
@@ -35,7 +37,7 @@ func NewStore(baseDir string) *Store {
 	if dir, err := config.Dir(); err == nil {
 		cacheDir = filepath.Join(dir, "cache")
 	}
-	return &Store{baseDir: baseDir, cacheDir: cacheDir}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir, relatedExclude: thinkt.RelatedExclude(baseDir)}
 }
 
 // NewStoreWithCacheDir creates a Claude store with an explicit cache directory.
@@ -45,7 +47,12 @@ func NewStoreWithCacheDir(baseDir, cacheDir string) *Store {
 		home, _ := os.UserHomeDir()
 		baseDir = filepath.Join(home, ".claude")
 	}
-	return &Store{baseDir: baseDir, cacheDir: cacheDir}
+	return &Store{baseDir: baseDir, cacheDir: cacheDir, relatedExclude: thinkt.RelatedExclude(baseDir)}
+}
+
+// tracker returns the related-folders tracker for a session of project.
+func (s *Store) tracker(project string) *thinkt.RelatedTracker {
+	return thinkt.TrackRelated(project, s.relatedExclude)
 }
 
 // metadataCache returns the lazily-loaded persistent metadata cache.
@@ -250,7 +257,7 @@ func (s *Store) startEnrichment(ctx context.Context, projectID string, sessions 
 			sess := &enriched[idx]
 
 			// One pass yields prompt, model, entry count, and session state.
-			scan := scanSessionFile(sess.FullPath)
+			scan := scanSessionFile(sess.FullPath, s.tracker(sess.ProjectPath))
 			scan.applyTo(sess)
 			sess.SubagentCount = countSubagents(sess.FullPath)
 
@@ -379,7 +386,7 @@ func (s *Store) enrichInto(mc *thinkt.MetadataCache, meta *thinkt.SessionMeta) b
 	if mc.MergeInto(meta) {
 		return false
 	}
-	scan := scanSessionFile(meta.FullPath)
+	scan := scanSessionFile(meta.FullPath, s.tracker(meta.ProjectPath))
 	scan.applyTo(meta)
 	meta.SubagentCount = countSubagents(meta.FullPath)
 	mc.Set(meta.FullPath, scan.cached(*meta))

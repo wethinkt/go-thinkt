@@ -65,12 +65,13 @@ type sessionScan struct {
 	EntryCount      int
 	Cost            *thinkt.SessionCost
 	ParentSessionID string
+	Related         []thinkt.RelatedPath
 }
 
 // scanSessionFile reads a rollout once and collects prompts, model, entry
 // count, cost, and subagent linkage. A missing or unreadable file yields a
 // zero scan.
-func scanSessionFile(path string) sessionScan {
+func scanSessionFile(path string, related *thinkt.RelatedTracker) sessionScan {
 	var s sessionScan
 	f, err := os.Open(path)
 	if err != nil {
@@ -82,6 +83,7 @@ func scanSessionFile(path string) sessionScan {
 	var settingsModel, providerModel string
 	var legacyKey, legacyText string            // the legacy event awaiting its wire twin
 	var lastAgentText, lastReasoningText string // the harness item a wire record may twin
+	var calls relatedCalls
 	scanner := thinkt.NewScannerWithMaxCapacityCustom(f, 64*1024, thinkt.MaxScannerCapacity)
 	for scanner.Scan() {
 		line := bytes.TrimSpace(scanner.Bytes())
@@ -125,6 +127,7 @@ func scanSessionFile(path string) sessionScan {
 			var r sessionMetaRecord
 			if json.Unmarshal(h.Payload, &r) == nil {
 				s.ParentSessionID = r.parentThreadID()
+				calls.cwd = r.CWD
 				s.Title = r.subagentTitle()
 				if thinkt.IsRealModel(r.Model) {
 					providerModel = r.Model
@@ -135,9 +138,15 @@ func scanSessionFile(path string) sessionScan {
 		case "turn_context":
 			var tc struct {
 				Model string `json:"model"`
+				CWD   string `json:"cwd"`
 			}
-			if json.Unmarshal(h.Payload, &tc) == nil && thinkt.IsRealModel(tc.Model) {
-				s.Model = tc.Model
+			if json.Unmarshal(h.Payload, &tc) == nil {
+				if thinkt.IsRealModel(tc.Model) {
+					s.Model = tc.Model
+				}
+				if tc.CWD != "" {
+					calls.cwd = tc.CWD
+				}
 			}
 		case "event_msg/thread_settings_applied":
 			var ts struct {
@@ -185,13 +194,30 @@ func scanSessionFile(path string) sessionScan {
 				Changes map[string]fileChangeEntry `json:"changes"`
 			}
 			if decodeItem(h, &item) {
+				calls.sawChange = true
 				for path, ch := range item.Changes {
+					related.Touch(path, calls.cwd, thinkt.RelatedEdited)
 					if diff := changeDiff(path, ch); diff != "" {
 						added, removed := diffLineCounts(diff)
 						cost.LinesAdded += added
 						cost.LinesRemoved += removed
 					}
 				}
+			}
+		case "item/CommandExecution":
+			var item struct {
+				CWD string `json:"cwd"`
+			}
+			if related != nil && decodeItem(h, &item) {
+				calls.sawExec = true
+				if item.CWD == "" {
+					item.CWD = calls.cwd
+				}
+				related.Touch(item.CWD, calls.cwd, thinkt.RelatedCommand)
+			}
+		case "response_item/function_call", "response_item/custom_tool_call":
+			if related != nil {
+				calls.wire(h.Payload)
 			}
 		case "token_usage_record":
 			if u := decodeUsage(h.Payload); u != nil {
@@ -210,7 +236,66 @@ func scanSessionFile(path string) sessionScan {
 	if cost != (thinkt.SessionCost{}) {
 		s.Cost = &cost
 	}
+	calls.flush(related)
+	s.Related = related.Paths()
 	return s
+}
+
+// relatedCalls gathers the folders a rollout's wire calls name. Harness
+// items are the record of what ran, and wire calls share no id with them, so
+// the wire calls count only in a rollout with no item of that kind.
+type relatedCalls struct {
+	cwd                string // the turn's folder
+	sawExec, sawChange bool
+	execs, patches     []wirePath
+}
+
+// wirePath is a path a wire call named, and the folder it was named from.
+type wirePath struct{ path, base string }
+
+// patchFile matches the file headers of an apply_patch input.
+var patchFile = regexp.MustCompile(`(?m)^\*\*\* (?:Add|Update|Delete) File: (.+)$`)
+
+// wire notes the folder of a wire exec_command or apply_patch call.
+func (c *relatedCalls) wire(payload json.RawMessage) {
+	var call struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+		Input     string `json:"input"`
+	}
+	if json.Unmarshal(payload, &call) != nil {
+		return
+	}
+	switch call.Name {
+	case "exec_command":
+		var args struct {
+			Workdir string `json:"workdir"`
+		}
+		if json.Unmarshal([]byte(call.Arguments), &args) == nil {
+			if args.Workdir == "" {
+				args.Workdir = c.cwd
+			}
+			c.execs = append(c.execs, wirePath{args.Workdir, c.cwd})
+		}
+	case "apply_patch":
+		for _, m := range patchFile.FindAllStringSubmatch(call.Input, -1) {
+			c.patches = append(c.patches, wirePath{strings.TrimSpace(m[1]), c.cwd})
+		}
+	}
+}
+
+// flush records the wire calls of the kinds no item covered.
+func (c *relatedCalls) flush(related *thinkt.RelatedTracker) {
+	if !c.sawExec {
+		for _, p := range c.execs {
+			related.Touch(p.path, p.base, thinkt.RelatedCommand)
+		}
+	}
+	if !c.sawChange {
+		for _, p := range c.patches {
+			related.Touch(p.path, p.base, thinkt.RelatedEdited)
+		}
+	}
 }
 
 // legacyEventText returns the trimmed text of a legacy event_msg
@@ -260,6 +345,9 @@ func (s sessionScan) applyTo(meta *thinkt.SessionMeta) {
 	if meta.Cost == nil {
 		meta.Cost = s.Cost
 	}
+	if meta.RelatedPaths == nil {
+		meta.RelatedPaths = s.Related
+	}
 	if meta.ParentSessionID == "" {
 		meta.ParentSessionID = s.ParentSessionID
 	}
@@ -281,6 +369,7 @@ func (s sessionScan) cached(meta thinkt.SessionMeta) thinkt.CachedSession {
 		SubagentCount:   meta.SubagentCount,
 		ParentSessionID: meta.ParentSessionID,
 		Cost:            meta.Cost,
+		RelatedPaths:    meta.RelatedPaths,
 	}
 }
 

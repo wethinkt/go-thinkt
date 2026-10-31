@@ -81,7 +81,7 @@ func TestParseStateTime(t *testing.T) {
 }
 
 func TestScanSessionFileFixture15(t *testing.T) {
-	s := scanSessionFile("testdata/wire-1.5.jsonl", "session_fix1")
+	s := scanSessionFile("testdata/wire-1.5.jsonl", "session_fix1", nil)
 	if s.EntryCount != 17 || s.FirstPrompt != "fix the build" || s.LastPrompt != "Review the code structure" || s.Model != "kimi-code/k3" {
 		t.Fatalf("scan = %+v", s)
 	}
@@ -91,11 +91,11 @@ func TestScanSessionFileFixture15(t *testing.T) {
 }
 
 func TestScanSessionFileFixture10(t *testing.T) {
-	s := scanSessionFile("testdata/wire-1.0.jsonl", "ses_fix0")
+	s := scanSessionFile("testdata/wire-1.0.jsonl", "ses_fix0", nil)
 	if s.EntryCount != 5 || s.FirstPrompt != "hello legacy" || s.Cost != nil || s.Model != "" {
 		t.Fatalf("scan = %+v", s)
 	}
-	if missing := scanSessionFile(filepath.Join(t.TempDir(), "nope.jsonl"), "x"); missing.EntryCount != 0 {
+	if missing := scanSessionFile(filepath.Join(t.TempDir(), "nope.jsonl"), "x", nil); missing.EntryCount != 0 {
 		t.Fatalf("missing = %+v", missing)
 	}
 }

@@ -17,7 +17,7 @@ type jsonlScan struct {
 // scanJSONL reads one JSONL session's metadata in one replay. stem is the
 // file name without .jsonl; parentStem is the parent session's ID for a
 // subagent file, else "". It returns nil, nil for a file with no header.
-func scanJSONL(path, stem, parentStem string) (*jsonlScan, error) {
+func scanJSONL(path, stem, parentStem string, related *thinkt.RelatedTracker) (*jsonlScan, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -73,9 +73,26 @@ func scanJSONL(path, stem, parentStem string) (*jsonlScan, error) {
 	if cost != (thinkt.SessionCost{}) {
 		m.Cost = &cost
 	}
-	m.EntryCount = len(convert(r, id))
+	entries := convert(r, id)
+	m.EntryCount = len(entries)
+	for _, e := range entries {
+		related.Blocks(relatedTools, e.ContentBlocks, "")
+	}
+	m.RelatedPaths = related.Paths()
 	s.Meta = m
 	return s, nil
+}
+
+// relatedTools names the tools whose calls say which folder a session
+// touched. Relative paths resolve against the project.
+var relatedTools = thinkt.ToolPaths{
+	"read_file":         {Arg: "file_path", Reason: thinkt.RelatedRead},
+	"list_directory":    {Arg: "dir_path", Reason: thinkt.RelatedRead},
+	"grep_search":       {Arg: "dir_path", Reason: thinkt.RelatedRead},
+	"glob":              {Arg: "dir_path", Reason: thinkt.RelatedRead},
+	"replace":           {Arg: "file_path", Reason: thinkt.RelatedEdited},
+	"write_file":        {Arg: "file_path", Reason: thinkt.RelatedEdited},
+	"run_shell_command": {Arg: "dir_path", Reason: thinkt.RelatedCommand},
 }
 
 // sessionTitle returns a summary when it reads as a title: one line, not a

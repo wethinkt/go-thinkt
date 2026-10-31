@@ -18,7 +18,7 @@ func writeLines(t *testing.T, path string, lines ...string) {
 }
 
 func TestScanSessionFileFixture(t *testing.T) {
-	s := scanSessionFile("testdata/rollout-fixture.jsonl")
+	s := scanSessionFile("testdata/rollout-fixture.jsonl", nil)
 	if s.FirstPrompt != "fix the build" || s.LastPrompt != "fix the build" || s.Model != "gpt-5.5" || s.EntryCount != 39 {
 		t.Fatalf("scan = %+v", s)
 	}
@@ -38,7 +38,7 @@ func TestScanSessionFileSumsEveryUsageRecord(t *testing.T) {
 		`{"timestamp":"2026-10-01T10:00:03Z","type":"token_usage_record","payload":{"turn_id":"t","usage":{"input_tokens":5,"cached_input_tokens":1,"output_tokens":2}}}`,
 		`{"timestamp":"2026-10-01T10:00:04Z","type":"token_usage_record","payload":{"turn_id":"t","usage":{"input_tokens":7,"cached_input_tokens":2,"output_tokens":3}}}`,
 	)
-	s := scanSessionFile(path)
+	s := scanSessionFile(path, nil)
 	if s.Cost == nil || s.Cost.InputTokens != 12 || s.Cost.OutputTokens != 5 || s.Cost.CachedInputTokens != 3 || s.EntryCount != 0 {
 		t.Fatalf("scan = %+v cost = %+v", s, s.Cost)
 	}
@@ -50,7 +50,7 @@ func TestScanSessionFileCostNilWhenEmpty(t *testing.T) {
 		`{"timestamp":"2026-10-01T10:00:00Z","type":"session_meta","payload":{"id":"x","session_id":"x","cwd":"/w","model_provider":"openai"}}`,
 		`{"timestamp":"2026-10-01T10:00:01Z","type":"event_msg","payload":{"type":"user_message","message":"legacy hello"}}`,
 	)
-	s := scanSessionFile(path)
+	s := scanSessionFile(path, nil)
 	if s.Cost != nil || s.FirstPrompt != "legacy hello" || s.Model != "openai" || s.EntryCount != 1 {
 		t.Fatalf("scan = %+v", s)
 	}
@@ -62,7 +62,7 @@ func TestScanSessionFileSubagentParentAndTitleFallback(t *testing.T) {
 		`{"timestamp":"2026-10-01T10:00:00Z","type":"session_meta","payload":{"id":"c","session_id":"p","cwd":"/w","source":{"subagent":{"thread_spawn":{"parent_thread_id":"p","depth":1,"agent_path":"/root/x","agent_nickname":"Kierkegaard"}}},"agent_nickname":"Kierkegaard","agent_path":"/root/x"}}`,
 		`{"timestamp":"2026-10-01T10:00:01Z","type":"event_msg","payload":{"type":"thread_settings_applied","thread_settings":{"model":"gpt-5.5","reasoning_effort":"high"}}}`,
 	)
-	s := scanSessionFile(path)
+	s := scanSessionFile(path, nil)
 	if s.ParentSessionID != "p" || s.Title != "Kierkegaard /root/x" || s.Model != "gpt-5.5" {
 		t.Fatalf("scan = %+v", s)
 	}
