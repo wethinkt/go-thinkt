@@ -144,11 +144,17 @@ instance registry (`InstanceRelay`); a second relay on the same machine
 refuses to start, with a message naming the running one. (My call.)
 
 **Ordering.** Each session's state carries a generation number. It goes
-up by one for every payload the relay produces for that session, and is
-sent as `session.generation`. The collector stores the last generation
-per session and ignores a payload with a lower one. So a buffered older
-batch that drains late cannot overwrite a newer one, and a late
-`removed` cannot undo a re-add. (My call.)
+up by one for every sync of that session, and every payload (chunk) of
+that sync carries it as `session.generation`. The collector stores the
+highest generation applied and ignores only a strictly lower one, so all
+chunks of one sync apply.
+
+While the disk buffer holds any payload, new payloads go to the buffer
+too, and it drains in order. So a newer sync never reaches the collector
+ahead of an older one still buffered. (My call.)
+
+Every payload carries the full session snapshot. A payload with no
+entries (removals or metadata only) is still applied.
 
 **Sources switched off.** The relay builds its registry at start, from
 the config's enabled sources. Turning a source off takes effect when the

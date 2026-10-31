@@ -20,7 +20,14 @@
 - **Removal:** `removed` lists only uuids the relay shipped before that the source, still returning the session, no longer produces. A vanished session sends nothing; the collector keeps everything.
 - **Superseded:** collector `--superseded keep|delete` (env `THINKT_COLLECTOR_SUPERSEDED`), default `keep`. Switching to `delete` does not purge rows already marked.
 - **Backfill:** relay `--backfill all|none` (env `THINKT_RELAY_BACKFILL`), default `all`.
-- **Generation:** per session, +1 per payload, sent as `session.generation`. The collector ignores a payload whose generation is lower than the stored one, and still answers 200.
+- **Generation:** one generation per sync of a session (previous + 1), shared by every payload (chunk) of that sync, and sent as `session.generation`. The collector applies a payload whose generation is at least the stored one, and acknowledges with 200 but ignores one that is strictly lower.
+- **Ordering:** while the disk buffer holds any payload, every new payload goes to the buffer, not live, and the buffer drains in order. So no newer payload for a session reaches the collector ahead of an older one still buffered.
+- **Session snapshot:** every payload carries the full session snapshot (all `tracewire.Session` fields). The collector's session upsert updates metadata, `generation` and `last_seen`, and never overwrites `first_seen`, `status` or `last_activity`.
+- **Empty payloads still count:** a payload with no entries is still ingested. Its `removed` and session metadata are applied; there is no early return on zero entries.
+- **Entries without a uuid:** the relay gives them a composed uuid before diffing: `relay-noid:<first 16 hex of EntryHash>:<n>`, where `n` counts earlier entries with the same hash in session order. So every shipped entry has a stable, unique uuid. The collector rejects an entry with an empty uuid (counted as dropped).
+- **Buffer files:** named `<unixnano, 20 digits>_<per-process sequence, 6 digits>_<first 12 hex of sha256(source + "\x00" + session id)>.json`. That is safe for subagent ids containing `/`, and unique within one nanosecond.
+- **State file:** `~/.thinkt/relay/state.json` (`RelayConfig.StatePath`, defaulting to that path).
+- **Fresh lookups:** on a file event the relay looks the path up with `GetSessionMeta`. When the result is nil while the file exists, or its `FileSize` differs from the file's, or the file's mtime is after its `ModifiedAt`, the relay calls the store's `ResetCache()` (every store has it) and looks up once more. Kimi and Antigravity cache their session list for the life of the process.
 - **One relay per machine:** a new `config.InstanceRelay` instance type (`"relay"`). A second relay on the machine refuses to start with `relay already running (pid N)`.
 - **Sources:** only sources in the relay's registry (enabled in config) ship. On start, buffered payloads of other sources are removed.
 - **Request size:** the collector accepts up to 64 MB per request. The relay splits a batch so each encoded payload is at most 8 MB, as well as at most `BatchSize` entries.
@@ -28,7 +35,7 @@
 
 ## Review Focus
 
-1. **A collector down for a long time while sessions are rewritten:** buffered payloads drain in order. The final collector state equals the sessions' current entries, plus older entries marked superseded. (Task 7 end-to-end test, buffered path.)
+1. **A collector that fails one request in the middle of a multi-chunk sync, or is down for a long time while sessions are rewritten:** every chunk arrives in order. The final collector state equals the sessions' current entries, plus older entries marked superseded. (Task 7 end-to-end tests, partial-failure and outage paths.)
 2. **The relay restarted after files changed while it was off:** startup reconcile ships only those sessions; unchanged sessions ship nothing. (Task 5 test.)
 3. **A very large tool result** (one entry over 8 MB): it ships alone in its own payload, and the collector accepts it. (Task 4 test with a 9 MB entry.)
 4. **Two machines with the same session id:** they are two session rows and two sets of entries. (Task 2 test.)
@@ -102,15 +109,19 @@ func EntryHash(e thinkt.Entry) string             // hex SHA-256 of json.Marshal
   - `HasToolUse` and `IsError` are set when any block is a tool use or an error.
 
 **Schema** (replaces `collected_sessions` and `collected_entries`; both are dropped at startup if present):
-- `sessions`: the spec §4 columns plus `generation BIGINT`, `status`, `last_activity`, `source_last_seen`. Primary key `(machine_id, source, session_id)`.
+- `sessions`: the spec §4 columns plus `generation BIGINT`, `status` and `last_activity`. Primary key `(machine_id, source, session_id)`. `last_seen` is when the relay last reported the session, which is the design's "when its source was last seen". There is no separate column.
 - `entries`: the spec §4 columns. Primary key `(machine_id, source, session_id, uuid)`.
 - `session_activity` gains `machine_id VARCHAR`, added with `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` for existing files.
 
 **Write path** (inside the existing single-writer batch transaction):
-1. Read the session's stored `generation`. If `p.Session.Generation` is lower, skip the payload.
-2. Upsert the session row: metadata, `generation`, `last_seen = now`, `source_last_seen = p.Session.ModifiedAt`.
+1. Read the session's stored `generation`. If `p.Session.Generation` is strictly lower, skip the payload. An equal generation (another chunk of the same sync, or a redelivery) applies.
+2. Upsert the session row. Insert it with `first_seen = now`. On conflict, update only the metadata columns, `generation`, `instance_id` and `last_seen = now`; never `first_seen`, `status` or `last_activity`.
 3. Upsert each entry: `entry_json`, derived columns, `content_hash` (`tracewire.EntryHash`), `updated_at = now`, `superseded_at = NULL`.
-4. For `Removed`: under keep, `UPDATE ... SET superseded_at = now WHERE key AND superseded_at IS NULL`; under delete, `DELETE`.
+4. For `Removed`, even when `Entries` is empty: under keep, `UPDATE ... SET superseded_at = now WHERE key AND superseded_at IS NULL`; under delete, `DELETE`.
+
+Reads:
+- `QueryActiveSessions` partitions `session_activity` by `(machine_id, source, session_id)` and joins `sessions` on all three columns.
+- `QuerySessions` returns one row per session key.
 
 - [ ] **Step 1: Failing tests** (temp DuckDB file; `flushInterval` short; a helper that waits for the writer):
   - `TestIngestUpsertsByKey`: ingest one session with 2 entries, then again with entry 1 changed → 2 rows, entry 1 has the new text.
@@ -118,6 +129,10 @@ func EntryHash(e thinkt.Entry) string             // hex SHA-256 of json.Marshal
   - `TestIngestRemovedDelete`: same with `SupersededDelete` → the `u2` row is gone.
   - `TestIngestReaddClearsSuperseded`.
   - `TestIngestStaleGenerationIgnored`: generation 5 then generation 4 with other text → the text of generation 5 remains.
+  - `TestIngestSameGenerationChunksAllApply`: two payloads with generation 3 and different entries → both sets are stored.
+  - `TestIngestRemovalOnly`: a payload with no entries and `Removed: ["u1"]` → `u1` is superseded.
+  - `TestIngestKeepsActivity`: record activity (status `active`), then ingest a payload → status and `last_activity` are unchanged, and `first_seen` is unchanged across two ingests.
+  - `TestActiveSessionsByFullKey`: activity for machine A and machine B with the same session id → two active rows, each with its own `last_activity`.
   - `TestTwoMachinesSameSessionID` (Review Focus 4): two rows in `QuerySessions`, and 4 entries total.
   - `TestDropsOldTables`: a DB file with an old `collected_entries` table opens, and the table is gone.
   - Existing search, stats, active-sessions and parquet tests ported to v2 payloads with the same assertions.
@@ -129,7 +144,7 @@ func EntryHash(e thinkt.Entry) string             // hex SHA-256 of json.Marshal
 ### Task 3: Collector HTTP, settings, stream, activity
 
 **Files:**
-- Modify: `internal/collect/ingest.go` (v2 decode, version check, 64 MB limit, metrics from `Usage`), `internal/collect/normalizer.go` (validate a v2 payload)
+- Modify: `internal/collect/ingest.go` (v2 decode, version check, 64 MB limit, metrics from `Usage`; remove the zero-entries early return so `IngestBatch` always runs), `internal/collect/normalizer.go` (validate a v2 payload)
 - Modify: `internal/collect/pubsub.go` and `ws.go`, which publish and backfill `[]EntrySummary`
 - Modify: `internal/collect/types.go` (`CollectorConfig.Superseded SupersededMode`; `SessionActivityEvent` gains `MachineID`)
 - Modify: `internal/cmd/collect.go` and `cmd/thinkt-collector/main.go` (`--superseded` flag and env)
@@ -146,6 +161,7 @@ func EntryHash(e thinkt.Entry) string             // hex SHA-256 of json.Marshal
 - [ ] **Step 1: Failing tests** (`httptest.NewServer(s.setupRouter())`):
   - `TestIngestRejectsOldVersion` (Review Focus 5): a v1 body → 400 and `"unsupported_version"`.
   - `TestIngestAcceptsLargePayload`: a 20 MB v2 body → 200.
+  - `TestIngestRemovalOnlyBodyApplied`: after ingesting `u1`, a body with `"entries": []` and `"removed": ["u1"]` → `u1` is superseded in the store.
   - `TestIngestPublishesSummaries`: subscribe to the session, ingest → one `EntrySummary` with `Role`, `Text` and `ContentBlocks`.
   - `TestSupersededSettingFromEnv`: `THINKT_COLLECTOR_SUPERSEDED=delete` → config mode delete; an invalid value → error at startup.
   - `TestActivityByFullKey`: activity for machine A does not change machine B's row with the same session id.
@@ -177,29 +193,40 @@ func loadState(path string) (*relayState, error)   // missing file → empty sta
 func (s *relayState) save(path string) error       // atomic: temp file + rename
 func stateKey(source thinkt.Source, sessionID string) string
 
+// assignIDs gives entries with an empty UUID the composed id from the
+// Global Constraints, in place.
+func assignIDs(entries []thinkt.Entry)
+
 // diffSession compares a session's current entries with its state and
-// returns the payloads to ship, already split by BatchSize and 8 MB, each
-// with its own generation (prev+1, prev+2, …). It does not mutate st;
-// commit applies a shipped payload to it.
+// returns the payloads to ship, already split by BatchSize and 8 MB. Every
+// payload shares one generation (st.Generation+1) and carries the full
+// session snapshot. It does not mutate st; commit applies a shipped or
+// buffered payload to it.
 func diffSession(meta thinkt.SessionMeta, entries []thinkt.Entry, st *sessionState, base tracewire.Payload, batchSize int) []tracewire.Payload
 func (st *sessionState) commit(p tracewire.Payload)
 ```
 
-The state file is `<buffer dir parent>/state.json` (`~/.thinkt/relay/state.json` by default). It is one file. (Ruling at execution if it grows large: ledger the size seen on real data.)
+The state file is `RelayConfig.StatePath`, default `~/.thinkt/relay/state.json`. It is one file. (If it grows large on real data, ledger the size seen.)
+
+The buffer file name follows the Global Constraints. `DiskBuffer` keeps the sequence counter, and `listFiles` sorts by name, which is chronological.
 
 **`diffSession` rules:**
-- An unchanged session with known metadata → no payload.
-- The first payload carries the session metadata.
-- `Removed` goes on the last payload.
+- An unchanged session with unchanged metadata → no payload.
+- Changed metadata only → one payload with no entries.
+- `Removed` goes on the last payload, which may carry no entries.
 - A single entry larger than 8 MB goes alone in its own payload.
 
 - [ ] **Step 1: Failing tests:**
   - `TestStateRoundTrip`.
   - `TestStateMissingFileIsEmpty`.
-  - `TestDiffNewSession`: 3 entries, empty state → one payload with 3 entries, generation 1, no `Removed`.
+  - `TestDiffNewSession`: 3 entries, empty state → one payload with 3 entries, generation 1, no `Removed`, and the session `Title` and `ProjectPath` set.
   - `TestDiffNoChange`: after commit → no payload.
   - `TestDiffChangedAndRemoved`: change `u1`, drop `u3` → one payload, `Entries` = [`u1`], `Removed` = [`u3`], generation 2.
-  - `TestDiffSplitsByBatchSize`: 250 entries with batch size 100 → 3 payloads with generations 1, 2, 3; `Removed` only on the last.
+  - `TestDiffRemovalOnly`: drop `u2` → one payload with no entries and `Removed` = [`u2`].
+  - `TestDiffSplitsByBatchSize`: 250 entries with batch size 100 → 3 payloads, all generation 1, each with the full session snapshot; `Removed` only on the last.
+  - `TestAssignIDs`: two entries with no uuid and identical content, plus one different → three distinct ids. They are the same ids when computed again.
+  - `TestBufferNameSafeForSubagentIDs`: write a payload for session `session_y/agent-0` → one file directly in the buffer dir, and `Drain` reads it back.
+  - `TestBufferSameNanosecondNoOverwrite`: two writes in a tight loop → two files, drained in write order.
   - `TestDiffOversizedEntryAlone` (Review Focus 3): a 9 MB entry between two small ones → the big one is in a payload by itself.
 - [ ] **Step 2: Run** `go test ./internal/relay/ -run 'State|Diff'`. Expected: FAIL.
 - [ ] **Step 3: Implement.** Port the buffer and shipper to `tracewire.Payload` (same file layout and retry behaviour).
@@ -221,9 +248,9 @@ The state file is `<buffer dir parent>/state.json` (`~/.thinkt/relay/state.json`
 **Interfaces:**
 - `func (e *Relay) syncPath(ctx context.Context, path string)`:
   1. Resolve with `sources.ResolveSessionPath`; skip a source not in the registry.
-  2. `store.GetSessionMeta(ctx, path)`; nil → prune any state for that path and return.
+  2. `store.GetSessionMeta(ctx, path)`, refreshed once as the Global Constraints say. Still nil → prune any state for that path and return.
   3. `OpenSession` and read every entry.
-  4. Run `diffSession`, then ship or buffer each payload. `commit` runs after each accepted or buffered payload.
+  4. Run `assignIDs`, then `diffSession`. Ship or buffer each payload under the ordering rule: with a non-empty buffer, write to the buffer, then try to drain. `commit` runs after each accepted or buffered payload.
   5. Save the state.
 - `func (e *Relay) reconcile(ctx context.Context) error`:
   1. For each store in the registry: `ListProjects`, then `ListSessions(…, thinkt.WithSubagents())`.
@@ -233,9 +260,25 @@ The state file is `<buffer dir parent>/state.json` (`~/.thinkt/relay/state.json`
   3. Afterwards, prune state entries whose file is gone.
 - `Start` calls `reconcile` before the watch loop. One-shot runs `reconcile`, then `FlushBuffer`.
 
-- [ ] **Step 1: Failing tests** (`httptest` collector stub that records payloads; temp homes from source `testdata` via `t.Setenv` for the Claude, Codex, Kimi and Gemini homes):
-  - `TestReconcileShipsEverySource`: one session each of Claude, Codex, Kimi and Gemini → payloads for 4 sessions, each with entry counts equal to the store's `LoadSession` and session ids equal to the stores' IDs (Kimi not `wire`).
-  - `TestReconcileSkipsUnchanged` (Review Focus 2): run twice → second run ships nothing; touch one file → only that session ships.
+**Test homes** (`internal/relay/testhome_test.go`, `func layoutHomes(t *testing.T) homes`) copy each source's fixtures into the layout its store lists. Each home is set with `t.Setenv`:
+- **Claude:** `<home>/projects/-tmp-proj/11111111-2222-4333-8444-555555555555.jsonl` from `sources/claude/testdata/modern-session.jsonl`.
+- **Codex:** `<home>/sessions/2026/10/01/rollout-2026-10-01T10-00-00-fixture.jsonl` from `sources/codex/testdata/rollout-fixture.jsonl`.
+- **Kimi:** `<home>/sessions/wd_proj_abc/session_p1/state.json` (the state used in `sources/kimi/sessionstate_test.go`, `stateV2`), plus `agents/main/wire.jsonl` from `wire-1.5.jsonl`.
+- **Gemini:**
+  - `<home>/tmp/proj/.project_root`
+  - `chats/session-2026-05-17T15-05-17503250.jsonl`
+  - `chats/17503250-82e4-479a-ab9d-69002dcb6d31/92szal.jsonl`
+  - all from `sources/gemini/testdata/chats/`
+- **Antigravity:** `<home>/brain/c1/.system_generated/logs/transcript_full.jsonl` from `sources/antigravity/testdata/main.jsonl`.
+- **Copilot:** `<home>/session-state/c1/events.jsonl`, written from the event shapes the Copilot parser reads (copy one user and one assistant event from `sources/copilot` tests or code).
+- **Qwen:** `<home>/projects/<hash>/chats/s1.jsonl`, written from the record shapes in `sources/qwen/store_test.go`.
+
+If a source's store lists nothing from its layout, the test fails with that source's name.
+
+- [ ] **Step 1: Failing tests** (`httptest` collector stub that records payloads; homes from `layoutHomes`):
+  - `TestReconcileShipsEverySource`: one session each of Claude, Codex, Kimi, Gemini, Antigravity, Copilot and Qwen. Expect payloads for each, with entry counts equal to the store's `LoadSession` and session ids equal to the stores' IDs (Kimi not `wire`). Subagent sessions ship too, with `ParentSessionID`.
+  - `TestReconcileSkipsUnchanged` (Review Focus 2): a relay runs and saves state. A new `Relay` instance loads the same `StatePath` and runs → it ships nothing. Then touch one file and run a third instance → only that session ships. This compares `ModTime` with `Equal` across a JSON round trip.
+  - `TestNewKimiSessionFoundAfterReconcile`: after a reconcile, add a second Kimi session directory, then `syncPath` on its wire → it ships (the refreshed lookup).
   - `TestBackfillNone`: first run ships nothing; appending to a session file then running ships only the change.
   - `TestVanishedSessionSendsNothing`: delete a file after the first sync → no `Removed`, and the state entry is gone.
   - `TestDisabledSourceNotShipped`: the registry without Codex → no Codex payload.
@@ -273,7 +316,8 @@ The state file is `<buffer dir parent>/state.json` (`~/.thinkt/relay/state.json`
 - Modify: `internal/sources/gemini/README.md` and `internal/sources/antigravity/README.md` (relay lines)
 
 - [ ] **Step 1: Failing tests:**
-  - `TestEndToEndAllSources`: run the relay's reconcile against the collector. `QuerySessions` returns Claude, Codex, Kimi, Antigravity and Gemini sessions with the stores' ids. `QueryEntries` counts equal the stores' `LoadSession` counts, superseded excluded.
+  - `TestEndToEndAllSources`: run the relay's reconcile against the collector. `QuerySessions` returns Claude, Codex, Kimi, Antigravity, Gemini, Copilot and Qwen sessions with the stores' ids. `QueryEntries` counts equal the stores' `LoadSession` counts, superseded excluded.
+  - `TestEndToEndPartialFailure` (Review Focus 1): wrap the collector handler so its second `POST /v1/traces` returns 503 once. Sync a session that splits into 3 chunks, then sync it again after a change, then flush. The collector holds every entry of both syncs, and no payload was dropped as stale.
   - `TestEndToEndBufferedRewrites` (Review Focus 1):
     1. Stop the collector.
     2. Sync a Gemini session, append a rewind, sync again (both buffered).
