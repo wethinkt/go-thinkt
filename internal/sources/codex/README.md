@@ -134,3 +134,17 @@ secondary entries; the factory exposes it as `thinkt.SearchLineFilterer`.
 - [`NewParser(r, sessionID)`](parser.go)
 - [`scanSessionFile(path)`](sessionstate.go), [`loadSessionIndex(baseDir)`](sessionstate.go)
 - [`NewStore(baseDir)`](store.go)
+
+## Related folders
+
+`RelatedPaths` lists the folders outside the project a session touched,
+folded to repo roots by `thinkt.RelatedTracker`. Shell command text is not
+parsed.
+
+| reason | from |
+|---|---|
+| `edited` | `FileChange` item `changes` (one count per file) |
+| `command` | `CommandExecution` item `cwd`, else the turn's `cwd` |
+
+Wire `exec_command` and `apply_patch` calls share no id with the items, so
+they count only in a rollout with no item of that kind.

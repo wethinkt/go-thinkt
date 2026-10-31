@@ -50,9 +50,11 @@ func NewStoreWithCacheDir(baseDir, cacheDir string) *Store {
 	return &Store{baseDir: baseDir, cacheDir: cacheDir, relatedExclude: thinkt.RelatedExclude(baseDir)}
 }
 
-// tracker returns the related-folders tracker for a session of project.
-func (s *Store) tracker(project string) *thinkt.RelatedTracker {
-	return thinkt.TrackRelated(project, s.relatedExclude)
+// tracker returns a related-folders tracker. SessionMeta.ProjectPath holds
+// the storage folder here, so the scan names the project from the session's
+// first cwd.
+func (s *Store) tracker() *thinkt.RelatedTracker {
+	return thinkt.NewRelatedTracker("", s.relatedExclude)
 }
 
 // metadataCache returns the lazily-loaded persistent metadata cache.
@@ -257,7 +259,7 @@ func (s *Store) startEnrichment(ctx context.Context, projectID string, sessions 
 			sess := &enriched[idx]
 
 			// One pass yields prompt, model, entry count, and session state.
-			scan := scanSessionFile(sess.FullPath, s.tracker(sess.ProjectPath))
+			scan := scanSessionFile(sess.FullPath, s.tracker())
 			scan.applyTo(sess)
 			sess.SubagentCount = countSubagents(sess.FullPath)
 
@@ -386,7 +388,7 @@ func (s *Store) enrichInto(mc *thinkt.MetadataCache, meta *thinkt.SessionMeta) b
 	if mc.MergeInto(meta) {
 		return false
 	}
-	scan := scanSessionFile(meta.FullPath, s.tracker(meta.ProjectPath))
+	scan := scanSessionFile(meta.FullPath, s.tracker())
 	scan.applyTo(meta)
 	meta.SubagentCount = countSubagents(meta.FullPath)
 	mc.Set(meta.FullPath, scan.cached(*meta))

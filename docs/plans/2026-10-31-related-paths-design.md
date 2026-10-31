@@ -53,8 +53,8 @@ Rules, unchanged from Antigravity unless marked new:
 - New: a path already inside the project returns before touching the disk,
   and repo-root lookups are memoised per directory, so a session of
   thousands of calls stays cheap.
-- New: a tracker with an empty project is nil and records nothing, for the
-  new sources. "Outside the project" means nothing without a project.
+- New: `TrackRelated` returns a nil tracker with an empty project, which
+  records nothing, for the new sources. "Outside the project" means nothing without a project.
   Antigravity keeps its behaviour, since it has workspaces of its own.
 - All methods are safe on a nil tracker.
 
@@ -64,21 +64,25 @@ Rules, unchanged from Antigravity unless marked new:
 |---|---|---|---|---|
 | `read` | `Read`, `NotebookRead`, `Grep`, `Glob`, `LS` | `Read`, `ReadFile`, `ReadMediaFile`, `Grep`, `Glob` | `read_file`, `read_many_files`*, `list_directory`, `grep_search`, `glob` | none structured |
 | `edited` | `Edit`, `MultiEdit`, `Write`, `NotebookEdit` | `Edit`, `Write`, `WriteFile`, `StrReplaceFile` | `replace`, `write_file` | `apply_patch` file changes |
-| `command` | `Bash`: the record's `cwd` | `Bash` `cwd` | `run_shell_command` `dir_path` | `exec_command` `workdir`, else the turn's `cwd` |
+| `command` | `Bash`: the record's `cwd` | `Bash` `cwd` | `run_shell_command` `dir_path` | `CommandExecution` `cwd`, else the turn's `cwd` |
 
 *`read_many_files` takes a list of patterns, so it is left out.
 
 Argument names were tallied from local sessions: Claude `file_path`,
 `path`, `notebook_path`; Kimi `path`, `cwd`; Gemini `file_path`, `dir_path`.
-The base for relative paths is the record's `cwd` (Claude), the session
-`CWD` or `WorkDir` (Kimi), the project (Gemini), the turn `cwd` (Codex).
+The base for relative paths is the record's `cwd` (Claude), the project
+(Kimi, Gemini), the turn `cwd` (Codex).
 
 - **Claude.** The scan stays a byte classifier. Only assistant lines
   containing `"tool_use"` are decoded, whatever the first-prompt early exit
-  has decided. `project` comes from `meta.ProjectPath`.
-- **Codex.** Takes the paths from raw records in its own scan: the keys of
-  a file-change item's `changes`, and an exec item's or wire call's working
-  folder. A call that has both a harness item and a wire record counts once.
+  has decided. `SessionMeta.ProjectPath` holds the storage folder for Claude
+  (found on real data: 128 of 145 sessions listed their own repo), so the
+  project is the session's first recorded `cwd`.
+- **Codex.** Harness items are the record of what ran: `CommandExecution.cwd`
+  and the keys of `FileChange.changes`. Wire calls share no id with them
+  (local tally: 24,505 command items, 20,356 `exec` calls, 515 shared ids), so
+  wire `exec_command` and `apply_patch` count only in a rollout with no item
+  of that kind. Each changed file counts as one.
 - **Kimi.** The scan already runs the parser, so it reads the entries'
   tool blocks.
 - **Gemini.** `jsonlFile` and `jsonFile` learn the project path. Calls are

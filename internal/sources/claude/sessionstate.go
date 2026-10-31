@@ -46,6 +46,14 @@ func scanSessionFile(path string, related *thinkt.RelatedTracker) sessionScan {
 			continue
 		}
 		typ, _, class := ClassifyLine(line)
+		if related != nil && !related.HasProject() {
+			var rec struct {
+				Cwd string `json:"cwd"`
+			}
+			if json.Unmarshal(line, &rec) == nil {
+				related.SetProject(rec.Cwd)
+			}
+		}
 		switch class {
 		case thinkt.ClassSessionState:
 			s.applyState(typ, line)
@@ -97,7 +105,9 @@ func scanSessionFile(path string, related *thinkt.RelatedTracker) sessionScan {
 			}
 		}
 	}
-	s.Related = related.Paths()
+	if related.HasProject() {
+		s.Related = related.Paths()
+	}
 	return s
 }
 

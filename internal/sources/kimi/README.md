@@ -125,3 +125,15 @@ The Python Kimi CLI wrote `~/.kimi/sessions/<hash>/<uuid>/context.jsonl`.
 Kimi Code migrates those sessions into `~/.kimi-code` on first run, keeping
 their ids (`ses_<uuid>`), and leaves the old tree as a copy. thinkt does
 not read `~/.kimi`.
+
+## Related folders
+
+`RelatedPaths` lists the folders outside the project a session touched,
+folded to repo roots by `thinkt.RelatedTracker`. Shell command text is not
+parsed.
+
+| reason | from |
+|---|---|
+| `read` | `Read`, `ReadFile`, `ReadMediaFile`, `Grep`, `Glob` |
+| `edited` | `Edit`, `Write`, `WriteFile`, `StrReplaceFile` |
+| `command` | `Bash` `cwd` |

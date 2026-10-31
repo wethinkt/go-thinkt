@@ -34,7 +34,9 @@ func TestScanRecordsRelatedPaths(t *testing.T) {
 		assistant(proj, "Bash", `{"command":"ls"}`) + "\n" +
 		assistant(proj, "Read", fmt.Sprintf(`{"file_path":%q}`, filepath.Join(proj, "own.go"))) + "\n"
 	path := writeTempSession(t, root, "s.jsonl", content)
-	s := scanSessionFile(path, thinkt.NewRelatedTracker(proj, nil))
+	// Claude's session metadata holds the storage folder, so the scan takes
+	// the project from the session's first cwd.
+	s := scanSessionFile(path, thinkt.NewRelatedTracker("", nil))
 	want := []thinkt.RelatedPath{{Path: other, Reasons: []string{"command", "edited", "read"}, Count: 4}}
 	if !reflect.DeepEqual(s.Related, want) {
 		t.Fatalf("%+v", s.Related)

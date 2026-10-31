@@ -117,3 +117,17 @@ Both formats use this mapping.
 - **Watching:** `WatchConfig` reaches `tmp/<p>/chats/<parent>/` (depth 4). The relay re-reads a changed session through this store, so a rewind or patch ships as changed and removed entries.
 
 `thinkt.ParserVersion` 7 covers this format.
+
+## Related folders
+
+`RelatedPaths` lists the folders outside the project a session touched,
+folded to repo roots by `thinkt.RelatedTracker`. Shell command text is not
+parsed.
+
+| reason | from |
+|---|---|
+| `read` | `read_file`, `list_directory`, `grep_search`, `glob` |
+| `edited` | `replace`, `write_file` |
+| `command` | `run_shell_command` `dir_path` |
+
+Calls are read after the replay, so a rewound call does not count.

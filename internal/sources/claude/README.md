@@ -116,3 +116,18 @@ See [etc/reports/CLAUDE_TRANSCRIPT_SCHEMA.md](../../../etc/reports/CLAUDE_TRANSC
 - [`DefaultDir()`](session.go) — returns the Claude Code base directory (`~/.claude`).
 - [`DecodeDirName(dirName)`](projects.go) — converts hashed directory names to readable project paths.
 - [`ListProjects(baseDir)`](projects.go) — discovers all Claude Code project directories.
+
+## Related folders
+
+`RelatedPaths` lists the folders outside the project a session touched,
+folded to repo roots by `thinkt.RelatedTracker`. Shell command text is not
+parsed.
+
+| reason | from |
+|---|---|
+| `read` | `Read`, `NotebookRead`, `Grep`, `Glob`, `LS` |
+| `edited` | `Edit`, `MultiEdit`, `Write`, `NotebookEdit` |
+| `command` | `Bash`: the record's `cwd` |
+
+`SessionMeta.ProjectPath` holds the storage folder here, so the project is
+the session's first recorded `cwd`.

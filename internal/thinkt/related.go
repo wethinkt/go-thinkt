@@ -81,16 +81,28 @@ type RelatedTracker struct {
 // projectPath. Paths under any exclude prefix are never recorded.
 func NewRelatedTracker(projectPath string, exclude []string) *RelatedTracker {
 	r := &RelatedTracker{byPath: map[string]*RelatedPath{}, roots: map[string]string{}}
-	if projectPath != "" {
-		r.base = filepath.Clean(projectPath)
-		r.project = resolved(r.base)
-	}
+	r.SetProject(projectPath)
 	for _, e := range exclude {
 		if e != "" {
 			r.exclude = append(r.exclude, resolved(filepath.Clean(e)))
 		}
 	}
 	return r
+}
+
+// SetProject names the session's project, for a source that learns it while
+// reading the session. The first project named stays.
+func (r *RelatedTracker) SetProject(projectPath string) {
+	if r == nil || r.project != "" || projectPath == "" {
+		return
+	}
+	r.base = filepath.Clean(projectPath)
+	r.project = resolved(r.base)
+}
+
+// HasProject reports whether the tracker knows its project.
+func (r *RelatedTracker) HasProject() bool {
+	return r != nil && r.project != ""
 }
 
 // TrackRelated returns a tracker for a session of projectPath, or nil with

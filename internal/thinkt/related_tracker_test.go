@@ -108,6 +108,22 @@ func TestRelatedTrackerDropsRelativeWithNoProject(t *testing.T) {
 	}
 }
 
+func TestRelatedTrackerSetProject(t *testing.T) {
+	root := t.TempDir()
+	proj, other := mkRepo(t, root, "p"), mkRepo(t, root, "o")
+	r := NewRelatedTracker("", nil)
+	if r.HasProject() {
+		t.Fatal("has a project")
+	}
+	r.SetProject(proj)
+	r.SetProject(other) // the first one stays
+	r.Touch(filepath.Join(proj, "a.go"), "", RelatedRead)
+	r.Touch(filepath.Join(other, "a.go"), "", RelatedRead)
+	if got := r.Paths(); len(got) != 1 || got[0].Path != other {
+		t.Fatalf("%+v", got)
+	}
+}
+
 func TestRelatedTrackerParentRepoOfProject(t *testing.T) {
 	root := t.TempDir()
 	outer := mkRepo(t, root, "outer")
