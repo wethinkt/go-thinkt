@@ -30,6 +30,7 @@ var (
 	sessionViewRaw     bool // --raw flag for undecorated output
 	sessionResolveJSON bool
 	sessionDocsJSON    bool
+	sessionTasksJSON   bool
 	sessionDocName     string
 	sessionDocVersion  int
 	sessionJSON        bool // --json flag for JSON output
@@ -219,6 +220,15 @@ Examples:
   thinkt sessions docs <session> --json`,
 	Args: cobra.ExactArgs(1),
 	RunE: runSessionsDocs,
+}
+
+var sessionsTasksCmd = &cobra.Command{
+	Use:   "tasks <session>",
+	Short: "List the background tasks a session started",
+	Long: `List the background tasks a session started, each with the prompt and
+model turn that started it, and how it ended.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runSessionsTasks,
 }
 
 // logSelectedProject prints the resolved project to stderr when -v is set.
@@ -677,17 +687,45 @@ func execResume(registry *thinkt.StoreRegistry, session thinkt.SessionMeta) erro
 	return thinkt.ExecResume(info)
 }
 
-func runSessionsDocs(cmd *cobra.Command, args []string) error {
-	registry := CreateSourceRegistry()
-	ctx := context.Background()
-	if sessionProject == "" && !filepath.IsAbs(args[0]) {
+// resolveSessionArg resolves a session argument, in the current folder's
+// project unless one was named.
+func resolveSessionArg(ctx context.Context, registry *thinkt.StoreRegistry, arg string) (*thinkt.SessionMeta, error) {
+	if sessionProject == "" && !filepath.IsAbs(arg) {
 		if cwd, err := os.Getwd(); err == nil {
 			if project := registry.FindProjectForPath(ctx, cwd); project != nil {
 				sessionProject = project.ID
 			}
 		}
 	}
-	meta, err := cli.ResolveSession(registry, sessionProject, args[0])
+	return cli.ResolveSession(registry, sessionProject, arg)
+}
+
+func runSessionsTasks(cmd *cobra.Command, args []string) error {
+	registry := CreateSourceRegistry()
+	ctx := context.Background()
+	meta, err := resolveSessionArg(ctx, registry, args[0])
+	if err != nil {
+		return err
+	}
+	var tracker thinkt.TaskTracker
+	if store, ok := registry.Get(meta.Source); ok {
+		if err := thinkt.VisitEntries(ctx, store, meta.FullPath, tracker.Entry); err != nil {
+			return err
+		}
+	}
+	if sessionTasksJSON {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(tracker.Tasks())
+	}
+	cli.FormatTasks(os.Stdout, tracker.Tasks())
+	return nil
+}
+
+func runSessionsDocs(cmd *cobra.Command, args []string) error {
+	registry := CreateSourceRegistry()
+	ctx := context.Background()
+	meta, err := resolveSessionArg(ctx, registry, args[0])
 	if err != nil {
 		return err
 	}

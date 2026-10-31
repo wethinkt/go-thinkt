@@ -162,7 +162,8 @@ const (
 // 7: Gemini JSONL sessions and usage
 // 8: RelatedPaths from Claude, Codex, Kimi and Gemini tool calls
 // 9: MediaRef on every image and document block
-const ParserVersion = 9
+// 10: TaskLink on the entries that start or end a background task
+const ParserVersion = 10
 
 // EntryKind sub-classifies an entry within its Role. It is an open set:
 // sources may emit kinds the core does not name yet, and consumers switch on
@@ -346,7 +347,9 @@ type Entry struct {
 	GitBranch    string         `json:"git_branch,omitempty"`
 	CWD          string         `json:"cwd,omitempty"`
 	IsCheckpoint bool           `json:"is_checkpoint,omitempty"`
-	IsSidechain  bool           `json:"is_sidechain,omitempty"` // For branched conversations
+	// Task marks an entry that starts, updates or finishes a background task.
+	Task        *TaskLink `json:"task,omitempty"`
+	IsSidechain bool      `json:"is_sidechain,omitempty"` // For branched conversations
 
 	// Classification (see EntryKind and Visibility)
 	Kind       EntryKind  `json:"kind,omitempty"`

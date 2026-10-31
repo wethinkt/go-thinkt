@@ -66,6 +66,8 @@ type toolUseResult struct {
 	FilePath            string      `json:"filePath"`
 	StructuredPatch     []patchHunk `json:"structuredPatch"`
 	AgentID             string      `json:"agentId"`
+	BackgroundTaskID    string      `json:"backgroundTaskId"`
+	IsAsync             bool        `json:"isAsync"`
 	Status              string      `json:"status"`
 }
 
@@ -127,6 +129,12 @@ func applyToolUseResult(block *thinkt.ContentBlock, entry *thinkt.Entry, r toolU
 		}
 		block.ChildSessionID = id
 		entry.ChildSessionID = id
+	}
+	switch {
+	case r.BackgroundTaskID != "":
+		entry.Task = &thinkt.TaskLink{ID: r.BackgroundTaskID, Event: thinkt.TaskStarted, ToolUseID: block.ToolUseID, Kind: "process"}
+	case r.IsAsync && r.AgentID != "":
+		entry.Task = &thinkt.TaskLink{ID: r.AgentID, Event: thinkt.TaskStarted, ToolUseID: block.ToolUseID, Kind: "agent"}
 	}
 	if r.PersistedOutputPath != "" {
 		entry.Metadata["persisted_output_path"] = r.PersistedOutputPath

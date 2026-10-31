@@ -502,6 +502,13 @@ func (s *HTTPServer) handleGetSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Delegate /sessions/<path>/tasks to the tasks handler.
+	if sessionPath, ok := strings.CutSuffix(path, "/tasks"); ok {
+		rewriteWildcardPath(r, sessionPath)
+		s.handleGetSessionTasks(w, r)
+		return
+	}
+
 	// Delegate /sessions/<path>/documents to the documents handler.
 	if sessionPath, ok := strings.CutSuffix(path, "/documents"); ok {
 		rewriteWildcardPath(r, sessionPath)
@@ -651,6 +658,43 @@ func (s *HTTPServer) handleGetSessionMetadata(w http.ResponseWriter, r *http.Req
 	}
 
 	writeJSON(w, http.StatusOK, output)
+}
+
+// TasksResponse is a session's background tasks.
+type TasksResponse struct {
+	Tasks []thinkt.BackgroundTask `json:"tasks"`
+}
+
+// handleGetSessionTasks returns the background tasks a session started.
+// @Summary Get a session's background tasks
+// @Description Background tasks with the prompt and turn that started them.
+// @Tags sessions
+// @Produce json
+// @Param path path string true "Session file path"
+// @Success 200 {object} TasksResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse "Unauthorized - invalid or missing token"
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /sessions/{path}/tasks [get]
+// @Security BearerAuth
+func (s *HTTPServer) handleGetSessionTasks(w http.ResponseWriter, r *http.Request) {
+	path, err := extractWildcardPath(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "missing_path", "Session path is required")
+		return
+	}
+	store, meta, err := s.registry.ResolveSessionByPath(r.Context(), path)
+	if err != nil {
+		writeDocumentsError(w, err)
+		return
+	}
+	var tracker thinkt.TaskTracker
+	if err := thinkt.VisitEntries(r.Context(), store, meta.FullPath, tracker.Entry); err != nil {
+		writeDocumentsError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, TasksResponse{Tasks: tracker.Tasks()})
 }
 
 // DocumentsResponse is a session's agent documents.

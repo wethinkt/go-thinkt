@@ -234,6 +234,8 @@ func (c *converter) taskEvent(h recordHead) []thinkt.Entry {
 			TaskID      string `json:"taskId"`
 			Description string `json:"description"`
 			Status      string `json:"status"`
+			Kind        string `json:"kind"`
+			ToolCallID  string `json:"parentToolCallId"`
 		} `json:"info"`
 		OutputTail string `json:"outputTail"`
 	}
@@ -243,6 +245,17 @@ func (c *converter) taskEvent(h recordHead) []thinkt.Entry {
 	e.Kind = thinkt.KindCommandOutput
 	e.Visibility = thinkt.VisibilitySecondary
 	e.Subtype = verb
+	if p.Info.TaskID != "" {
+		event := thinkt.TaskUpdate
+		switch h.Type {
+		case "task.started":
+			event = thinkt.TaskStarted
+		case "task.terminated":
+			event = thinkt.TaskFinished
+		}
+		e.Task = &thinkt.TaskLink{ID: p.Info.TaskID, Event: event, ToolUseID: p.Info.ToolCallID,
+			Status: p.Info.Status, Kind: p.Info.Kind, Description: p.Info.Description}
+	}
 	e.Text = p.Info.Description
 	if e.Text == "" {
 		e.Text = p.Info.TaskID

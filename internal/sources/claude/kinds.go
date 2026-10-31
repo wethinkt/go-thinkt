@@ -2,6 +2,8 @@ package claude
 
 import (
 	"encoding/json"
+	"html"
+	"regexp"
 	"strings"
 
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -40,6 +42,35 @@ var userWrapperKinds = []struct {
 	{"<local-command-caveat", thinkt.KindCommandOutput},
 	{"<bash-stdout", thinkt.KindCommandOutput},
 	{"<bash-input", thinkt.KindCommandOutput},
+}
+
+// taskTagRe matches a tag of a <task-notification> body.
+var taskTagRe = regexp.MustCompile(`(?s)<(task-id|tool-use-id|status|output-file|summary)>(.*?)</`)
+
+// parseTaskNotification reads the task link of a <task-notification>, nil
+// without a task or tool id. A status means the task ended; without one the
+// note is an update.
+func parseTaskNotification(text string) *thinkt.TaskLink {
+	l := thinkt.TaskLink{Event: thinkt.TaskUpdate}
+	for _, m := range taskTagRe.FindAllStringSubmatch(text, -1) {
+		value := html.UnescapeString(strings.TrimSpace(m[2]))
+		switch m[1] {
+		case "task-id":
+			l.ID = value
+		case "tool-use-id":
+			l.ToolUseID = value
+		case "status":
+			l.Status, l.Event = value, thinkt.TaskFinished
+		case "output-file":
+			l.OutputPath = value
+		case "summary":
+			l.Description = value
+		}
+	}
+	if l.ID == "" && l.ToolUseID == "" {
+		return nil
+	}
+	return &l
 }
 
 // detectUserKind classifies a user prompt by its wrapper tag. A tagged

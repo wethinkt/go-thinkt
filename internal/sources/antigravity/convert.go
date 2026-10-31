@@ -10,6 +10,7 @@ import (
 )
 
 var (
+	backgroundTaskRe = regexp.MustCompile(`/(task-\d+)\b`)
 	userRequestRe    = regexp.MustCompile(`(?s)<USER_REQUEST>\n?(.*?)\n?</USER_REQUEST>`)
 	additionalMetaRe = regexp.MustCompile(`(?s)<ADDITIONAL_METADATA>\n?(.*?)\n?</ADDITIONAL_METADATA>`)
 	settingsChangeRe = regexp.MustCompile(`(?s)<USER_SETTINGS_CHANGE>\n?(.*?)\n?</USER_SETTINGS_CHANGE>`)
@@ -257,6 +258,7 @@ func (c *converter) systemMessage(h stepHead) (thinkt.Entry, bool) {
 	switch {
 	case strings.Contains(sender, "/task-"):
 		e.Kind = thinkt.KindTaskNotification
+		e.Task = &thinkt.TaskLink{ID: sender[strings.LastIndex(sender, "/")+1:], Event: thinkt.TaskFinished, Kind: "process"}
 	case isConversationSender(sender):
 		e.Kind = thinkt.KindAgentMessage
 	default:
@@ -346,5 +348,10 @@ func (c *converter) resultEntry(h stepHead, toolUseID string) thinkt.Entry {
 		IsError:    h.Status == "ERROR" || h.Error != "",
 		Children:   mediaBlocks(h.Media),
 	}}
+	// The first result naming a task is its start; the tracker ignores later
+	// mentions, such as a read of its log.
+	if m := backgroundTaskRe.FindStringSubmatch(body); m != nil {
+		e.Task = &thinkt.TaskLink{ID: m[1], Event: thinkt.TaskStarted, ToolUseID: toolUseID, Kind: "process"}
+	}
 	return e
 }

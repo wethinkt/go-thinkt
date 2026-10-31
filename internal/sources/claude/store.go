@@ -605,6 +605,9 @@ func convertEntry(e *Entry, source thinkt.Source, workspaceID string) *thinkt.En
 			entry.Kind = thinkt.KindCompactSummary
 		} else {
 			entry.Kind = detectUserKind(entry.Text, e.IsMeta)
+			if entry.Kind == thinkt.KindTaskNotification {
+				entry.Task = parseTaskNotification(entry.Text)
+			}
 		}
 		entry.Visibility = userKindVisibility(entry.Kind)
 		if e.PermissionDecision != nil || e.ToolDenialKind != "" {
