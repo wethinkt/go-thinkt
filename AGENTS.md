@@ -341,19 +341,20 @@ The collector/relay system enables push-based trace aggregation from multiple ma
 
 **Relay** (`internal/relay/`) reads the enabled sources' sessions through their stores and ships full `thinkt.Entry` values to a remote collector. The payload is `tracewire.Payload` version 2 (`internal/tracewire`): one session's changed entries, the uuids it no longer has (`removed`), and a full session snapshot.
 - **Archive keys:** a session is `(machine_id, source, session_id)`, an entry is `(machine_id, source, session_id, uuid)`. Entries without a uuid get a stable composed one (`relay-noid:…`).
-- **State:** `~/.thinkt/relay/state.json` keeps, per session, the entry hashes last shipped, the file's mtime and size, and a generation. Only changes ship, and a restart re-reads only sessions whose files changed.
-- **Reconcile:** `thinkt relay` (one-shot) and the start of `--forward` reconcile every session. `--backfill all|none` (`THINKT_RELAY_BACKFILL`, default `all`) decides whether history already on disk ships on first sight.
+- **State:** `~/.thinkt/relay/state.json` keeps, per session, the entry hashes last shipped, the file's mtime and size, and a generation. Only changes ship, and a restart re-reads only sessions whose files changed. It is saved when dirty: every 30 s, at the end of a reconcile (also an interrupted one) and at shutdown.
+- **Generations:** a sync's generation is its start time in nanoseconds (never below the session's last), so a relay that lost its state still ships above what the collector holds.
+- **Reconcile:** `thinkt relay` (one-shot) and the start of `--forward` reconcile every session; forward mode starts the watcher first, so writes during the reconcile still ship. `--backfill all|none` (`THINKT_RELAY_BACKFILL`, default `all`) decides whether history already on disk ships on first sight.
 - **Vanished sessions:** a session file that disappears sends nothing, and the archive keeps it.
 - `FileWatcher` uses fsnotify with 2-second debounce (only `.jsonl` files); each event re-reads that session through its store.
-- `Shipper` POSTs with retry (3 attempts, exponential backoff: 1s/2s/4s).
+- `Shipper` POSTs with retry (3 attempts, exponential backoff: 1s/2s/4s). After one failed retry cycle the relay buffers without trying until a buffer drain succeeds. A payload the collector rejects permanently (4xx other than 401/403/408/429) is moved to `quarantine/` beside the state file.
 - `DiskBuffer` stores payloads as JSON files when the collector is unreachable. While it holds any payload, new ones queue behind it, so a newer sync never overtakes an older one. All payloads of one sync share a generation.
-- **One relay per machine:** the relay registers as `InstanceRelay`, and a second one refuses to start. Buffered payloads of sources turned off since are dropped at start.
+- **One relay per machine:** the relay registers as `InstanceRelay`, and a second one refuses to start. Buffered payloads of sources the config turned off are dropped at start, with their state; a `--source` filter does not drop other sources' payloads.
 - `DiscoverCollector()` cascade: `THINKT_COLLECTOR_URL` env → `.thinkt/collector.json` → well-known endpoint → local buffer
 
 **Collector** (`internal/collect/`) receives, normalizes, and stores traces:
 - HTTP server with chi router, bearer auth (constant-time comparison), CORS
 - `TraceStore` interface backed by DuckDB (`~/.thinkt/collector.duckdb`)
-- Single-writer batch pattern: incoming payloads queue to a channel, one goroutine drains and writes each in its own transaction
+- Single-writer batch pattern: incoming payloads queue to a channel, one goroutine drains and writes each in its own transaction. `IngestBatch` returns after the commit, so a 200 means the payload is stored; a write error answers 500 and the relay retries
 - `POST /v1/traces` accepts version 2 only (older bodies get 400 `unsupported_version`), up to 64 MB. A payload with no entries still applies its `removed` and session metadata.
 - **Generations:** a payload whose generation is lower than the session's stored one is acknowledged and ignored.
 - **Removed entries:** `--superseded keep|delete` (`THINKT_COLLECTOR_SUPERSEDED`, default `keep`). They are kept with `superseded_at` set, or deleted; readers skip superseded rows.
