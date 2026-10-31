@@ -3,6 +3,8 @@ package kimi
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -100,7 +102,8 @@ func (c *converter) newEntry(role thinkt.Role, h recordHead, uuid string) thinkt
 // turn.steer, or an appended notify record.
 func (c *converter) convertUser(h recordHead) []thinkt.Entry {
 	text := strings.TrimSpace(h.LeadText)
-	if text == "" {
+	media := c.userMedia(h)
+	if text == "" && len(media) == 0 {
 		return nil
 	}
 	class, kind, subtype := userClass(h)
@@ -119,7 +122,28 @@ func (c *converter) convertUser(h recordHead) []thinkt.Entry {
 	if class == thinkt.ClassContext || kind == thinkt.KindCommandOutput {
 		e.Visibility = thinkt.VisibilitySecondary
 	}
+	if len(media) > 0 {
+		if e.Text != "" {
+			e.ContentBlocks = []thinkt.ContentBlock{{Type: "text", Text: e.Text}}
+		}
+		e.ContentBlocks = append(e.ContentBlocks, media...)
+	}
 	return []thinkt.Entry{e}
+}
+
+// userMedia returns the images of a user message.
+func (c *converter) userMedia(h recordHead) []thinkt.ContentBlock {
+	m, ok := c.legacyMessage(h)
+	if !ok {
+		return nil
+	}
+	var media []thinkt.ContentBlock
+	for _, b := range contentBlocks(m.Content) {
+		if b.Media != nil {
+			media = append(media, b)
+		}
+	}
+	return media
 }
 
 // convertEvent converts the system events and unknown lines.
@@ -299,9 +323,11 @@ func contentBlocks(parts []json.RawMessage) []thinkt.ContentBlock {
 	var blocks []thinkt.ContentBlock
 	for _, raw := range parts {
 		var p struct {
-			Type  string `json:"type"`
-			Text  string `json:"text"`
-			Think string `json:"think"`
+			Type     string   `json:"type"`
+			Text     string   `json:"text"`
+			Think    string   `json:"think"`
+			ImageURL imageURL `json:"imageUrl"`
+			Snake    imageURL `json:"image_url"`
 		}
 		if json.Unmarshal(raw, &p) != nil {
 			continue
@@ -315,9 +341,48 @@ func contentBlocks(parts []json.RawMessage) []thinkt.ContentBlock {
 			if p.Text != "" {
 				blocks = append(blocks, thinkt.ContentBlock{Type: "text", Text: p.Text})
 			}
+		case "image_url":
+			if b, ok := imageBlock(p.ImageURL.URL + p.Snake.URL); ok {
+				blocks = append(blocks, b)
+			}
 		}
 	}
 	return blocks
+}
+
+type imageURL struct {
+	URL string `json:"url"`
+}
+
+// imageBlock turns an image URL into a media block. A blobref names its bytes
+// by hash; the session reader finds the file.
+func imageBlock(url string) (thinkt.ContentBlock, bool) {
+	if rest, ok := strings.CutPrefix(url, "blobref:"); ok {
+		mediaType, hash, _ := strings.Cut(rest, ";")
+		b := thinkt.MediaBlockURI(mediaType, "")
+		b.Media.SHA256 = hash
+		return b, hash != ""
+	}
+	return thinkt.MediaBlockURL(url)
+}
+
+// resolveBlobs points blobref media at their files, in the agent's blobs
+// folder or else the main agent's.
+func resolveBlobs(blocks []thinkt.ContentBlock, agentDir string) {
+	for i := range blocks {
+		resolveBlobs(blocks[i].Children, agentDir)
+		m := blocks[i].Media
+		if m == nil || m.URI != "" || m.SHA256 == "" || filepath.Base(m.SHA256) != m.SHA256 {
+			continue
+		}
+		for _, dir := range []string{agentDir, filepath.Join(filepath.Dir(agentDir), "main")} {
+			path := filepath.Join(dir, "blobs", m.SHA256)
+			if info, err := os.Stat(path); err == nil {
+				m.URI, m.Size = path, info.Size()
+				break
+			}
+		}
+	}
 }
 
 func joinTextBlocks(blocks []thinkt.ContentBlock) string {
@@ -428,13 +493,8 @@ func toolResultBlock(toolCallID string, output any, note string, isError bool) t
 				} else if iu, ok := m["image_url"].(map[string]any); ok {
 					url, _ = iu["url"].(string)
 				}
-				if url == "" {
-					continue
-				}
-				if mediaType, data, ok := parseDataURL(url); ok {
-					b.Children = append(b.Children, thinkt.ContentBlock{Type: "image", MediaType: mediaType, MediaData: data})
-				} else {
-					b.Children = append(b.Children, thinkt.ContentBlock{Type: "text", Text: url})
+				if child, ok := imageBlock(url); ok {
+					b.Children = append(b.Children, child)
 				}
 			default:
 				if raw, err := json.Marshal(m); err == nil {
@@ -453,19 +513,6 @@ func toolResultBlock(toolCallID string, output any, note string, isError bool) t
 		b.Children = append(b.Children, thinkt.ContentBlock{Type: "text", Text: note})
 	}
 	return b
-}
-
-func parseDataURL(url string) (mediaType, data string, ok bool) {
-	if !strings.HasPrefix(url, "data:") {
-		return "", "", false
-	}
-	rest := url[len("data:"):]
-	semi := strings.IndexByte(rest, ';')
-	idx := strings.Index(rest, "base64,")
-	if semi < 0 || idx < 0 {
-		return "", "", false
-	}
-	return rest[:semi], rest[idx+len("base64,"):], true
 }
 
 // decodeUsage maps a loop usage object onto TokenUsage; nil for empty input.

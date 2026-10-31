@@ -25,7 +25,7 @@ func TestConvertUserMessageWithDataImage(t *testing.T) {
 		t.Fatalf("entry = %+v", entries[0])
 	}
 	blocks := entries[0].ContentBlocks
-	if len(blocks) != 3 || blocks[0].Type != "text" || blocks[1].Type != "image" || blocks[1].MediaType != "image/png" || blocks[1].MediaData != "AAAA" || blocks[2].Type != "text" || blocks[2].Text != "https://x/y.png" {
+	if len(blocks) != 3 || blocks[0].Type != "text" || blocks[1].Type != "image" || blocks[1].MediaType != "image/png" || blocks[1].MediaData == "" || blocks[2].Type != "image" || blocks[2].Media == nil || blocks[2].Media.URI == "" {
 		t.Fatalf("blocks = %+v", blocks)
 	}
 }

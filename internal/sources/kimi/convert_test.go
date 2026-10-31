@@ -228,10 +228,10 @@ func TestToolResultBlockArrayOutput(t *testing.T) {
 	}
 }
 
-func TestToolResultBlockBlobrefIsText(t *testing.T) {
+func TestToolResultBlockBlobrefIsImage(t *testing.T) {
 	output := []any{map[string]any{"type": "image_url", "imageUrl": map[string]any{"url": "blobref:image/png;abc"}}}
 	b := toolResultBlock("t3", output, "", false)
-	if len(b.Children) != 1 || b.Children[0].Type != "text" || b.Children[0].Text != "blobref:image/png;abc" || b.Children[0].MediaData != "" {
+	if len(b.Children) != 1 || b.Children[0].Type != "image" || b.Children[0].MediaType != "image/png" || b.Children[0].Media.SHA256 != "abc" {
 		t.Fatalf("block = %+v", b)
 	}
 }

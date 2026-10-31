@@ -80,10 +80,8 @@ func renderEntryMarkdown(entry *thinkt.Entry, toolResults map[string]*thinkt.Con
 						label, block.ToolResult)
 					writeToolResultChildren(&b, &block)
 				}
-			case "image":
-				fmt.Fprintf(&b, "> Image: %s\n\n", block.MediaType)
-			case "document":
-				fmt.Fprintf(&b, "> Document: %s\n\n", block.MediaType)
+			case "image", "document":
+				writeMediaLine(&b, block)
 			}
 		}
 	}
@@ -110,7 +108,7 @@ func writeToolResultChildren(b *strings.Builder, block *thinkt.ContentBlock) {
 				b.WriteString("\n\n")
 			}
 		case "image", "document":
-			fmt.Fprintf(b, "> %s: %s\n\n", strings.ToUpper(child.Type[:1])+child.Type[1:], child.MediaType)
+			writeMediaLine(b, child)
 		default:
 			if child.Text != "" {
 				fmt.Fprintf(b, "```\n%s\n```\n\n", child.Text)
@@ -143,4 +141,14 @@ func roleTitle(role thinkt.Role) string {
 	default:
 		return string(role)
 	}
+}
+
+// writeMediaLine names a media block, with its location when it has one.
+func writeMediaLine(b *strings.Builder, block thinkt.ContentBlock) {
+	label := strings.ToUpper(block.Type[:1]) + block.Type[1:]
+	if block.Media != nil && block.Media.URI != "" {
+		fmt.Fprintf(b, "> %s: %s (%s)\n\n", label, block.MediaType, block.Media.URI)
+		return
+	}
+	fmt.Fprintf(b, "> %s: %s\n\n", label, block.MediaType)
 }

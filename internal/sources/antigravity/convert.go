@@ -122,6 +122,30 @@ func withMedia(text string, media []mediaRef) string {
 	return text
 }
 
+// mediaBlocks returns a block for each attachment with a location.
+func mediaBlocks(media []mediaRef) []thinkt.ContentBlock {
+	var out []thinkt.ContentBlock
+	for _, m := range media {
+		if m.URI != "" {
+			out = append(out, thinkt.MediaBlockURI(m.MimeType, m.URI))
+		}
+	}
+	return out
+}
+
+// attachMedia adds an entry's attachments as blocks, after its text, which
+// keeps a block of its own because renderers prefer blocks.
+func attachMedia(e *thinkt.Entry, media []mediaRef) {
+	blocks := mediaBlocks(media)
+	if len(blocks) == 0 {
+		return
+	}
+	if len(e.ContentBlocks) == 0 && e.Text != "" {
+		e.ContentBlocks = []thinkt.ContentBlock{{Type: "text", Text: e.Text}}
+	}
+	e.ContentBlocks = append(e.ContentBlocks, blocks...)
+}
+
 // toolCall is one call of a model turn, with its synthesized id.
 type toolCall struct {
 	ID   string
@@ -168,6 +192,7 @@ func (c *converter) convert(h stepHead, class StepClass) (thinkt.Entry, bool) {
 		for k, v := range meta {
 			e.Metadata[k] = v
 		}
+		attachMedia(&e, h.Media)
 		return e, e.Text != ""
 	case ClassSystemMessage:
 		return c.systemMessage(h)
@@ -277,7 +302,7 @@ func (c *converter) modelTurn(h stepHead) (thinkt.Entry, []toolCall, bool) {
 	}
 	e := c.newEntry(thinkt.RoleAssistant, h)
 	e.TurnID = strconv.Itoa(h.Index)
-	e.ContentBlocks, e.Text, e.Model = blocks, text, c.model
+	e.ContentBlocks, e.Text, e.Model = append(blocks, mediaBlocks(h.Media)...), text, c.model
 	if r.InputTokens != nil || r.CacheReadTokens != nil || r.OutputTokens != nil {
 		e.Usage = &thinkt.TokenUsage{InputTokens: deref(r.InputTokens), CacheReadInputTokens: deref(r.CacheReadTokens), OutputTokens: deref(r.OutputTokens)}
 	}
@@ -319,6 +344,7 @@ func (c *converter) resultEntry(h stepHead, toolUseID string) thinkt.Entry {
 		ToolUseID:  toolUseID,
 		ToolResult: body,
 		IsError:    h.Status == "ERROR" || h.Error != "",
+		Children:   mediaBlocks(h.Media),
 	}}
 	return e
 }

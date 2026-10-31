@@ -139,7 +139,7 @@ func TestMcpToolCallPair(t *testing.T) {
 func TestMcpToolCallNonTextContentBecomesChild(t *testing.T) {
 	line := `{"timestamp":"2026-10-01T10:00:07Z","type":"event_msg","payload":{"type":"item_completed","turn_id":"turn-1","item":{"type":"McpToolCall","id":"m2","server":"s","tool":"t","arguments":{},"status":"failed","result":{"content":[{"type":"image","data":"QUJD","mimeType":"image/png"}],"isError":true},"duration":{"secs":0,"nanos":0}}}}`
 	_, _, _, result := pairOf(t, convertLine(t, line))
-	if !result.IsError || len(result.Children) != 1 || result.Children[0].Type != "image" || !strings.Contains(result.Children[0].Text, `"mimeType"`) {
+	if !result.IsError || len(result.Children) != 1 || result.Children[0].Type != "image" || result.Children[0].Media == nil {
 		t.Fatalf("result = %+v", result)
 	}
 }
@@ -180,7 +180,7 @@ func TestClockSleepPair(t *testing.T) {
 
 func TestImageViewPair(t *testing.T) {
 	use, call, _, result := pairOf(t, convertLine(t, fixtureLine(t, 29)))
-	if call.ToolName != "view_image" || use.UUID != "img-1" || result.ToolResult != "/tmp/shot.png" || len(result.Children) != 0 {
+	if call.ToolName != "view_image" || use.UUID != "img-1" || result.ToolResult != "/tmp/shot.png" || len(result.Children) != 1 || result.Children[0].Media.URI != "/tmp/shot.png" {
 		t.Fatalf("use = %+v result = %+v", use, result)
 	}
 	in, _ := call.ToolInput.(map[string]any)

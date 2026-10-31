@@ -161,7 +161,8 @@ const (
 // 6: PromptID per prompt, TurnID per model response in every source
 // 7: Gemini JSONL sessions and usage
 // 8: RelatedPaths from Claude, Codex, Kimi and Gemini tool calls
-const ParserVersion = 8
+// 9: MediaRef on every image and document block
+const ParserVersion = 9
 
 // EntryKind sub-classifies an entry within its Role. It is an open set:
 // sources may emit kinds the core does not name yet, and consumers switch on
@@ -309,6 +310,8 @@ type ContentBlock struct {
 	// Image/document block
 	MediaType string `json:"media_type,omitempty"`
 	MediaData string `json:"media_data,omitempty"`
+	// Media identifies the bytes and says where they are when not inline.
+	Media *MediaRef `json:"media,omitempty"`
 
 	// Children holds nested blocks of a tool result: text and image parts of
 	// an array result, and a BlockTypeDiff built from a structured patch.

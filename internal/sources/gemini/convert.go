@@ -13,6 +13,32 @@ type part struct {
 	Thought          bool            `json:"thought"`
 	FunctionCall     *functionCall   `json:"functionCall"`
 	FunctionResponse *functionResult `json:"functionResponse"`
+	InlineData       *inlineData     `json:"inlineData"`
+	FileData         *fileData       `json:"fileData"`
+}
+
+type inlineData struct {
+	MimeType string `json:"mimeType"`
+	Data     string `json:"data"`
+}
+
+type fileData struct {
+	MimeType string `json:"mimeType"`
+	FileURI  string `json:"fileUri"`
+}
+
+// mediaBlocks returns a block for each attachment among ps.
+func mediaBlocks(ps []part) []thinkt.ContentBlock {
+	var out []thinkt.ContentBlock
+	for _, p := range ps {
+		switch {
+		case p.InlineData != nil && p.InlineData.Data != "":
+			out = append(out, thinkt.MediaBlock(p.InlineData.MimeType, p.InlineData.Data))
+		case p.FileData != nil && p.FileData.FileURI != "":
+			out = append(out, thinkt.MediaBlockURI(p.FileData.MimeType, p.FileData.FileURI))
+		}
+	}
+	return out
 }
 
 type functionCall struct {
@@ -193,6 +219,12 @@ func (c *converter) user(m *lineMessage) []thinkt.Entry {
 	c.promptID = m.ID
 	e := c.entry(m, thinkt.RoleUser)
 	e.Text = text
+	if media := mediaBlocks(ps); len(media) > 0 {
+		if text != "" {
+			e.ContentBlocks = []thinkt.ContentBlock{{Type: "text", Text: text}}
+		}
+		e.ContentBlocks = append(e.ContentBlocks, media...)
+	}
 	return []thinkt.Entry{e}
 }
 

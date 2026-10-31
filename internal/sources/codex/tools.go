@@ -56,8 +56,8 @@ func (c *converter) convertWireOutput(h recordHead) []thinkt.Entry {
 		return nil
 	}
 	callID := readString(payload, "call_id")
-	output := normalizeToolOutput(payload["output"])
-	if callID == "" && output == "" {
+	output, media := splitToolOutput(payload["output"])
+	if callID == "" && output == "" && len(media) == 0 {
 		return nil
 	}
 	id := c.wireID(h, callID)
@@ -67,11 +67,42 @@ func (c *converter) convertWireOutput(h recordHead) []thinkt.Entry {
 		Type:       "tool_result",
 		ToolUseID:  id,
 		ToolResult: output,
+		Children:   media,
 	}}
 	if code, ok := parseExitCode(output); ok {
 		e.Metadata["exit_code"] = code
 	}
 	return []thinkt.Entry{e}
+}
+
+// splitToolOutput returns a wire output's text and its images. An array
+// output holding images is split; anything else is normalizeToolOutput's.
+func splitToolOutput(v any) (string, []thinkt.ContentBlock) {
+	list, ok := v.([]any)
+	if !ok {
+		return normalizeToolOutput(v), nil
+	}
+	var texts []string
+	var media []thinkt.ContentBlock
+	for _, raw := range list {
+		part, _ := raw.(map[string]any)
+		switch part["type"] {
+		case "input_image":
+			if u, _ := part["image_url"].(string); u != "" {
+				if b, ok := thinkt.MediaBlockURL(u); ok {
+					media = append(media, b)
+				}
+			}
+		case "input_text", "text":
+			if s, _ := part["text"].(string); s != "" {
+				texts = append(texts, s)
+			}
+		}
+	}
+	if len(media) == 0 {
+		return normalizeToolOutput(v), nil
+	}
+	return strings.Join(texts, "\n"), media
 }
 
 // wireID is the UUID stem and ToolUseID of a wire tool pair: "wire:<call_id>",
@@ -328,11 +359,17 @@ func (c *converter) mcpToolCall(h recordHead) []thinkt.Entry {
 		var texts []string
 		for _, raw := range item.Result.Content {
 			var part struct {
-				Type string `json:"type"`
-				Text string `json:"text"`
+				Type     string `json:"type"`
+				Text     string `json:"text"`
+				Data     string `json:"data"`
+				MimeType string `json:"mimeType"`
 			}
 			if json.Unmarshal(raw, &part) == nil && part.Type == "text" {
 				texts = append(texts, part.Text)
+				continue
+			}
+			if part.Type == "image" && part.Data != "" {
+				result.Children = append(result.Children, thinkt.MediaBlock(part.MimeType, part.Data))
 				continue
 			}
 			childType := part.Type
@@ -409,5 +446,8 @@ func (c *converter) imageView(h recordHead) []thinkt.Entry {
 	}
 	path := stripFileURI(item.Path)
 	call := thinkt.ContentBlock{ToolName: "view_image", ToolInput: map[string]any{"path": path}}
-	return c.toolPair(h, item.ID, call, thinkt.ContentBlock{ToolResult: path}, "", thinkt.KindNone)
+	image := thinkt.MediaBlockURI("", path)
+	image.Type = "image"
+	result := thinkt.ContentBlock{ToolResult: path, Children: []thinkt.ContentBlock{image}}
+	return c.toolPair(h, item.ID, call, result, "", thinkt.KindNone)
 }

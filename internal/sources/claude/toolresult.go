@@ -11,6 +11,14 @@ import (
 // convertToolResultContent decodes a tool_result's content, which is a string
 // or an array of blocks. The returned text joins the text children; every
 // array element becomes a child so images and unfamiliar block types survive.
+// mediaBlock converts an image or document source, keeping Claude's block
+// type.
+func mediaBlock(blockType string, src *MediaSource) thinkt.ContentBlock {
+	b := thinkt.MediaBlock(src.MediaType, src.Data)
+	b.Type = blockType
+	return b
+}
+
 func convertToolResultContent(raw json.RawMessage) (string, []thinkt.ContentBlock) {
 	if len(raw) == 0 {
 		return "", nil
@@ -38,8 +46,7 @@ func convertToolResultContent(raw json.RawMessage) (string, []thinkt.ContentBloc
 		case "image", "document":
 			child := thinkt.ContentBlock{Type: block.Type}
 			if block.Source != nil {
-				child.MediaType = block.Source.MediaType
-				child.MediaData = block.Source.Data
+				child = mediaBlock(block.Type, block.Source)
 			}
 			children = append(children, child)
 		default:

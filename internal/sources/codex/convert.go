@@ -246,18 +246,16 @@ func (c *converter) convertWireMessage(h recordHead, class thinkt.RecordClass) [
 	return nil
 }
 
-// imageBlocks turns input_image parts into image blocks (data URLs) or text
-// blocks (other URLs), with a leading text block when text is present.
+// imageBlocks turns input_image parts into media blocks, with a leading text
+// block when text is present.
 func imageBlocks(parts []contentPart, text string) []thinkt.ContentBlock {
 	var blocks []thinkt.ContentBlock
 	for _, p := range parts {
 		if p.Type != "input_image" || p.ImageURL == "" {
 			continue
 		}
-		if mediaType, data, ok := parseDataURL(p.ImageURL); ok {
-			blocks = append(blocks, thinkt.ContentBlock{Type: "image", MediaType: mediaType, MediaData: data})
-		} else {
-			blocks = append(blocks, thinkt.ContentBlock{Type: "text", Text: p.ImageURL})
+		if b, ok := thinkt.MediaBlockURL(p.ImageURL); ok {
+			blocks = append(blocks, b)
 		}
 	}
 	if len(blocks) == 0 {
@@ -267,23 +265,6 @@ func imageBlocks(parts []contentPart, text string) []thinkt.ContentBlock {
 		blocks = append([]thinkt.ContentBlock{{Type: "text", Text: text}}, blocks...)
 	}
 	return blocks
-}
-
-func parseDataURL(url string) (mediaType, data string, ok bool) {
-	if !strings.HasPrefix(url, "data:") {
-		return "", "", false
-	}
-	rest := url[len("data:"):]
-	semi := strings.IndexByte(rest, ';')
-	if semi < 0 {
-		return "", "", false
-	}
-	mediaType = rest[:semi]
-	idx := strings.Index(rest, "base64,")
-	if idx < 0 {
-		return "", "", false
-	}
-	return mediaType, rest[idx+len("base64,"):], true
 }
 
 func (c *converter) convertWireReasoning(h recordHead) []thinkt.Entry {

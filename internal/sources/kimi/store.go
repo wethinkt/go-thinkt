@@ -415,6 +415,7 @@ func (r *sessionReader) ReadNext() (*thinkt.Entry, error) {
 	if e.Timestamp.IsZero() {
 		e.Timestamp = r.meta.CreatedAt
 	}
+	resolveBlobs(e.ContentBlocks, filepath.Dir(r.meta.FullPath))
 	return e, nil
 }
 

@@ -822,8 +822,7 @@ func convertUserBlocks(blocks []ContentBlock, toolUseResultRaw json.RawMessage, 
 			}
 		case "image", "document":
 			if b.Source != nil {
-				cb.MediaType = b.Source.MediaType
-				cb.MediaData = b.Source.Data
+				cb = mediaBlock(b.Type, b.Source)
 			}
 		}
 		result = append(result, cb)
