@@ -300,6 +300,10 @@ func replay(r io.Reader) (*replayed, error) {
 			}
 		case isString(rec["sessionId"]) && isString(rec["projectHash"]):
 			mergeHeader(&out.Header, b)
+			var sum string
+			if json.Unmarshal(rec["summary"], &sum) == nil && rec["summary"] != nil {
+				out.Meta.Summary = sum
+			}
 			if raw, ok := rec["messages"]; ok && isArray(raw) {
 				msgs.addMessages(raw, line)
 			}

@@ -248,12 +248,24 @@ func (c *converter) model(m *lineMessage) []thinkt.Entry {
 	out := []thinkt.Entry{a}
 	for _, tc := range m.ToolCalls {
 		failed := tc.Status == "error"
+		// The CLI's masking sync can store a whole user turn as each
+		// call's result; take the response with this call's id.
 		var body string
+		var first *functionResult
 		for _, p := range parts(tc.Result) {
-			if p.FunctionResponse != nil {
-				body = resultText(p.FunctionResponse.Response, failed)
+			if p.FunctionResponse == nil {
+				continue
+			}
+			if first == nil {
+				first = p.FunctionResponse
+			}
+			if p.FunctionResponse.ID == tc.ID {
+				first = p.FunctionResponse
 				break
 			}
+		}
+		if first != nil {
+			body = resultText(first.Response, failed)
 		}
 		e := c.entry(m, thinkt.RoleUser)
 		e.UUID = tc.ID + ":result"

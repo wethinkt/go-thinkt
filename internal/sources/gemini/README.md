@@ -114,6 +114,6 @@ Both formats use this mapping.
 - **Search:** the file filter replays a `.jsonl` file before scanning it,
   so a hit counts only in a line whose content survives. Rewound turns,
   earlier copies and metadata lines do not count.
-- **Watching:** `WatchConfig` reaches `tmp/<p>/chats/<parent>/` (depth 4).
+- **Watching:** `WatchConfig` reaches `tmp/<p>/chats/<parent>/` (depth 4). The relay watches these folders but cannot ship Gemini lines yet: they carry `id`, not `uuid`, and a later line can rewrite or rewind an earlier one.
 
 `thinkt.ParserVersion` 7 covers this format.

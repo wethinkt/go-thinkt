@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -429,7 +430,7 @@ func dedupeFolders(files []sessionFile) []sessionFile {
 			continue
 		}
 		cur := out[i]
-		same := cur.meta.FileSize == f.meta.FileSize && cur.meta.ModifiedAt.Equal(f.meta.ModifiedAt)
+		same := cur.meta.FileSize == f.meta.FileSize && sameContent(cur.meta.FullPath, f.meta.FullPath)
 		switch {
 		case same && f.slug && !cur.slug:
 			out[i] = f
@@ -438,6 +439,13 @@ func dedupeFolders(files []sessionFile) []sessionFile {
 		}
 	}
 	return out
+}
+
+// sameContent reports whether two files hold the same bytes.
+func sameContent(a, b string) bool {
+	x, errA := os.ReadFile(a)
+	y, errB := os.ReadFile(b)
+	return errA == nil && errB == nil && bytes.Equal(x, y)
 }
 
 // dropSuperseded removes a .json file whose conversion is a .jsonl file of
@@ -454,6 +462,12 @@ func (s *Store) dropSuperseded(files []sessionFile) []sessionFile {
 	if len(byHeader) == 0 {
 		return files
 	}
+	converted := map[string]bool{} // stems with a main .jsonl
+	for _, f := range files {
+		if f.jsonl && f.meta.ParentSessionID == "" {
+			converted[f.meta.ID] = true
+		}
+	}
 	for i := range files {
 		if !files[i].jsonl && files[i].headerID == "" {
 			files[i].headerID = jsonHeaderID(files[i].meta.FullPath)
@@ -462,6 +476,9 @@ func (s *Store) dropSuperseded(files []sessionFile) []sessionFile {
 	msgIDs := map[int]map[string]bool{}
 	out := files[:0]
 	for _, f := range files {
+		if !f.jsonl && converted[f.meta.ID] {
+			continue // the CLI converts <name>.json into <name>.jsonl
+		}
 		if f.jsonl || byHeader[f.headerID] == nil {
 			out = append(out, f)
 			continue
@@ -596,16 +613,34 @@ func (s *Store) GetSessionMeta(ctx context.Context, sessionID string) (*thinkt.S
 		if hash == "" {
 			return nil, nil
 		}
-		all, err := s.allSessions(hash)
+		info, err := os.Stat(sessionID)
 		if err != nil {
-			return nil, err
+			return nil, nil
 		}
-		for _, m := range all {
-			if samePath(m.FullPath, sessionID) {
-				return &m, nil
+		// The listing is cached for the life of the store; a file created
+		// or grown since then (the index watcher reports it) lists again.
+		var found *thinkt.SessionMeta
+		for attempt := 0; attempt < 2; attempt++ {
+			if attempt == 1 {
+				s.cache.InvalidateSessions("all\x00" + hash)
+				s.cache.InvalidateProjects()
+			}
+			all, err := s.allSessions(hash)
+			if err != nil {
+				return nil, err
+			}
+			found = nil
+			for i := range all {
+				if samePath(all[i].FullPath, sessionID) {
+					found = &all[i]
+					break
+				}
+			}
+			if found != nil && found.FileSize == info.Size() && !info.ModTime().After(found.ModifiedAt) {
+				break
 			}
 		}
-		return nil, nil
+		return found, nil
 	}
 	projects, _ := s.ListProjects(ctx)
 	for _, p := range projects {
