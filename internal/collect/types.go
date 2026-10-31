@@ -4,7 +4,11 @@ package collect
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tracewire"
 )
 
 // Default configuration values for the collector.
@@ -24,6 +28,27 @@ type CollectorConfig struct {
 	Quiet         bool
 	BatchSize     int
 	FlushInterval time.Duration
+	Superseded    SupersededMode // what happens to entries a relay reports removed
+}
+
+// SupersededMode is what the collector does with an entry a relay reports
+// the source no longer has.
+type SupersededMode string
+
+const (
+	SupersededKeep   SupersededMode = "keep"   // keep the row, marked superseded (default)
+	SupersededDelete SupersededMode = "delete" // delete the row
+)
+
+// ParseSupersededMode reads a --superseded value; "" is keep.
+func ParseSupersededMode(v string) (SupersededMode, error) {
+	switch SupersededMode(v) {
+	case "", SupersededKeep:
+		return SupersededKeep, nil
+	case SupersededDelete:
+		return SupersededDelete, nil
+	}
+	return "", fmt.Errorf("invalid superseded mode %q (want keep or delete)", v)
 }
 
 // DefaultCollectorConfig returns a CollectorConfig with default values.
@@ -36,30 +61,23 @@ func DefaultCollectorConfig() CollectorConfig {
 	}
 }
 
-// IngestRequest is the POST /v1/traces request body sent by relays.
-type IngestRequest struct {
-	InstanceID  string         `json:"instance_id"`
-	Source      string         `json:"source"`
-	ProjectPath string         `json:"project_path"`
-	SessionID   string         `json:"session_id"`
-	Entries     []IngestEntry  `json:"entries"`
-	Metadata    map[string]any `json:"metadata,omitempty"`
-}
-
-// IngestEntry is a single trace entry within an ingest payload.
-type IngestEntry struct {
-	UUID         string    `json:"uuid"`
-	Role         string    `json:"role"`
-	Timestamp    time.Time `json:"timestamp"`
-	Model        string    `json:"model,omitempty"`
-	Text         string    `json:"text,omitempty"`
-	ToolName     string    `json:"tool_name,omitempty"`
-	IsError      bool      `json:"is_error,omitempty"`
-	InputTokens  int       `json:"input_tokens,omitempty"`
-	OutputTokens int       `json:"output_tokens,omitempty"`
-	ThinkingLen  int       `json:"thinking_len,omitempty"`
-	HasThinking  bool      `json:"has_thinking,omitempty"`
-	HasToolUse   bool      `json:"has_tool_use,omitempty"`
+// EntrySummary is the short form of an archived entry, served by the
+// session stream and entry queries.
+type EntrySummary struct {
+	UUID          string                `json:"uuid"`
+	Role          string                `json:"role"`
+	Timestamp     time.Time             `json:"timestamp"`
+	Model         string                `json:"model,omitempty"`
+	Text          string                `json:"text,omitempty"`
+	ToolName      string                `json:"tool_name,omitempty"`
+	IsError       bool                  `json:"is_error,omitempty"`
+	InputTokens   int                   `json:"input_tokens,omitempty"`
+	OutputTokens  int                   `json:"output_tokens,omitempty"`
+	ThinkingLen   int                   `json:"thinking_len,omitempty"`
+	HasThinking   bool                  `json:"has_thinking,omitempty"`
+	HasToolUse    bool                  `json:"has_tool_use,omitempty"`
+	ContentBlocks []thinkt.ContentBlock `json:"content_blocks,omitempty"`
+	Superseded    bool                  `json:"superseded,omitempty"`
 }
 
 // IngestResponse is returned by POST /v1/traces.
@@ -116,12 +134,12 @@ type ExportOptions struct {
 
 // TraceStore is the storage interface for the collector.
 type TraceStore interface {
-	// IngestBatch writes a batch of trace entries from an ingest request.
-	IngestBatch(ctx context.Context, req IngestRequest) error
+	// IngestBatch queues one relay payload for the batch writer.
+	IngestBatch(ctx context.Context, p tracewire.Payload) error
 	// QuerySessions returns session summaries matching the filter.
 	QuerySessions(ctx context.Context, filter SessionFilter) ([]SessionSummary, error)
 	// QueryEntries returns trace entries for a session with pagination.
-	QueryEntries(ctx context.Context, sessionID string, limit, offset int) ([]IngestEntry, error)
+	QueryEntries(ctx context.Context, sessionID string, limit, offset int) ([]EntrySummary, error)
 	// SearchTraces searches collected traces by text query.
 	SearchTraces(ctx context.Context, query string, limit int) ([]SessionSummary, error)
 	// RecordSessionActivity records a session lifecycle event.
@@ -149,6 +167,8 @@ type SessionFilter struct {
 // SessionSummary is a summary of a collected session.
 type SessionSummary struct {
 	ID           string    `json:"id"`
+	MachineID    string    `json:"machine_id,omitempty"`
+	Title        string    `json:"title,omitempty"`
 	ProjectPath  string    `json:"project_path"`
 	Source       string    `json:"source"`
 	InstanceID   string    `json:"instance_id"`
@@ -163,6 +183,7 @@ type SessionSummary struct {
 // SessionActivityEvent is sent by relays to report session lifecycle changes.
 type SessionActivityEvent struct {
 	InstanceID  string    `json:"instance_id"`
+	MachineID   string    `json:"machine_id,omitempty"`
 	Source      string    `json:"source"`
 	ProjectPath string    `json:"project_path"`
 	SessionID   string    `json:"session_id"`

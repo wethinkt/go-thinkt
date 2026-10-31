@@ -14,7 +14,7 @@ type SessionPubSub struct {
 }
 
 type subscriber struct {
-	ch     chan []IngestEntry
+	ch     chan []EntrySummary
 	closed bool
 }
 
@@ -27,8 +27,8 @@ func NewSessionPubSub() *SessionPubSub {
 
 // Subscribe returns a channel that receives entry batches for the given session.
 // Call the returned function to unsubscribe and close the channel.
-func (ps *SessionPubSub) Subscribe(sessionID string) (<-chan []IngestEntry, func()) {
-	ch := make(chan []IngestEntry, 64)
+func (ps *SessionPubSub) Subscribe(sessionID string) (<-chan []EntrySummary, func()) {
+	ch := make(chan []EntrySummary, 64)
 	sub := &subscriber{ch: ch}
 
 	ps.mu.Lock()
@@ -60,7 +60,7 @@ func (ps *SessionPubSub) Subscribe(sessionID string) (<-chan []IngestEntry, func
 
 // Publish sends entries to all subscribers watching the given session.
 // Slow consumers whose buffers are full will have entries dropped.
-func (ps *SessionPubSub) Publish(sessionID string, entries []IngestEntry) {
+func (ps *SessionPubSub) Publish(sessionID string, entries []EntrySummary) {
 	ps.mu.RLock()
 	subs := ps.subs[sessionID]
 	ps.mu.RUnlock()

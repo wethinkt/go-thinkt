@@ -57,7 +57,7 @@ func NewServer(cfg CollectorConfig) (*Server, error) {
 		dbPath = dir + "/dbs/collector.duckdb"
 	}
 
-	store, err := NewDuckDBStore(dbPath, cfg.BatchSize, cfg.FlushInterval)
+	store, err := NewDuckDBStore(dbPath, cfg.BatchSize, cfg.FlushInterval, cfg.Superseded)
 	if err != nil {
 		return nil, fmt.Errorf("open collector store: %w", err)
 	}

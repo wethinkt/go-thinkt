@@ -11,7 +11,7 @@ func TestSessionPubSub_SubscribeAndPublish(t *testing.T) {
 	ch, unsub := ps.Subscribe("session-1")
 	defer unsub()
 
-	entries := []IngestEntry{
+	entries := []EntrySummary{
 		{UUID: "e1", Role: "assistant", Text: "hello"},
 	}
 	ps.Publish("session-1", entries)
@@ -33,7 +33,7 @@ func TestSessionPubSub_DifferentSession(t *testing.T) {
 	defer unsub()
 
 	// Publish to a different session
-	ps.Publish("session-2", []IngestEntry{{UUID: "e1"}})
+	ps.Publish("session-2", []EntrySummary{{UUID: "e1"}})
 
 	select {
 	case <-ch:
@@ -49,7 +49,7 @@ func TestSessionPubSub_Unsubscribe(t *testing.T) {
 	ch, unsub := ps.Subscribe("session-1")
 	unsub()
 
-	ps.Publish("session-1", []IngestEntry{{UUID: "e1"}})
+	ps.Publish("session-1", []EntrySummary{{UUID: "e1"}})
 
 	select {
 	case _, ok := <-ch:
@@ -69,9 +69,9 @@ func TestSessionPubSub_MultipleSubscribers(t *testing.T) {
 	ch2, unsub2 := ps.Subscribe("session-1")
 	defer unsub2()
 
-	ps.Publish("session-1", []IngestEntry{{UUID: "e1"}})
+	ps.Publish("session-1", []EntrySummary{{UUID: "e1"}})
 
-	for i, ch := range []<-chan []IngestEntry{ch1, ch2} {
+	for i, ch := range []<-chan []EntrySummary{ch1, ch2} {
 		select {
 		case got := <-ch:
 			if len(got) != 1 {

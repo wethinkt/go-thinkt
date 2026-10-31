@@ -3,81 +3,38 @@ package collect
 import (
 	"fmt"
 	"strings"
-	"time"
+
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tracewire"
 )
 
-// validRoles is the set of accepted entry roles.
-var validRoles = map[string]bool{
-	"user":        true,
-	"assistant":   true,
-	"tool_use":    true,
-	"tool_result": true,
-	"system":      true,
-}
-
-// NormalizeRequest validates and cleans an ingest request in place.
-// It returns an error if the request is fundamentally invalid.
-// Individual entries that fail validation are removed and their count returned.
-func NormalizeRequest(req *IngestRequest) (dropped int, err error) {
-	if req.SessionID == "" {
-		return 0, fmt.Errorf("session_id is required")
-	}
-	if req.Source == "" {
+// NormalizePayload validates and cleans a relay payload in place. It
+// returns an error when the payload cannot be stored (no machine, source
+// or session id). Entries with no uuid cannot be keyed; they are removed
+// and counted.
+func NormalizePayload(p *tracewire.Payload) (dropped int, err error) {
+	p.MachineID = strings.TrimSpace(p.MachineID)
+	p.Source = strings.ToLower(strings.TrimSpace(p.Source))
+	p.InstanceID = strings.TrimSpace(p.InstanceID)
+	p.Session.ID = strings.TrimSpace(p.Session.ID)
+	p.Session.ProjectPath = strings.TrimSpace(p.Session.ProjectPath)
+	p.Session.Title = strings.TrimSpace(p.Session.Title)
+	switch {
+	case p.MachineID == "":
+		return 0, fmt.Errorf("machine_id is required")
+	case p.Source == "":
 		return 0, fmt.Errorf("source is required")
+	case p.Session.ID == "":
+		return 0, fmt.Errorf("session.id is required")
 	}
-	if len(req.Entries) == 0 {
-		return 0, fmt.Errorf("entries must not be empty")
-	}
-
-	req.Source = strings.ToLower(strings.TrimSpace(req.Source))
-	req.ProjectPath = strings.TrimSpace(req.ProjectPath)
-	req.InstanceID = strings.TrimSpace(req.InstanceID)
-
-	valid := make([]IngestEntry, 0, len(req.Entries))
-	for i := range req.Entries {
-		e := &req.Entries[i]
-		if err := normalizeEntry(e); err != nil {
+	valid := make([]thinkt.Entry, 0, len(p.Entries))
+	for _, e := range p.Entries {
+		if strings.TrimSpace(e.UUID) == "" {
 			dropped++
 			continue
 		}
-		valid = append(valid, *e)
+		valid = append(valid, e)
 	}
-	req.Entries = valid
+	p.Entries = valid
 	return dropped, nil
-}
-
-// normalizeEntry validates and cleans a single entry.
-func normalizeEntry(e *IngestEntry) error {
-	if e.UUID == "" {
-		return fmt.Errorf("entry uuid is required")
-	}
-	e.Role = strings.ToLower(strings.TrimSpace(e.Role))
-	if !validRoles[e.Role] {
-		return fmt.Errorf("invalid role: %q", e.Role)
-	}
-	if e.Timestamp.IsZero() {
-		e.Timestamp = time.Now().UTC()
-	}
-	e.Model = strings.TrimSpace(e.Model)
-	e.ToolName = strings.TrimSpace(e.ToolName)
-	if e.InputTokens < 0 {
-		e.InputTokens = 0
-	}
-	if e.OutputTokens < 0 {
-		e.OutputTokens = 0
-	}
-	if e.ThinkingLen < 0 {
-		e.ThinkingLen = 0
-	}
-
-	// Derive classification flags if not already set by the exporter.
-	// This ensures older exporters that don't send these flags still get
-	// correct classification from whatever data they do send.
-	if !e.HasThinking && e.ThinkingLen > 0 {
-		e.HasThinking = true
-	}
-	if !e.HasToolUse && e.ToolName != "" {
-		e.HasToolUse = true
-	}
-	return nil
 }

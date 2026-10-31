@@ -2,105 +2,30 @@ package collect
 
 import (
 	"testing"
+
+	"github.com/wethinkt/go-thinkt/internal/thinkt"
+	"github.com/wethinkt/go-thinkt/internal/tracewire"
 )
 
-func TestNormalizeEntry_DerivesHasThinking(t *testing.T) {
-	e := IngestEntry{
-		UUID:        "test-1",
-		Role:        "assistant",
-		ThinkingLen: 150,
+func TestNormalizePayload(t *testing.T) {
+	p := tracewire.Payload{
+		MachineID: " m ", Source: " Gemini ", Session: tracewire.Session{ID: "s", ProjectPath: " /p ", Title: " T "},
+		Entries: []thinkt.Entry{{UUID: "u1"}, {UUID: ""}, {UUID: "  "}},
 	}
-	if err := normalizeEntry(&e); err != nil {
-		t.Fatal(err)
+	dropped, err := NormalizePayload(&p)
+	if err != nil || dropped != 2 || len(p.Entries) != 1 {
+		t.Fatalf("dropped %d err %v entries %d", dropped, err, len(p.Entries))
 	}
-	if !e.HasThinking {
-		t.Error("HasThinking = false, want true (derived from ThinkingLen > 0)")
+	if p.MachineID != "m" || p.Source != "gemini" || p.Session.ProjectPath != "/p" || p.Session.Title != "T" {
+		t.Fatalf("%+v", p)
 	}
-}
-
-func TestNormalizeEntry_DerivesHasToolUse(t *testing.T) {
-	e := IngestEntry{
-		UUID:     "test-2",
-		Role:     "assistant",
-		ToolName: "Read",
-	}
-	if err := normalizeEntry(&e); err != nil {
-		t.Fatal(err)
-	}
-	if !e.HasToolUse {
-		t.Error("HasToolUse = false, want true (derived from ToolName)")
-	}
-}
-
-func TestNormalizeEntry_PreservesExplicitFlags(t *testing.T) {
-	// If the exporter already set the flags, normalizer should not override.
-	e := IngestEntry{
-		UUID:        "test-3",
-		Role:        "assistant",
-		HasThinking: true,
-		HasToolUse:  true,
-		ThinkingLen: 0,  // Even with zero thinking_len, explicit flag is preserved
-		ToolName:    "", // Even with empty tool_name, explicit flag is preserved
-	}
-	if err := normalizeEntry(&e); err != nil {
-		t.Fatal(err)
-	}
-	if !e.HasThinking {
-		t.Error("HasThinking was overridden to false")
-	}
-	if !e.HasToolUse {
-		t.Error("HasToolUse was overridden to false")
-	}
-}
-
-func TestNormalizeEntry_NoFlagsWhenNoSignals(t *testing.T) {
-	e := IngestEntry{
-		UUID: "test-4",
-		Role: "user",
-	}
-	if err := normalizeEntry(&e); err != nil {
-		t.Fatal(err)
-	}
-	if e.HasThinking {
-		t.Error("HasThinking = true for user entry with no thinking data")
-	}
-	if e.HasToolUse {
-		t.Error("HasToolUse = true for user entry with no tool data")
-	}
-}
-
-func TestNormalizeRequest_ClassificationEndToEnd(t *testing.T) {
-	req := IngestRequest{
-		SessionID: "sess-1",
-		Source:    "claude",
-		Entries: []IngestEntry{
-			{UUID: "e1", Role: "assistant", ThinkingLen: 500},
-			{UUID: "e2", Role: "assistant", ToolName: "Bash"},
-			{UUID: "e3", Role: "user"},
-		},
-	}
-
-	dropped, err := NormalizeRequest(&req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if dropped != 0 {
-		t.Errorf("dropped = %d, want 0", dropped)
-	}
-
-	if !req.Entries[0].HasThinking {
-		t.Error("entry 0: HasThinking should be true")
-	}
-	if req.Entries[0].HasToolUse {
-		t.Error("entry 0: HasToolUse should be false")
-	}
-	if !req.Entries[1].HasToolUse {
-		t.Error("entry 1: HasToolUse should be true")
-	}
-	if req.Entries[1].HasThinking {
-		t.Error("entry 1: HasThinking should be false")
-	}
-	if req.Entries[2].HasThinking || req.Entries[2].HasToolUse {
-		t.Error("entry 2: user entry should have no classification flags")
+	for _, bad := range []tracewire.Payload{
+		{Source: "s", Session: tracewire.Session{ID: "x"}},
+		{MachineID: "m", Session: tracewire.Session{ID: "x"}},
+		{MachineID: "m", Source: "s"},
+	} {
+		if _, err := NormalizePayload(&bad); err == nil {
+			t.Errorf("accepted %+v", bad)
+		}
 	}
 }

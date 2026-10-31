@@ -15,7 +15,7 @@ func newTestStore(t *testing.T) *DuckDBStore {
 	t.Helper()
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.duckdb")
-	store, err := NewDuckDBStore(dbPath, 100, time.Second)
+	store, err := NewDuckDBStore(dbPath, 100, time.Second, SupersededKeep)
 	if err != nil {
 		t.Fatalf("NewDuckDBStore: %v", err)
 	}
@@ -32,9 +32,9 @@ func TestExportParquet(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		ts := now.Add(time.Duration(i) * time.Hour)
 		_, err := store.db.ExecContext(ctx, `
-			INSERT INTO collected_entries (uuid, session_id, role, timestamp, model, text, input_tokens, output_tokens)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			"uuid-"+string(rune('a'+i)), "sess-1", "assistant", ts, "claude-4", "hello", 10, 20,
+			INSERT INTO entries (machine_id, source, session_id, uuid, role, timestamp, model, text, input_tokens, output_tokens)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			"m", "claude", "sess-1", "uuid-"+string(rune('a'+i)), "assistant", ts, "claude-4", "hello", 10, 20,
 		)
 		if err != nil {
 			t.Fatalf("insert entry %d: %v", i, err)
@@ -78,9 +78,9 @@ func TestExportParquetWithDateFilter(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		ts := base.Add(time.Duration(i) * 24 * time.Hour)
 		_, err := store.db.ExecContext(ctx, `
-			INSERT INTO collected_entries (uuid, session_id, role, timestamp, model, text)
-			VALUES (?, ?, ?, ?, ?, ?)`,
-			"uuid-"+string(rune('a'+i)), "sess-1", "assistant", ts, "claude-4", "entry",
+			INSERT INTO entries (machine_id, source, session_id, uuid, role, timestamp, model, text)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			"m", "claude", "sess-1", "uuid-"+string(rune('a'+i)), "assistant", ts, "claude-4", "entry",
 		)
 		if err != nil {
 			t.Fatalf("insert entry %d: %v", i, err)

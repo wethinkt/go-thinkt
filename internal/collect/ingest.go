@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/wethinkt/go-thinkt/internal/tracewire"
 	"github.com/wethinkt/go-thinkt/internal/tuilog"
 )
 
@@ -23,14 +24,14 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 
 	r.Body = http.MaxBytesReader(w, r.Body, 10<<20) // 10MB limit
 
-	var req IngestRequest
+	var req tracewire.Payload
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ingestRequestsTotal.WithLabelValues("error").Inc()
 		writeError(w, http.StatusBadRequest, "invalid_json", "Failed to parse request body")
 		return
 	}
 
-	dropped, err := NormalizeRequest(&req)
+	dropped, err := NormalizePayload(&req)
 	if err != nil {
 		ingestRequestsTotal.WithLabelValues("error").Inc()
 		writeError(w, http.StatusBadRequest, "validation_error", err.Error())
@@ -39,7 +40,7 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 	if dropped > 0 {
 		ingestDroppedTotal.Add(float64(dropped))
 		tuilog.Log.Info("Dropped invalid entries during normalization",
-			"session_id", req.SessionID, "dropped", dropped)
+			"session_id", req.Session.ID, "dropped", dropped)
 	}
 
 	if len(req.Entries) == 0 {
@@ -56,12 +57,16 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 		ingestRequestsTotal.WithLabelValues("error").Inc()
 		ingestDurationSeconds.Observe(time.Since(start).Seconds())
 		tuilog.Log.Error("Failed to ingest batch",
-			"session_id", req.SessionID, "error", err)
+			"session_id", req.Session.ID, "error", err)
 		writeError(w, http.StatusInternalServerError, "ingest_error", "Failed to store traces")
 		return
 	}
 
-	s.pubsub.Publish(req.SessionID, req.Entries)
+	summaries := make([]EntrySummary, 0, len(req.Entries))
+	for _, e := range req.Entries {
+		summaries = append(summaries, summarize(e))
+	}
+	s.pubsub.Publish(req.Session.ID, summaries)
 
 	src := metricsSource(req.Source)
 	ingestEntriesTotal.WithLabelValues(src).Add(float64(len(req.Entries)))
@@ -71,8 +76,10 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 	// Accumulate token counts
 	var inputTokens, outputTokens float64
 	for _, e := range req.Entries {
-		inputTokens += float64(e.InputTokens)
-		outputTokens += float64(e.OutputTokens)
+		if e.Usage != nil {
+			inputTokens += float64(e.Usage.InputTokens)
+			outputTokens += float64(e.Usage.OutputTokens)
+		}
 	}
 	if inputTokens > 0 {
 		ingestTokensTotal.WithLabelValues("input").Add(inputTokens)
@@ -82,7 +89,7 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tuilog.Log.Info("Ingested traces",
-		"session_id", req.SessionID,
+		"session_id", req.Session.ID,
 		"source", req.Source,
 		"entries", len(req.Entries))
 

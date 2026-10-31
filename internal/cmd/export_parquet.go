@@ -85,7 +85,7 @@ func runExportParquet(cmd *cobra.Command, args []string) error {
 	}
 
 	// Open store directly — this is a standalone offline operation.
-	store, err := collect.NewDuckDBStore(dbPath, collect.DefaultBatchSize, collect.DefaultFlushInterval)
+	store, err := collect.NewDuckDBStore(dbPath, collect.DefaultBatchSize, collect.DefaultFlushInterval, collect.SupersededKeep)
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
 	}
