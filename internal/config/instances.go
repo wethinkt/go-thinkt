@@ -23,6 +23,7 @@ const (
 	InstanceServer        InstanceType = "server"
 	InstanceServerMCP     InstanceType = "server-mcp"
 	InstanceIndexerServer InstanceType = "indexer-server"
+	InstanceRelay         InstanceType = "relay" // at most one per machine
 )
 
 const (

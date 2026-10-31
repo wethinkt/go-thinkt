@@ -18,7 +18,7 @@ import (
 
 // homes are the per-source session homes a test lays out.
 type homes struct {
-	root                                                     string
+	root                                                    string
 	claude, codex, kimi, gemini, antigravity, copilot, qwen string
 }
 
@@ -113,9 +113,19 @@ type recorder struct {
 	payloads []tracewire.Payload
 	posts    int
 	fail     map[int]bool
+	activity []SessionActivityEvent
 }
 
 func (r *recorder) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if req.URL.Path == "/v1/sessions/activity" {
+		var ev SessionActivityEvent
+		_ = json.NewDecoder(req.Body).Decode(&ev)
+		r.mu.Lock()
+		r.activity = append(r.activity, ev)
+		r.mu.Unlock()
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	if req.URL.Path != "/v1/traces" {
 		w.WriteHeader(http.StatusOK)
 		return

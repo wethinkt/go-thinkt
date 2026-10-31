@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/wethinkt/go-thinkt/internal/config"
 	"github.com/wethinkt/go-thinkt/internal/fingerprint"
 	"github.com/wethinkt/go-thinkt/internal/sources"
 	"github.com/wethinkt/go-thinkt/internal/thinkt"
@@ -43,7 +44,7 @@ type Relay struct {
 	syncMu sync.Mutex
 
 	// Session activity tracking
-	sessionActivity   map[string]time.Time // sessionPath -> lastWriteTime
+	sessionActivity   map[string]activity // session path → last write and identity
 	sessionActivityMu sync.Mutex
 
 	machineID  string // fingerprint of this machine
@@ -91,15 +92,56 @@ func New(cfg RelayConfig) (*Relay, error) {
 		cfg:             cfg,
 		buffer:          buf,
 		state:           state,
-		sessionActivity: make(map[string]time.Time),
+		sessionActivity: make(map[string]activity),
 		machineID:       machineID,
 		instanceID:      instanceID,
 		startedAt:       time.Now(),
 	}, nil
 }
 
+// activity is a session the relay has seen written to recently.
+type activity struct {
+	last        time.Time
+	source      string
+	sessionID   string
+	projectPath string
+}
+
+// claim registers this relay as the machine's relay instance. Two relays on
+// one machine share a machine id and state file, so a second one refuses.
+func (e *Relay) claim() (release func(), err error) {
+	if inst := config.FindInstanceByType(config.InstanceRelay); inst != nil && inst.PID != os.Getpid() {
+		return nil, fmt.Errorf("relay already running (pid %d)", inst.PID)
+	}
+	if err := config.RegisterInstance(config.Instance{Type: config.InstanceRelay, PID: os.Getpid(), StartedAt: e.startedAt}); err != nil {
+		tuilog.Log.Warn("Relay: register instance failed", "error", err)
+	}
+	return func() { _ = config.UnregisterInstance(os.Getpid()) }, nil
+}
+
+// discardDisabled drops buffered payloads of sources not in the registry
+// (turned off since they were buffered).
+func (e *Relay) discardDisabled() {
+	n, err := e.buffer.Discard(func(p tracewire.Payload) bool {
+		_, ok := e.cfg.Registry.Get(thinkt.Source(p.Source))
+		return ok
+	})
+	if err != nil {
+		tuilog.Log.Warn("Relay: discard buffered payloads failed", "error", err)
+	} else if n > 0 {
+		tuilog.Log.Info("Relay: discarded buffered payloads of disabled sources", "count", n)
+	}
+}
+
 // Start runs the relay loop until the context is canceled. This method blocks.
 func (e *Relay) Start(ctx context.Context) error {
+	release, err := e.claim()
+	if err != nil {
+		return err
+	}
+	defer release()
+	e.discardDisabled()
+
 	// Discover collector
 	endpoint, err := e.resolveCollector()
 	if err != nil {
@@ -176,12 +218,19 @@ func (e *Relay) Start(ctx context.Context) error {
 // ExportOnce ships every enabled source's sessions that are new or changed
 // since the last run, then drains the buffer.
 func (e *Relay) ExportOnce(ctx context.Context) error {
+	release, err := e.claim()
+	if err != nil {
+		return err
+	}
+	defer release()
+	e.discardDisabled()
+
 	endpoint, err := e.resolveCollector()
 	if err != nil {
 		return fmt.Errorf("discover collector: %w", err)
 	}
 
-	if endpoint.URL != "" {
+	if endpoint.URL != "" && e.shipper == nil {
 		e.shipper = NewShipper(endpoint.URL, e.cfg.APIKey)
 	}
 	if err := e.reconcile(ctx); err != nil {
@@ -290,30 +339,44 @@ func (e *Relay) recordSessionWrite(ctx context.Context, path, source string) {
 	now := time.Now()
 
 	e.sessionActivityMu.Lock()
-	_, existed := e.sessionActivity[path]
-	e.sessionActivity[path] = now
+	a, existed := e.sessionActivity[path]
+	e.sessionActivityMu.Unlock()
+	if !existed {
+		a = e.identify(ctx, path, source)
+	}
+	a.last = now
+	e.sessionActivityMu.Lock()
+	e.sessionActivity[path] = a
 	e.sessionActivityMu.Unlock()
 
-	sessionID := sessionIDFromPath(path)
-
+	event := "session_active"
 	if !existed {
-		// New session detected
-		e.emitSessionEvent(ctx, SessionActivityEvent{
-			InstanceID: e.instanceID,
-			Source:     source,
-			SessionID:  sessionID,
-			Event:      "session_start",
-			Timestamp:  now,
-		})
-	} else {
-		e.emitSessionEvent(ctx, SessionActivityEvent{
-			InstanceID: e.instanceID,
-			Source:     source,
-			SessionID:  sessionID,
-			Event:      "session_active",
-			Timestamp:  now,
-		})
+		event = "session_start"
 	}
+	e.emitSessionEvent(ctx, SessionActivityEvent{
+		InstanceID:  e.instanceID,
+		MachineID:   e.machineID,
+		Source:      a.source,
+		ProjectPath: a.projectPath,
+		SessionID:   a.sessionID,
+		Event:       event,
+		Timestamp:   now,
+	})
+}
+
+// identify names the session a changed file belongs to, the way its store
+// does, falling back to the file name when no enabled store claims it.
+func (e *Relay) identify(ctx context.Context, path, source string) activity {
+	a := activity{source: source, sessionID: sessionIDFromPath(path)}
+	if sp, _, ok := sources.ResolveSessionPath(path); ok {
+		a.source = string(sp.Source)
+		if store, ok := e.cfg.Registry.Get(sp.Source); ok {
+			if meta := lookup(ctx, store, path); meta != nil {
+				a.sessionID, a.projectPath = meta.ID, meta.ProjectPath
+			}
+		}
+	}
+	return a
 }
 
 // sweepInactiveSessions periodically checks for sessions that haven't been
@@ -332,31 +395,32 @@ func (e *Relay) sweepInactiveSessions(ctx context.Context) {
 	}
 }
 
-func (e *Relay) doSweep(ctx context.Context) {
-	now := time.Now()
+func (e *Relay) doSweep(ctx context.Context) { e.doSweepAt(ctx, time.Now()) }
+
+// doSweepAt ends the sessions not written to within sessionInactiveTimeout
+// of now.
+func (e *Relay) doSweepAt(ctx context.Context, now time.Time) {
 	cutoff := now.Add(-sessionInactiveTimeout)
 
 	e.sessionActivityMu.Lock()
-	var ended []string
-	for path, lastWrite := range e.sessionActivity {
-		if lastWrite.Before(cutoff) {
-			ended = append(ended, path)
+	var ended []activity
+	for path, a := range e.sessionActivity {
+		if a.last.Before(cutoff) {
+			ended = append(ended, a)
+			delete(e.sessionActivity, path)
 		}
-	}
-	for _, path := range ended {
-		delete(e.sessionActivity, path)
 	}
 	e.sessionActivityMu.Unlock()
 
-	for _, path := range ended {
-		sessionID := sessionIDFromPath(path)
-		source := detectSource(path)
+	for _, a := range ended {
 		e.emitSessionEvent(ctx, SessionActivityEvent{
-			InstanceID: e.instanceID,
-			Source:     source,
-			SessionID:  sessionID,
-			Event:      "session_end",
-			Timestamp:  now,
+			InstanceID:  e.instanceID,
+			MachineID:   e.machineID,
+			Source:      a.source,
+			ProjectPath: a.projectPath,
+			SessionID:   a.sessionID,
+			Event:       "session_end",
+			Timestamp:   now,
 		})
 	}
 }

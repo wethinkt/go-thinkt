@@ -73,4 +73,3 @@ func TestValidateCollectorURL(t *testing.T) {
 		})
 	}
 }
-
