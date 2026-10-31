@@ -103,9 +103,16 @@ func (s *Shipper) Ship(ctx context.Context, payload tracewire.Payload) (*ShipRes
 			return result, nil
 		}
 
-		// Don't retry on client errors (4xx) except 429
+		// Don't retry on client errors (4xx) except 429. Most of them mean
+		// the collector will never take this payload; auth and timeouts do
+		// not, they clear up once the relay or collector is fixed.
 		if statusCode >= 400 && statusCode < 500 && statusCode != http.StatusTooManyRequests {
 			lastErr = fmt.Errorf("collector returned %d: %s", statusCode, string(body))
+			switch statusCode {
+			case http.StatusUnauthorized, http.StatusForbidden, http.StatusRequestTimeout:
+			default:
+				lastErr = &RejectedError{Status: statusCode, Err: lastErr}
+			}
 			break
 		}
 
@@ -208,3 +215,13 @@ func (s *Shipper) Ping(ctx context.Context) error {
 
 	return nil
 }
+
+// RejectedError is a collector's permanent refusal of a payload (a 4xx
+// other than auth, timeout or rate limiting): resending it cannot succeed.
+type RejectedError struct {
+	Status int
+	Err    error
+}
+
+func (e *RejectedError) Error() string { return e.Err.Error() }
+func (e *RejectedError) Unwrap() error { return e.Err }

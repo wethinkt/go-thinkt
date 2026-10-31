@@ -57,7 +57,7 @@ func diffSession(meta thinkt.SessionMeta, entries []thinkt.Entry, st *sessionSta
 	var changed []thinkt.Entry
 	for _, e := range entries {
 		present[e.UUID] = true
-		if st.Hashes[e.UUID] != tracewire.EntryHash(e) {
+		if st.Hashes[e.UUID] != stateHash(e) {
 			changed = append(changed, e)
 		}
 	}
@@ -106,13 +106,17 @@ func nextGeneration(st *sessionState, now time.Time) int64 {
 	return max(now.UnixNano(), st.Generation+1)
 }
 
+// stateHash is the entry hash the state keeps: the first 16 bytes of
+// tracewire.EntryHash, enough to notice a change at half the size.
+func stateHash(e thinkt.Entry) string { return tracewire.EntryHash(e)[:32] }
+
 // commit records a payload the collector accepted, or the buffer took.
 func (st *sessionState) commit(p tracewire.Payload) {
 	if st.Hashes == nil {
 		st.Hashes = map[string]string{}
 	}
 	for _, e := range p.Entries {
-		st.Hashes[e.UUID] = tracewire.EntryHash(e)
+		st.Hashes[e.UUID] = stateHash(e)
 	}
 	for _, uuid := range p.Removed {
 		delete(st.Hashes, uuid)

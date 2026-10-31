@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,9 +22,10 @@ import (
 // collector is unreachable. Payloads are stored as individual JSON files
 // in the buffer directory and drained in chronological order.
 type DiskBuffer struct {
-	dir      string
-	maxBytes int64
-	seq      atomic.Uint64 // orders writes within one nanosecond
+	dir        string
+	quarantine string // where permanently rejected payloads go; "" deletes them
+	maxBytes   int64
+	seq        atomic.Uint64 // orders writes within one nanosecond
 }
 
 // NewDiskBuffer creates a new DiskBuffer at the given directory with a size limit.
@@ -99,6 +101,11 @@ func (b *DiskBuffer) Drain(ctx context.Context, ship func(tracewire.Payload) err
 		}
 
 		if err := ship(payload); err != nil {
+			var rejected *RejectedError
+			if errors.As(err, &rejected) {
+				b.setAside(path, payload, err)
+				continue
+			}
 			tuilog.Log.Debug("Drain ship failed, stopping", "path", path, "error", err)
 			return shipped, nil // Stop draining on first failure, don't delete
 		}
@@ -182,4 +189,34 @@ func (b *DiskBuffer) Discard(keep func(tracewire.Payload) bool) (int, error) {
 		}
 	}
 	return removed, nil
+}
+
+// setAside moves a buffered payload the collector permanently rejected
+// into the quarantine directory, so it no longer blocks the payloads
+// behind it but is kept for inspection.
+func (b *DiskBuffer) setAside(path string, payload tracewire.Payload, reason error) {
+	tuilog.Log.Error("Collector rejected a buffered payload; moved to quarantine",
+		"source", payload.Source, "session_id", payload.Session.ID, "entries", len(payload.Entries), "error", reason)
+	if b.quarantine == "" {
+		_ = os.Remove(path)
+		return
+	}
+	if err := os.MkdirAll(b.quarantine, config.DirPerms); err == nil {
+		if os.Rename(path, filepath.Join(b.quarantine, filepath.Base(path))) == nil {
+			return
+		}
+	}
+	_ = os.Remove(path)
+}
+
+// Quarantine writes a payload the collector rejected straight into the
+// quarantine directory.
+func (b *DiskBuffer) Quarantine(payload tracewire.Payload, reason error) {
+	tmp := &DiskBuffer{dir: b.quarantine, maxBytes: 1 << 62}
+	if b.quarantine == "" || os.MkdirAll(b.quarantine, config.DirPerms) != nil || tmp.Write(payload) != nil {
+		tuilog.Log.Error("Collector rejected a payload; it could not be kept", "session_id", payload.Session.ID, "error", reason)
+		return
+	}
+	tuilog.Log.Error("Collector rejected a payload; kept in quarantine",
+		"source", payload.Source, "session_id", payload.Session.ID, "entries", len(payload.Entries), "error", reason)
 }

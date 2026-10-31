@@ -39,6 +39,7 @@ func TestRelayUnregistersWhenDone(t *testing.T) {
 
 func TestStartDiscardsDisabledSourcesBuffered(t *testing.T) {
 	h := layoutHomes(t)
+	writeFile(t, filepath.Join(os.Getenv("THINKT_HOME"), "config.json"), `{"sources":{"qwen":{"enabled":true},"codex":{"enabled":false}}}`)
 	reg := sources.Restrict(sources.RegistryFor(nil), map[thinkt.Source]bool{thinkt.SourceQwen: true})
 	rec := &recorder{}
 	r := newTestRelay(t, h, rec, reg, BackfillAll)
