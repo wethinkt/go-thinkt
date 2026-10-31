@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -72,8 +73,34 @@ func fileProjectHash(path string) string {
 		}
 		return ""
 	}
-	if json.NewDecoder(f).Decode(&head) == nil {
-		return head.ProjectHash
+	return jsonTopString(f, "projectHash")
+}
+
+// jsonTopString returns a top-level string field of a JSON object, reading
+// only as far as that key. Gemini writes sessionId and projectHash before
+// messages, so this skips the message list.
+func jsonTopString(r io.Reader, key string) string {
+	dec := json.NewDecoder(bufio.NewReader(r))
+	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
+		return ""
+	}
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			return ""
+		}
+		k, _ := tok.(string)
+		if k == key {
+			var v string
+			if dec.Decode(&v) != nil {
+				return ""
+			}
+			return v
+		}
+		var skip json.RawMessage
+		if dec.Decode(&skip) != nil {
+			return ""
+		}
 	}
 	return ""
 }

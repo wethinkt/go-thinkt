@@ -72,7 +72,7 @@ const (
 	codexLine   = `{"timestamp":"2026-10-01T10:00:00Z","type":"session_meta","payload":{"id":"r1","cwd":"/w"}}`
 	qwenLine    = `{"sessionId":"q1","type":"user","message":{"role":"user","parts":[{"text":"hi"}]}}`
 	copilotLine = `{"type":"session.start","data":{"sessionId":"c1"}}`
-	geminiJSON  = `{"sessionId":"g1","messages":[]}`
+	geminiJSON  = `{"sessionId":"g1","projectHash":"abc123","messages":[]}`
 )
 
 type homes struct {
